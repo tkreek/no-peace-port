@@ -22,10 +22,8 @@ const DEFAULT_RIVER_WIDTH := 15.0
 const DEFAULT_RIVER_LENGTH := 54.0
 const DEFAULT_FORD_LENGTH := 9.0
 const DEFAULT_FORD_MARGIN := 1.4
-const DEFAULT_FORD_CROSSINGS := [
-	Vector3(8.0, 0.06, -26.0),
-	Vector3(8.0, 0.06, 8.0)
-]
+const DEFAULT_FORD_CROSSINGS := []
+const RIVER_MESH_SEGMENTS := 32
 
 var river_center := DEFAULT_RIVER_CENTER
 var river_rotation_degrees := DEFAULT_RIVER_ROTATION_DEGREES
@@ -49,7 +47,7 @@ func configure_river(config: Dictionary) -> void:
 	if typeof(raw_crossings) == TYPE_ARRAY:
 		for crossing in raw_crossings:
 			ford_crossings.append(_vector_from_array(crossing, DEFAULT_RIVER_CENTER))
-	if ford_crossings.is_empty():
+	if ford_crossings.is_empty() and not config.has("ford_crossings"):
 		ford_crossings = DEFAULT_FORD_CROSSINGS.duplicate()
 
 func with_height(position: Vector3) -> Vector3:
@@ -83,12 +81,14 @@ func is_water(world_position: Vector3) -> bool:
 	if surface_at(world_position) == "water":
 		return true
 	var river_position := _to_river_local(world_position)
-	return absf(river_position.x) <= river_width * 0.5 \
+	return absf(_river_water_x(river_position)) <= _river_half_width_at(river_position.z) \
 		and absf(river_position.z) <= river_length * 0.5
 
 func is_ford(world_position: Vector3) -> bool:
+	if ford_crossings.is_empty():
+		return false
 	var river_position := _to_river_local(world_position)
-	if absf(river_position.x) > river_width * 0.5 + ford_margin:
+	if absf(_river_water_x(river_position)) > _river_half_width_at(river_position.z) + ford_margin:
 		return false
 	for crossing in ford_crossings:
 		var crossing_local := _to_river_local(crossing)
@@ -101,6 +101,8 @@ func route_target_through_ford(from_position: Vector3, to_position: Vector3) -> 
 		return with_height(from_position)
 	if not path_crosses_blocked_water(from_position, to_position):
 		return to_position
+	if ford_crossings.is_empty():
+		return with_height(from_position)
 	return nearest_ford_crossing(from_position, to_position)
 
 func path_crosses_blocked_water(from_position: Vector3, to_position: Vector3) -> bool:
@@ -112,11 +114,13 @@ func path_crosses_blocked_water(from_position: Vector3, to_position: Vector3) ->
 	var to_local := _to_river_local(to_position)
 	if absf(from_local.z) > river_length * 0.58 and absf(to_local.z) > river_length * 0.58:
 		return false
-	if from_local.x == 0.0 or to_local.x == 0.0:
+	var from_river_x := _river_water_x(from_local)
+	var to_river_x := _river_water_x(to_local)
+	if from_river_x == 0.0 or to_river_x == 0.0:
 		return is_water(to_position) and not is_ford(to_position)
-	if signf(from_local.x) == signf(to_local.x):
+	if signf(from_river_x) == signf(to_river_x):
 		return false
-	var t := -from_local.x / (to_local.x - from_local.x)
+	var t := -from_river_x / (to_river_x - from_river_x)
 	if t < 0.0 or t > 1.0:
 		return false
 	var crossing_z := lerpf(from_local.z, to_local.z, t)
@@ -129,6 +133,8 @@ func path_crosses_blocked_water(from_position: Vector3, to_position: Vector3) ->
 	return true
 
 func nearest_ford_crossing(from_position: Vector3, to_position := Vector3.INF) -> Vector3:
+	if ford_crossings.is_empty():
+		return with_height(from_position)
 	var best: Vector3 = ford_crossings[0]
 	var best_score := INF
 	for crossing in ford_crossings:
@@ -209,9 +215,7 @@ func _create_ramp(parent: Node3D, position: Vector3) -> void:
 func _create_river(parent: Node3D) -> void:
 	var river := MeshInstance3D.new()
 	river.name = "River"
-	var mesh := PlaneMesh.new()
-	mesh.size = Vector2(river_width, river_length)
-	river.mesh = mesh
+	river.mesh = _make_river_mesh()
 	river.position = river_center
 	river.rotation_degrees.y = river_rotation_degrees
 	river.material_override = _make_water_material()
@@ -228,14 +232,14 @@ func _create_ford(parent: Node3D, position: Vector3) -> void:
 
 	var collision := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
-	shape.size = Vector3(river_width + ford_margin * 2.0, 0.12, ford_length)
+	shape.size = Vector3(_river_half_width_at(_to_river_local(position).z) * 2.0 + ford_margin * 2.0, 0.12, ford_length)
 	collision.shape = shape
 	collision.position.y = -0.04
 	ford.add_child(collision)
 
 	var mesh_instance := MeshInstance3D.new()
 	var mesh := PlaneMesh.new()
-	mesh.size = Vector2(river_width + ford_margin * 2.0, ford_length)
+	mesh.size = Vector2(_river_half_width_at(_to_river_local(position).z) * 2.0 + ford_margin * 2.0, ford_length)
 	mesh_instance.mesh = mesh
 	mesh_instance.material_override = _make_terrain_material(Color(0.58, 0.48, 0.29), FORD_TERRAIN_TEXTURE, mesh.size, 4.0)
 	ford.add_child(mesh_instance)
@@ -270,12 +274,49 @@ func _make_water_material() -> StandardMaterial3D:
 
 static func make_water_material() -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.10, 0.34, 0.52, 0.82)
+	material.albedo_color = Color(0.08, 0.30, 0.47, 0.86)
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
 	material.roughness = 0.28
 	material.metallic = 0.0
 	return material
+
+func _make_river_mesh() -> Mesh:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for index in range(RIVER_MESH_SEGMENTS):
+		var z0 := lerpf(-river_length * 0.5, river_length * 0.5, float(index) / float(RIVER_MESH_SEGMENTS))
+		var z1 := lerpf(-river_length * 0.5, river_length * 0.5, float(index + 1) / float(RIVER_MESH_SEGMENTS))
+		var left0 := Vector3(_river_center_offset_at(z0) - _river_half_width_at(z0), 0.0, z0)
+		var right0 := Vector3(_river_center_offset_at(z0) + _river_half_width_at(z0), 0.0, z0)
+		var left1 := Vector3(_river_center_offset_at(z1) - _river_half_width_at(z1), 0.0, z1)
+		var right1 := Vector3(_river_center_offset_at(z1) + _river_half_width_at(z1), 0.0, z1)
+		var v0 := float(index) / float(RIVER_MESH_SEGMENTS)
+		var v1 := float(index + 1) / float(RIVER_MESH_SEGMENTS)
+		_add_river_vertex(surface, left0, Vector2(0.0, v0))
+		_add_river_vertex(surface, left1, Vector2(0.0, v1))
+		_add_river_vertex(surface, right1, Vector2(1.0, v1))
+		_add_river_vertex(surface, left0, Vector2(0.0, v0))
+		_add_river_vertex(surface, right1, Vector2(1.0, v1))
+		_add_river_vertex(surface, right0, Vector2(1.0, v0))
+	surface.generate_normals()
+	return surface.commit()
+
+func _add_river_vertex(surface: SurfaceTool, vertex: Vector3, uv: Vector2) -> void:
+	surface.set_uv(uv)
+	surface.add_vertex(vertex)
+
+func _river_water_x(river_local_position: Vector3) -> float:
+	return river_local_position.x - _river_center_offset_at(river_local_position.z)
+
+func _river_half_width_at(river_z: float) -> float:
+	var progress := (river_z / maxf(river_length, 0.1)) + 0.5
+	var variation := sin(progress * TAU * 1.8 + 0.35) * 0.13 + sin(progress * TAU * 4.2) * 0.05
+	return river_width * (0.5 + variation)
+
+func _river_center_offset_at(river_z: float) -> float:
+	var progress := (river_z / maxf(river_length, 0.1)) + 0.5
+	return sin(progress * TAU * 1.25 - 0.4) * river_width * 0.15
 
 func _to_river_local(world_position: Vector3) -> Vector3:
 	var offset := world_position - river_center

@@ -1,0 +1,25 @@
+{
+  "id": "mexican_cavalryman",
+  "type": "unit",
+  "display_name": "Mexican Cavalryman",
+  "scene": "res://scenes/assets/mexican_cavalryman_modern.tscn",
+  "team": "mexican",
+  "role": "cavalry",
+  "select_voice": "res://assets/audio/voices/mexican/cavalry_select.ogg",
+  "command_voice": "res://assets/audio/voices/mexican/cavalry_command.ogg",
+  "mounted_voice": "res://assets/audio/voices/mexican/cavalry_mounted.ogg",
+  "footprint_radius": 0.75,
+  "selection_radius": 1.0,
+  "animations": {
+    "idle": "procedural_horse_idle",
+    "walk": "procedural_horse_trot",
+    "attack": "procedural_saber_slash",
+    "death": "procedural_rider_fall"
+  },
+  "equipment": ["horse", "saber", "saddle"],
+  "materials": {
+    "uniform": "blue_field_cloth",
+    "horse": "bay_horse",
+    "saber": "polished_steel"
+  }
+}

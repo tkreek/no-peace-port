@@ -1,0 +1,24 @@
+{
+  "id": "mexican_infantryman",
+  "type": "unit",
+  "display_name": "Mexican Infantryman",
+  "scene": "res://scenes/assets/mexican_infantryman_modern.tscn",
+  "team": "mexican",
+  "role": "infantry",
+  "select_voice": "res://assets/audio/voices/mexican/infantry_select.ogg",
+  "command_voice": "res://assets/audio/voices/mexican/infantry_command.ogg",
+  "footprint_radius": 0.45,
+  "selection_radius": 0.75,
+  "animations": {
+    "idle": "procedural_idle",
+    "walk": "procedural_march",
+    "attack": "procedural_rifle_fire",
+    "death": "procedural_fall"
+  },
+  "equipment": ["sombrero", "rifle", "uniform_jacket"],
+  "materials": {
+    "uniform": "blue_field_cloth",
+    "pants": "khaki_canvas",
+    "weapon": "gunmetal_and_walnut"
+  }
+}

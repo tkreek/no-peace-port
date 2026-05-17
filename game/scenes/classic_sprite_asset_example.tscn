@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://classic_sprite_asset_example"]
+
+[ext_resource type="Script" path="res://scripts/visuals/classic_sprite_asset.gd" id="1_classic_sprite_asset"]
+
+[node name="MexicanCantinaSignExample" type="Node3D"]
+script = ExtResource("1_classic_sprite_asset")
+manifest_path = "res://assets/classic_buildings/mexican_cantina_sign.json"
+animation_name = "idle"

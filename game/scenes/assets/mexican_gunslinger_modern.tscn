@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://mexican_gunslinger_modern"]
+
+[ext_resource type="Script" path="res://scripts/visuals/procedural_modern_mexican_unit.gd" id="1_unit"]
+
+[node name="MexicanGunslingerModern" type="Node3D"]
+script = ExtResource("1_unit")
+unit_variant = "gunslinger"
+display_name = "Mexican Gunslinger"

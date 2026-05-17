@@ -1,0 +1,187 @@
+{
+  "source": "assets/reference/manuals/AMERICA_Manual_Win_EN.pdf",
+  "notes": [
+    "Stats are transcribed from the English manual's People section.",
+    "The manual lists life energy and damage per blow for units, and energy for buildings.",
+    "Mounted variants are represented with mounted_cost_delta and mounted_damage when the manual lists them."
+  ],
+  "factions": {
+    "native_americans": {
+      "display_name": "Native Americans",
+      "units": {
+        "chief": {"display_name": "Chief", "production": "Chief's tepee", "cost": {"food": 50, "housing": 1}, "mounted_cost_delta": {"horses": 1}, "life_energy": 130, "damage": 15, "mounted_damage": 15},
+        "warrior": {"display_name": "Warrior", "production": "Chief's tepee", "cost": {"food": 50, "housing": 1}, "life_energy": 30, "damage": 4},
+        "woman": {"display_name": "Woman", "production": "Chief's tepee", "cost": {"food": 50, "housing": 1}, "life_energy": 30, "damage": 4},
+        "canoe": {"display_name": "Canoe", "production": "Wood-processing facility", "cost": {"wood": 125, "gold": 50, "housing": 2}, "life_energy": 125, "damage": 10},
+        "travois": {"display_name": "Travois", "production": "Wood-processing facility", "cost": {"wood": 75, "horses": 1, "housing": 1}, "life_energy": 80, "damage": 0},
+        "arrow_shooter": {"display_name": "Arrow shooter", "production": "Training tepee", "cost": {"food": 60, "wood": 25, "housing": 1}, "mounted_cost_delta": {"horses": 1}, "life_energy": 35, "damage": 6, "mounted_damage": 8},
+        "flaming_arrow_shooter": {"display_name": "Flaming arrow shooter", "production": "Training tepee", "cost": {"food": 50, "wood": 50, "gold": 50, "housing": 1}, "mounted_cost_delta": {"horses": 1}, "life_energy": 35, "damage": 12, "mounted_damage": 14},
+        "rifleman": {"display_name": "Rifleman", "production": "Training tepee", "cost": {"food": 40, "gold": 35, "rifles": 1, "housing": 1}, "mounted_cost_delta": {"horses": 1}, "life_energy": 40, "damage": 10, "mounted_damage": 12},
+        "spear_fighter": {"display_name": "Spear fighter", "production": "Training tepee", "cost": {"food": 40, "wood": 50, "gold": 30, "housing": 1}, "life_energy": 40, "damage": 10},
+        "knife_thrower": {"display_name": "Knife thrower", "production": "Training tepee", "cost": {"food": 80, "gold": 60, "housing": 1}, "life_energy": 110, "damage": 14},
+        "medicine_man": {"display_name": "Medicine man", "production": "Medicine man's tepee", "cost": {"food": 100, "gold": 100, "housing": 1}, "life_energy": 60, "damage": null}
+      },
+      "buildings": {
+        "chiefs_tepee": {"display_name": "Chief's tepee", "prerequisites": [], "cost": {"wood": 500}, "energy": 4000, "function": "Produces the chief, warriors and women. Residence for 12 units."},
+        "sleeping_tepee": {"display_name": "Sleeping tepee", "prerequisites": [], "cost": {"wood": 150}, "energy": 500, "function": "Residence for 8 units."},
+        "animal_processing_facility": {"display_name": "Animal-processing facility", "prerequisites": ["Chief's tepee", "Corral"], "cost": {"wood": 200}, "energy": 600, "function": "Stores hunted animals and processes cattle."},
+        "training_tepee": {"display_name": "Training tepee", "prerequisites": ["Chief's tepee"], "cost": {"wood": 400}, "energy": 1000, "function": "Produces Native American military units."},
+        "granary": {"display_name": "Granary", "prerequisites": ["Chief's tepee"], "cost": {"wood": 100}, "energy": 400, "function": "Stores grain and unlocks fields."},
+        "corral": {"display_name": "Corral", "prerequisites": ["Chief's tepee"], "cost": {"wood": 200}, "energy": 600, "function": "Produces and shelters horses."},
+        "trading_post": {"display_name": "Trading post", "prerequisites": ["Chief's tepee", "Animal-processing facility", "Corral"], "cost": {"wood": 100}, "energy": 300, "function": "Lets you buy and sell food, wood and guns."},
+        "tepee_of_the_elders": {"display_name": "Tepee of the elders", "prerequisites": ["Chief's tepee", "Wood-processing facility", "Training tepee"], "cost": {"wood": 400, "gold": 350}, "energy": 1000, "function": "Develops military technology and unlocks knife throwers."},
+        "field": {"display_name": "Field", "prerequisites": ["Granary"], "cost": {"wood": 150}, "energy": 200, "function": "Produces food."},
+        "gold_warehouse": {"display_name": "Gold warehouse", "prerequisites": ["Chief's tepee"], "cost": {"wood": 100}, "energy": 250, "function": "Stores gold."},
+        "wood_processing_facility": {"display_name": "Wood-processing facility", "prerequisites": [], "cost": {"wood": 150}, "energy": 250, "function": "Stores wood and produces travois and canoes."},
+        "campfire": {"display_name": "Campfire", "prerequisites": ["Chief's tepee", "Tepee of the elders"], "cost": {"wood": 100}, "energy": 400, "function": "Lets you train flaming arrow shooters."},
+        "totem_pole": {"display_name": "Totem pole", "prerequisites": ["Chief's tepee", "Medicine man's tepee", "Campfire"], "cost": {"wood": 500, "gold": 500}, "energy": null, "function": "Used to upgrade medicine man skills."},
+        "pitfall": {"display_name": "Pitfall", "prerequisites": ["Chief's tepee", "Wood-processing facility"], "cost": {"wood": 150}, "energy": 150, "function": "Trap that kills enemy units."},
+        "medicine_mans_tepee": {"display_name": "Medicine man's tepee", "prerequisites": ["Chief's tepee", "Tepee of the elders"], "cost": {"wood": 300, "gold": 500}, "energy": 1000, "function": "Produces the medicine man."},
+        "camouflage_school": {"display_name": "Camouflage school", "prerequisites": ["Chief's tepee", "Tepee of the elders"], "cost": {"wood": 300, "gold": 400}, "energy": 900, "function": "Upgrades warrior skills."}
+      }
+    },
+    "mexicans": {
+      "display_name": "Mexicans",
+      "units": {
+        "comandante": {"display_name": "Comandante", "production": "Command post", "cost": {"food": 60, "housing": 1}, "mounted_cost_delta": {"horses": 1}, "life_energy": 130, "damage": 15, "mounted_damage": 15},
+        "field_worker": {"display_name": "Field worker", "production": "Command post", "cost": {"food": 50, "housing": 1}, "life_energy": 30, "damage": 4},
+        "woman": {"display_name": "Woman", "production": "Command post", "cost": {"food": 50, "housing": 1}, "life_energy": 30, "damage": 0},
+        "gaucho": {"display_name": "Gaucho", "production": "Hacienda", "cost": {"food": 80, "housing": 1}, "mounted_cost_delta": {"horses": 1}, "life_energy": 40, "damage": 7, "mounted_damage": 9},
+        "militiaman": {"display_name": "Militiaman", "production": "Hacienda", "cost": {"food": 50, "gold": 50, "rifles": 1, "housing": 1}, "life_energy": 40, "damage": 10},
+        "gunslinger": {"display_name": "Gunslinger", "production": "Cantina", "cost": {"food": 75, "gold": 90, "housing": 1}, "life_energy": 100, "damage": 12},
+        "nun": {"display_name": "Nun", "production": "Church", "cost": {"food": 30, "gold": 40, "housing": 1}, "life_energy": 30, "damage": 0},
+        "priest": {"display_name": "Priest", "production": "Church", "cost": {"food": 50, "gold": 80, "housing": 1}, "life_energy": 40, "damage": 0},
+        "infantryman": {"display_name": "Infantryman", "production": "Barracks", "cost": {"food": 50, "gold": 75, "rifles": 1, "housing": 1}, "life_energy": 70, "damage": 11},
+        "cavalryman": {"display_name": "Cavalryman", "production": "Barracks", "cost": {"food": 50, "gold": 85, "housing": 1}, "mounted_cost_delta": {"horses": 1}, "life_energy": 60, "damage": 15, "mounted_damage": 12},
+        "cannon": {"display_name": "Cannon", "production": "Weapons factory", "cost": {"wood": 100, "gold": 150, "housing": 1}, "life_energy": 100, "damage": 40},
+        "riverboat": {"display_name": "Riverboat", "production": "Wharf", "cost": {"wood": 200, "gold": 100, "housing": 3}, "life_energy": 250, "damage": 0},
+        "transport_wagon": {"display_name": "Transport wagon", "production": "Sawmill", "cost": {"wood": 150, "horses": 1, "housing": 1}, "life_energy": 150, "damage": 0}
+      },
+      "buildings": {
+        "command_post": {"display_name": "Command post", "prerequisites": [], "cost": {"wood": 500}, "energy": 4000, "function": "Produces the comandante, women and field workers. Residence for 12 units."},
+        "house": {"display_name": "House", "prerequisites": [], "cost": {"wood": 150}, "energy": 900, "function": "Residence for 8 units."},
+        "hacienda": {"display_name": "Hacienda", "prerequisites": ["Command post"], "cost": {"wood": 300}, "energy": 1250, "function": "Produces gauchos, mounted gauchos, militiamen, cattle and horses."},
+        "cantina": {"display_name": "Cantina", "prerequisites": ["Command post", "Hacienda", "Finca"], "cost": {"wood": 300, "gold": 200}, "energy": 1200, "function": "Produces gunslingers."},
+        "butcher_shop": {"display_name": "Butcher shop", "prerequisites": ["Command post", "Hacienda"], "cost": {"wood": 350}, "energy": 1200, "function": "Animal processing."},
+        "barracks": {"display_name": "Barracks", "prerequisites": ["Command post", "Fort"], "cost": {"wood": 250, "gold": 250}, "energy": 1800, "function": "Produces infantrymen, cavalrymen and mounted cavalrymen."},
+        "gold_warehouse": {"display_name": "Gold warehouse", "prerequisites": ["Command post"], "cost": {"wood": 150}, "energy": 350, "function": "Stores gold."},
+        "finca": {"display_name": "Finca", "prerequisites": ["Command post"], "cost": {"wood": 250}, "energy": 850, "function": "Stores grain and unlocks fields."},
+        "field": {"display_name": "Field", "prerequisites": ["Finca"], "cost": {"wood": 150}, "energy": 200, "function": "Produces food.", "source_note": "Shown under Finca in the Mexican technology tree screenshot; cost and energy are inferred from the manual's field entry for crop fields."},
+        "sawmill": {"display_name": "Sawmill", "prerequisites": [], "cost": {"wood": 300}, "energy": 500, "function": "Stores wood and produces transport wagons."},
+        "trading_post": {"display_name": "Trading post", "prerequisites": ["Command post", "Butcher shop", "Hacienda"], "cost": {"wood": 300}, "energy": 500, "function": "Used to buy and sell wood, food and guns."},
+        "weapons_factory": {"display_name": "Weapons factory", "prerequisites": ["Fort"], "cost": {"wood": 500, "gold": 300}, "energy": 2800, "function": "Produces cannons and guns."},
+        "wall": {"display_name": "Wall", "prerequisites": ["Sawmill", "Command post"], "cost": {"wood": 25}, "energy": 800, "function": "Passive defense."},
+        "tower": {"display_name": "Tower", "prerequisites": ["Sawmill", "Command post"], "cost": {"wood": 200}, "energy": 600, "function": "Active defense; can be manned by up to 3 units."},
+        "wharf": {"display_name": "Wharf", "prerequisites": ["Sawmill", "Command post"], "cost": {"wood": 250}, "energy": 800, "function": "Produces riverboats."},
+        "church": {"display_name": "Church", "prerequisites": ["Command post", "Trading post"], "cost": {"wood": 350, "gold": 200}, "energy": 2400, "function": "Produces nuns and priests."},
+        "mission": {"display_name": "Mission", "prerequisites": ["Command post", "Trading post"], "cost": {"wood": 400}, "energy": 2600, "function": "Automatically increases gold reserves through donations."},
+        "fort": {"display_name": "Fort", "prerequisites": ["Command post", "Cantina", "Sawmill"], "cost": {"wood": 800, "gold": 500}, "energy": 3000, "function": "Strong active defense; can station up to 10 units."}
+      },
+      "tech_tree": {
+        "source": "Mexican technology tree screenshot from the English manual",
+        "independent": ["command_post", "house"],
+        "edges": [
+          ["command_post", "hacienda"],
+          ["command_post", "finca"],
+          ["command_post", "sawmill"],
+          ["command_post", "gold_warehouse"],
+          ["hacienda", "butcher_shop"],
+          ["hacienda", "cantina"],
+          ["finca", "cantina"],
+          ["finca", "field"],
+          ["butcher_shop", "trading_post"],
+          ["trading_post", "mission"],
+          ["trading_post", "church"],
+          ["cantina", "fort"],
+          ["sawmill", "wall"],
+          ["sawmill", "tower"],
+          ["sawmill", "wharf"],
+          ["sawmill", "fort"],
+          ["fort", "barracks"],
+          ["fort", "weapons_factory"]
+        ],
+        "production_icons": {
+          "command_post": ["comandante", "mounted_comandante", "field_worker", "woman"],
+          "hacienda": ["horse", "gaucho", "mounted_gaucho", "militiaman", "cow"],
+          "cantina": ["gunslinger", "mounted_gunslinger"],
+          "sawmill": ["transport_wagon"],
+          "church": ["nun", "priest"],
+          "wharf": ["riverboat"],
+          "barracks": ["infantryman", "cavalryman", "mounted_cavalryman"],
+          "weapons_factory": ["cannon"]
+        }
+      }
+    },
+    "outlaws": {
+      "display_name": "Outlaws",
+      "units": {
+        "band_leader": {"display_name": "Band leader", "production": "Base", "cost": {"food": 60, "housing": 1}, "mounted_cost_delta": {"horses": 1}, "life_energy": 130, "damage": 15, "mounted_damage": 15},
+        "outlaw": {"display_name": "Outlaw", "production": "Base", "cost": {"food": 50, "housing": 1}, "life_energy": 30, "damage": 4},
+        "barber": {"display_name": "Barber", "production": "Saloon", "cost": {"food": 80, "housing": 1}, "life_energy": 40, "damage": 7, "mounted_damage": 9},
+        "raft": {"display_name": "Raft", "production": "Boathouse", "cost": {"food": 125, "gold": 60, "housing": 3}, "life_energy": 125, "damage": 0},
+        "flat_bed_wagon": {"display_name": "Flat-bed wagon", "production": "Carpentry shop", "cost": {"wood": 150, "horses": 1, "housing": 1}, "life_energy": 150, "damage": 0},
+        "rifleman": {"display_name": "Rifleman", "production": "Saloon", "cost": {"food": 50, "gold": 45, "rifles": 1, "housing": 1}, "life_energy": 50, "damage": 10, "mounted_damage": 12},
+        "hunter": {"display_name": "Hunter", "production": "Hunting cabin", "cost": {"food": 50, "gold": 50, "housing": 1}, "life_energy": 45, "damage": 7},
+        "blaster": {"display_name": "Blaster", "production": "Explosives hut", "cost": {"food": 50, "gold": 90, "housing": 1}, "life_energy": 50, "damage": 22},
+        "gunslinger": {"display_name": "Gunslinger", "production": "Hotel", "cost": {"food": 60, "gold": 80, "housing": 1}, "life_energy": 100, "damage": 12, "mounted_damage": 13},
+        "assassin": {"display_name": "Assassin", "production": "Hotel", "cost": {"food": 80, "gold": 90, "housing": 1}, "life_energy": 65, "damage": 5},
+        "whip_cracker": {"display_name": "Whip cracker", "production": "Saloon", "cost": {"food": 60, "gold": 80, "housing": 1}, "life_energy": 80, "damage": 14}
+      },
+      "buildings": {
+        "base": {"display_name": "Base", "prerequisites": [], "cost": {"wood": 500}, "energy": 4000, "function": "Produces the band leader and outlaws. Residence for 12 units."},
+        "boarding_house": {"display_name": "Boarding house", "prerequisites": [], "cost": {"wood": 150}, "energy": 600, "function": "Residence for 8 units."},
+        "butcher_shop": {"display_name": "Butcher shop", "prerequisites": ["Base", "Hunting cabin"], "cost": {"wood": 250}, "energy": 800, "function": "Animal processing."},
+        "saloon": {"display_name": "Saloon", "prerequisites": ["Base"], "cost": {"wood": 400}, "energy": 1200, "function": "Produces barbers, riflemen and whip crackers."},
+        "gold_warehouse": {"display_name": "Gold warehouse", "prerequisites": ["Base"], "cost": {"wood": 150}, "energy": 300, "function": "Stores gold."},
+        "corral": {"display_name": "Corral", "prerequisites": ["Base"], "cost": {"wood": 250}, "energy": 750, "function": "Produces and shelters horses."},
+        "hunting_cabin": {"display_name": "Hunting cabin", "prerequisites": ["Base"], "cost": {"wood": 300}, "energy": 600, "function": "Produces hunters."},
+        "hotel": {"display_name": "Hotel", "prerequisites": ["Base", "Saloon", "Carpentry shop"], "cost": {"wood": 300, "gold": 300}, "energy": 1400, "function": "Produces gunslingers and assassins."},
+        "distillery": {"display_name": "Distillery", "prerequisites": ["Base"], "cost": {"wood": 200}, "energy": 600, "function": "Used to obtain food."},
+        "carpentry_shop": {"display_name": "Carpentry shop", "prerequisites": [], "cost": {"wood": 250}, "energy": 350, "function": "Stores wood and produces flat-bed wagons."},
+        "drugstore": {"display_name": "Drugstore", "prerequisites": ["Base", "Butcher shop", "Corral"], "cost": {"wood": 300, "gold": 300}, "energy": 400, "function": "Used to buy and sell food, wood and guns."},
+        "basement": {"display_name": "Basement", "prerequisites": ["Base", "Hotel"], "cost": {"wood": 200, "gold": 200}, "energy": 1000, "function": "Lets you train an assassin."},
+        "barricade": {"display_name": "Barricade", "prerequisites": ["Base", "Carpentry shop"], "cost": {"wood": 10}, "energy": 300, "function": "Passive defense barrier."},
+        "lookout": {"display_name": "Lookout", "prerequisites": ["Base", "Carpentry shop"], "cost": {"wood": 180}, "energy": 350, "function": "Active defense; can be manned by 3 units."},
+        "boathouse": {"display_name": "Boathouse", "prerequisites": ["Base", "Carpentry shop"], "cost": {"wood": 250}, "energy": 600, "function": "Used to produce rafts."},
+        "explosives_hut": {"display_name": "Explosives hut", "prerequisites": ["Base", "Drugstore"], "cost": {"wood": 400, "gold": 300}, "energy": 1100, "function": "Produces blasters."}
+      }
+    },
+    "americans": {
+      "display_name": "Americans",
+      "units": {
+        "commander": {"display_name": "Commander", "production": "Headquarters", "cost": {"food": 60, "housing": 1}, "mounted_cost_delta": {"horses": 1}, "life_energy": 130, "damage": 15, "mounted_damage": 15},
+        "frontiersman": {"display_name": "Frontiersman", "production": "Headquarters", "cost": {"food": 50, "housing": 1}, "life_energy": 30, "damage": 4},
+        "frontierswoman": {"display_name": "Frontierswoman", "production": "Headquarters", "cost": {"food": 50, "housing": 1}, "life_energy": 30, "damage": 0},
+        "cowboy": {"display_name": "Cowboy", "production": "Ranch", "cost": {"food": 80, "housing": 1}, "mounted_cost_delta": {"horses": 1}, "life_energy": 40, "damage": 7, "mounted_damage": 9},
+        "trapper": {"display_name": "Trapper", "production": "Trapper's cabin", "cost": {"food": 50, "gold": 50, "rifles": 1, "housing": 1}, "life_energy": 45, "damage": 8},
+        "sheriff": {"display_name": "Sheriff", "production": "Sheriff's office", "cost": {"food": 75, "gold": 90, "housing": 1}, "life_energy": 100, "damage": 12},
+        "infantryman": {"display_name": "Infantryman", "production": "Training camp", "cost": {"food": 50, "gold": 75, "rifles": 1, "housing": 1}, "life_energy": 70, "damage": 12},
+        "cavalryman": {"display_name": "Cavalryman", "production": "Training camp", "cost": {"food": 50, "gold": 85, "housing": 1}, "life_energy": 60, "damage": 10, "mounted_damage": 15},
+        "nurse": {"display_name": "Nurse", "production": "Church", "cost": {"food": 30, "gold": 50, "housing": 1}, "life_energy": 30, "damage": 0},
+        "cannon": {"display_name": "Cannon", "production": "Weapons factory", "cost": {"wood": 100, "gold": 150, "housing": 1}, "life_energy": 100, "damage": 30},
+        "riverboat": {"display_name": "Riverboat", "production": "Wharf", "cost": {"wood": 200, "gold": 100, "housing": 3}, "life_energy": 250, "damage": 0},
+        "covered_wagon": {"display_name": "Covered wagon", "production": "Sawmill", "cost": {"wood": 150, "horses": 1, "housing": 1}, "life_energy": 120, "damage": 0},
+        "stagecoach": {"display_name": "Stagecoach", "production": "Sawmill", "cost": {"wood": 175, "horses": 2, "gold": 50, "housing": 1}, "life_energy": 200, "damage": 0}
+      },
+      "buildings": {
+        "headquarters": {"display_name": "Headquarters", "prerequisites": [], "cost": {"wood": 500}, "energy": 4000, "function": "Produces the commander, frontiersmen and frontierswomen. Residence for 12 units."},
+        "house": {"display_name": "House", "prerequisites": [], "cost": {"wood": 150}, "energy": 750, "function": "Residence for 8 units."},
+        "ranch": {"display_name": "Ranch", "prerequisites": ["Headquarters"], "cost": {"wood": 300}, "energy": 1000, "function": "Produces horses, cowboys, mounted cowboys and cattle."},
+        "trappers_cabin": {"display_name": "Trapper's cabin", "prerequisites": ["Headquarters"], "cost": {"wood": 300}, "energy": 600, "function": "Produces trappers."},
+        "slaughterhouse": {"display_name": "Slaughterhouse", "prerequisites": ["Headquarters", "Trapper's cabin"], "cost": {"wood": 350}, "energy": 1000, "function": "Animal processing."},
+        "training_camp": {"display_name": "Training camp", "prerequisites": ["Headquarters", "Fort"], "cost": {"wood": 250, "gold": 250}, "energy": 1400, "function": "Produces infantrymen, cavalrymen and mounted cavalrymen."},
+        "sheriffs_office": {"display_name": "Sheriff's office", "prerequisites": ["Headquarters"], "cost": {"wood": 300, "gold": 200}, "energy": 1000, "function": "Produces the sheriff."},
+        "farm": {"display_name": "Farm", "prerequisites": ["Headquarters"], "cost": {"wood": 250}, "energy": 750, "function": "Stores grain and unlocks fields."},
+        "sawmill": {"display_name": "Sawmill", "prerequisites": [], "cost": {"wood": 300}, "energy": 450, "function": "Stores wood and produces covered wagons and stagecoaches."},
+        "gold_warehouse": {"display_name": "Gold warehouse", "prerequisites": ["Headquarters"], "cost": {"wood": 150}, "energy": 300, "function": "Stores gold."},
+        "weapons_factory": {"display_name": "Weapons factory", "prerequisites": ["Headquarters", "Fort"], "cost": {"wood": 500, "gold": 300}, "energy": 2000, "function": "Produces guns and cannons."},
+        "stockade": {"display_name": "Stockade", "prerequisites": ["Headquarters", "Sawmill"], "cost": {"wood": 15}, "energy": 500, "function": "Passive defense."},
+        "watchtower": {"display_name": "Watchtower", "prerequisites": ["Headquarters"], "cost": {"wood": 200}, "energy": 450, "function": "Active defense; can be manned by up to 3 units."},
+        "bank": {"display_name": "Bank", "prerequisites": ["Headquarters", "Trading post"], "cost": {"wood": 400}, "energy": 1300, "function": "Automatically increases gold reserves through interest."},
+        "fort": {"display_name": "Fort", "prerequisites": ["Headquarters", "Sheriff's office"], "cost": {"wood": 800, "gold": 500}, "energy": 2500, "function": "Active defense; can be manned by up to 10 units."},
+        "church": {"display_name": "Church", "prerequisites": ["Headquarters", "Trading post"], "cost": {"wood": 350, "gold": 200}, "energy": 1500, "function": "Produces nurses."},
+        "wharf": {"display_name": "Wharf", "prerequisites": ["Headquarters", "Sawmill"], "cost": {"wood": 250}, "energy": 700, "function": "Produces riverboats."}
+      }
+    }
+  }
+}

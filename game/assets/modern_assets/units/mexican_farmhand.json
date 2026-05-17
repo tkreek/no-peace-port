@@ -1,0 +1,26 @@
+{
+  "id": "mexican_farmhand",
+  "type": "unit",
+  "display_name": "Mexican Farmhand",
+  "scene": "res://scenes/assets/mexican_farmhand_modern.tscn",
+  "team": "mexican",
+  "role": "worker",
+  "select_voice": "res://assets/audio/voices/mexican/farmhand_select.ogg",
+  "command_voice": "res://assets/audio/voices/mexican/farmhand_command.ogg",
+  "footprint_radius": 0.45,
+  "selection_radius": 0.75,
+  "animations": {
+    "idle": "procedural_idle",
+    "walk": "procedural_walk",
+    "gather": "procedural_tool_swing",
+    "build": "procedural_hammer",
+    "death": "procedural_fall"
+  },
+  "equipment": ["hat", "satchel", "hand_axe"],
+  "materials": {
+    "shirt": "dusty_blue_cloth",
+    "pants": "warm_canvas",
+    "hat": "tan_felt",
+    "tool": "iron_and_hickory"
+  }
+}

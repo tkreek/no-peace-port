@@ -1,0 +1,30 @@
+{
+  "id": "mexican_church",
+  "type": "building",
+  "display_name": "Mexican Church",
+  "scene": "res://scenes/assets/mexican_church_modern.tscn",
+  "footprint": [4.0, 3.2],
+  "selection_radius": 2.9,
+  "construction_stages": [
+    "foundation",
+    "walls",
+    "roof",
+    "complete"
+  ],
+  "animations": {
+    "idle": {
+      "effects": ["bell_glow", "chimney_smoke"],
+      "loop": true
+    },
+    "damaged": {
+      "effects": ["small_fire", "dark_smoke"],
+      "loop": true
+    }
+  },
+  "materials": {
+    "wall": "sun_baked_adobe",
+    "roof": "weathered_clay_tile",
+    "trim": "limestone_plaster",
+    "accent": "aged_wood"
+  }
+}

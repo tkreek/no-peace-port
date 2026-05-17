@@ -1,0 +1,28 @@
+# Godot
+.godot/
+**/.godot/
+.import/
+*.translation
+export.cfg
+export_presets.cfg
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+
+# Original/proprietary source archives and extracted dumps.
+original/
+*.rda
+
+# Large reference manuals are documented externally, not versioned here.
+assets/reference/
+game/assets/reference/
+
+# Keep runtime OGG audio; ignore raw/duplicate source audio.
+*.wav
+*.mp3
+*.wav.import
+*.mp3.import
+
+# Local assistant/tool state.
+.claude/

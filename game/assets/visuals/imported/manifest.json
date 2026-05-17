@@ -1,0 +1,1428 @@
+[
+  {
+    "source": "original/extracted/america0/global/gfx/des/icons/desp_icons.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/desperados/icons/desperados_icons.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/des/icons/einheiten/Bilderliste__1.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/desperados/icons/units/sprite_sheet_1.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/feuer/Bilderliste__1.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/fire/sprite_sheet_1.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/feuer/Bilderliste__2.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/fire/sprite_sheet_2.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/feuer/Bilderliste__3.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/fire/sprite_sheet_3.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/feuer/rauch.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/fire/smoke.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/fog/Bilderliste__1.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/fog/sprite_sheet_1.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/fog/fog.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/fog/fog.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/ind/icons/Bilderliste__1.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/native/icons/sprite_sheet_1.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/ind/icons/einheiten/Bilderliste__1.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/native/icons/units/sprite_sheet_1.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/ladebild/ladebalken.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/loading_screen/loading_bar.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/ladebild/ladebild1024768.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/loading_screen/loading_screen_1024768.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/abrechnung/Bilderliste__1.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/score_screen/sprite_sheet_1.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/abrechnung/Bilderliste__2.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/score_screen/sprite_sheet_2.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/abrechnung/Bilderliste__3.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/score_screen/sprite_sheet_3.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/abrechnung/Bilderliste__4.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/score_screen/sprite_sheet_4.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/abrechnung/abrechnung.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/score_screen/score_screen.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/accept/Bilderliste__1.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/accept/sprite_sheet_1.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/accept/Bilderliste__3.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/accept/sprite_sheet_3.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/chat/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/chat/sprite_sheet_00.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/credits/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/credits/sprite_sheet_00.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/credits/credits.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/credits/credits.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/einstellungen/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/settings/sprite_sheet_00.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/einstellungen/einstellungen.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/settings/settings.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/ingameeinstellungen/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/ingame_settings/sprite_sheet_00.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/ingameeinstellungen/PICLIST01.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/ingame_settings/sprite_sheet_01.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/ingamemulti/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/ingame_multiplayer/sprite_sheet_00.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/ingamemulti/PICLIST02.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/ingame_multiplayer/sprite_sheet_02.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/sprite_sheet_00.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/des.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/desperados.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/des01.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/des01.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/des02.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/des02.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/des03.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/des03.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/des04.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/des04.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/des05.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/des05.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/des06.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/des06.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/ind.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/native.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/ind01.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/ind01.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/ind02.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/ind02.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/ind03.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/ind03.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/ind04.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/ind04.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/ind05.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/ind05.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/ind06.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/ind06.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/ind07.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/ind07.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/ind08.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/ind08.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/mex.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/mexican.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/mex01.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/mex01.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/mex02.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/mex02.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/mex03.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/mex03.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/mex04.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/mex04.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/mex05.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/mex05.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/mex06.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/mex06.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/usa.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/usa.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/usa01.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/usa01.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/usa02.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/usa02.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/usa03.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/usa03.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/usa04.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/usa04.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/usa05.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/usa05.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/kampagne/usa06.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/campaign/usa06.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/loadmenu/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/load_menu/sprite_sheet_00.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/loadmenu/loadmenu.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/load_menu/load_menu.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/main/Bilderliste__1.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/main/sprite_sheet_1.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/main/mainmenu.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/main/main_menu.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/mission/Bilderliste__1.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/mission/sprite_sheet_1.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/mission/Bilderliste__3.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/mission/sprite_sheet_3.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/multi/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/multi/sprite_sheet_00.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/multi/multimenu.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/multi/multiplayer_menu.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/net/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/net/sprite_sheet_00.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/net/netmenu.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/net/network_menu.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/optionen/Bilderliste__1.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/options/sprite_sheet_1.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/optionen/Bilderliste__3.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/options/sprite_sheet_3.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/savemenu/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/save_menu/sprite_sheet_00.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/selectgame/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/select_game/sprite_sheet_00.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/selectgame/selectgame.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/select_game/select_game.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/selectkampagne/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/select_campaign/sprite_sheet_00.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/selectkampagne/selectkampagne.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/select_campaign/select_campaign.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/selectmission/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/select_mission/sprite_sheet_00.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/selectmission/selectmission.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/select_mission/select_mission.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/selectnetname/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/select_network_name/sprite_sheet_00.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/selectnetname/selectnetname.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/select_network_name/select_network_name.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/selectplayer/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/select_player/sprite_sheet_00.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/selectplayer/selectplayer.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/select_player/select_player.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/single/Bilderliste__1.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/single/sprite_sheet_1.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/single/singlemenu.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/single/single_player_menu.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/verbindung/Bilderliste__1.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/connection/sprite_sheet_1.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/menues/verbindung/Bilderliste__2.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/menus/connection/sprite_sheet_2.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/mex/icons/MEXIcons.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/mexican/icons/mexican_icons.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/mex/icons/einheiten/mexeinheiten.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/mexican/icons/units/mexican_units.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/status/leiste/Bilderliste__1.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/status/status_bar/sprite_sheet_1.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/status/leiste/leiste800600.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/status/status_bar/status_bar_800_600.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/status/leiste/leistelinks.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/status/status_bar/status_bar_left.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/status/leiste/leisterechts.pic",
+    "output": "game/assets/visuals/imported/america0/global/graphics/status/status_bar/status_bar_right.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/usa/icons/USAIcons.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/usa/icons/usa_icons.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/usa/icons/einheiten/USAEinheiten.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/usa/icons/units/usa_units.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/usa/sonstigeicons/Iconserstereihe.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/usa/misc_icons/first_row_icons.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/usa/sonstigeicons/KleineIcons.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/usa/misc_icons/small_icons.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/usa/sonstigeicons/SonstigeIcons.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/usa/misc_icons/misc_icons.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/usa/zeiger/Bilderliste__1.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/usa/cursor/sprite_sheet_1.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/usa/zeiger/Bilderliste__2.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/usa/cursor/sprite_sheet_2.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/global/gfx/usa/zeiger/zeiger.spr",
+    "output": "game/assets/visuals/imported/america0/global/graphics/usa/cursor/cursor.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/Usa/bruecke02/anfang/Bilderliste__3.spr",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/usa/bridge_02/start/sprite_sheet_3.png",
+    "status": "skipped",
+    "reason": "magick: negative or zero image size `/var/folders/b4/rj66p8_12gv83798_pgxsph80000gn/T/america-visual-20433-dt7oews04ts.ppm' @ error/pnm.c/ReadPNMImage/497."
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/elemente/baeume/type_a/01_Baum.spr",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/elements/trees/type_a/tree_01.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/elemente/baeume/type_b/01_Baum.spr",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/elements/trees/type_b/tree_01.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/elemente/baeume/type_c/01_Baum.spr",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/elements/trees/type_c/tree_01.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe10.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_10.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe11.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_11.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe12.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_12.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe13.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_13.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe14.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_14.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe15.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_15.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe16.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_16.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe17.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_17.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe18.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_18.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe19.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_19.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe20.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_20.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe21.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_21.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe22.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_22.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe23.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_23.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe24.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_24.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe25.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_25.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe26.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_26.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe27.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_27.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe28.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_28.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe29.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_29.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe30.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_30.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe31.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_31.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe32.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_32.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe33.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_33.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe34.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_34.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe35.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_35.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe36.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_36.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe37.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_37.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe38.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_38.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe39.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_39.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe7.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_7.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe8.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_8.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/kleinsteppe9.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/small_steppe_9.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/minimap.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/minimap.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe10.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe10.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe11.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe11.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe12.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe12.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe13.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe13.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe14.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe14.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe15.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe15.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe17.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe17.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe18.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe18.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe19.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe19.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe20.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe20.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe21.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe21.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe22.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe22.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe23.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe23.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe24.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe24.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe25.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe25.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe26.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe26.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe27.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe27.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe28.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe28.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe29.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe29.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe30.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe30.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe31.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe31.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe32.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe32.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe33.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe33.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe34.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe34.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe35.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe35.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe36.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe36.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe37.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe37.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe38.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe38.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe39.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe39.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe5.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe5.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe6.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe6.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe7.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe7.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/landschaft/steppe8.pic",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/terrain/steppe8.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/mex/cantina/Bilderliste__5.spr",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/mexican/cantina/sprite_sheet_5.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/steppe/Gfx/mex/fleischerei/Bilderliste__4.spr",
+    "output": "game/assets/visuals/imported/america0/steppe/graphics/mexican/butcher/sprite_sheet_4.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/elemente/baeume2/type_a/01_Baum.spr",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/elements/trees_2/type_a/tree_01.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/elemente/baeume2/type_b/01_Baum.spr",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/elements/trees_2/type_b/tree_01.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/elemente/baeume2/type_c/01_Baum.spr",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/elements/trees_2/type_c/tree_01.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe10.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_10.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe11.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_11.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe12.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_12.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe13.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_13.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe14.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_14.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe15.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_15.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe16.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_16.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe17.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_17.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe18.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_18.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe19.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_19.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe20.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_20.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe21.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_21.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe22.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_22.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe23.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_23.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe24.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_24.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe25.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_25.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe26.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_26.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe27.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_27.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe28.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_28.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe29.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_29.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe30.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_30.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe31.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_31.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe32.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_32.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe33.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_33.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe34.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_34.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe35.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_35.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe36.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_36.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe37.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_37.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe38.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_38.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe39.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_39.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe7.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_7.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe8.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_8.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinsteppe9.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_steppe_9.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese10.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_10.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese11.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_11.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese12.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_12.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese13.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_13.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese14.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_14.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese15.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_15.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese16.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_16.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese17.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_17.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese18.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_18.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese19.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_19.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese20.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_20.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese21.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_21.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese22.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_22.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese23.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_23.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese24.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_24.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese25.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_25.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese26.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_26.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese27.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_27.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese28.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_28.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese29.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_29.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese30.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_30.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese31.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_31.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese32.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_32.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese33.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_33.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese34.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_34.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese35.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_35.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese36.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_36.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese37.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_37.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese38.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_38.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese39.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_39.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese7.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_7.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese8.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_8.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/kleinwiese9.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/small_meadow_9.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/minimap.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/minimap.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/minimu.BMP",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/minimap_ui.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe10.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe10.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe11.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe11.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe12.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe12.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe13.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe13.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe14.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe14.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe15.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe15.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe16.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe16.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe17.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe17.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe18.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe18.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe19.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe19.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe20.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe20.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe21.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe21.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe22.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe22.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe23.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe23.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe24.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe24.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe25.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe25.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe26.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe26.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe27.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe27.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe28.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe28.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe29.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe29.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe30.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe30.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe31.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe31.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe32.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe32.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe33.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe33.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe34.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe34.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe35.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe35.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe36.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe36.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe37.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe37.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe38.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe38.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe39.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe39.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe5.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe5.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe6.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe6.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe7.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe7.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe8.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe8.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america0/wiese/gfx/landschaft/steppe9.pic",
+    "output": "game/assets/visuals/imported/america0/meadow/graphics/terrain/steppe9.png",
+    "status": "ok"
+  },
+  {
+    "source": "original/extracted/america2/global/guids/PICLIST00.spr",
+    "output": "game/assets/visuals/imported/america2/global/guids/sprite_sheet_00.png",
+    "status": "ok"
+  }
+]

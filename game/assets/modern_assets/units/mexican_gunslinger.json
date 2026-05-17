@@ -1,0 +1,25 @@
+{
+  "id": "mexican_gunslinger",
+  "type": "unit",
+  "display_name": "Mexican Gunslinger",
+  "scene": "res://scenes/assets/mexican_gunslinger_modern.tscn",
+  "team": "mexican",
+  "role": "gunslinger",
+  "select_voice": "res://assets/audio/voices/mexican/gunslinger_select.ogg",
+  "command_voice": "res://assets/audio/voices/mexican/gunslinger_command.ogg",
+  "mounted_voice": "res://assets/audio/voices/mexican/gunslinger_mounted.ogg",
+  "footprint_radius": 0.45,
+  "selection_radius": 0.75,
+  "animations": {
+    "idle": "procedural_ready_idle",
+    "walk": "procedural_stalk",
+    "attack": "procedural_quickdraw",
+    "death": "procedural_fall"
+  },
+  "equipment": ["black_hat", "pistol", "holster", "vest"],
+  "materials": {
+    "coat": "black_wool",
+    "pants": "brown_canvas",
+    "weapon": "blued_steel"
+  }
+}

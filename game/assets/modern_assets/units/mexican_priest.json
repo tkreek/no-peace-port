@@ -1,0 +1,24 @@
+{
+  "id": "mexican_priest",
+  "type": "unit",
+  "display_name": "Mexican Priest",
+  "scene": "res://scenes/assets/mexican_priest_modern.tscn",
+  "team": "mexican",
+  "role": "support",
+  "select_voice": "res://assets/audio/voices/mexican/priest_select.ogg",
+  "command_voice": "res://assets/audio/voices/mexican/priest_command.ogg",
+  "footprint_radius": 0.45,
+  "selection_radius": 0.75,
+  "animations": {
+    "idle": "procedural_blessing_idle",
+    "walk": "procedural_walk",
+    "convert": "procedural_cross_raise",
+    "death": "procedural_fall"
+  },
+  "equipment": ["cassock", "staff", "hand_cross"],
+  "materials": {
+    "robe": "black_wool",
+    "collar": "white_linen",
+    "cross": "aged_gold"
+  }
+}

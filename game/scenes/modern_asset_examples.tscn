@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://modern_asset_examples"]
+
+[ext_resource type="Script" path="res://scripts/visuals/modern_asset_examples.gd" id="1_examples"]
+
+[node name="ModernAssetExamples" type="Node3D"]
+script = ExtResource("1_examples")

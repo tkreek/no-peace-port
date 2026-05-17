@@ -1,0 +1,24 @@
+{
+  "id": "mexican_militiaman",
+  "type": "unit",
+  "display_name": "Mexican Militiaman",
+  "scene": "res://scenes/assets/mexican_militiaman_modern.tscn",
+  "team": "mexican",
+  "role": "militia",
+  "select_voice": "res://assets/audio/voices/mexican/militia_select.ogg",
+  "command_voice": "res://assets/audio/voices/mexican/militia_command.ogg",
+  "footprint_radius": 0.45,
+  "selection_radius": 0.75,
+  "animations": {
+    "idle": "procedural_idle",
+    "walk": "procedural_walk",
+    "attack": "procedural_musket_fire",
+    "death": "procedural_fall"
+  },
+  "equipment": ["sombrero", "musket", "bedroll"],
+  "materials": {
+    "shirt": "earth_brown_cloth",
+    "pants": "charcoal_canvas",
+    "bedroll": "ochre_wool"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "mexican_cannon",
+  "type": "unit",
+  "display_name": "Mexican Cannon",
+  "scene": "res://scenes/assets/mexican_cannon_modern.tscn",
+  "team": "mexican",
+  "role": "cannon",
+  "select_voice": "res://assets/audio/voices/mexican/infantry_select.ogg",
+  "attack_sound": "res://assets/audio/sfx/mexican_cannon.ogg",
+  "footprint_radius": 0.9,
+  "selection_radius": 1.05,
+  "animations": {
+    "idle": "procedural_idle",
+    "walk": "procedural_carriage_roll",
+    "attack": "procedural_cannon_fire",
+    "death": "procedural_break_apart"
+  },
+  "equipment": ["field_cannon", "wooden_carriage", "ammo_crates"],
+  "materials": {
+    "carriage": "dark_oiled_wood",
+    "barrel": "blackened_iron",
+    "trim": "aged_brass"
+  }
+}

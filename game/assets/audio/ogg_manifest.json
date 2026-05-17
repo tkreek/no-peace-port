@@ -1,0 +1,2381 @@
+{
+  "audio_root": "game/assets/audio",
+  "quality": "5",
+  "converted": [
+    {
+      "source": "game/assets/audio/missions/desperados_01.mp3",
+      "output": "game/assets/audio/missions/desperados_01.ogg",
+      "source_bytes": 2470556,
+      "output_bytes": 2181599
+    },
+    {
+      "source": "game/assets/audio/missions/desperados_02.mp3",
+      "output": "game/assets/audio/missions/desperados_02.ogg",
+      "source_bytes": 1956466,
+      "output_bytes": 1680618
+    },
+    {
+      "source": "game/assets/audio/missions/desperados_03.mp3",
+      "output": "game/assets/audio/missions/desperados_03.ogg",
+      "source_bytes": 1986977,
+      "output_bytes": 1790716
+    },
+    {
+      "source": "game/assets/audio/missions/desperados_04.mp3",
+      "output": "game/assets/audio/missions/desperados_04.ogg",
+      "source_bytes": 2093557,
+      "output_bytes": 1803841
+    },
+    {
+      "source": "game/assets/audio/missions/desperados_05.mp3",
+      "output": "game/assets/audio/missions/desperados_05.ogg",
+      "source_bytes": 2077675,
+      "output_bytes": 1794716
+    },
+    {
+      "source": "game/assets/audio/missions/desperados_06.mp3",
+      "output": "game/assets/audio/missions/desperados_06.ogg",
+      "source_bytes": 1868277,
+      "output_bytes": 1573077
+    },
+    {
+      "source": "game/assets/audio/missions/mexican_01.mp3",
+      "output": "game/assets/audio/missions/mexican_01.ogg",
+      "source_bytes": 1834422,
+      "output_bytes": 1591343
+    },
+    {
+      "source": "game/assets/audio/missions/mexican_02.mp3",
+      "output": "game/assets/audio/missions/mexican_02.ogg",
+      "source_bytes": 1332453,
+      "output_bytes": 1179210
+    },
+    {
+      "source": "game/assets/audio/missions/mexican_03.mp3",
+      "output": "game/assets/audio/missions/mexican_03.ogg",
+      "source_bytes": 1750413,
+      "output_bytes": 1584776
+    },
+    {
+      "source": "game/assets/audio/missions/mexican_04.mp3",
+      "output": "game/assets/audio/missions/mexican_04.ogg",
+      "source_bytes": 1828989,
+      "output_bytes": 1672503
+    },
+    {
+      "source": "game/assets/audio/missions/mexican_05.mp3",
+      "output": "game/assets/audio/missions/mexican_05.ogg",
+      "source_bytes": 1259311,
+      "output_bytes": 1080144
+    },
+    {
+      "source": "game/assets/audio/missions/mexican_06.mp3",
+      "output": "game/assets/audio/missions/mexican_06.ogg",
+      "source_bytes": 1135177,
+      "output_bytes": 1004898
+    },
+    {
+      "source": "game/assets/audio/missions/mission_100.mp3",
+      "output": "game/assets/audio/missions/mission_100.ogg",
+      "source_bytes": 197276,
+      "output_bytes": 179145
+    },
+    {
+      "source": "game/assets/audio/missions/mission_105.mp3",
+      "output": "game/assets/audio/missions/mission_105.ogg",
+      "source_bytes": 517851,
+      "output_bytes": 480564
+    },
+    {
+      "source": "game/assets/audio/missions/mission_106.mp3",
+      "output": "game/assets/audio/missions/mission_106.ogg",
+      "source_bytes": 152555,
+      "output_bytes": 150592
+    },
+    {
+      "source": "game/assets/audio/missions/mission_107.mp3",
+      "output": "game/assets/audio/missions/mission_107.ogg",
+      "source_bytes": 160914,
+      "output_bytes": 153534
+    },
+    {
+      "source": "game/assets/audio/missions/mission_108.mp3",
+      "output": "game/assets/audio/missions/mission_108.ogg",
+      "source_bytes": 272509,
+      "output_bytes": 246514
+    },
+    {
+      "source": "game/assets/audio/missions/mission_109.mp3",
+      "output": "game/assets/audio/missions/mission_109.ogg",
+      "source_bytes": 386194,
+      "output_bytes": 364618
+    },
+    {
+      "source": "game/assets/audio/missions/mission_110.mp3",
+      "output": "game/assets/audio/missions/mission_110.ogg",
+      "source_bytes": 296751,
+      "output_bytes": 265348
+    },
+    {
+      "source": "game/assets/audio/missions/mission_111.mp3",
+      "output": "game/assets/audio/missions/mission_111.ogg",
+      "source_bytes": 333113,
+      "output_bytes": 280377
+    },
+    {
+      "source": "game/assets/audio/missions/mission_112.mp3",
+      "output": "game/assets/audio/missions/mission_112.ogg",
+      "source_bytes": 290899,
+      "output_bytes": 247862
+    },
+    {
+      "source": "game/assets/audio/missions/mission_113.mp3",
+      "output": "game/assets/audio/missions/mission_113.ogg",
+      "source_bytes": 85263,
+      "output_bytes": 79382
+    },
+    {
+      "source": "game/assets/audio/missions/mission_114.mp3",
+      "output": "game/assets/audio/missions/mission_114.ogg",
+      "source_bytes": 239908,
+      "output_bytes": 202571
+    },
+    {
+      "source": "game/assets/audio/missions/mission_115.mp3",
+      "output": "game/assets/audio/missions/mission_115.ogg",
+      "source_bytes": 81084,
+      "output_bytes": 63122
+    },
+    {
+      "source": "game/assets/audio/missions/mission_116.mp3",
+      "output": "game/assets/audio/missions/mission_116.ogg",
+      "source_bytes": 183902,
+      "output_bytes": 168967
+    },
+    {
+      "source": "game/assets/audio/missions/mission_117.mp3",
+      "output": "game/assets/audio/missions/mission_117.ogg",
+      "source_bytes": 209815,
+      "output_bytes": 183562
+    },
+    {
+      "source": "game/assets/audio/missions/mission_118.mp3",
+      "output": "game/assets/audio/missions/mission_118.ogg",
+      "source_bytes": 201038,
+      "output_bytes": 173175
+    },
+    {
+      "source": "game/assets/audio/missions/mission_130.mp3",
+      "output": "game/assets/audio/missions/mission_130.ogg",
+      "source_bytes": 367386,
+      "output_bytes": 319570
+    },
+    {
+      "source": "game/assets/audio/missions/mission_131.mp3",
+      "output": "game/assets/audio/missions/mission_131.ogg",
+      "source_bytes": 334785,
+      "output_bytes": 293283
+    },
+    {
+      "source": "game/assets/audio/missions/mission_132.mp3",
+      "output": "game/assets/audio/missions/mission_132.ogg",
+      "source_bytes": 193097,
+      "output_bytes": 180189
+    },
+    {
+      "source": "game/assets/audio/missions/mission_133.mp3",
+      "output": "game/assets/audio/missions/mission_133.ogg",
+      "source_bytes": 226115,
+      "output_bytes": 195032
+    },
+    {
+      "source": "game/assets/audio/missions/mission_134.mp3",
+      "output": "game/assets/audio/missions/mission_134.ogg",
+      "source_bytes": 52662,
+      "output_bytes": 46610
+    },
+    {
+      "source": "game/assets/audio/missions/mission_135.mp3",
+      "output": "game/assets/audio/missions/mission_135.ogg",
+      "source_bytes": 39288,
+      "output_bytes": 33956
+    },
+    {
+      "source": "game/assets/audio/missions/mission_136.mp3",
+      "output": "game/assets/audio/missions/mission_136.ogg",
+      "source_bytes": 313469,
+      "output_bytes": 279402
+    },
+    {
+      "source": "game/assets/audio/missions/mission_137.mp3",
+      "output": "game/assets/audio/missions/mission_137.ogg",
+      "source_bytes": 91951,
+      "output_bytes": 77826
+    },
+    {
+      "source": "game/assets/audio/missions/mission_138.mp3",
+      "output": "game/assets/audio/missions/mission_138.ogg",
+      "source_bytes": 192261,
+      "output_bytes": 164913
+    },
+    {
+      "source": "game/assets/audio/missions/mission_139.mp3",
+      "output": "game/assets/audio/missions/mission_139.ogg",
+      "source_bytes": 78576,
+      "output_bytes": 72891
+    },
+    {
+      "source": "game/assets/audio/missions/mission_140.mp3",
+      "output": "game/assets/audio/missions/mission_140.ogg",
+      "source_bytes": 85681,
+      "output_bytes": 79120
+    },
+    {
+      "source": "game/assets/audio/missions/mission_141.mp3",
+      "output": "game/assets/audio/missions/mission_141.ogg",
+      "source_bytes": 127477,
+      "output_bytes": 121303
+    },
+    {
+      "source": "game/assets/audio/missions/mission_142.mp3",
+      "output": "game/assets/audio/missions/mission_142.ogg",
+      "source_bytes": 151301,
+      "output_bytes": 137764
+    },
+    {
+      "source": "game/assets/audio/missions/mission_143.mp3",
+      "output": "game/assets/audio/missions/mission_143.ogg",
+      "source_bytes": 125805,
+      "output_bytes": 113846
+    },
+    {
+      "source": "game/assets/audio/missions/mission_144.mp3",
+      "output": "game/assets/audio/missions/mission_144.ogg",
+      "source_bytes": 270419,
+      "output_bytes": 233679
+    },
+    {
+      "source": "game/assets/audio/missions/mission_145.mp3",
+      "output": "game/assets/audio/missions/mission_145.ogg",
+      "source_bytes": 198530,
+      "output_bytes": 173143
+    },
+    {
+      "source": "game/assets/audio/missions/mission_146.mp3",
+      "output": "game/assets/audio/missions/mission_146.ogg",
+      "source_bytes": 147957,
+      "output_bytes": 117736
+    },
+    {
+      "source": "game/assets/audio/missions/mission_160.mp3",
+      "output": "game/assets/audio/missions/mission_160.ogg",
+      "source_bytes": 246595,
+      "output_bytes": 224639
+    },
+    {
+      "source": "game/assets/audio/missions/mission_161.mp3",
+      "output": "game/assets/audio/missions/mission_161.ogg",
+      "source_bytes": 182230,
+      "output_bytes": 164108
+    },
+    {
+      "source": "game/assets/audio/missions/mission_162.mp3",
+      "output": "game/assets/audio/missions/mission_162.ogg",
+      "source_bytes": 317648,
+      "output_bytes": 292439
+    },
+    {
+      "source": "game/assets/audio/missions/mission_163.mp3",
+      "output": "game/assets/audio/missions/mission_163.ogg",
+      "source_bytes": 241162,
+      "output_bytes": 208939
+    },
+    {
+      "source": "game/assets/audio/missions/mission_164.mp3",
+      "output": "game/assets/audio/missions/mission_164.ogg",
+      "source_bytes": 178050,
+      "output_bytes": 154934
+    },
+    {
+      "source": "game/assets/audio/missions/mission_165.mp3",
+      "output": "game/assets/audio/missions/mission_165.ogg",
+      "source_bytes": 242416,
+      "output_bytes": 205548
+    },
+    {
+      "source": "game/assets/audio/missions/mission_166.mp3",
+      "output": "game/assets/audio/missions/mission_166.ogg",
+      "source_bytes": 172617,
+      "output_bytes": 155172
+    },
+    {
+      "source": "game/assets/audio/missions/mission_167.mp3",
+      "output": "game/assets/audio/missions/mission_167.ogg",
+      "source_bytes": 313887,
+      "output_bytes": 286510
+    },
+    {
+      "source": "game/assets/audio/missions/mission_168.mp3",
+      "output": "game/assets/audio/missions/mission_168.ogg",
+      "source_bytes": 179304,
+      "output_bytes": 154538
+    },
+    {
+      "source": "game/assets/audio/missions/mission_171.mp3",
+      "output": "game/assets/audio/missions/mission_171.ogg",
+      "source_bytes": 320574,
+      "output_bytes": 284949
+    },
+    {
+      "source": "game/assets/audio/missions/mission_172.mp3",
+      "output": "game/assets/audio/missions/mission_172.ogg",
+      "source_bytes": 144195,
+      "output_bytes": 124422
+    },
+    {
+      "source": "game/assets/audio/missions/mission_173.mp3",
+      "output": "game/assets/audio/missions/mission_173.ogg",
+      "source_bytes": 152137,
+      "output_bytes": 129474
+    },
+    {
+      "source": "game/assets/audio/missions/mission_174.mp3",
+      "output": "game/assets/audio/missions/mission_174.ogg",
+      "source_bytes": 250357,
+      "output_bytes": 219072
+    },
+    {
+      "source": "game/assets/audio/missions/mission_190.mp3",
+      "output": "game/assets/audio/missions/mission_190.ogg",
+      "source_bytes": 463098,
+      "output_bytes": 415519
+    },
+    {
+      "source": "game/assets/audio/missions/mission_191.mp3",
+      "output": "game/assets/audio/missions/mission_191.ogg",
+      "source_bytes": 263314,
+      "output_bytes": 237303
+    },
+    {
+      "source": "game/assets/audio/missions/mission_192.mp3",
+      "output": "game/assets/audio/missions/mission_192.ogg",
+      "source_bytes": 280868,
+      "output_bytes": 246047
+    },
+    {
+      "source": "game/assets/audio/missions/mission_193.mp3",
+      "output": "game/assets/audio/missions/mission_193.ogg",
+      "source_bytes": 176378,
+      "output_bytes": 154152
+    },
+    {
+      "source": "game/assets/audio/missions/mission_194.mp3",
+      "output": "game/assets/audio/missions/mission_194.ogg",
+      "source_bytes": 135836,
+      "output_bytes": 127835
+    },
+    {
+      "source": "game/assets/audio/missions/mission_196.mp3",
+      "output": "game/assets/audio/missions/mission_196.ogg",
+      "source_bytes": 222772,
+      "output_bytes": 197142
+    },
+    {
+      "source": "game/assets/audio/missions/mission_197.mp3",
+      "output": "game/assets/audio/missions/mission_197.ogg",
+      "source_bytes": 158406,
+      "output_bytes": 134903
+    },
+    {
+      "source": "game/assets/audio/missions/mission_198.mp3",
+      "output": "game/assets/audio/missions/mission_198.ogg",
+      "source_bytes": 224444,
+      "output_bytes": 197701
+    },
+    {
+      "source": "game/assets/audio/missions/mission_199.mp3",
+      "output": "game/assets/audio/missions/mission_199.ogg",
+      "source_bytes": 114938,
+      "output_bytes": 101684
+    },
+    {
+      "source": "game/assets/audio/missions/mission_200.mp3",
+      "output": "game/assets/audio/missions/mission_200.ogg",
+      "source_bytes": 139180,
+      "output_bytes": 128832
+    },
+    {
+      "source": "game/assets/audio/missions/mission_201.mp3",
+      "output": "game/assets/audio/missions/mission_201.ogg",
+      "source_bytes": 268329,
+      "output_bytes": 236237
+    },
+    {
+      "source": "game/assets/audio/missions/mission_202.mp3",
+      "output": "game/assets/audio/missions/mission_202.ogg",
+      "source_bytes": 71471,
+      "output_bytes": 67078
+    },
+    {
+      "source": "game/assets/audio/missions/mission_209.mp3",
+      "output": "game/assets/audio/missions/mission_209.ogg",
+      "source_bytes": 101146,
+      "output_bytes": 95061
+    },
+    {
+      "source": "game/assets/audio/missions/native_01.mp3",
+      "output": "game/assets/audio/missions/native_01.ogg",
+      "source_bytes": 2474318,
+      "output_bytes": 2126416
+    },
+    {
+      "source": "game/assets/audio/missions/native_02.mp3",
+      "output": "game/assets/audio/missions/native_02.ogg",
+      "source_bytes": 1558151,
+      "output_bytes": 1333185
+    },
+    {
+      "source": "game/assets/audio/missions/native_03.mp3",
+      "output": "game/assets/audio/missions/native_03.ogg",
+      "source_bytes": 1854902,
+      "output_bytes": 1638315
+    },
+    {
+      "source": "game/assets/audio/missions/native_04.mp3",
+      "output": "game/assets/audio/missions/native_04.ogg",
+      "source_bytes": 1508414,
+      "output_bytes": 1327037
+    },
+    {
+      "source": "game/assets/audio/missions/native_05.mp3",
+      "output": "game/assets/audio/missions/native_05.ogg",
+      "source_bytes": 1817286,
+      "output_bytes": 1592525
+    },
+    {
+      "source": "game/assets/audio/missions/native_06.mp3",
+      "output": "game/assets/audio/missions/native_06.ogg",
+      "source_bytes": 1622517,
+      "output_bytes": 1476260
+    },
+    {
+      "source": "game/assets/audio/missions/native_07.mp3",
+      "output": "game/assets/audio/missions/native_07.ogg",
+      "source_bytes": 1282298,
+      "output_bytes": 1151729
+    },
+    {
+      "source": "game/assets/audio/missions/native_08.mp3",
+      "output": "game/assets/audio/missions/native_08.ogg",
+      "source_bytes": 1732858,
+      "output_bytes": 1490353
+    },
+    {
+      "source": "game/assets/audio/missions/usa_01.mp3",
+      "output": "game/assets/audio/missions/usa_01.ogg",
+      "source_bytes": 2099408,
+      "output_bytes": 1845355
+    },
+    {
+      "source": "game/assets/audio/missions/usa_02.mp3",
+      "output": "game/assets/audio/missions/usa_02.ogg",
+      "source_bytes": 1739128,
+      "output_bytes": 1477188
+    },
+    {
+      "source": "game/assets/audio/missions/usa_03.mp3",
+      "output": "game/assets/audio/missions/usa_03.ogg",
+      "source_bytes": 1963154,
+      "output_bytes": 1685441
+    },
+    {
+      "source": "game/assets/audio/missions/usa_04.mp3",
+      "output": "game/assets/audio/missions/usa_04.ogg",
+      "source_bytes": 1838602,
+      "output_bytes": 1526053
+    },
+    {
+      "source": "game/assets/audio/missions/usa_05.mp3",
+      "output": "game/assets/audio/missions/usa_05.ogg",
+      "source_bytes": 2030445,
+      "output_bytes": 1703030
+    },
+    {
+      "source": "game/assets/audio/missions/usa_06.mp3",
+      "output": "game/assets/audio/missions/usa_06.ogg",
+      "source_bytes": 1555644,
+      "output_bytes": 1345305
+    },
+    {
+      "source": "game/assets/audio/sfx/alert.wav",
+      "output": "game/assets/audio/sfx/alert.ogg",
+      "source_bytes": 104902,
+      "output_bytes": 13722
+    },
+    {
+      "source": "game/assets/audio/sfx/attack_allgemein.wav",
+      "output": "game/assets/audio/sfx/attack_allgemein.ogg",
+      "source_bytes": 85762,
+      "output_bytes": 19967
+    },
+    {
+      "source": "game/assets/audio/sfx/boathouse.wav",
+      "output": "game/assets/audio/sfx/boathouse.ogg",
+      "source_bytes": 44148,
+      "output_bytes": 6612
+    },
+    {
+      "source": "game/assets/audio/sfx/bridge.wav",
+      "output": "game/assets/audio/sfx/bridge.ogg",
+      "source_bytes": 129890,
+      "output_bytes": 33541
+    },
+    {
+      "source": "game/assets/audio/sfx/buffalo.wav",
+      "output": "game/assets/audio/sfx/buffalo.ogg",
+      "source_bytes": 71380,
+      "output_bytes": 13891
+    },
+    {
+      "source": "game/assets/audio/sfx/buffalo_death.wav",
+      "output": "game/assets/audio/sfx/buffalo_death.ogg",
+      "source_bytes": 73808,
+      "output_bytes": 14255
+    },
+    {
+      "source": "game/assets/audio/sfx/build_building.wav",
+      "output": "game/assets/audio/sfx/build_building.ogg",
+      "source_bytes": 106940,
+      "output_bytes": 24792
+    },
+    {
+      "source": "game/assets/audio/sfx/build_building_2.wav",
+      "output": "game/assets/audio/sfx/build_building_2.ogg",
+      "source_bytes": 113908,
+      "output_bytes": 27983
+    },
+    {
+      "source": "game/assets/audio/sfx/build_building_3.wav",
+      "output": "game/assets/audio/sfx/build_building_3.ogg",
+      "source_bytes": 95808,
+      "output_bytes": 24166
+    },
+    {
+      "source": "game/assets/audio/sfx/burning_building.wav",
+      "output": "game/assets/audio/sfx/burning_building.ogg",
+      "source_bytes": 180008,
+      "output_bytes": 28465
+    },
+    {
+      "source": "game/assets/audio/sfx/burning_building_2.wav",
+      "output": "game/assets/audio/sfx/burning_building_2.ogg",
+      "source_bytes": 180008,
+      "output_bytes": 29757
+    },
+    {
+      "source": "game/assets/audio/sfx/cannon.wav",
+      "output": "game/assets/audio/sfx/cannon.ogg",
+      "source_bytes": 21368,
+      "output_bytes": 5562
+    },
+    {
+      "source": "game/assets/audio/sfx/cannonball_impact.wav",
+      "output": "game/assets/audio/sfx/cannonball_impact.ogg",
+      "source_bytes": 54518,
+      "output_bytes": 15617
+    },
+    {
+      "source": "game/assets/audio/sfx/cannot_build.wav",
+      "output": "game/assets/audio/sfx/cannot_build.ogg",
+      "source_bytes": 16846,
+      "output_bytes": 6820
+    },
+    {
+      "source": "game/assets/audio/sfx/cattle_moo.wav",
+      "output": "game/assets/audio/sfx/cattle_moo.ogg",
+      "source_bytes": 123566,
+      "output_bytes": 28835
+    },
+    {
+      "source": "game/assets/audio/sfx/chop_wood.wav",
+      "output": "game/assets/audio/sfx/chop_wood.ogg",
+      "source_bytes": 52846,
+      "output_bytes": 15533
+    },
+    {
+      "source": "game/assets/audio/sfx/convert.wav",
+      "output": "game/assets/audio/sfx/convert.ogg",
+      "source_bytes": 114486,
+      "output_bytes": 20672
+    },
+    {
+      "source": "game/assets/audio/sfx/cow_death.wav",
+      "output": "game/assets/audio/sfx/cow_death.ogg",
+      "source_bytes": 72436,
+      "output_bytes": 15138
+    },
+    {
+      "source": "game/assets/audio/sfx/cow_moo.wav",
+      "output": "game/assets/audio/sfx/cow_moo.ogg",
+      "source_bytes": 59216,
+      "output_bytes": 12256
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_assassin.wav",
+      "output": "game/assets/audio/sfx/desperados_assassin.ogg",
+      "source_bytes": 10866,
+      "output_bytes": 7341
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_attack_base.wav",
+      "output": "game/assets/audio/sfx/desperados_attack_base.ogg",
+      "source_bytes": 88488,
+      "output_bytes": 23620
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_barber_heal.wav",
+      "output": "game/assets/audio/sfx/desperados_barber_heal.ogg",
+      "source_bytes": 115212,
+      "output_bytes": 17345
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_base.wav",
+      "output": "game/assets/audio/sfx/desperados_base.ogg",
+      "source_bytes": 110486,
+      "output_bytes": 18693
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_building_complete.wav",
+      "output": "game/assets/audio/sfx/desperados_building_complete.ogg",
+      "source_bytes": 53006,
+      "output_bytes": 9356
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_cellar.wav",
+      "output": "game/assets/audio/sfx/desperados_cellar.ogg",
+      "source_bytes": 119232,
+      "output_bytes": 34820
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_distillery.wav",
+      "output": "game/assets/audio/sfx/desperados_distillery.ogg",
+      "source_bytes": 142010,
+      "output_bytes": 24533
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_drugstore.wav",
+      "output": "game/assets/audio/sfx/desperados_drugstore.ogg",
+      "source_bytes": 35122,
+      "output_bytes": 14789
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_dynamite_explosion.wav",
+      "output": "game/assets/audio/sfx/desperados_dynamite_explosion.ogg",
+      "source_bytes": 66166,
+      "output_bytes": 18904
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_dynamite_fuse.wav",
+      "output": "game/assets/audio/sfx/desperados_dynamite_fuse.ogg",
+      "source_bytes": 79888,
+      "output_bytes": 15717
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_explosives_hut.wav",
+      "output": "game/assets/audio/sfx/desperados_explosives_hut.ogg",
+      "source_bytes": 65762,
+      "output_bytes": 22041
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_hotel.wav",
+      "output": "game/assets/audio/sfx/desperados_hotel.ogg",
+      "source_bytes": 118940,
+      "output_bytes": 30275
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_saloon.wav",
+      "output": "game/assets/audio/sfx/desperados_saloon.ogg",
+      "source_bytes": 111250,
+      "output_bytes": 27220
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_unit_ready.wav",
+      "output": "game/assets/audio/sfx/desperados_unit_ready.ogg",
+      "source_bytes": 51010,
+      "output_bytes": 11543
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_upgrade_ready.wav",
+      "output": "game/assets/audio/sfx/desperados_upgrade_ready.ogg",
+      "source_bytes": 20292,
+      "output_bytes": 8278
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_watchtower.wav",
+      "output": "game/assets/audio/sfx/desperados_watchtower.ogg",
+      "source_bytes": 176522,
+      "output_bytes": 28267
+    },
+    {
+      "source": "game/assets/audio/sfx/desperados_whip_fighter.wav",
+      "output": "game/assets/audio/sfx/desperados_whip_fighter.ogg",
+      "source_bytes": 50476,
+      "output_bytes": 17722
+    },
+    {
+      "source": "game/assets/audio/sfx/door.wav",
+      "output": "game/assets/audio/sfx/door.ogg",
+      "source_bytes": 42364,
+      "output_bytes": 15096
+    },
+    {
+      "source": "game/assets/audio/sfx/field.wav",
+      "output": "game/assets/audio/sfx/field.ogg",
+      "source_bytes": 16934,
+      "output_bytes": 5810
+    },
+    {
+      "source": "game/assets/audio/sfx/field_harvested.wav",
+      "output": "game/assets/audio/sfx/field_harvested.ogg",
+      "source_bytes": 59590,
+      "output_bytes": 15042
+    },
+    {
+      "source": "game/assets/audio/sfx/gold_storage.wav",
+      "output": "game/assets/audio/sfx/gold_storage.ogg",
+      "source_bytes": 48878,
+      "output_bytes": 14929
+    },
+    {
+      "source": "game/assets/audio/sfx/gold_storage_raided.wav",
+      "output": "game/assets/audio/sfx/gold_storage_raided.ogg",
+      "source_bytes": 80364,
+      "output_bytes": 12294
+    },
+    {
+      "source": "game/assets/audio/sfx/goldmine.wav",
+      "output": "game/assets/audio/sfx/goldmine.ogg",
+      "source_bytes": 161346,
+      "output_bytes": 45823
+    },
+    {
+      "source": "game/assets/audio/sfx/harvest_field.wav",
+      "output": "game/assets/audio/sfx/harvest_field.ogg",
+      "source_bytes": 75042,
+      "output_bytes": 26931
+    },
+    {
+      "source": "game/assets/audio/sfx/hay.wav",
+      "output": "game/assets/audio/sfx/hay.ogg",
+      "source_bytes": 132864,
+      "output_bytes": 50162
+    },
+    {
+      "source": "game/assets/audio/sfx/horse_death.wav",
+      "output": "game/assets/audio/sfx/horse_death.ogg",
+      "source_bytes": 49000,
+      "output_bytes": 18484
+    },
+    {
+      "source": "game/assets/audio/sfx/horse_snort_1.wav",
+      "output": "game/assets/audio/sfx/horse_snort_1.ogg",
+      "source_bytes": 17704,
+      "output_bytes": 7691
+    },
+    {
+      "source": "game/assets/audio/sfx/horse_snort_2.wav",
+      "output": "game/assets/audio/sfx/horse_snort_2.ogg",
+      "source_bytes": 27350,
+      "output_bytes": 11070
+    },
+    {
+      "source": "game/assets/audio/sfx/horse_trot_1.wav",
+      "output": "game/assets/audio/sfx/horse_trot_1.ogg",
+      "source_bytes": 105348,
+      "output_bytes": 28554
+    },
+    {
+      "source": "game/assets/audio/sfx/horse_trot_2.wav",
+      "output": "game/assets/audio/sfx/horse_trot_2.ogg",
+      "source_bytes": 48064,
+      "output_bytes": 16329
+    },
+    {
+      "source": "game/assets/audio/sfx/horse_trot_3.wav",
+      "output": "game/assets/audio/sfx/horse_trot_3.ogg",
+      "source_bytes": 82486,
+      "output_bytes": 26903
+    },
+    {
+      "source": "game/assets/audio/sfx/horse_trot_4.wav",
+      "output": "game/assets/audio/sfx/horse_trot_4.ogg",
+      "source_bytes": 53124,
+      "output_bytes": 19292
+    },
+    {
+      "source": "game/assets/audio/sfx/horse_trot_5.wav",
+      "output": "game/assets/audio/sfx/horse_trot_5.ogg",
+      "source_bytes": 80368,
+      "output_bytes": 26687
+    },
+    {
+      "source": "game/assets/audio/sfx/horse_trot_6.wav",
+      "output": "game/assets/audio/sfx/horse_trot_6.ogg",
+      "source_bytes": 69768,
+      "output_bytes": 23214
+    },
+    {
+      "source": "game/assets/audio/sfx/horse_whinny_1.wav",
+      "output": "game/assets/audio/sfx/horse_whinny_1.ogg",
+      "source_bytes": 78700,
+      "output_bytes": 20172
+    },
+    {
+      "source": "game/assets/audio/sfx/horse_whinny_2.wav",
+      "output": "game/assets/audio/sfx/horse_whinny_2.ogg",
+      "source_bytes": 105240,
+      "output_bytes": 27437
+    },
+    {
+      "source": "game/assets/audio/sfx/horse_whinny_3.wav",
+      "output": "game/assets/audio/sfx/horse_whinny_3.ogg",
+      "source_bytes": 67172,
+      "output_bytes": 17557
+    },
+    {
+      "source": "game/assets/audio/sfx/horse_whinny_4.wav",
+      "output": "game/assets/audio/sfx/horse_whinny_4.ogg",
+      "source_bytes": 53370,
+      "output_bytes": 14766
+    },
+    {
+      "source": "game/assets/audio/sfx/large_building_collapse_1.wav",
+      "output": "game/assets/audio/sfx/large_building_collapse_1.ogg",
+      "source_bytes": 101342,
+      "output_bytes": 25041
+    },
+    {
+      "source": "game/assets/audio/sfx/large_building_collapse_2.wav",
+      "output": "game/assets/audio/sfx/large_building_collapse_2.ogg",
+      "source_bytes": 99184,
+      "output_bytes": 26558
+    },
+    {
+      "source": "game/assets/audio/sfx/map_alert.wav",
+      "output": "game/assets/audio/sfx/map_alert.ogg",
+      "source_bytes": 96668,
+      "output_bytes": 21204
+    },
+    {
+      "source": "game/assets/audio/sfx/mexican_attack_command_post.wav",
+      "output": "game/assets/audio/sfx/mexican_attack_command_post.ogg",
+      "source_bytes": 88132,
+      "output_bytes": 13389
+    },
+    {
+      "source": "game/assets/audio/sfx/mexican_attack_commandant.wav",
+      "output": "game/assets/audio/sfx/mexican_attack_commandant.ogg",
+      "source_bytes": 64014,
+      "output_bytes": 18672
+    },
+    {
+      "source": "game/assets/audio/sfx/mexican_barracks.wav",
+      "output": "game/assets/audio/sfx/mexican_barracks.ogg",
+      "source_bytes": 114582,
+      "output_bytes": 37833
+    },
+    {
+      "source": "game/assets/audio/sfx/mexican_building_complete.wav",
+      "output": "game/assets/audio/sfx/mexican_building_complete.ogg",
+      "source_bytes": 29910,
+      "output_bytes": 9994
+    },
+    {
+      "source": "game/assets/audio/sfx/mexican_cannon.wav",
+      "output": "game/assets/audio/sfx/mexican_cannon.ogg",
+      "source_bytes": 65902,
+      "output_bytes": 11803
+    },
+    {
+      "source": "game/assets/audio/sfx/mexican_cantina.wav",
+      "output": "game/assets/audio/sfx/mexican_cantina.ogg",
+      "source_bytes": 108854,
+      "output_bytes": 27429
+    },
+    {
+      "source": "game/assets/audio/sfx/mexican_flee_to_fort.wav",
+      "output": "game/assets/audio/sfx/mexican_flee_to_fort.ogg",
+      "source_bytes": 132784,
+      "output_bytes": 37488
+    },
+    {
+      "source": "game/assets/audio/sfx/mexican_fort.wav",
+      "output": "game/assets/audio/sfx/mexican_fort.ogg",
+      "source_bytes": 120156,
+      "output_bytes": 38531
+    },
+    {
+      "source": "game/assets/audio/sfx/mexican_hq.wav",
+      "output": "game/assets/audio/sfx/mexican_hq.ogg",
+      "source_bytes": 70296,
+      "output_bytes": 19332
+    },
+    {
+      "source": "game/assets/audio/sfx/mexican_monastery.wav",
+      "output": "game/assets/audio/sfx/mexican_monastery.ogg",
+      "source_bytes": 151138,
+      "output_bytes": 33467
+    },
+    {
+      "source": "game/assets/audio/sfx/mexican_nun_heal.wav",
+      "output": "game/assets/audio/sfx/mexican_nun_heal.ogg",
+      "source_bytes": 114486,
+      "output_bytes": 20672
+    },
+    {
+      "source": "game/assets/audio/sfx/mexican_priest_convert.wav",
+      "output": "game/assets/audio/sfx/mexican_priest_convert.ogg",
+      "source_bytes": 158838,
+      "output_bytes": 26335
+    },
+    {
+      "source": "game/assets/audio/sfx/mexican_unit_ready.wav",
+      "output": "game/assets/audio/sfx/mexican_unit_ready.ogg",
+      "source_bytes": 55316,
+      "output_bytes": 11993
+    },
+    {
+      "source": "game/assets/audio/sfx/mexican_upgrade_ready.wav",
+      "output": "game/assets/audio/sfx/mexican_upgrade_ready.ogg",
+      "source_bytes": 92694,
+      "output_bytes": 18010
+    },
+    {
+      "source": "game/assets/audio/sfx/move_cannon.wav",
+      "output": "game/assets/audio/sfx/move_cannon.ogg",
+      "source_bytes": 43704,
+      "output_bytes": 7941
+    },
+    {
+      "source": "game/assets/audio/sfx/native_archers.wav",
+      "output": "game/assets/audio/sfx/native_archers.ogg",
+      "source_bytes": 38822,
+      "output_bytes": 15699
+    },
+    {
+      "source": "game/assets/audio/sfx/native_attack_chief_tent.wav",
+      "output": "game/assets/audio/sfx/native_attack_chief_tent.ogg",
+      "source_bytes": 87992,
+      "output_bytes": 17595
+    },
+    {
+      "source": "game/assets/audio/sfx/native_building_complete.wav",
+      "output": "game/assets/audio/sfx/native_building_complete.ogg",
+      "source_bytes": 32052,
+      "output_bytes": 13115
+    },
+    {
+      "source": "game/assets/audio/sfx/native_camouflage_tent.wav",
+      "output": "game/assets/audio/sfx/native_camouflage_tent.ogg",
+      "source_bytes": 97066,
+      "output_bytes": 33798
+    },
+    {
+      "source": "game/assets/audio/sfx/native_canoe_swimming.wav",
+      "output": "game/assets/audio/sfx/native_canoe_swimming.ogg",
+      "source_bytes": 92582,
+      "output_bytes": 33532
+    },
+    {
+      "source": "game/assets/audio/sfx/native_chief_tent.wav",
+      "output": "game/assets/audio/sfx/native_chief_tent.ogg",
+      "source_bytes": 79544,
+      "output_bytes": 9512
+    },
+    {
+      "source": "game/assets/audio/sfx/native_dwelling_tent.wav",
+      "output": "game/assets/audio/sfx/native_dwelling_tent.ogg",
+      "source_bytes": 51162,
+      "output_bytes": 8366
+    },
+    {
+      "source": "game/assets/audio/sfx/native_elders_tent.wav",
+      "output": "game/assets/audio/sfx/native_elders_tent.ogg",
+      "source_bytes": 121578,
+      "output_bytes": 16327
+    },
+    {
+      "source": "game/assets/audio/sfx/native_field.wav",
+      "output": "game/assets/audio/sfx/native_field.ogg",
+      "source_bytes": 50286,
+      "output_bytes": 12947
+    },
+    {
+      "source": "game/assets/audio/sfx/native_fire_pit.wav",
+      "output": "game/assets/audio/sfx/native_fire_pit.ogg",
+      "source_bytes": 88248,
+      "output_bytes": 27825
+    },
+    {
+      "source": "game/assets/audio/sfx/native_gold_storage.wav",
+      "output": "game/assets/audio/sfx/native_gold_storage.ogg",
+      "source_bytes": 51922,
+      "output_bytes": 15667
+    },
+    {
+      "source": "game/assets/audio/sfx/native_granary.wav",
+      "output": "game/assets/audio/sfx/native_granary.ogg",
+      "source_bytes": 78314,
+      "output_bytes": 31256
+    },
+    {
+      "source": "game/assets/audio/sfx/native_knife_thrower.wav",
+      "output": "game/assets/audio/sfx/native_knife_thrower.ogg",
+      "source_bytes": 33014,
+      "output_bytes": 8286
+    },
+    {
+      "source": "game/assets/audio/sfx/native_medicine_man_tanzen.wav",
+      "output": "game/assets/audio/sfx/native_medicine_man_tanzen.ogg",
+      "source_bytes": 88316,
+      "output_bytes": 4882
+    },
+    {
+      "source": "game/assets/audio/sfx/native_medicine_man_tent.wav",
+      "output": "game/assets/audio/sfx/native_medicine_man_tent.ogg",
+      "source_bytes": 57364,
+      "output_bytes": 21215
+    },
+    {
+      "source": "game/assets/audio/sfx/native_smokehouse.wav",
+      "output": "game/assets/audio/sfx/native_smokehouse.ogg",
+      "source_bytes": 122208,
+      "output_bytes": 45414
+    },
+    {
+      "source": "game/assets/audio/sfx/native_spell_hail.wav",
+      "output": "game/assets/audio/sfx/native_spell_hail.ogg",
+      "source_bytes": 297232,
+      "output_bytes": 61539
+    },
+    {
+      "source": "game/assets/audio/sfx/native_spell_rain.wav",
+      "output": "game/assets/audio/sfx/native_spell_rain.ogg",
+      "source_bytes": 296952,
+      "output_bytes": 90055
+    },
+    {
+      "source": "game/assets/audio/sfx/native_spell_sight_radius.wav",
+      "output": "game/assets/audio/sfx/native_spell_sight_radius.ogg",
+      "source_bytes": 230412,
+      "output_bytes": 53188
+    },
+    {
+      "source": "game/assets/audio/sfx/native_spell_thunder.wav",
+      "output": "game/assets/audio/sfx/native_spell_thunder.ogg",
+      "source_bytes": 330874,
+      "output_bytes": 82418
+    },
+    {
+      "source": "game/assets/audio/sfx/native_totem.wav",
+      "output": "game/assets/audio/sfx/native_totem.ogg",
+      "source_bytes": 75420,
+      "output_bytes": 12651
+    },
+    {
+      "source": "game/assets/audio/sfx/native_training_tent.wav",
+      "output": "game/assets/audio/sfx/native_training_tent.ogg",
+      "source_bytes": 74992,
+      "output_bytes": 22071
+    },
+    {
+      "source": "game/assets/audio/sfx/native_unit_ready.wav",
+      "output": "game/assets/audio/sfx/native_unit_ready.ogg",
+      "source_bytes": 48454,
+      "output_bytes": 11459
+    },
+    {
+      "source": "game/assets/audio/sfx/native_unit_swimming.wav",
+      "output": "game/assets/audio/sfx/native_unit_swimming.ogg",
+      "source_bytes": 35928,
+      "output_bytes": 15217
+    },
+    {
+      "source": "game/assets/audio/sfx/native_upgrade_ready.wav",
+      "output": "game/assets/audio/sfx/native_upgrade_ready.ogg",
+      "source_bytes": 76716,
+      "output_bytes": 24962
+    },
+    {
+      "source": "game/assets/audio/sfx/no_housing.wav",
+      "output": "game/assets/audio/sfx/no_housing.ogg",
+      "source_bytes": 70424,
+      "output_bytes": 15856
+    },
+    {
+      "source": "game/assets/audio/sfx/no_resources.wav",
+      "output": "game/assets/audio/sfx/no_resources.ogg",
+      "source_bytes": 37096,
+      "output_bytes": 12740
+    },
+    {
+      "source": "game/assets/audio/sfx/palisade.wav",
+      "output": "game/assets/audio/sfx/palisade.ogg",
+      "source_bytes": 21082,
+      "output_bytes": 5894
+    },
+    {
+      "source": "game/assets/audio/sfx/pistol_reload.wav",
+      "output": "game/assets/audio/sfx/pistol_reload.ogg",
+      "source_bytes": 19568,
+      "output_bytes": 9996
+    },
+    {
+      "source": "game/assets/audio/sfx/pistol_shot_1.wav",
+      "output": "game/assets/audio/sfx/pistol_shot_1.ogg",
+      "source_bytes": 33074,
+      "output_bytes": 10932
+    },
+    {
+      "source": "game/assets/audio/sfx/pistol_shot_2.wav",
+      "output": "game/assets/audio/sfx/pistol_shot_2.ogg",
+      "source_bytes": 35128,
+      "output_bytes": 14224
+    },
+    {
+      "source": "game/assets/audio/sfx/pistol_shot_3.wav",
+      "output": "game/assets/audio/sfx/pistol_shot_3.ogg",
+      "source_bytes": 41754,
+      "output_bytes": 15439
+    },
+    {
+      "source": "game/assets/audio/sfx/pistol_shot_4.wav",
+      "output": "game/assets/audio/sfx/pistol_shot_4.ogg",
+      "source_bytes": 30918,
+      "output_bytes": 11164
+    },
+    {
+      "source": "game/assets/audio/sfx/pistol_shot_5.wav",
+      "output": "game/assets/audio/sfx/pistol_shot_5.ogg",
+      "source_bytes": 19892,
+      "output_bytes": 8660
+    },
+    {
+      "source": "game/assets/audio/sfx/pistol_shot_6.wav",
+      "output": "game/assets/audio/sfx/pistol_shot_6.ogg",
+      "source_bytes": 37344,
+      "output_bytes": 12474
+    },
+    {
+      "source": "game/assets/audio/sfx/pistol_shot_7.wav",
+      "output": "game/assets/audio/sfx/pistol_shot_7.ogg",
+      "source_bytes": 47196,
+      "output_bytes": 14178
+    },
+    {
+      "source": "game/assets/audio/sfx/population_limit.wav",
+      "output": "game/assets/audio/sfx/population_limit.ogg",
+      "source_bytes": 57470,
+      "output_bytes": 11502
+    },
+    {
+      "source": "game/assets/audio/sfx/recolor_neutral_units.wav",
+      "output": "game/assets/audio/sfx/recolor_neutral_units.ogg",
+      "source_bytes": 111452,
+      "output_bytes": 25972
+    },
+    {
+      "source": "game/assets/audio/sfx/rifle_reload.wav",
+      "output": "game/assets/audio/sfx/rifle_reload.ogg",
+      "source_bytes": 38946,
+      "output_bytes": 14206
+    },
+    {
+      "source": "game/assets/audio/sfx/rifle_shot_1.wav",
+      "output": "game/assets/audio/sfx/rifle_shot_1.ogg",
+      "source_bytes": 41886,
+      "output_bytes": 13832
+    },
+    {
+      "source": "game/assets/audio/sfx/rifle_shot_2.wav",
+      "output": "game/assets/audio/sfx/rifle_shot_2.ogg",
+      "source_bytes": 46090,
+      "output_bytes": 15518
+    },
+    {
+      "source": "game/assets/audio/sfx/rifle_shot_3.wav",
+      "output": "game/assets/audio/sfx/rifle_shot_3.ogg",
+      "source_bytes": 37474,
+      "output_bytes": 13434
+    },
+    {
+      "source": "game/assets/audio/sfx/rifle_shot_4.wav",
+      "output": "game/assets/audio/sfx/rifle_shot_4.ogg",
+      "source_bytes": 34656,
+      "output_bytes": 12600
+    },
+    {
+      "source": "game/assets/audio/sfx/rifle_shot_5.wav",
+      "output": "game/assets/audio/sfx/rifle_shot_5.ogg",
+      "source_bytes": 43856,
+      "output_bytes": 14392
+    },
+    {
+      "source": "game/assets/audio/sfx/rifle_shot_6.wav",
+      "output": "game/assets/audio/sfx/rifle_shot_6.ogg",
+      "source_bytes": 50654,
+      "output_bytes": 14236
+    },
+    {
+      "source": "game/assets/audio/sfx/river.wav",
+      "output": "game/assets/audio/sfx/river.ogg",
+      "source_bytes": 148220,
+      "output_bytes": 45052
+    },
+    {
+      "source": "game/assets/audio/sfx/sawmill.wav",
+      "output": "game/assets/audio/sfx/sawmill.ogg",
+      "source_bytes": 78680,
+      "output_bytes": 20278
+    },
+    {
+      "source": "game/assets/audio/sfx/show_message.wav",
+      "output": "game/assets/audio/sfx/show_message.ogg",
+      "source_bytes": 96668,
+      "output_bytes": 21204
+    },
+    {
+      "source": "game/assets/audio/sfx/small_building_collapse.wav",
+      "output": "game/assets/audio/sfx/small_building_collapse.ogg",
+      "source_bytes": 61782,
+      "output_bytes": 17034
+    },
+    {
+      "source": "game/assets/audio/sfx/stab.wav",
+      "output": "game/assets/audio/sfx/stab.ogg",
+      "source_bytes": 20476,
+      "output_bytes": 9285
+    },
+    {
+      "source": "game/assets/audio/sfx/trading_post.wav",
+      "output": "game/assets/audio/sfx/trading_post.ogg",
+      "source_bytes": 53898,
+      "output_bytes": 18413
+    },
+    {
+      "source": "game/assets/audio/sfx/transport_collapse.wav",
+      "output": "game/assets/audio/sfx/transport_collapse.ogg",
+      "source_bytes": 41840,
+      "output_bytes": 12747
+    },
+    {
+      "source": "game/assets/audio/sfx/transport_wagon_attacked.wav",
+      "output": "game/assets/audio/sfx/transport_wagon_attacked.ogg",
+      "source_bytes": 68184,
+      "output_bytes": 14950
+    },
+    {
+      "source": "game/assets/audio/sfx/unit_water_collapse.wav",
+      "output": "game/assets/audio/sfx/unit_water_collapse.ogg",
+      "source_bytes": 106354,
+      "output_bytes": 33770
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_attack_headquarters.wav",
+      "output": "game/assets/audio/sfx/usa_attack_headquarters.ogg",
+      "source_bytes": 88310,
+      "output_bytes": 22040
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_bank.wav",
+      "output": "game/assets/audio/sfx/usa_bank.ogg",
+      "source_bytes": 98002,
+      "output_bytes": 32295
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_bridge.wav",
+      "output": "game/assets/audio/sfx/usa_bridge.ogg",
+      "source_bytes": 129890,
+      "output_bytes": 33529
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_building_complete.wav",
+      "output": "game/assets/audio/sfx/usa_building_complete.ogg",
+      "source_bytes": 57530,
+      "output_bytes": 18878
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_cannon.wav",
+      "output": "game/assets/audio/sfx/usa_cannon.ogg",
+      "source_bytes": 112840,
+      "output_bytes": 18864
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_farm.wav",
+      "output": "game/assets/audio/sfx/usa_farm.ogg",
+      "source_bytes": 95622,
+      "output_bytes": 28370
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_flee_to_fort.wav",
+      "output": "game/assets/audio/sfx/usa_flee_to_fort.ogg",
+      "source_bytes": 147984,
+      "output_bytes": 34096
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_fort.wav",
+      "output": "game/assets/audio/sfx/usa_fort.ogg",
+      "source_bytes": 66194,
+      "output_bytes": 17853
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_house.wav",
+      "output": "game/assets/audio/sfx/usa_house.ogg",
+      "source_bytes": 89626,
+      "output_bytes": 18093
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_hq.wav",
+      "output": "game/assets/audio/sfx/usa_hq.ogg",
+      "source_bytes": 128062,
+      "output_bytes": 23004
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_kirche.wav",
+      "output": "game/assets/audio/sfx/usa_kirche.ogg",
+      "source_bytes": 139470,
+      "output_bytes": 24091
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_sawmill.wav",
+      "output": "game/assets/audio/sfx/usa_sawmill.ogg",
+      "source_bytes": 78680,
+      "output_bytes": 20278
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_sheriff_office.wav",
+      "output": "game/assets/audio/sfx/usa_sheriff_office.ogg",
+      "source_bytes": 108382,
+      "output_bytes": 37523
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_slaughterhouse.wav",
+      "output": "game/assets/audio/sfx/usa_slaughterhouse.ogg",
+      "source_bytes": 123566,
+      "output_bytes": 33285
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_training_camp.wav",
+      "output": "game/assets/audio/sfx/usa_training_camp.ogg",
+      "source_bytes": 70606,
+      "output_bytes": 19759
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_unit_ready.wav",
+      "output": "game/assets/audio/sfx/usa_unit_ready.ogg",
+      "source_bytes": 46132,
+      "output_bytes": 9480
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_upgrade_ready.wav",
+      "output": "game/assets/audio/sfx/usa_upgrade_ready.ogg",
+      "source_bytes": 75882,
+      "output_bytes": 13029
+    },
+    {
+      "source": "game/assets/audio/sfx/water_splash_1.wav",
+      "output": "game/assets/audio/sfx/water_splash_1.ogg",
+      "source_bytes": 82630,
+      "output_bytes": 29699
+    },
+    {
+      "source": "game/assets/audio/sfx/water_splash_2.wav",
+      "output": "game/assets/audio/sfx/water_splash_2.ogg",
+      "source_bytes": 84042,
+      "output_bytes": 27478
+    },
+    {
+      "source": "game/assets/audio/sfx/water_splash_3.wav",
+      "output": "game/assets/audio/sfx/water_splash_3.ogg",
+      "source_bytes": 86412,
+      "output_bytes": 30776
+    },
+    {
+      "source": "game/assets/audio/sfx/weapons_factory.wav",
+      "output": "game/assets/audio/sfx/weapons_factory.ogg",
+      "source_bytes": 97312,
+      "output_bytes": 25449
+    },
+    {
+      "source": "game/assets/audio/sfx/wind.wav",
+      "output": "game/assets/audio/sfx/wind.ogg",
+      "source_bytes": 176522,
+      "output_bytes": 28218
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/long_01.wav",
+      "output": "game/assets/audio/voices/deaths/female/long_01.ogg",
+      "source_bytes": 203564,
+      "output_bytes": 53542
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/long_02.wav",
+      "output": "game/assets/audio/voices/deaths/female/long_02.ogg",
+      "source_bytes": 226624,
+      "output_bytes": 48434
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/long_03.wav",
+      "output": "game/assets/audio/voices/deaths/female/long_03.ogg",
+      "source_bytes": 92060,
+      "output_bytes": 21542
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/long_04.wav",
+      "output": "game/assets/audio/voices/deaths/female/long_04.ogg",
+      "source_bytes": 80592,
+      "output_bytes": 16502
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/long_05.wav",
+      "output": "game/assets/audio/voices/deaths/female/long_05.ogg",
+      "source_bytes": 261890,
+      "output_bytes": 52716
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/long_06.wav",
+      "output": "game/assets/audio/voices/deaths/female/long_06.ogg",
+      "source_bytes": 122024,
+      "output_bytes": 22155
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/long_07.wav",
+      "output": "game/assets/audio/voices/deaths/female/long_07.ogg",
+      "source_bytes": 130792,
+      "output_bytes": 31906
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_01.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_01.ogg",
+      "source_bytes": 78282,
+      "output_bytes": 26892
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_02.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_02.ogg",
+      "source_bytes": 66130,
+      "output_bytes": 17184
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_03.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_03.ogg",
+      "source_bytes": 85380,
+      "output_bytes": 26889
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_04.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_04.ogg",
+      "source_bytes": 78568,
+      "output_bytes": 20454
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_05.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_05.ogg",
+      "source_bytes": 74410,
+      "output_bytes": 19344
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_06.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_06.ogg",
+      "source_bytes": 70290,
+      "output_bytes": 19349
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_07.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_07.ogg",
+      "source_bytes": 76696,
+      "output_bytes": 21100
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_08.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_08.ogg",
+      "source_bytes": 78008,
+      "output_bytes": 18458
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_09.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_09.ogg",
+      "source_bytes": 94856,
+      "output_bytes": 25937
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_10.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_10.ogg",
+      "source_bytes": 71696,
+      "output_bytes": 20681
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_11.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_11.ogg",
+      "source_bytes": 66444,
+      "output_bytes": 18801
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_12.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_12.ogg",
+      "source_bytes": 97672,
+      "output_bytes": 23159
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_13.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_13.ogg",
+      "source_bytes": 33508,
+      "output_bytes": 10845
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_14.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_14.ogg",
+      "source_bytes": 42324,
+      "output_bytes": 11459
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_15.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_15.ogg",
+      "source_bytes": 53824,
+      "output_bytes": 14618
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_16.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_16.ogg",
+      "source_bytes": 47752,
+      "output_bytes": 12174
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_17.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_17.ogg",
+      "source_bytes": 44064,
+      "output_bytes": 10370
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/female/short_18.wav",
+      "output": "game/assets/audio/voices/deaths/female/short_18.ogg",
+      "source_bytes": 81118,
+      "output_bytes": 19242
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/long_01.wav",
+      "output": "game/assets/audio/voices/deaths/male/long_01.ogg",
+      "source_bytes": 70058,
+      "output_bytes": 18167
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/long_02.wav",
+      "output": "game/assets/audio/voices/deaths/male/long_02.ogg",
+      "source_bytes": 60110,
+      "output_bytes": 14728
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/long_03.wav",
+      "output": "game/assets/audio/voices/deaths/male/long_03.ogg",
+      "source_bytes": 378642,
+      "output_bytes": 72914
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/long_04.wav",
+      "output": "game/assets/audio/voices/deaths/male/long_04.ogg",
+      "source_bytes": 180038,
+      "output_bytes": 42411
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/long_05.wav",
+      "output": "game/assets/audio/voices/deaths/male/long_05.ogg",
+      "source_bytes": 152876,
+      "output_bytes": 37827
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/long_06.wav",
+      "output": "game/assets/audio/voices/deaths/male/long_06.ogg",
+      "source_bytes": 170638,
+      "output_bytes": 44734
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/long_07.wav",
+      "output": "game/assets/audio/voices/deaths/male/long_07.ogg",
+      "source_bytes": 168656,
+      "output_bytes": 43172
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/long_08.wav",
+      "output": "game/assets/audio/voices/deaths/male/long_08.ogg",
+      "source_bytes": 240938,
+      "output_bytes": 48251
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/long_09.wav",
+      "output": "game/assets/audio/voices/deaths/male/long_09.ogg",
+      "source_bytes": 170020,
+      "output_bytes": 39588
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/long_10.wav",
+      "output": "game/assets/audio/voices/deaths/male/long_10.ogg",
+      "source_bytes": 154870,
+      "output_bytes": 35531
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/long_11.wav",
+      "output": "game/assets/audio/voices/deaths/male/long_11.ogg",
+      "source_bytes": 240182,
+      "output_bytes": 45671
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/short_01.wav",
+      "output": "game/assets/audio/voices/deaths/male/short_01.ogg",
+      "source_bytes": 45898,
+      "output_bytes": 12686
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/short_02.wav",
+      "output": "game/assets/audio/voices/deaths/male/short_02.ogg",
+      "source_bytes": 46130,
+      "output_bytes": 13238
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/short_03.wav",
+      "output": "game/assets/audio/voices/deaths/male/short_03.ogg",
+      "source_bytes": 46028,
+      "output_bytes": 12764
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/short_04.wav",
+      "output": "game/assets/audio/voices/deaths/male/short_04.ogg",
+      "source_bytes": 98682,
+      "output_bytes": 24982
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/short_05.wav",
+      "output": "game/assets/audio/voices/deaths/male/short_05.ogg",
+      "source_bytes": 94506,
+      "output_bytes": 19682
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/short_06.wav",
+      "output": "game/assets/audio/voices/deaths/male/short_06.ogg",
+      "source_bytes": 66960,
+      "output_bytes": 17173
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/short_07.wav",
+      "output": "game/assets/audio/voices/deaths/male/short_07.ogg",
+      "source_bytes": 125092,
+      "output_bytes": 28351
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/short_08.wav",
+      "output": "game/assets/audio/voices/deaths/male/short_08.ogg",
+      "source_bytes": 56072,
+      "output_bytes": 16150
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/short_09.wav",
+      "output": "game/assets/audio/voices/deaths/male/short_09.ogg",
+      "source_bytes": 52634,
+      "output_bytes": 14971
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/short_10.wav",
+      "output": "game/assets/audio/voices/deaths/male/short_10.ogg",
+      "source_bytes": 46308,
+      "output_bytes": 12252
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/short_11.wav",
+      "output": "game/assets/audio/voices/deaths/male/short_11.ogg",
+      "source_bytes": 49088,
+      "output_bytes": 12691
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/short_12.wav",
+      "output": "game/assets/audio/voices/deaths/male/short_12.ogg",
+      "source_bytes": 51906,
+      "output_bytes": 13114
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/short_13.wav",
+      "output": "game/assets/audio/voices/deaths/male/short_13.ogg",
+      "source_bytes": 63712,
+      "output_bytes": 13432
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/short_14.wav",
+      "output": "game/assets/audio/voices/deaths/male/short_14.ogg",
+      "source_bytes": 62024,
+      "output_bytes": 14171
+    },
+    {
+      "source": "game/assets/audio/voices/deaths/male/short_15.wav",
+      "output": "game/assets/audio/voices/deaths/male/short_15.ogg",
+      "source_bytes": 35496,
+      "output_bytes": 11569
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/assassin_command.wav",
+      "output": "game/assets/audio/voices/desperados/assassin_command.ogg",
+      "source_bytes": 221728,
+      "output_bytes": 36586
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/assassin_select.wav",
+      "output": "game/assets/audio/voices/desperados/assassin_select.ogg",
+      "source_bytes": 195568,
+      "output_bytes": 34939
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/barber_command.wav",
+      "output": "game/assets/audio/voices/desperados/barber_command.ogg",
+      "source_bytes": 161066,
+      "output_bytes": 21661
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/barber_mounted.wav",
+      "output": "game/assets/audio/voices/desperados/barber_mounted.ogg",
+      "source_bytes": 161066,
+      "output_bytes": 25652
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/barber_select.wav",
+      "output": "game/assets/audio/voices/desperados/barber_select.ogg",
+      "source_bytes": 160550,
+      "output_bytes": 27635
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/desperado_command.wav",
+      "output": "game/assets/audio/voices/desperados/desperado_command.ogg",
+      "source_bytes": 69734,
+      "output_bytes": 16144
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/desperado_select.wav",
+      "output": "game/assets/audio/voices/desperados/desperado_select.ogg",
+      "source_bytes": 38810,
+      "output_bytes": 9645
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/explosives_expert_command.wav",
+      "output": "game/assets/audio/voices/desperados/explosives_expert_command.ogg",
+      "source_bytes": 166818,
+      "output_bytes": 32404
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/explosives_expert_select.wav",
+      "output": "game/assets/audio/voices/desperados/explosives_expert_select.ogg",
+      "source_bytes": 144060,
+      "output_bytes": 26632
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/gang_leader_command.wav",
+      "output": "game/assets/audio/voices/desperados/gang_leader_command.ogg",
+      "source_bytes": 64320,
+      "output_bytes": 14993
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/gang_leader_mounted.wav",
+      "output": "game/assets/audio/voices/desperados/gang_leader_mounted.ogg",
+      "source_bytes": 48064,
+      "output_bytes": 15982
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/gang_leader_select.wav",
+      "output": "game/assets/audio/voices/desperados/gang_leader_select.ogg",
+      "source_bytes": 97050,
+      "output_bytes": 18625
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/gunslinger_command.wav",
+      "output": "game/assets/audio/voices/desperados/gunslinger_command.ogg",
+      "source_bytes": 288738,
+      "output_bytes": 50891
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/gunslinger_mounted.wav",
+      "output": "game/assets/audio/voices/desperados/gunslinger_mounted.ogg",
+      "source_bytes": 288738,
+      "output_bytes": 51608
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/gunslinger_select.wav",
+      "output": "game/assets/audio/voices/desperados/gunslinger_select.ogg",
+      "source_bytes": 192362,
+      "output_bytes": 29940
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/hunter_command.wav",
+      "output": "game/assets/audio/voices/desperados/hunter_command.ogg",
+      "source_bytes": 59518,
+      "output_bytes": 12765
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/hunter_select.wav",
+      "output": "game/assets/audio/voices/desperados/hunter_select.ogg",
+      "source_bytes": 79662,
+      "output_bytes": 15550
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/raft_command.wav",
+      "output": "game/assets/audio/voices/desperados/raft_command.ogg",
+      "source_bytes": 123528,
+      "output_bytes": 24329
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/raft_select.wav",
+      "output": "game/assets/audio/voices/desperados/raft_select.ogg",
+      "source_bytes": 63362,
+      "output_bytes": 18438
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/rifleman_command.wav",
+      "output": "game/assets/audio/voices/desperados/rifleman_command.ogg",
+      "source_bytes": 90880,
+      "output_bytes": 15789
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/rifleman_mounted.wav",
+      "output": "game/assets/audio/voices/desperados/rifleman_mounted.ogg",
+      "source_bytes": 57918,
+      "output_bytes": 15863
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/rifleman_select.wav",
+      "output": "game/assets/audio/voices/desperados/rifleman_select.ogg",
+      "source_bytes": 173782,
+      "output_bytes": 34034
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/whip_fighter_command.wav",
+      "output": "game/assets/audio/voices/desperados/whip_fighter_command.ogg",
+      "source_bytes": 145504,
+      "output_bytes": 29069
+    },
+    {
+      "source": "game/assets/audio/voices/desperados/whip_fighter_select.wav",
+      "output": "game/assets/audio/voices/desperados/whip_fighter_select.ogg",
+      "source_bytes": 167374,
+      "output_bytes": 28687
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/cavalry_command.wav",
+      "output": "game/assets/audio/voices/mexican/cavalry_command.ogg",
+      "source_bytes": 143470,
+      "output_bytes": 24598
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/cavalry_mounted.wav",
+      "output": "game/assets/audio/voices/mexican/cavalry_mounted.ogg",
+      "source_bytes": 80640,
+      "output_bytes": 20388
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/cavalry_select.wav",
+      "output": "game/assets/audio/voices/mexican/cavalry_select.ogg",
+      "source_bytes": 67628,
+      "output_bytes": 12294
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/commandant_command.wav",
+      "output": "game/assets/audio/voices/mexican/commandant_command.ogg",
+      "source_bytes": 87382,
+      "output_bytes": 18063
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/commandant_mounted.wav",
+      "output": "game/assets/audio/voices/mexican/commandant_mounted.ogg",
+      "source_bytes": 48064,
+      "output_bytes": 15724
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/commandant_select.wav",
+      "output": "game/assets/audio/voices/mexican/commandant_select.ogg",
+      "source_bytes": 101342,
+      "output_bytes": 17912
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/farmhand_command.wav",
+      "output": "game/assets/audio/voices/mexican/farmhand_command.ogg",
+      "source_bytes": 98140,
+      "output_bytes": 17615
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/farmhand_select.wav",
+      "output": "game/assets/audio/voices/mexican/farmhand_select.ogg",
+      "source_bytes": 96914,
+      "output_bytes": 21015
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/gaucho_command.wav",
+      "output": "game/assets/audio/voices/mexican/gaucho_command.ogg",
+      "source_bytes": 128784,
+      "output_bytes": 20789
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/gaucho_mounted.wav",
+      "output": "game/assets/audio/voices/mexican/gaucho_mounted.ogg",
+      "source_bytes": 66956,
+      "output_bytes": 17440
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/gaucho_select.wav",
+      "output": "game/assets/audio/voices/mexican/gaucho_select.ogg",
+      "source_bytes": 119190,
+      "output_bytes": 21062
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/gunslinger_command.wav",
+      "output": "game/assets/audio/voices/mexican/gunslinger_command.ogg",
+      "source_bytes": 171722,
+      "output_bytes": 31223
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/gunslinger_mounted.wav",
+      "output": "game/assets/audio/voices/mexican/gunslinger_mounted.ogg",
+      "source_bytes": 91872,
+      "output_bytes": 22230
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/gunslinger_select.wav",
+      "output": "game/assets/audio/voices/mexican/gunslinger_select.ogg",
+      "source_bytes": 66144,
+      "output_bytes": 14738
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/infantry_command.wav",
+      "output": "game/assets/audio/voices/mexican/infantry_command.ogg",
+      "source_bytes": 92430,
+      "output_bytes": 17226
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/infantry_select.wav",
+      "output": "game/assets/audio/voices/mexican/infantry_select.ogg",
+      "source_bytes": 121034,
+      "output_bytes": 21650
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/militia_command.wav",
+      "output": "game/assets/audio/voices/mexican/militia_command.ogg",
+      "source_bytes": 101172,
+      "output_bytes": 17610
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/militia_select.wav",
+      "output": "game/assets/audio/voices/mexican/militia_select.ogg",
+      "source_bytes": 77144,
+      "output_bytes": 15817
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/nun_command.wav",
+      "output": "game/assets/audio/voices/mexican/nun_command.ogg",
+      "source_bytes": 66066,
+      "output_bytes": 13444
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/nun_select.wav",
+      "output": "game/assets/audio/voices/mexican/nun_select.ogg",
+      "source_bytes": 74148,
+      "output_bytes": 17500
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/priest_command.wav",
+      "output": "game/assets/audio/voices/mexican/priest_command.ogg",
+      "source_bytes": 82570,
+      "output_bytes": 15921
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/priest_select.wav",
+      "output": "game/assets/audio/voices/mexican/priest_select.ogg",
+      "source_bytes": 114640,
+      "output_bytes": 19991
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/raft_command.wav",
+      "output": "game/assets/audio/voices/mexican/raft_command.ogg",
+      "source_bytes": 94208,
+      "output_bytes": 20016
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/raft_select.wav",
+      "output": "game/assets/audio/voices/mexican/raft_select.ogg",
+      "source_bytes": 88594,
+      "output_bytes": 17935
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/woman_command.wav",
+      "output": "game/assets/audio/voices/mexican/woman_command.ogg",
+      "source_bytes": 37276,
+      "output_bytes": 10838
+    },
+    {
+      "source": "game/assets/audio/voices/mexican/woman_select.wav",
+      "output": "game/assets/audio/voices/mexican/woman_select.ogg",
+      "source_bytes": 63466,
+      "output_bytes": 12071
+    },
+    {
+      "source": "game/assets/audio/voices/native/archer_command.wav",
+      "output": "game/assets/audio/voices/native/archer_command.ogg",
+      "source_bytes": 79362,
+      "output_bytes": 14852
+    },
+    {
+      "source": "game/assets/audio/voices/native/archer_mounted.wav",
+      "output": "game/assets/audio/voices/native/archer_mounted.ogg",
+      "source_bytes": 54236,
+      "output_bytes": 15699
+    },
+    {
+      "source": "game/assets/audio/voices/native/archer_select.wav",
+      "output": "game/assets/audio/voices/native/archer_select.ogg",
+      "source_bytes": 79362,
+      "output_bytes": 15347
+    },
+    {
+      "source": "game/assets/audio/voices/native/chief_command.wav",
+      "output": "game/assets/audio/voices/native/chief_command.ogg",
+      "source_bytes": 32672,
+      "output_bytes": 7848
+    },
+    {
+      "source": "game/assets/audio/voices/native/chief_mounted.wav",
+      "output": "game/assets/audio/voices/native/chief_mounted.ogg",
+      "source_bytes": 48064,
+      "output_bytes": 15668
+    },
+    {
+      "source": "game/assets/audio/voices/native/chief_select.wav",
+      "output": "game/assets/audio/voices/native/chief_select.ogg",
+      "source_bytes": 96782,
+      "output_bytes": 17256
+    },
+    {
+      "source": "game/assets/audio/voices/native/fire_archer_command.wav",
+      "output": "game/assets/audio/voices/native/fire_archer_command.ogg",
+      "source_bytes": 54758,
+      "output_bytes": 11415
+    },
+    {
+      "source": "game/assets/audio/voices/native/fire_archer_mounted.wav",
+      "output": "game/assets/audio/voices/native/fire_archer_mounted.ogg",
+      "source_bytes": 48064,
+      "output_bytes": 15578
+    },
+    {
+      "source": "game/assets/audio/voices/native/fire_archer_select.wav",
+      "output": "game/assets/audio/voices/native/fire_archer_select.ogg",
+      "source_bytes": 163278,
+      "output_bytes": 26040
+    },
+    {
+      "source": "game/assets/audio/voices/native/knife_thrower_command.wav",
+      "output": "game/assets/audio/voices/native/knife_thrower_command.ogg",
+      "source_bytes": 63562,
+      "output_bytes": 13262
+    },
+    {
+      "source": "game/assets/audio/voices/native/knife_thrower_select.wav",
+      "output": "game/assets/audio/voices/native/knife_thrower_select.ogg",
+      "source_bytes": 68860,
+      "output_bytes": 14622
+    },
+    {
+      "source": "game/assets/audio/voices/native/medicine_man_chants/medicine_man_chant_01.wav",
+      "output": "game/assets/audio/voices/native/medicine_man_chants/medicine_man_chant_01.ogg",
+      "source_bytes": 528808,
+      "output_bytes": 94092
+    },
+    {
+      "source": "game/assets/audio/voices/native/medicine_man_chants/medicine_man_chant_01_alternate.wav",
+      "output": "game/assets/audio/voices/native/medicine_man_chants/medicine_man_chant_01_alternate.ogg",
+      "source_bytes": 528808,
+      "output_bytes": 94135
+    },
+    {
+      "source": "game/assets/audio/voices/native/medicine_man_chants/medicine_man_chant_02.wav",
+      "output": "game/assets/audio/voices/native/medicine_man_chants/medicine_man_chant_02.ogg",
+      "source_bytes": 563880,
+      "output_bytes": 86721
+    },
+    {
+      "source": "game/assets/audio/voices/native/medicine_man_chants/medicine_man_chant_03.wav",
+      "output": "game/assets/audio/voices/native/medicine_man_chants/medicine_man_chant_03.ogg",
+      "source_bytes": 502916,
+      "output_bytes": 78540
+    },
+    {
+      "source": "game/assets/audio/voices/native/medicine_man_chants/medicine_man_chant_04.wav",
+      "output": "game/assets/audio/voices/native/medicine_man_chants/medicine_man_chant_04.ogg",
+      "source_bytes": 590114,
+      "output_bytes": 77025
+    },
+    {
+      "source": "game/assets/audio/voices/native/medicine_man_chants/medicine_man_silence.wav",
+      "output": "game/assets/audio/voices/native/medicine_man_chants/medicine_man_silence.ogg",
+      "source_bytes": 44144,
+      "output_bytes": 18721
+    },
+    {
+      "source": "game/assets/audio/voices/native/medicine_man_command.wav",
+      "output": "game/assets/audio/voices/native/medicine_man_command.ogg",
+      "source_bytes": 110204,
+      "output_bytes": 18076
+    },
+    {
+      "source": "game/assets/audio/voices/native/medicine_man_select.wav",
+      "output": "game/assets/audio/voices/native/medicine_man_select.ogg",
+      "source_bytes": 145634,
+      "output_bytes": 25855
+    },
+    {
+      "source": "game/assets/audio/voices/native/rifleman_command.wav",
+      "output": "game/assets/audio/voices/native/rifleman_command.ogg",
+      "source_bytes": 79292,
+      "output_bytes": 18130
+    },
+    {
+      "source": "game/assets/audio/voices/native/rifleman_mounted.wav",
+      "output": "game/assets/audio/voices/native/rifleman_mounted.ogg",
+      "source_bytes": 54200,
+      "output_bytes": 17004
+    },
+    {
+      "source": "game/assets/audio/voices/native/rifleman_select.wav",
+      "output": "game/assets/audio/voices/native/rifleman_select.ogg",
+      "source_bytes": 83946,
+      "output_bytes": 17978
+    },
+    {
+      "source": "game/assets/audio/voices/native/spearman_command.wav",
+      "output": "game/assets/audio/voices/native/spearman_command.ogg",
+      "source_bytes": 44186,
+      "output_bytes": 8856
+    },
+    {
+      "source": "game/assets/audio/voices/native/spearman_select.wav",
+      "output": "game/assets/audio/voices/native/spearman_select.ogg",
+      "source_bytes": 92640,
+      "output_bytes": 16961
+    },
+    {
+      "source": "game/assets/audio/voices/native/warrior_command.wav",
+      "output": "game/assets/audio/voices/native/warrior_command.ogg",
+      "source_bytes": 75020,
+      "output_bytes": 14126
+    },
+    {
+      "source": "game/assets/audio/voices/native/warrior_select.wav",
+      "output": "game/assets/audio/voices/native/warrior_select.ogg",
+      "source_bytes": 171888,
+      "output_bytes": 28068
+    },
+    {
+      "source": "game/assets/audio/voices/native/woman_command.wav",
+      "output": "game/assets/audio/voices/native/woman_command.ogg",
+      "source_bytes": 27574,
+      "output_bytes": 8675
+    },
+    {
+      "source": "game/assets/audio/voices/native/woman_select.wav",
+      "output": "game/assets/audio/voices/native/woman_select.ogg",
+      "source_bytes": 54694,
+      "output_bytes": 13785
+    },
+    {
+      "source": "game/assets/audio/voices/usa/cavalry_command.wav",
+      "output": "game/assets/audio/voices/usa/cavalry_command.ogg",
+      "source_bytes": 145820,
+      "output_bytes": 25749
+    },
+    {
+      "source": "game/assets/audio/voices/usa/cavalry_mounted.wav",
+      "output": "game/assets/audio/voices/usa/cavalry_mounted.ogg",
+      "source_bytes": 80904,
+      "output_bytes": 21862
+    },
+    {
+      "source": "game/assets/audio/voices/usa/cavalry_select.wav",
+      "output": "game/assets/audio/voices/usa/cavalry_select.ogg",
+      "source_bytes": 38332,
+      "output_bytes": 10779
+    },
+    {
+      "source": "game/assets/audio/voices/usa/commander_command.wav",
+      "output": "game/assets/audio/voices/usa/commander_command.ogg",
+      "source_bytes": 102374,
+      "output_bytes": 18390
+    },
+    {
+      "source": "game/assets/audio/voices/usa/commander_mounted.wav",
+      "output": "game/assets/audio/voices/usa/commander_mounted.ogg",
+      "source_bytes": 61140,
+      "output_bytes": 16647
+    },
+    {
+      "source": "game/assets/audio/voices/usa/commander_select.wav",
+      "output": "game/assets/audio/voices/usa/commander_select.ogg",
+      "source_bytes": 127742,
+      "output_bytes": 24706
+    },
+    {
+      "source": "game/assets/audio/voices/usa/cowboy_command.wav",
+      "output": "game/assets/audio/voices/usa/cowboy_command.ogg",
+      "source_bytes": 110742,
+      "output_bytes": 22789
+    },
+    {
+      "source": "game/assets/audio/voices/usa/cowboy_mounted.wav",
+      "output": "game/assets/audio/voices/usa/cowboy_mounted.ogg",
+      "source_bytes": 66166,
+      "output_bytes": 19122
+    },
+    {
+      "source": "game/assets/audio/voices/usa/cowboy_select.wav",
+      "output": "game/assets/audio/voices/usa/cowboy_select.ogg",
+      "source_bytes": 150202,
+      "output_bytes": 27943
+    },
+    {
+      "source": "game/assets/audio/voices/usa/infantry_command.wav",
+      "output": "game/assets/audio/voices/usa/infantry_command.ogg",
+      "source_bytes": 83972,
+      "output_bytes": 20856
+    },
+    {
+      "source": "game/assets/audio/voices/usa/infantry_select.wav",
+      "output": "game/assets/audio/voices/usa/infantry_select.ogg",
+      "source_bytes": 37076,
+      "output_bytes": 10578
+    },
+    {
+      "source": "game/assets/audio/voices/usa/nurse_command.wav",
+      "output": "game/assets/audio/voices/usa/nurse_command.ogg",
+      "source_bytes": 101168,
+      "output_bytes": 19062
+    },
+    {
+      "source": "game/assets/audio/voices/usa/nurse_select.wav",
+      "output": "game/assets/audio/voices/usa/nurse_select.ogg",
+      "source_bytes": 70374,
+      "output_bytes": 17257
+    },
+    {
+      "source": "game/assets/audio/voices/usa/raft_command.wav",
+      "output": "game/assets/audio/voices/usa/raft_command.ogg",
+      "source_bytes": 145576,
+      "output_bytes": 31391
+    },
+    {
+      "source": "game/assets/audio/voices/usa/raft_select.wav",
+      "output": "game/assets/audio/voices/usa/raft_select.ogg",
+      "source_bytes": 37668,
+      "output_bytes": 10761
+    },
+    {
+      "source": "game/assets/audio/voices/usa/settler_command.wav",
+      "output": "game/assets/audio/voices/usa/settler_command.ogg",
+      "source_bytes": 61874,
+      "output_bytes": 13930
+    },
+    {
+      "source": "game/assets/audio/voices/usa/settler_select.wav",
+      "output": "game/assets/audio/voices/usa/settler_select.ogg",
+      "source_bytes": 73884,
+      "output_bytes": 16690
+    },
+    {
+      "source": "game/assets/audio/voices/usa/sheriff_command.wav",
+      "output": "game/assets/audio/voices/usa/sheriff_command.ogg",
+      "source_bytes": 153582,
+      "output_bytes": 22347
+    },
+    {
+      "source": "game/assets/audio/voices/usa/sheriff_select.wav",
+      "output": "game/assets/audio/voices/usa/sheriff_select.ogg",
+      "source_bytes": 130952,
+      "output_bytes": 21641
+    },
+    {
+      "source": "game/assets/audio/voices/usa/trapper_command.wav",
+      "output": "game/assets/audio/voices/usa/trapper_command.ogg",
+      "source_bytes": 158086,
+      "output_bytes": 27961
+    },
+    {
+      "source": "game/assets/audio/voices/usa/trapper_select.wav",
+      "output": "game/assets/audio/voices/usa/trapper_select.ogg",
+      "source_bytes": 52010,
+      "output_bytes": 10948
+    },
+    {
+      "source": "game/assets/audio/voices/usa/woman_command.wav",
+      "output": "game/assets/audio/voices/usa/woman_command.ogg",
+      "source_bytes": 66354,
+      "output_bytes": 17531
+    },
+    {
+      "source": "game/assets/audio/voices/usa/woman_select.wav",
+      "output": "game/assets/audio/voices/usa/woman_select.ogg",
+      "source_bytes": 42122,
+      "output_bytes": 13501
+    }
+  ],
+  "skipped": [
+    {
+      "source": "game/assets/audio/missions/defeat.mp3",
+      "output": "game/assets/audio/missions/defeat.ogg",
+      "reason": "up to date"
+    },
+    {
+      "source": "game/assets/audio/missions/victory.mp3",
+      "output": "game/assets/audio/missions/victory.ogg",
+      "reason": "up to date"
+    },
+    {
+      "source": "game/assets/audio/music/mexican_faction_theme.mp3",
+      "output": "game/assets/audio/music/mexican_faction_theme.ogg",
+      "reason": "up to date"
+    },
+    {
+      "source": "game/assets/audio/sfx/ding.wav",
+      "output": "game/assets/audio/sfx/ding.ogg",
+      "reason": "up to date"
+    },
+    {
+      "source": "game/assets/audio/sfx/heal.wav",
+      "output": "game/assets/audio/sfx/heal.ogg",
+      "reason": "up to date"
+    },
+    {
+      "source": "game/assets/audio/sfx/mission_defeat.wav",
+      "output": "game/assets/audio/sfx/mission_defeat.ogg",
+      "reason": "up to date"
+    },
+    {
+      "source": "game/assets/audio/sfx/mission_victory.wav",
+      "output": "game/assets/audio/sfx/mission_victory.ogg",
+      "reason": "up to date"
+    },
+    {
+      "source": "game/assets/audio/sfx/notify.wav",
+      "output": "game/assets/audio/sfx/notify.ogg",
+      "reason": "up to date"
+    },
+    {
+      "source": "game/assets/audio/sfx/usa_nurse_heal.wav",
+      "output": "game/assets/audio/sfx/usa_nurse_heal.ogg",
+      "reason": "up to date"
+    }
+  ],
+  "totals": {
+    "converted": 387,
+    "skipped": 9,
+    "source_bytes": 88983834,
+    "output_bytes": 58306235
+  }
+}

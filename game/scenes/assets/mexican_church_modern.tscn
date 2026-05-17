@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://mexican_church_modern"]
+
+[ext_resource type="Script" path="res://scripts/visuals/procedural_modern_church.gd" id="1_church"]
+
+[node name="MexicanChurchModern" type="Node3D"]
+script = ExtResource("1_church")

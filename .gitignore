@@ -26,3 +26,7 @@ game/assets/reference/
 
 # Local assistant/tool state.
 .claude/
+
+# Original game distributions
+*.zip
+*.iso

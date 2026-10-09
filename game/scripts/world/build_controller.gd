@@ -3,6 +3,7 @@ extends Node2D
 ## Building placement: a ghost of the finished building follows the mouse (snapped to the
 ## 16 px collision grid), tinted green or red by whether the footprint is free. Left click
 ## places a construction site and sends the selected builders; right click / Esc cancels.
+## With Shift held the placing goes on, and the builders take the sites in turn.
 
 signal placed(site: MapObject)
 
@@ -126,6 +127,8 @@ func _place(at: Vector2, keep_placing: bool) -> void:
 		if is_instance_valid(unit) and unit.is_alive():
 			if is_field:
 				unit.gather(site)
+			elif keep_placing:
+				unit.work.queue_build(site)
 			else:
 				unit.build(site)
 	placed.emit(site)

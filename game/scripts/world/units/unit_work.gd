@@ -25,6 +25,7 @@ var carried := 0
 var gather_resource := ""  ## what this unit is assigned to collect ("haul", "rob" and "meat" too)
 var gather_source: MapObject
 var build_site: MapObject
+var build_queue: Array[MapObject] = []  ## further sites to build in turn (placed with Shift)
 var hunting := false  ## the target is an animal; carry the meat home after the kill
 var phase := Phase.TO_SOURCE
 var _work_timer := 0.0
@@ -39,6 +40,7 @@ var _steal_time := 0.0
 
 func clear_orders() -> void:
 	_steal_target = null
+	build_queue.clear()
 	busy = false
 
 
@@ -94,6 +96,26 @@ func build(site: MapObject) -> void:
 	unit.inside = false
 	unit.state = Unit.State.BUILDING
 	unit.path = unit.find_path(site.position)
+
+
+## Build `site` after the sites already ordered (Shift-placing several buildings), or at
+## once if not building.
+func queue_build(site: MapObject) -> void:
+	if unit.state == Unit.State.BUILDING and is_instance_valid(build_site) and build_site != site:
+		build_queue.append(site)
+	else:
+		build(site)
+
+
+## The site finished (or gone): go on to the next one still standing, if any.
+func _build_next() -> void:
+	var rest := build_queue.filter(func(s: MapObject) -> bool:
+		return is_instance_valid(s) and s.is_alive() and (not s.complete or s.condition.needs_repair()))
+	if rest.is_empty():
+		build_queue.clear()
+		return
+	build(rest.pop_front())
+	build_queue.assign(rest)
 
 
 ## Kill an animal and carry its meat to a butcher or the main building, then hunt again.
@@ -440,6 +462,7 @@ func update_building(delta: float) -> void:
 			or (build_site.complete and not build_site.condition.needs_repair()):
 		build_site = null
 		unit.state = Unit.State.IDLE
+		_build_next()
 		return
 	if not build_site.near_walls(unit.position, Unit.REACH):
 		if unit.path.is_empty():

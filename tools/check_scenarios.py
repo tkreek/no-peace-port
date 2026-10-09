@@ -53,6 +53,7 @@ CHECKS = {
     "furnace": ([], 0, [r"furnace glows: idle false, working true, after cancelling false"]),
     "repair": ([], 0, [r"right click: soldier to quarters true, workers repairing false",
                        r"repair command: repaired true"]),
+    "buildqueue": (["--time-scale=4"], 0, [r"sites placed 3, built in order true, queued left 0"]),
     "poplimit": ([], 0, [r"warned on filling 1, on a train order 1"]),
     "picking": ([], 0, [r"roof \(picture centre, upper third\) +-> true", r"walls centre +-> true",
                         r"open corner of the walls' box +-> false"]),

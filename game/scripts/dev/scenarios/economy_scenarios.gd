@@ -451,3 +451,34 @@ func _scenario_repair() -> void:
 	await get_tree().create_timer(20.0).timeout
 	print("repair command: repaired %s (energy %d -> %d)" % [tower.health > before, before, tower.health])
 	get_tree().quit()
+
+
+## Three houses placed with Shift held: the workers build them one after another.
+func _scenario_buildqueue() -> void:
+	var hq: MapObject = main.players[1].main_building()
+	main.players[1].resources.wood = 5000
+	main.players[1].resources.gold = 5000
+	var builders := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 1 and u.unit_type.can_build())
+	main.selection._select(builders, false)
+	var guid: int = {"mex": 201, "usa": 401, "des": 301, "ind": 101}[main.players[1].faction]
+	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
+	main.build_controller.start(type.id)
+	var sites: Array[MapObject] = []
+	for radius in range(260, 900, 48):
+		for k in 16:
+			var spot := (hq.position + Vector2(radius, 0).rotated(k * TAU / 16.0)).snapped(Vector2(16, 16))
+			if sites.size() < 3 and main.build_controller.is_placing() and main.build_controller.can_place(spot):
+				main.build_controller._place(spot, true)
+				sites.append(MapObject.structures[-1])
+	main.build_controller.cancel()
+	var order := []
+	for i in 90:
+		await get_tree().create_timer(2.0).timeout
+		for s in sites:
+			if s.complete and s not in order:
+				order.append(s)
+		if order.size() == sites.size():
+			break
+	print("sites placed %d, built in order %s, queued left %d" % [sites.size(), order == Array(sites),
+			builders.map(func(u: Unit) -> int: return u.work.build_queue.size()).reduce(func(a: int, b: int) -> int: return a + b, 0)])
+	get_tree().quit()

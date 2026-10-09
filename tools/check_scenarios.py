@@ -2,6 +2,7 @@
 """Run the game's developer scenarios headless and check what they print.
 
 Usage: tools/check_scenarios.py [name ...]   (no names: all of them)
+       CHECK_ARGS="--opt=value ..." passes extra options to every run.
 
 Each check starts `godot --headless` with a scenario (see game/scripts/dev/scenarios.gd),
 waits for it to finish, and requires every expected pattern in the output and no script
@@ -17,12 +18,12 @@ import time
 
 GAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "game")
 BASE = ["--ai=off", "--fog=off"]
-ISLANDS = "--map=[2 Players] - 2 islands.alf"
+ISLANDS = "--map=[2 Players] - 2 islands.ulf"
 
 # name -> (extra arguments, frames to stop after or 0 if it quits itself, expected patterns)
 CHECKS = {
     "parse": ([], 0, [r"parsed \d+ scripts"]),
-    "abandoned": (["--map=[4 Players] - forts.alf"], 0, [r"store left 0; guns \d+ -> \d+"]),
+    "abandoned": (["--map=[4 Players] - forts.ulf"], 0, [r"store left 0; guns \d+ -> \d+"]),
     "rob": (["--faction=des"], 1200, [r"robber can rob true, barber can steal true", r"our gold \+[1-9]"]),
     "horses": ([], 0, [r"mounted: true \(horse gone true\)", r"horses 1 / 5, cowboy on foot again true"]),
     "cattle": (["--faction=usa"], 0, [r"cow team 1", r"sold: cow gone true"]),
@@ -54,7 +55,7 @@ CHECKS = {
                        r"stroke painted Desert, right click removed 1, undo back to 10 placements"]),
     # Six computer players for ten game minutes: no script errors, and the waves go out.
     "aigame": (["--ai-vs-ai=1", "--players=mex,usa,ind,des,mex,usa", "--time-scale=4", "--trace-ai=1",
-                "--map=[6 Players] - oasis.alf"], 4500, [r"attacks with \d+ units"]),
+                "--map=[6 Players] - oasis.ulf"], 4500, [r"attacks with \d+ units"]),
 }
 
 
@@ -74,6 +75,8 @@ def run(name):
         command += ["--", "--scenario=" + scenario] + BASE + args
     if frames:
         command.append("--report-after=%d" % frames)
+    # Extra options for every run, e.g. CHECK_ARGS="--log-assets=/tmp/log".
+    command += os.environ.get("CHECK_ARGS", "").split()
     started = time.time()
     try:
         out = subprocess.run(command, capture_output=True, text=True, timeout=400).stdout

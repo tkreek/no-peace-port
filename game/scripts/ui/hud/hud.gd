@@ -6,9 +6,9 @@ extends CanvasLayer
 ## the top. Scales with the window height and the interface-size setting. Esc opens the
 ## game menu (GameMenu).
 
-const STATUS_SHEET := "global/gfx/status/leiste/bilderliste__1.spr"
-const MINIMAP_PANEL := "global/gfx/status/leiste/leisterechts.pic"
-const ICON_BOB := "global/gfx/status/resourcenicons/resourcenicons.bob"
+const STATUS_SHEET := "interface/hud/bar/sheet_1"
+const MINIMAP_PANEL := "interface/hud/bar/bar_right.png"
+const ICON_BOB := "interface/hud/resource_icons/resource_icons.anims.json"
 const MINIMAP_HOLE := Rect2(83, 15, 164, 160)  # magenta window in leisterechts.pic
 const BAR_HEIGHT := 167.0
 const MAP_MODE_ICONS := [13, 15, 17]  # KleineIcons: landscape, field, armed men
@@ -99,8 +99,8 @@ func _setup_minimap(map: AlfMap, camera: Camera2D, objects: Node2D, terrain_colo
 ## Food, wood, horses, gold, guns and population along the top, with the original icons.
 func _setup_resources() -> void:
 	var icon_bob := GameData.load_bob(ICON_BOB)
-	var icon_sheet := GameData.load_sprite(ICON_BOB.get_base_dir().path_join(icon_bob.sub_sprites[0]))
-	var icon_material := SpriteMaterials.body(icon_sheet, GameData.load_palette_texture(ICON_BOB.get_base_dir(), icon_bob.palettes), null)
+	var icon_sheet := GameData.load_set_sheet(ICON_BOB, icon_bob, 0)
+	var icon_material := SpriteMaterials.body(icon_sheet, null)
 	_top.add_child(_resources)
 	var add_icon := func(frame: int, tip: String) -> void:
 		var icon := TextureRect.new()

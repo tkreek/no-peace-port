@@ -6,8 +6,7 @@ extends VBoxContainer
 const SLIDERS := [["Music volume", "music_volume", 0.0, 1.0, 0.05], ["Sound volume", "sound_volume", 0.0, 1.0, 0.05],
 		["Scroll speed", "scroll_speed", 0.4, 2.5, 0.05], ["Interface size", "ui_scale", 0.7, 1.5, 0.05]]
 const SWITCHES := [["Scroll at screen edges", "edge_scroll", ""], ["Full screen", "fullscreen", ""],
-		["Vertical sync", "vsync", ""],
-		["Classic graphics", "classic_graphics", "The original pixels instead of the upscaled set (from the next game)"]]
+		["Vertical sync", "vsync", ""]]
 
 var text_size := 16
 var label_width := 190.0

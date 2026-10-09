@@ -134,6 +134,6 @@ func _place(at: Vector2, keep_placing: bool) -> void:
 		start(type_id)
 
 
-## "sound nicht bebaubar.wav" in the original sound table.
+## "not_buildable" in the sound table.
 func _cannot_build_sound() -> int:
 	return 80

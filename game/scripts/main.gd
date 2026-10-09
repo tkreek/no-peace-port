@@ -4,7 +4,7 @@ extends Node2D
 ## the computer players, and decides when the game is won.
 ##
 ## Command line (after `--`):
-##   --map=<file in Levels/ or absolute path>   default "[2 Players] - close combat.alf"
+##   --map=<file in assets/maps or absolute path>   default "[2 Players] - close combat.ulf"
 ##   --biome=steppe|wiese
 ##   --screenshot=<png path>  save a frame after --frames=<n> (default 90) and quit
 ##   --scenario=battle  two infantry squads fighting in front of the camera
@@ -17,7 +17,7 @@ extends Node2D
 ##   --report-after=<frames>  print stockpiles every 300 frames, then quit (use --fixed-fps)
 ##   --camera=x,y  --zoom=z  --order=x,y (screenshot move target)  --debug-paths=1
 
-const DEFAULT_MAP := "[2 Players] - close combat.alf"
+const DEFAULT_MAP := "[2 Players] - close combat.ulf"
 
 var terrain := Terrain.new()
 var units_root := Node2D.new()
@@ -50,7 +50,7 @@ const START_FARMERS := 3
 
 func _ready() -> void:
 	if not GameData.is_ready():
-		_show_message("Original game data not found.\nRun with --install-dir=<folder containing america0.rda>")
+		_show_message("Game assets not found.\nBuild them with tools/assets/build_assets.py, or run with --assets-dir=<folder>")
 		return
 	if GameData.cmdline_option("selftest") != "":
 		DevTools.attach(self).selftest()
@@ -173,15 +173,15 @@ func _spawn_placements(map: AlfMap) -> void:
 	var spawned := 0
 	for placement in map.placements:
 		var type := ObjectTypes.get_type(placement.type_id)
-		if type and type.name == "Editor_Start":
+		if type and type.name.begins_with("editor_start"):
 			start_positions[placement.owner] = placement.position
 			continue
-		if type == null or type.bob_path.is_empty() or type.bob_path.begins_with("editor"):
+		if type == null or type.anims.is_empty():
 			continue
 		if placement.owner > 0 and placement.owner < 9:
 			placed_owners[placement.owner] = true
 		if type.kind == ObjectTypes.Kind.UNIT:
-			var unit_type := UnitType.load_type(type.directory(), type.name.contains("Pferd"), type.id)
+			var unit_type := UnitType.load_type(type.directory(), type.is_mounted(), type.id)
 			if unit_type == null:
 				continue
 			var unit := Unit.new()

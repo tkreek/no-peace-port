@@ -8,10 +8,10 @@ extends CanvasLayer
 
 const PAGES := ["Terrain", "Nature", "Buildings", "Units", "Players"]
 const SIDE_WIDTH := 330.0
-## Nature palette groups: name prefix -> heading.
-const NATURE := [["Baum_Laub", "Deciduous trees"], ["Baum_Nadel", "Conifers"], ["Busch", "Bushes"],
-		["Kaktus", "Cacti"], ["Stein", "Rocks"], ["Mine", "Gold mines"], ["Tier_", "Animals"],
-		["Feld", "Fields"], ["Brücke", "Bridges"], ["Aufgang", "Ramps"]]
+## Nature palette groups: type name prefix -> heading.
+const NATURE := [["tree_deciduous", "Deciduous trees"], ["tree_conifer", "Conifers"], ["bush", "Bushes"],
+		["cactus", "Cacti"], ["rock", "Rocks"], ["mine", "Gold mines"], ["animal_", "Animals"],
+		["field", "Fields"], ["bridge", "Bridges"], ["ramp", "Ramps"]]
 
 var editor: MapEditor
 var ui_scale := 1.0
@@ -246,14 +246,14 @@ func _nature_page() -> void:
 		var ids: Array[int] = []
 		for id in ObjectTypes.count():
 			var type := ObjectTypes.get_type(id)
-			if type == null or type.bob_path.is_empty() or not type.name.begins_with(group[0]):
+			if type == null or type.anims.is_empty() or not type.name.begins_with(group[0]):
 				continue
-			if type.kind != ObjectTypes.Kind.ELEMENT and not type.name.begins_with("Tier_"):
+			if type.kind != ObjectTypes.Kind.ELEMENT and not type.name.begins_with("animal_"):
 				continue
-			if type.name.ends_with("_Stone"):
+			if type.name.ends_with("_plateau"):
 				continue
-			var for_meadow := type.name.ends_with("_Wi") or type.bob_path.begins_with("wiese/")
-			if type.name.begins_with("Brücke") or type.name.begins_with("Tier_") or for_meadow == meadow:
+			var for_meadow := type.is_meadow() or type.name == "field_2"
+			if type.name.begins_with("bridge") or type.name.begins_with("animal_") or for_meadow == meadow:
 				ids.append(id)
 		if ids.is_empty():
 			continue
@@ -574,45 +574,23 @@ func _type_button(type_id: int, player: int, name: String, guid := -1) -> Button
 	return button
 
 
-## An English name for a nature object from its German type name, e.g. Baum_Laub_gr02b
-## -> "Large deciduous tree 2b", Mine_ol_St -> "Gold mine (opening top left)".
-func _nature_name(type_id: int, group: String) -> String:
-	var name := ObjectTypes.get_type(type_id).name.trim_suffix("_St").trim_suffix("_Wi")
-	var lower := name.to_lower()
-	var corners := {"ul": "bottom left", "ur": "bottom right", "ol": "top left", "or": "top right"}
-	for key in {"Tier_Büffel": "Buffalo", "Tier_Pferd": "Wild horse", "Tier_Kuh": "Cow"}:
-		if name == key:
-			return {"Tier_Büffel": "Buffalo", "Tier_Pferd": "Wild horse", "Tier_Kuh": "Cow"}[key]
-	if name.begins_with("Mine_") or name.begins_with("Aufgang_"):
-		var corner: String = corners.get(name.get_slice("_", 1), "")
-		return "%s (%s)" % ["Gold mine" if name.begins_with("Mine") else "Ramp", corner]
-	if name.begins_with("Brücke"):
-		var part := "start" if lower.contains("anfang") else "end" if lower.contains("ende") else "middle"
-		return "Bridge %s" % part
-	var size := ""
-	if lower.contains("_gr") or lower.contains("gross"):
-		size = "Large "
-	elif lower.contains("mittel"):
-		size = "Medium "
-	elif lower.contains("_kl") or lower.contains("klein"):
-		size = "Small "
-	var variant := name.get_slice("_", name.get_slice_count("_") - 1)
-	var digits := ""
-	for c in variant:
-		if c.is_valid_int() or (not digits.is_empty() and c.to_lower() == c and c >= "a" and c <= "z"):
-			digits += c
-	var noun := group.trim_suffix("es").trim_suffix("s") if not group.ends_with("hes") else group.trim_suffix("es")
-	if group == "Cacti":
-		noun = "Cactus"
-	elif group == "Deciduous trees":
-		noun = "Deciduous tree"
-	elif group == "Conifers":
-		noun = "Conifer"
-	elif group == "Rocks":
-		noun = "Rock pile" if lower.begins_with("steinhaufen") else "Rock"
-	var out := (size + noun.to_lower()).strip_edges()
-	out = out.left(1).to_upper() + out.substr(1)
-	return (out + " " + digits.trim_prefix("0")).strip_edges()
+## A readable name for a nature object from its type name, e.g. tree_deciduous_large_02_b_prairie
+## -> "Deciduous tree, large 2b", mine_top_left_prairie -> "Gold mine (top left)".
+func _nature_name(type_id: int, _group: String) -> String:
+	var name := ObjectTypes.get_type(type_id).name.trim_suffix("_prairie").trim_suffix("_meadow")
+	if name.begins_with("animal_"):
+		return {"animal_buffalo": "Buffalo", "animal_horse": "Wild horse", "animal_cow": "Cow"}.get(name, name)
+	if name.begins_with("mine_") or name.begins_with("ramp_"):
+		var kind := "Gold mine" if name.begins_with("mine") else "Ramp"
+		return "%s (%s)" % [kind, name.get_slice("_", 1) + " " + name.get_slice("_", 2)]
+	var words := name.split("_")
+	var variant := ""
+	while not words.is_empty() and (words[-1].is_valid_int() or words[-1].length() == 1):
+		variant = words[-1].trim_prefix("0") + variant
+		words.remove_at(words.size() - 1)
+	var text := " ".join(words).capitalize()
+	text = text.replace("Tree Deciduous", "Deciduous tree").replace("Tree Conifer", "Conifer")
+	return (text + " " + variant).strip_edges()
 
 
 func _swatch(material: int) -> Texture2D:

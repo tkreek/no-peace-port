@@ -94,7 +94,7 @@ func _scenario_hunt() -> void:
 	for object in MapObject.all_objects:
 		if object.is_building() and object.owner_index == 1:
 			hq = object
-	main._spawn_squad("global/gfx/animals/bueffel", 0, hq.position + Vector2(260, 260), 1)
+	main._spawn_squad("animals/buffalo", 0, hq.position + Vector2(260, 260), 1)
 	var hunter_guid: int = {"mex": 261, "usa": 461, "ind": 156, "des": 358}[main.players[1].faction]
 	main._spawn_squad(hunter_guid, 1, hq.position + Vector2(0, 200), 2)
 	var buffalo: Unit = null

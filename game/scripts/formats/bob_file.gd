@@ -1,12 +1,14 @@
 class_name BobFile
 extends RefCounted
-## Text animation descriptor ([RDBOBFILE]).
+## An animation set (assets: <name>.anims.json, made from the original .bob files by
+## tools/assets/build_assets.py):
 ##
-##   ColTab#n      Typ=C256, Filename=<palette.ftb>          (0 = base, 1..8 = team colours)
-##   SubSpriteFile#n Typ=P256|DARK, Filename=<sprite.spx|.shw>
-##   AnimBlock#n   SubSpriteFile, AnzDirections, AnzFramesProAnim,
-##                 AnimList=frame,ms,frame,ms,...,-N   (-N jumps back N entries; -1 holds)
-## Frame index in the sprite file = direction * frames_per_direction + frame.
+##   sheets  [{file, shadow}]  sprite sheets, by path relative to the set (see RdSprite)
+##   anims   [{sheet, directions, frames_per_direction, frames, durations, loop_back}]
+##           frames index the sheet: direction * frames_per_direction + frame; loop_back
+##           is how many entries to jump back after the last one (1 = hold the last frame)
+##   ramps   whether <name>.ramps.png holds the team colour ramps
+##   teams   colour rows: 9 for team-coloured sets (neutral + 8 players), else 1
 
 
 class Anim:
@@ -21,133 +23,41 @@ class Anim:
 		return loop_back > 1
 
 
-var palettes := PackedStringArray()
-var sub_sprites := PackedStringArray()
+var sub_sprites := PackedStringArray()  ## sheet paths relative to the set
 var sub_sprite_is_shadow: Array[bool] = []
 var anims: Array[Anim] = []
+var has_ramps := false
+var teams := 1
 
 
-static func parse(text: String) -> BobFile:
+static func from_json(text: String) -> BobFile:
+	var data = JSON.parse_string(text)
+	if not data is Dictionary:
+		return null
 	var bob := BobFile.new()
-	var section := ""
-	var current: Anim = null
-	for raw_line in text.split("\n"):
-		var line := raw_line.strip_edges()
-		if line.begins_with("ColTab#"):
-			section = "palette"
-		elif line.begins_with("SubSpriteFile#"):
-			section = "sprite"
-			bob.sub_sprites.append("")
-			bob.sub_sprite_is_shadow.append(false)
-		elif line.begins_with("AnimBlock#"):
-			section = "anim"
-			current = Anim.new()
-			bob.anims.append(current)
-		elif "=" in line:
-			var key := line.get_slice("=", 0)
-			var value := line.get_slice("=", 1).strip_edges()
-			match [section, key]:
-				["palette", "Filename"]:
-					bob.palettes.append(value)
-				["sprite", "Filename"]:
-					bob.sub_sprites[-1] = value
-				["sprite", "Typ"]:
-					bob.sub_sprite_is_shadow[-1] = value == "DARK"
-				["anim", "SubSpriteFile"]:
-					current.sub_sprite = value.to_int()
-				["anim", "AnzDirections"]:
-					current.directions = value.to_int()
-				["anim", "AnzFramesProAnim"]:
-					current.frames_per_direction = value.to_int()
-				["anim", "AnimList"]:
-					var numbers := value.split(",")
-					var i := 0
-					while i < numbers.size():
-						var n := numbers[i].to_int()
-						if n < 0:
-							current.loop_back = -n
-							break
-						current.frames.append(n)
-						current.durations_ms.append(numbers[i + 1].to_int() if i + 1 < numbers.size() else 100)
-						i += 2
+	for sheet: Dictionary in data.get("sheets", []):
+		bob.sub_sprites.append(sheet.get("file", ""))
+		bob.sub_sprite_is_shadow.append(sheet.get("shadow", false))
+	for entry: Dictionary in data.get("anims", []):
+		var anim := Anim.new()
+		anim.sub_sprite = int(entry.sheet)
+		anim.directions = int(entry.directions)
+		anim.frames_per_direction = int(entry.frames_per_direction)
+		anim.frames = PackedInt32Array(entry.frames)
+		anim.durations_ms = PackedInt32Array(entry.durations)
+		anim.loop_back = int(entry.loop_back)
+		bob.anims.append(anim)
+	bob.has_ramps = data.get("ramps", false)
+	bob.teams = int(data.get("teams", 1))
 	return bob
 
 
-## The colour tables a sheet is drawn with: its own extra table if it has one, else the
-## base palette and its team variants. Extra tables (anything but the base palette and its
-## "_Farbumwandlung_N_" variants) belong to the sheet named like them (fire: feuer_*.spx use
-## feuer_gross.ftb), else, for buildings' unnamed sheets, to the next picture sheet in order
-## (ground plate, damaged/rubble, animated part). Mirrors tools/upscale/hd_sprites.py.
-func palettes_for_sheet(sub: int) -> PackedStringArray:
-	if _sheet_palettes.is_empty():
-		_assign_sheet_palettes()
-	var own: String = _sheet_palettes.get(sub, "")
-	return PackedStringArray([own]) if not own.is_empty() else team_palettes()
-
-
-func team_palettes() -> PackedStringArray:
-	var out := PackedStringArray()
-	for i in palettes.size():
-		if i == 0 or palettes[i].to_lower().contains("farbumwandlung"):
-			out.append(palettes[i])
-	return out
-
-
-var _sheet_palettes := {}  # sheet index -> its own palette file
-
-
-func _assign_sheet_palettes() -> void:
-	_sheet_palettes[-1] = ""  # mark as computed
-	var named := PackedStringArray()
-	var unused := PackedStringArray()
-	for i in palettes.size():
-		if not palettes[i].to_lower().contains("farbumwandlung"):
-			named.append(palettes[i])
-			if i > 0:
-				unused.append(palettes[i])
-	if unused.is_empty():
-		return
-	var pictures: Array[int] = []
-	for i in sub_sprites.size():
-		if not sub_sprite_is_shadow[i]:
-			pictures.append(i)
-	var matched := {}
-	for sub in pictures:
-		var stem := sub_sprites[sub].to_lower().get_basename()
-		var best := ""
-		var best_len := 0
-		for p in named:
-			var n := _common_prefix(stem, p.to_lower())
-			if n > best_len:
-				best = p
-				best_len = n
-		if best_len >= 4:
-			matched[sub] = true
-			if best != palettes[0]:
-				_sheet_palettes[sub] = best
-				var at := unused.find(best)
-				if at >= 0:
-					unused.remove_at(at)
-	for k in range(1, pictures.size()):
-		var sub := pictures[k]
-		if not matched.has(sub) and not unused.is_empty():
-			_sheet_palettes[sub] = unused[0]
-			unused.remove_at(0)
-
-
-static func _common_prefix(a: String, b: String) -> int:
-	var n := 0
-	while n < mini(a.length(), b.length()) and a[n] == b[n]:
-		n += 1
-	return n
-
-
-## Index of the first animation whose sprite file name contains `stem` (body, not shadow).
+## Index of the first animation whose sheet name contains `stem` (body, not shadow).
 func find_anim(stem: String) -> int:
 	for i in anims.size():
 		var sub := anims[i].sub_sprite
 		if sub < sub_sprites.size() and not sub_sprite_is_shadow[sub] \
-				and sub_sprites[sub].to_lower().contains(stem):
+				and sub_sprites[sub].get_file().contains(stem):
 			return i
 	return -1
 

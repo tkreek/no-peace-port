@@ -5,8 +5,8 @@ extends RefCounted
 ## send one out); for a group, every member's portrait with its energy (click one to select
 ## only it, shift-click to drop it).
 
-const TREE_PORTRAIT := "Potraits/Sonstige_icons/z04_baum.bmp"
-const MINE_PORTRAIT := "Potraits/Sonstige_icons/z05_goldmine.bmp"
+const TREE_PORTRAIT := "portraits/other/z_04_tree.png"
+const MINE_PORTRAIT := "portraits/other/z_05_gold_mine.png"
 const PORTRAIT_SIZE := 72.0
 const CARD_SIZE := 44.0
 const CARD_STEP := 15.0  # queued units overlap like a hand of cards
@@ -183,9 +183,9 @@ func _set_portrait(guid: int, thing: Object) -> void:
 		return
 	var thumb: Thumbnail = null
 	if thing is MapObject and thing.is_tree():
-		thumb = Thumbnail.from_bmp(TREE_PORTRAIT)
+		thumb = Thumbnail.from_image(TREE_PORTRAIT)
 	elif thing is MapObject and thing.is_mine():
-		thumb = Thumbnail.from_bmp(MINE_PORTRAIT)
+		thumb = Thumbnail.from_image(MINE_PORTRAIT)
 	elif guid >= 0:
 		thumb = Thumbnail.portrait(guid)
 	if thumb == null and thing is MapObject and thing.object_type:

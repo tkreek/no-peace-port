@@ -41,8 +41,8 @@ func _run() -> void:
 		editor.place(GameData.type_for_guid(mex.army), Vector2(500 + i * 30, 520), 1)
 	editor.place(GameData.type_for_guid(mex.main, "steppe"), Vector2(1500, 520), 1)
 	editor.place(GameData.type_for_guid(Main.FACTIONS.usa.army), Vector2(700, 600), 2)
-	editor.place(MapEditor._type_named("Mine_ul_St"), Vector2(1600, 300), 0)
-	editor.place(MapEditor._type_named("Tier_Büffel"), Vector2(900, 1500), 0)
+	editor.place(ObjectTypes.named("mine_bottom_left_prairie"), Vector2(1600, 300), 0)
+	editor.place(ObjectTypes.named("animal_buffalo"), Vector2(900, 1500), 0)
 	if not editor.save():
 		print("editor: save failed")
 		get_tree().quit()
@@ -63,7 +63,7 @@ func _run() -> void:
 		if again.points[i] != TerrainRules.UNKNOWN and again.points[i] != editor.painter.points[i]:
 			differ += 1
 	print("editor: lattice read back, %d points differ" % differ)
-	_compare_original("[4 Players] - riverside.alf")
+	_compare_original("[4 Players] - riverside.ulf")
 	var shot := GameData.cmdline_option("editor-shot")
 	if not shot.is_empty():
 		var look := GameData.cmdline_option("editor-camera")

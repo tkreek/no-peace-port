@@ -44,7 +44,7 @@ func _draw_overlay(_canvas: Node2D) -> void:
 
 
 func set_palette_row(row: int) -> void:
-	_body.set_instance_shader_parameter("palette_row", clampi(row, 0, unit_type.bob.palettes.size() - 1))
+	_body.set_instance_shader_parameter("palette_row", clampi(row, 0, unit_type.bob.teams - 1))
 
 
 ## Whether the unit is standing (dead ones lose their selection ring). Unit overrides it.
@@ -151,7 +151,7 @@ func _set_frame(sprite: Sprite2D, anim_index: int) -> void:
 	if sprite.texture != sheet.texture:
 		SpriteMaterials.prepare(sprite, sheet)
 		if sprite == _body:
-			sprite.material = SpriteMaterials.body(sheet, unit_type.palette, unit_type.ramps)
+			sprite.material = SpriteMaterials.body(sheet, unit_type.ramps)
 	sheet.apply(sprite, frame)
 
 

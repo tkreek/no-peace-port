@@ -6,39 +6,19 @@ extends TextureRect
 static var _textures := {}  # portrait path -> texture
 
 
-## The original portrait (expansion Potraits/*.bmp) for a GUID, or null.
+## The portrait for a GUID (assets: portraits/...), or null.
 static func portrait(guid: int) -> Thumbnail:
-	return from_bmp(GameData.stats(guid).get("icon", ""))
+	return from_image(GameData.stats(guid).get("icon", ""))
 
 
-## One of the original portrait BMPs (Potraits/...), or null.
-static func from_bmp(path: String) -> Thumbnail:
+## A portrait picture (portraits/....png), or null.
+static func from_image(path: String) -> Thumbnail:
 	if path.is_empty() or not GameData.exists(path):
 		return null
-	if _textures.has(path):
-		return _portrait_thumb(_textures[path])
-	var enhanced := GameData.enhanced_image(path)
-	if enhanced:
-		enhanced.generate_mipmaps()  # 4x pictures shown at button size
-		_textures[path] = ImageTexture.create_from_image(enhanced)
-		return _portrait_thumb(_textures[path])
-	var bytes := GameData.read(path)
-	if bytes.size() < 54:
-		return null
-	# Some original BMPs carry wrong size fields in their headers; the pixel data is intact.
-	var data_offset := bytes.decode_u32(10)
-	bytes.encode_u32(2, bytes.size())
-	bytes.encode_u32(34, bytes.size() - data_offset)
-	var image := Image.new()
-	if image.load_bmp_from_buffer(bytes) != OK:
-		return null
-	image.convert(Image.FORMAT_RGBA8)
-	for y in image.get_height():
-		for x in image.get_width():
-			var c := image.get_pixel(x, y)
-			if c.r8 > 240 and c.g8 < 20 and c.b8 > 240:  # magenta colour key
-				image.set_pixel(x, y, Color(0, 0, 0, 0))
-	_textures[path] = ImageTexture.create_from_image(image)
+	if not _textures.has(path):
+		var image := GameData.load_image(path)
+		image.generate_mipmaps()  # large pictures shown at button size
+		_textures[path] = ImageTexture.create_from_image(image)
 	return _portrait_thumb(_textures[path])
 
 
@@ -57,7 +37,7 @@ static func for_type(type_id: int, team: int) -> Thumbnail:
 	var type := ObjectTypes.get_type(type_id)
 	if type == null:
 		return null
-	var bob := GameData.load_bob(type.bob_path)
+	var bob := GameData.load_bob(type.anims)
 	if bob == null or bob.anims.is_empty():
 		return null
 	var anim_index := 0
@@ -65,13 +45,13 @@ static func for_type(type_id: int, team: int) -> Thumbnail:
 	if type.kind == ObjectTypes.Kind.BUILDING:
 		anim_index = 2 if bob.anims.size() > 3 else 0
 	elif type.kind == ObjectTypes.Kind.UNIT:
-		anim_index = maxi(0, bob.find_anim("stehen"))
+		anim_index = maxi(0, bob.find_anim("idle"))
 		frame_in_anim = 0
 	else:  # trees, rocks, mines: the type's own animation, first frame
 		anim_index = clampi(type.anim, 0, bob.anims.size() - 1)
 		frame_in_anim = 0
 	var anim := bob.anims[anim_index]
-	var sheet := GameData.load_sprite(type.directory().path_join(bob.sub_sprites[anim.sub_sprite]))
+	var sheet := GameData.load_set_sheet(type.anims, bob, anim.sub_sprite)
 	if sheet == null:
 		return null
 	var frame := anim.frames[frame_in_anim if frame_in_anim >= 0 else anim.frames.size() - 1]
@@ -88,9 +68,8 @@ static func for_type(type_id: int, team: int) -> Thumbnail:
 	thumb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	thumb.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	thumb.material = SpriteMaterials.body(sheet, GameData.load_palette_texture(type.directory(), bob.palettes),
-			GameData.load_ramps(type.bob_path))
-	thumb.set_meta("palette_row", mini(team, bob.palettes.size() - 1))
+	thumb.material = SpriteMaterials.body(sheet, GameData.load_ramps(type.anims))
+	thumb.set_meta("palette_row", mini(team, bob.teams - 1))
 	return thumb
 
 

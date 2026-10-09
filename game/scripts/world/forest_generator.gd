@@ -17,7 +17,7 @@ const JITTER := 18.0
 const KEEP_CLEAR := 96.0  # around mines and other objects
 const START_CLEAR := 250.0  # around player start points (room for the main building)
 ## Wood per tree from Defaults.dat (Rohstoffe 302): large 250, small 200, bare 150.
-const WOOD := {"gr": 250, "kl": 200, "ohne": 150}
+const WOOD := {"large": 250, "small": 200, "without": 150}
 
 
 class PlantedTree:
@@ -32,13 +32,13 @@ static func is_forest_tile(tile: int) -> bool:
 
 static func generate(map: AlfMap, biome: String, avoid: Array[Vector2], starts: Array) -> Array[PlantedTree]:
 	var trees: Array[PlantedTree] = []
-	var atlas := RdImage.read_indexed_pic(GameData.read("%s/gfx/landschaft/steppe.pic" % biome))
+	var atlas := Terrain.atlas_for(biome)
 	if atlas.is_empty():
 		return trees
 	var pixels: PackedByteArray = atlas.pixels
 	var width: int = atlas.width
 	var per_row := width / AlfMap.CELL_SIZE
-	var kinds := {"laub": _tree_types("Baum_Laub", biome), "nadel": _tree_types("Baum_Nadel", biome)}
+	var kinds := {"laub": _tree_types("tree_deciduous", biome), "nadel": _tree_types("tree_conifer", biome)}
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(map.title)
 	var size := Vector2(map.pixel_size())
@@ -79,11 +79,11 @@ static func generate(map: AlfMap, biome: String, avoid: Array[Vector2], starts: 
 
 ## Tree object types of one kind for the biome (all sizes and colour variants a/b/c).
 static func _tree_types(prefix: String, biome: String) -> Array:
-	var suffix := "_Wi" if biome == "wiese" else "_St"
+	var suffix := "_meadow" if biome == "wiese" else "_prairie"
 	var out := []
 	for id in ObjectTypes.count():
 		var type := ObjectTypes.get_type(id)
-		if type and type.name.begins_with(prefix) and type.name.ends_with(suffix) and not type.bob_path.is_empty():
+		if type and type.name.begins_with(prefix) and type.name.ends_with(suffix) and not type.anims.is_empty():
 			out.append(id)
 	return out
 

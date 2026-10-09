@@ -22,7 +22,7 @@ const SIZES := [64, 96, 128, 192, 256, 320, 384]
 const DEFAULT_FILL := 2
 const MINE_GOLD := 5000
 const UNDO_LIMIT := 30
-const START_NAME := "Editor_Start"
+const START_NAME := "editor_start"
 const PICK_RADIUS := 36.0
 
 var map: AlfMap
@@ -56,7 +56,7 @@ var _start_type := -1
 func _ready() -> void:
 	if not GameData.is_ready():
 		return
-	_start_type = _type_named(START_NAME)
+	_start_type = ObjectTypes.named(START_NAME)
 	pieces.y_sort_enabled = true
 	add_child(pieces)
 	add_child(overlay)
@@ -297,7 +297,7 @@ func place(type_id: int, at: Vector2, who: int) -> void:
 	p.position = at.round()
 	p.type_id = type_id
 	p.owner = who if type.kind != ObjectTypes.Kind.ELEMENT or _is_animal(type) else 0
-	if type.name.begins_with("Mine"):
+	if type.name.begins_with("mine"):
 		p.amount = mine_gold
 	map.placements.append(p)
 	pieces.add_child(_make_piece(p))
@@ -385,9 +385,9 @@ func _rebuild_pieces() -> void:
 func _make_piece(p: AlfMap.Placement) -> Node2D:
 	var type := ObjectTypes.get_type(p.type_id)
 	var piece: Node2D = null
-	if type and p.type_id != _start_type and not type.bob_path.is_empty():
+	if type and p.type_id != _start_type and not type.anims.is_empty():
 		if type.kind == ObjectTypes.Kind.UNIT:
-			var unit_type := UnitType.load_type(type.directory(), type.name.contains("Pferd"), type.id)
+			var unit_type := UnitType.load_type(type.directory(), type.is_mounted(), type.id)
 			if unit_type:
 				var sprite := UnitSprite.new()
 				sprite._setup_sprites(unit_type, p.owner)
@@ -430,15 +430,7 @@ func start_type() -> int:
 
 
 static func _is_animal(type: ObjectTypes.ObjectType) -> bool:
-	return type.name.begins_with("Tier_")
-
-
-static func _type_named(name: String) -> int:
-	for id in ObjectTypes.count():
-		var type := ObjectTypes.get_type(id)
-		if type and type.name == name:
-			return id
-	return -1
+	return type.name.begins_with("animal_")
 
 
 ## A start point marker: a pole with a flag in the player's colour and their number.

@@ -10,7 +10,7 @@ const BUILD_WORK_PER_HEALTH := 0.05
 const BURNT_BELOW := 0.33
 const FIRE_BELOW := 0.66
 const RUBBLE_SECONDS := 25.0
-const FIRE_BOB := "global/gfx/feuer/fire.bob"
+const FIRE_BOB := "effects/fire/fire.anims.json"
 ## fire.bob: 0 large, 1 medium, 2 small flames; 3-5 clouds; 6 smoke column.
 const FIRE_STAGES := [[], [2, 6], [2, 1, 0, 6]]
 ## Flaming arrows "set fortifications and houses on fire" (manual 5.1): a hit sets the

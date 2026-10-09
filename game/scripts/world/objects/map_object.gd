@@ -23,7 +23,7 @@ const DROP_OFFS := {
 const FOOD_STORES := [108, 208, 408]
 const FIELD_GUID := 149
 const FIELDS_PER_STORE := 5
-const GOLD_MINE_GUID := 700  # selection sound "sound goldmine"
+const GOLD_MINE_GUID := 700  # selection sound "gold_mine"
 const PITFALL_GUID := BuildingDefence.PITFALL_GUID
 ## Wharves and the boathouse launch boats, so they go up at the water's edge.
 const SHIPYARDS := [218, 418, 315]
@@ -61,7 +61,6 @@ var defence: BuildingDefence
 var _bob: BobFile
 var _body: Sprite2D
 var _shadow: Sprite2D
-var _palette: Texture2D
 var _ramps: Texture2D
 var _overlay := DrawOverlay.new()
 var _work_rect := Rect2()
@@ -94,12 +93,11 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 			health = max_health * 0.1
 		else:
 			accepts = drop_off_for(guid)
-	_bob = GameData.load_bob(type.bob_path)
+	_bob = GameData.load_bob(type.anims)
 	if _bob == null or _bob.anims.is_empty():
 		return false
-	_is_tree = type.name.begins_with("Baum") and _bob.anims.size() > ObjectStock.TREE_STUMP_ANIM + 1
-	_palette = GameData.load_palette_texture(type.directory(), _bob.palettes)
-	_ramps = GameData.load_ramps(type.bob_path)
+	_is_tree = type.name.begins_with("tree") and _bob.anims.size() > ObjectStock.TREE_STUMP_ANIM + 1
+	_ramps = GameData.load_ramps(type.anims)
 	_shadow = Sprite2D.new()
 	_body = Sprite2D.new()
 	SpriteMaterials.make_shadow(_shadow)
@@ -111,7 +109,7 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 	add_child(_overlay)
 	if not refresh_sprites():
 		return false
-	_team_row = mini(owner if type.kind == ObjectTypes.Kind.BUILDING and owner > 0 else 0, _bob.palettes.size() - 1)
+	_team_row = mini(owner if type.kind == ObjectTypes.Kind.BUILDING and owner > 0 else 0, _bob.teams - 1)
 	_body.set_instance_shader_parameter("palette_row", _palette_row(_body_anim))
 	return true
 
@@ -157,7 +155,7 @@ func is_tree() -> bool:
 
 
 func is_mine() -> bool:
-	return object_type != null and object_type.name.begins_with("Mine")
+	return object_type != null and object_type.name.begins_with("mine")
 
 
 func is_trap() -> bool:
@@ -403,7 +401,7 @@ func refresh_sprites() -> bool:
 		shadow_anim = _bob.shadow_for(body_anim)
 	if not _show(_body, body_anim, frame_hint):
 		return false
-	_body.material = SpriteMaterials.body(_body.get_meta("sheet"), _palette, _ramps)
+	_body.material = SpriteMaterials.body(_body.get_meta("sheet"), _ramps)
 	if body_anim != _body_anim:
 		_body_anim = body_anim
 		_body.set_instance_shader_parameter("palette_row", _palette_row(body_anim))
@@ -417,14 +415,8 @@ func shows_rubble() -> bool:
 	return _body_anim == RUBBLE_ANIM
 
 
-## Palette row for a sheet: the team's colours, or the sheet's own table (burnt walls,
-## rubble, windmill) which the palette texture holds as a further row.
-func _palette_row(anim_index: int) -> int:
-	if anim_index < 0 or anim_index >= _bob.anims.size():
-		return _team_row
-	var own := _bob.palettes_for_sheet(_bob.anims[anim_index].sub_sprite)
-	if own.size() == 1 and own[0] != _bob.palettes[0]:
-		return maxi(0, Array(_bob.palettes).find(own[0]))
+## Colour row for a sheet: the team's (sheets without team colours ignore it).
+func _palette_row(_anim_index: int) -> int:
 	return _team_row
 
 
@@ -449,7 +441,7 @@ func _update_ambient() -> void:
 		move_child(_ambient, _body.get_index() + 1)
 		_ambient_step = 0
 		_show(_ambient, AMBIENT_ANIM, 0)
-		_ambient.material = SpriteMaterials.body(_ambient.get_meta("sheet"), _palette, _ramps)
+		_ambient.material = SpriteMaterials.body(_ambient.get_meta("sheet"), _ramps)
 		_ambient.set_instance_shader_parameter("palette_row", _palette_row(AMBIENT_ANIM))
 
 
@@ -464,7 +456,7 @@ func _advance_ambient(delta: float) -> void:
 
 func _show(sprite: Sprite2D, anim_index: int, frame_hint: int) -> bool:
 	var anim := _bob.anims[anim_index]
-	var sheet := GameData.load_sprite(object_type.directory().path_join(_bob.sub_sprites[anim.sub_sprite]))
+	var sheet := GameData.load_set_sheet(object_type.anims, _bob, anim.sub_sprite)
 	if sheet == null or anim.frames.is_empty():
 		return false
 	var frame := anim.frames[frame_hint if frame_hint >= 0 else anim.frames.size() - 1]

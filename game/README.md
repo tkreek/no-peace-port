@@ -1,54 +1,61 @@
 # America Remastered (Godot 4)
 
-A 2D engine that plays *America: No Peace Beyond the Line* (Related Designs, 2000) with the
-original art and sound, read from your own copy of the game at runtime. No original assets are
-included in this repository.
+A 2D engine that plays *America: No Peace Beyond the Line* (Related Designs, 2000) with its
+art and sound, upscaled. The game reads everything from an asset folder (`assets/`, beside
+`game/`) that is built from your own copy of the original game; no original assets are in
+this repository.
 
 ## Setup
 
 1. Install Godot 4.7+.
-2. Get the original game files. From the CD image:
+2. Get the asset folder, either:
+   - from someone who has built it: put the `assets/` folder beside `game/` (or anywhere,
+     and start with `--assets-dir=<folder>` or set `[paths] assets_dir` in
+     `user://settings.cfg`), or
+   - by building it (below).
+3. Run `godot --path game`. The game opens on the main menu: "Skirmish" picks a map (all
+   71), your people and up to seven computer opponents; "Map editor" builds maps. Esc in a
+   game opens the in-game menu.
+
+## Building the assets
+
+From the original CD and the expansion pack:
+
+1. Extract the game into `original/install` (and the expansion's `Setup/data1.cab` into
+   `original/expansion/install`):
    ```bash
    bsdtar -xf America.iso -C original/iso
    python3 tools/extract_is5_cab.py original/iso/DATA1.CAB original/install
    ```
-   This yields `original/install/Programm/` with `america0.rda` … `america4.rda` and `Levels/`.
-   An existing installation folder works too.
-3. Optional: the expansion pack. Extract its `Setup/data1.cab` the same way into
-   `original/expansion/install` (or install it into the same folder as the base game). It adds
-   51 maps, new units and buildings, the original portrait icons and the editor's real
-   default stats (`Defaults.dat`).
-4. Run:
+   This yields `original/install/Programm/` with `america0.rda` … `america4.rda`, `Levels/`
+   and `Music/`. The expansion adds 51 maps, units and buildings, the portraits, the
+   editor's real default stats and the terrain painting rules.
+2. Upscale the graphics with Real-ESRGAN into `original/hd` (about 2 hours on an RTX 4060 Ti):
    ```bash
-   godot --path game -- --install-dir=/path/to/Programm
+   python3 -m venv tools/.venv && tools/.venv/bin/pip install numpy pillow
+   # put the realesrgan-ncnn-vulkan release in tools/bin/realesrgan/
+   tools/.venv/bin/python tools/upscale/hd_sprites.py original/install/Programm original/hd --addon original/expansion/install/Programm
+   tools/.venv/bin/python tools/upscale/hd_images.py original/install/Programm original/hd --addon original/expansion/install/Programm
+   tools/.venv/bin/python tools/upscale/hd_terrain.py original/install/Programm original/hd
    ```
-   Without `--install-dir` the game looks in `../original/install/Programm` (the dev checkout layout)
-   or `user://settings.cfg` `[paths] install_dir` (and `addon_dir` for the expansion).
+3. Build the asset folder (a few seconds):
+   ```bash
+   python3 tools/assets/build_assets.py
+   ```
+   It writes `assets/` with English names: `units/`, `buildings/`, `animals/`, `nature/`,
+   `effects/`, `interface/`, `portraits/`, `terrain/`, `sounds/`, `music/`, `maps/` and the
+   JSON tables in `data/`, plus `manifest.json` (original path → asset path) and
+   `REPORT.md` (what was left out and why; see `docs/production/unmapped-assets.md`).
 
-The game opens on the main menu; "Skirmish" picks a map (all 71), your people and up to four
-computer opponents. Esc in a game opens the in-game menu.
-
-## Enhanced graphics (optional)
-
-The upscaled sprite set is built once from your install with Real-ESRGAN (about 2 hours on an
-RTX 4060 Ti, ~900 MB):
-
-```bash
-python3 -m venv tools/.venv && tools/.venv/bin/pip install numpy pillow
-# put the realesrgan-ncnn-vulkan release in tools/bin/realesrgan/
-tools/.venv/bin/python tools/upscale/hd_sprites.py original/install/Programm original/hd
-```
-
-The game uses `original/hd` automatically (or `--hd-dir=`, or `[paths] hd_dir` in
-`user://settings.cfg`); `--graphics=classic` forces the original pixels.
+The game never reads `original/`; it is only the source for the tools.
 
 ## Options (after `--`)
 
 Any of `--map`, `--scenario`, `--screenshot`, `--report-after` skips the menu and starts a game.
 
-- `--map=<file in either Levels/ folder or absolute path>`: default `[2 Players] - close combat.alf`.
+- `--map=<file in assets/maps or maps/, or an absolute path>`: default `[2 Players] - close combat.ulf`.
 - `--faction=ind|mex|des|usa`, `--enemy=...`: the peoples (default Mexicans vs. Americans).
-- `--fog=off`, `--ai=off`, `--expansion=off`.
+- `--fog=off`, `--ai=off`.
 - `--biome=steppe|wiese`: override the biome detected from the map's objects.
 - `--camera=x,y`, `--zoom=z`.
 - `--screenshot=<png> --frames=<n>`: render, save a frame and quit (used for automated checks).
@@ -57,6 +64,7 @@ Any of `--map`, `--scenario`, `--screenshot`, `--report-after` skips the menu an
   units and buildings). `--trace-ai=1` logs the AI's building and attacks; `--ai-ferry=1`
   makes it ferry its waves by boat as if the enemy were across the water.
 - `--selftest=1`: decode every sound and map and report.
+- `--assets-dir=<folder>`: the asset folder (default `assets/` beside `game/`).
 
 ## Controls
 
@@ -92,9 +100,9 @@ Main menu → Map editor (or `-- --editor[=<map file>]`).
 
 ## Layout
 
-- `scripts/formats/`: readers for the original formats (RDA archives, LZW, `.alf` maps, sprites,
-  palettes, `.bob` animations, the `BobListe.blf` object table). See `docs/technical/file-formats.md`.
-- `scripts/core/`: autoloads that find the installation and serve its files (`GameData`), play
+- `scripts/formats/`: readers for the asset formats: maps (`.ulf`), sprite sheets, animation
+  sets, the object types, the editor defaults and the terrain painting rules.
+- `scripts/core/`: autoloads that serve the asset folder and its tables (`GameData`), play
   sounds and music (`Sound`), hold the match settings (`Match`); player settings.
 - `scripts/main.gd`: the match: map, peoples, interface, computer players, victory.
 - `scripts/world/`: terrain, navigation (ground, water, both), fog of war, camera, selection

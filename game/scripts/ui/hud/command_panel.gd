@@ -7,10 +7,10 @@ extends RefCounted
 ## Buttons are rebuilt only when what they depend on changes; in between, their
 ## affordability and research progress are updated.
 
-const COMMAND_ICONS := "global/gfx/usa/sonstigeicons/SonstigeIcons.spr"
-const EXTRA_ICONS := "global/gfx/usa/sonstigeicons/Iconserstereihe.spr"
-const SMALL_ICONS := "global/gfx/usa/sonstigeicons/KleineIcons.spr"
-const FIELD_ICONS := "global/gfx/usa/icons/einheiten/USAEinheiten.spr"
+const COMMAND_ICONS := "interface/icons/misc/misc_icons"
+const EXTRA_ICONS := "interface/icons/misc/icons_first_row"
+const SMALL_ICONS := "interface/icons/misc/small_icons"
+const FIELD_ICONS := "interface/icons/units/americans/american_units"
 ## SonstigeIcons frames (colour; +1 is the greyed version).
 const ICON_STOP := 14
 const ICON_BUILD := 18  # small hammer: structures for the economic and military cycle

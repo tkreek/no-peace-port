@@ -14,6 +14,9 @@ Thumbs.db
 original/
 *.rda
 
+# The game's asset folder, built from the original by tools/assets/build_assets.py.
+/assets/
+
 # Large reference manuals are documented externally, not versioned here.
 assets/reference/
 game/assets/reference/

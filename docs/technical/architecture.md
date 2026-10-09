@@ -5,6 +5,23 @@
 The game is a Godot 4 project in `game/`, written in GDScript. `game/README.md` lists the
 folders; these are the conventions that hold them together.
 
+**Assets.** The game reads only the asset folder (`assets/`, built by
+`tools/assets/build_assets.py` from the original game and the upscaled set; see
+`docs/production/unmapped-assets.md`). Everything in it has an English name and an
+engine-friendly format:
+- sprite sheets are a PNG atlas plus a JSON frame list;
+- animation sets are `.anims.json`;
+- pictures are PNG;
+- tables are JSON in `assets/data/`;
+- maps are zlib-packed `.ulf`.
+
+Code names assets by their path in the folder (`GameData.load_sprite("interface/hud/bar/sheet_1")`).
+Object types carry English names (`tree_conifer_large_01_prairie`,
+`americans_cavalryman_mounted`), and unit actions are found by English words in the sheet
+names (`walk`, `idle`, `die`...). The original formats are read only by the Python tools in
+`tools/formats/` and `tools/assets/`. New mappings, such as a word or a folder name, go into
+`tools/assets/glossary.py`.
+
 **Units and map objects are a core plus parts.** `Unit` (`scripts/world/units/unit.gd`)
 holds what every unit has: its state machine, orders, combat, movement, health, morale and
 experience. Everything particular to some kinds of unit lives in a part: `UnitWork`

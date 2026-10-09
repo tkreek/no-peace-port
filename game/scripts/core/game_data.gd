@@ -1,39 +1,28 @@
 extends Node
-## Autoload "GameData": locates the original installation and serves files from its
-## .rda archives. Nothing from the original game is shipped with this project; the
-## player points the game at their own copy.
+## Autoload "GameData": serves the game's assets and data tables from the asset folder
+## (made from the original game by tools/assets/build_assets.py; nothing from the original
+## game is shipped with this project).
 ##
-## Install dir resolution: --install-dir=<path> on the command line, then
-## user://settings.cfg [paths] install_dir, then ../original/install/Programm (dev checkout).
-## The expansion pack (america5..9.rda) is found in the install dir itself (a normal
-## installation), or --addon-dir / [paths] addon_dir / ../original/expansion/install/Programm.
-## Its archives take priority, and its data tables (global/guids2) replace the base ones.
+## Asset folder: --assets-dir=<path> on the command line, then user://settings.cfg
+## [paths] assets_dir, then assets/ beside the game folder (a project checkout) or beside
+## the executable (an exported build).
+##
+## Paths are relative to the asset folder: sprite sheets without extension (RdSprite),
+## animation sets as <name>.anims.json (BobFile), pictures as .png.
 
-const ARCHIVES := ["america0.rda", "america1.rda", "america2.rda", "america3.rda", "america4.rda"]
-const ADDON_ARCHIVES := ["america5.rda", "america6.rda", "america7.rda", "america8.rda", "america9.rda"]
-## Base data file -> expansion replacement.
-const ADDON_TABLES := {
-	"BobListe.blf": "global/guids2/BobListe2.blf",
-	"global/guids/GUIDS.INI": "global/guids2/GUIDS.INI",
-	"global/guids/Guids2.ini": "global/guids2/Guids2.ini",
-	"global/guids/DEFS.INI": "global/guids2/DEFS.INI",
-	"global/guids/rules.def": "global/guids2/rules.def",
-}
 const SETTINGS_PATH := "user://settings.cfg"
+const OBJECT_TYPES := "data/object_types.json"
 
-var install_dir := ""
-var addon_dir := ""
+var assets_dir := ""
+## The expansion's data (editor defaults, terrain painting rules) is part of the assets.
 var has_expansion := false
-## Folder with the upscaled set from tools/upscale/hd_sprites.py; empty = classic graphics only.
-var enhanced_dir := ""
-var archives: Array[RdaArchive] = []
 var _bob_cache := {}
 var _sprite_cache := {}
-var _palette_cache := {}
-var _texts := {}       # text id -> String (TEXTE.eng, text2.eng)
-var _menu_texts := {}  # text id -> String (Menu.eng: menu captions, a separate numbering)
-var _guids := {}       # object type id -> GUID (GUIDS.INI steppe + Guids2.ini meadow)
-var _defs := {}        # DEFS.INI key -> value
+var _ramps_cache := {}
+var _texts := {}       # text id -> String
+var _menu_texts := {}  # text id -> String (menu captions, a separate numbering)
+var _guids := {}       # object type id -> GUID
+var _defs := {}        # game constants: name -> value or list by tier
 var _stats := {}
 ## Expansion units' production places (from the expansion manual), filled in by GUID.
 const EXPANSION_PRODUCTION := {
@@ -45,27 +34,16 @@ const EXPANSION_PRODUCTION := {
 
 
 func _ready() -> void:
-	install_dir = _resolve_install_dir()
-	addon_dir = _resolve_addon_dir()
-	enhanced_dir = _resolve_enhanced_dir()
-	if not addon_dir.is_empty():
-		for name in ADDON_ARCHIVES:
-			var archive := RdaArchive.new()
-			if archive.open(addon_dir.path_join(name)) == OK:
-				archives.append(archive)
-		has_expansion = not archives.is_empty()
-	for name in ARCHIVES:
-		var archive := RdaArchive.new()
-		if archive.open(install_dir.path_join(name)) == OK:
-			archives.append(archive)
-	if not archives.is_empty():
+	assets_dir = _resolve_assets_dir()
+	if is_ready():
+		has_expansion = exists("data/defaults.json")
 		_load_tables()
-	if archives.is_empty():
-		push_error("No original game archives found in '%s'. Pass --install-dir=<folder with america0.rda>." % install_dir)
+	else:
+		push_error("No asset folder at '%s'. Build it with tools/assets/build_assets.py or pass --assets-dir=<folder>." % assets_dir)
 
 
 func is_ready() -> bool:
-	return not archives.is_empty()
+	return FileAccess.file_exists(assets_dir.path_join(OBJECT_TYPES))
 
 
 func cmdline_option(name: String, default: String = "") -> String:
@@ -75,144 +53,82 @@ func cmdline_option(name: String, default: String = "") -> String:
 	return default
 
 
-func _resolve_install_dir() -> String:
-	var from_args := cmdline_option("install-dir")
+func _resolve_assets_dir() -> String:
+	var from_args := cmdline_option("assets-dir")
 	if not from_args.is_empty():
 		return from_args
 	var config := ConfigFile.new()
-	if config.load(SETTINGS_PATH) == OK and config.has_section_key("paths", "install_dir"):
-		return config.get_value("paths", "install_dir")
-	return ProjectSettings.globalize_path("res://").path_join("../original/install/Programm").simplify_path()
+	if config.load(SETTINGS_PATH) == OK and config.has_section_key("paths", "assets_dir"):
+		return config.get_value("paths", "assets_dir")
+	var base := ProjectSettings.globalize_path("res://").path_join("..") if OS.has_feature("editor") \
+			else OS.get_executable_path().get_base_dir()
+	return base.path_join("assets").simplify_path()
 
 
-func _resolve_addon_dir() -> String:
-	if cmdline_option("expansion") == "off":
-		return ""
-	if FileAccess.file_exists(install_dir.path_join("america5.rda")):
-		return install_dir
-	var dir := cmdline_option("addon-dir")
-	if dir.is_empty():
-		var config := ConfigFile.new()
-		if config.load(SETTINGS_PATH) == OK and config.has_section_key("paths", "addon_dir"):
-			dir = config.get_value("paths", "addon_dir")
-		else:
-			dir = ProjectSettings.globalize_path("res://").path_join("../original/expansion/install/Programm").simplify_path()
-	return dir if FileAccess.file_exists(dir.path_join("america5.rda")) else ""
+## Absolute path of an asset.
+func path(asset: String) -> String:
+	return assets_dir.path_join(asset)
 
 
-## A data table, from the expansion when it replaces it.
-func table_path(base_path: String) -> String:
-	if has_expansion and ADDON_TABLES.has(base_path) and exists(ADDON_TABLES[base_path]):
-		return ADDON_TABLES[base_path]
-	return base_path
+func read(asset: String) -> PackedByteArray:
+	return FileAccess.get_file_as_bytes(path(asset))
 
 
-func _resolve_enhanced_dir() -> String:
-	if cmdline_option("graphics") == "classic" or (cmdline_option("graphics") == "" and Settings.enabled("classic_graphics")):
-		return ""
-	var dir := cmdline_option("hd-dir")
-	if dir.is_empty():
-		var config := ConfigFile.new()
-		if config.load(SETTINGS_PATH) == OK and config.has_section_key("paths", "hd_dir"):
-			dir = config.get_value("paths", "hd_dir")
-		else:
-			dir = ProjectSettings.globalize_path("res://").path_join("../original/hd").simplify_path()
-	return dir if DirAccess.dir_exists_absolute(dir) else ""
+func exists(asset: String) -> bool:
+	return FileAccess.file_exists(path(asset))
 
 
-func read(path: String) -> PackedByteArray:
-	for archive in archives:
-		if archive.has(path):
-			return archive.read(path)
-	return PackedByteArray()
+func read_text(asset: String) -> String:
+	return FileAccess.get_file_as_string(path(asset))
 
 
-func exists(path: String) -> bool:
-	for archive in archives:
-		if archive.has(path):
-			return true
-	return false
+func read_json(asset: String) -> Variant:
+	return JSON.parse_string(read_text(asset)) if exists(asset) else null
 
 
-func read_text(path: String) -> String:
-	return read(path).get_string_from_ascii()
+## The asset files in a folder (names only).
+func list(folder: String) -> PackedStringArray:
+	return DirAccess.get_files_at(path(folder)) if DirAccess.dir_exists_absolute(path(folder)) else PackedStringArray()
 
 
-func load_image(path: String) -> Image:
-	var enhanced := enhanced_image(path)
-	if enhanced:
-		return enhanced
-	var bytes := read(path)
-	return RdImage.pic_to_image(bytes) if not bytes.is_empty() else null
+func load_image(asset: String) -> Image:
+	return Image.load_from_file(path(asset)) if exists(asset) else null
 
 
-## The upscaled version of a still image (tools/upscale/hd_images.py), or null.
-func enhanced_image(path: String) -> Image:
-	if enhanced_dir.is_empty():
-		return null
-	var file := enhanced_dir.path_join(RdaArchive.normalize(path)) + ".png"
-	if not FileAccess.file_exists(file):
-		return null
-	return Image.load_from_file(file)
+## An animation set (<name>.anims.json).
+func load_bob(asset: String) -> BobFile:
+	if not _bob_cache.has(asset):
+		_bob_cache[asset] = BobFile.from_json(read_text(asset)) if exists(asset) else null
+	return _bob_cache[asset]
 
 
-func load_bob(path: String) -> BobFile:
-	var key := RdaArchive.normalize(path)
-	if not _bob_cache.has(key):
-		var text := read_text(path)
-		_bob_cache[key] = BobFile.parse(text) if not text.is_empty() else null
-	return _bob_cache[key]
+## A sprite sheet: <asset>.png with its frames in <asset>.json.
+func load_sprite(asset: String) -> RdSprite:
+	if not _sprite_cache.has(asset):
+		_sprite_cache[asset] = RdSprite.load_sheet(path(asset)) if exists(asset + ".json") else null
+	return _sprite_cache[asset]
 
 
-func load_sprite(path: String) -> RdSprite:
-	var key := RdaArchive.normalize(path)
-	if not _sprite_cache.has(key):
-		var enhanced := enhanced_dir.path_join(key)
-		if not enhanced_dir.is_empty() and FileAccess.file_exists(enhanced + ".json"):
-			_sprite_cache[key] = RdSprite.load_enhanced(enhanced)
-		else:
-			var bytes := read(path)
-			_sprite_cache[key] = RdSprite.load_bytes(bytes) if not bytes.is_empty() else null
-	return _sprite_cache[key]
+## A sheet of an animation set, by the set's path and the sheet's index.
+func load_set_sheet(set_path: String, bob: BobFile, sheet: int) -> RdSprite:
+	return load_sprite(set_path.get_base_dir().path_join(bob.sub_sprites[sheet]).simplify_path())
 
 
-## A 256 x N RGBA texture with one row per palette file (row 0 = base, 1..8 = teams).
-func load_palette_texture(directory: String, files: PackedStringArray) -> ImageTexture:
-	var key := RdaArchive.normalize(directory.path_join(",".join(files)))
-	if _palette_cache.has(key):
-		return _palette_cache[key]
-	var image := Image.create_empty(256, maxi(1, files.size()), false, Image.FORMAT_RGBA8)
-	for row in files.size():
-		var colors := RdImage.read_palette(read(directory.path_join(files[row])))
-		for i in colors.size():
-			image.set_pixel(i, row, colors[i])
-	var texture := ImageTexture.create_from_image(image)
-	_palette_cache[key] = texture
-	return texture
-
-
-## Team colour ramps for an upscaled .bob (64 x 9), or null.
-func load_ramps(bob_path: String) -> Texture2D:
-	var path := enhanced_dir.path_join(RdaArchive.normalize(bob_path)) + ".ramps.png"
-	if enhanced_dir.is_empty() or not FileAccess.file_exists(path):
-		return null
-	if not _palette_cache.has(path):
-		_palette_cache[path] = ImageTexture.create_from_image(Image.load_from_file(path))
-	return _palette_cache[path]
+## Team colour ramps of an animation set (64 x 9: row t = team t's colour by shading), or null.
+func load_ramps(set_path: String) -> Texture2D:
+	var ramps := set_path.trim_suffix(".anims.json") + ".ramps.png"
+	if not _ramps_cache.has(ramps):
+		_ramps_cache[ramps] = ImageTexture.create_from_image(load_image(ramps)) if exists(ramps) else null
+	return _ramps_cache[ramps]
 
 
 func _load_tables() -> void:
-	for file in ["global/guids2/texte-Add-on.eng", "global/guids2/text2-Add-on.eng",
-			"global/guids/TEXTE.eng", "global/guids/text2.eng"]:
-		for line in read_latin1(file).split("\n"):
-			var id := line.get_slice("=", 0).strip_edges()
-			if "=" in line and id.is_valid_int() and not _texts.has(id.to_int()):
-				_texts[id.to_int()] = line.substr(line.find("=") + 1).strip_edges()
-	for file in ["global/guids2/Menu.eng", "global/guids/Menu.eng"]:
-		for line in read_latin1(file).split("\n"):
-			var id := line.get_slice("=", 0).strip_edges()
-			if "=" in line and id.is_valid_int() and not _menu_texts.has(id.to_int()):
-				_menu_texts[id.to_int()] = line.substr(line.find("=") + 1).strip_edges()
+	var texts: Dictionary = read_json("data/texts.json")
+	for key in texts:
+		_texts[key.to_int()] = texts[key]
+	var menu: Dictionary = read_json("data/menu_texts.json")
+	for key in menu:
+		_menu_texts[key.to_int()] = menu[key]
 	var stats_json = JSON.parse_string(FileAccess.get_file_as_string("res://data/stats.json"))
 	if stats_json is Dictionary:
 		for key in stats_json:
@@ -223,8 +139,8 @@ func _load_tables() -> void:
 			if entry.has("produced_at") and entry.produced_at is float:
 				entry.produced_at = int(entry.produced_at)
 			_stats[int(key)] = entry
-	# The editor's Defaults.dat (expansion) holds the real values; the manual data still
-	# supplies production places and prerequisite names.
+	# The expansion editor's defaults (data/defaults.json) hold the real values; the manual
+	# data still supplies production places and prerequisite names.
 	var defaults := DefaultsData.load()
 	for guid in defaults:
 		var entry: Dictionary = defaults[guid]
@@ -257,7 +173,7 @@ func _load_tables() -> void:
 		_stats[BuildingProduction.TRADE_GUID + i] = {"kind": "trade", "name": "%s %s" % ["Buy" if trade.buy else "Sell", trade.good],
 				"faction": "", "build_time": 6, "cost": {}, "icon_frame": trade.icon}
 	_stats[BuildingProduction.COW_GUID] = {"kind": "cow", "name": "Cow", "faction": "", "build_time": 15,
-			"cost": {"food": 40}, "icon": "Potraits/Sonstige_icons/z08_kuh.bmp",
+			"cost": {"food": 40}, "icon": "portraits/other/z_08_cow.png",
 			"function": "Raises a cow; it gains up to 25 gold of value while grazing"}
 	# The American "Stagecoach" upgrade (editor GUID 990) the manual lists at the sawmill.
 	if not _stats.has(BuildingProduction.STAGECOACH_UPGRADE):
@@ -270,30 +186,15 @@ func _load_tables() -> void:
 			"function": "Makes a rifle for the units that need one", "icon_frame": 52}
 	# Raising a horse (manual: corral, hacienda, ranch; "costs food"; no editor entry).
 	_stats[BuildingProduction.HORSE_GUID] = {"kind": "horse", "name": "Horse", "faction": "", "build_time": 20,
-			"cost": {"food": 50}, "icon": "Potraits/Sonstige_icons/z02_pferd.bmp",
+			"cost": {"food": 50}, "icon": "portraits/other/z_02_horse.png",
 			"function": "Raises a horse for mounted units (each horse building shelters %d)" % BuildingProduction.HORSES_PER_BUILDING}
 	for guid in EXPANSION_PRODUCTION:
 		if _stats.has(guid):
 			_stats[guid].produced_at = EXPANSION_PRODUCTION[guid]
-	for file in [table_path("global/guids/GUIDS.INI"), table_path("global/guids/Guids2.ini")]:
-		for line in read_latin1(file).split("\n"):
-			var parts := line.strip_edges().split("=")
-			if parts.size() == 2 and parts[0].is_valid_int() and parts[1].is_valid_int():
-				_guids[parts[0].to_int()] = parts[1].to_int()
-	for line in read_latin1(table_path("global/guids/DEFS.INI")).split("\n"):
-		var clean := line.get_slice("//", 0).strip_edges()
-		if "=" in clean:
-			_defs[clean.get_slice("=", 0).strip_edges()] = clean.get_slice("=", 1).strip_edges()
-
-
-## Original files are Windows-1252/Latin-1; decode byte-for-byte.
-func read_latin1(path: String) -> String:
-	var bytes := read(path)
-	var chars := PackedInt32Array()
-	chars.resize(bytes.size())
-	for i in bytes.size():
-		chars[i] = bytes[i]
-	return chars.to_byte_array().get_string_from_utf32().replace("\r", "")
+	var guids: Dictionary = read_json("data/guids.json")
+	for key in guids:
+		_guids[key.to_int()] = int(guids[key])
+	_defs = read_json("data/defs.json")
 
 
 func text(id: int, fallback: String = "") -> String:
@@ -371,7 +272,7 @@ func type_for_guid(guid: int, biome: String = "steppe") -> int:
 		if _guids[type_id] != guid:
 			continue
 		var type := ObjectTypes.get_type(type_id)
-		if type == null or type.bob_path.is_empty():
+		if type == null or type.anims.is_empty():
 			continue
 		if type.is_meadow() == meadow:
 			return type_id
@@ -379,15 +280,18 @@ func type_for_guid(guid: int, biome: String = "steppe") -> int:
 	return fallback
 
 
-func def_value(key: String, fallback := 0) -> int:
-	return str(_defs.get(key, fallback)).to_int()
+## A game constant by tier, e.g. def_tier("sight_range", 2) (sight, ranges, attack rates,
+## walking speeds; from the original DEFS.INI).
+func def_tier(table: String, tier: int, fallback := 0) -> int:
+	var values: Array = _defs.get(table, [])
+	return int(values[tier]) if tier >= 0 and tier < values.size() else fallback
 
 
 func maps_dir() -> String:
-	return install_dir.path_join("Levels")
+	return path("maps")
 
 
-## Where the map editor saves: maps/ next to the game folder (beside original/) when run
+## Where the map editor saves: maps/ next to the game folder (beside assets/) when run
 ## from the project, next to the executable in an exported build.
 func custom_maps_dir() -> String:
 	var base := ProjectSettings.globalize_path("res://").path_join("..") if OS.has_feature("editor") \
@@ -395,11 +299,10 @@ func custom_maps_dir() -> String:
 	return base.path_join("maps").simplify_path()
 
 
-## Skirmish maps from both installs (base .alf and expansion .ulf) and the map editor's.
+## Skirmish maps: the original ones (assets/maps) and the map editor's.
 func map_files() -> PackedStringArray:
 	var out := PackedStringArray()
-	for dir in [install_dir.path_join("Levels"), addon_dir.path_join("Levels") if not addon_dir.is_empty() else "",
-			custom_maps_dir()]:
+	for dir in [maps_dir(), custom_maps_dir()]:
 		if dir.is_empty() or not DirAccess.dir_exists_absolute(dir):
 			continue
 		for file in DirAccess.get_files_at(dir):

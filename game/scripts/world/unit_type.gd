@@ -1,37 +1,36 @@
 class_name UnitType
 extends RefCounted
-## Graphics for one original unit kind, loaded from its folder's .bob descriptor.
-## Actions map to the original animation file names (laufen = walk, stehen = idle, ...).
+## Graphics for one unit kind, loaded from its animation set (BobFile). Actions map to the
+## sheet names (walk, idle, die, ...: the original file names, translated).
 
-## Actions and the original animation file names that play them, in order of preference
-## (laufen = walk, fahren = drive, stehen = idle, ...). Vehicles drive, a few units carry
-## their attack under another name (archers "kaempfen", throwers "werfen").
+## Actions and the sheet names that play them, in order of preference. Vehicles drive, a
+## few units carry their attack under another name (archers "fight", throwers "throw").
 const ACTION_STEMS := {
-	"walk": ["laufen", "fahren"],
-	"idle": ["stehen"],
-	"die": ["sterben", "dest", "_des"],
-	"shoot": ["schiessen", "kaempfen_fern", "werfen", "kaempfen", "mpfen"],
-	"melee": ["stechen", "kaempfen", "mpfen"],
-	"fight": ["kaempfen", "mpfen"],
-	"chop": ["hacken"],
-	"build": ["haemmern", "bauen"],
-	"carry_wood": ["holz_tragen"],
-	"carry_wood_idle": ["holz_stehen", "stehen_holz", "holz_pause"],
-	"carry_gold": ["gold_tragen", "sack_tragen", "gold_schleppen"],
-	"carry_gold_idle": ["gold_stehen", "sack_stehen", "stehen_gold"],
-	"harvest": ["ernten"],
-	"carry_food": ["korb_tragen"],
-	"carry_food_idle": ["korb_stehen"],
-	"butcher": ["erlegen", "ausbeinen"],
-	"heal": ["heilen", "tanzen"],
-	"hide": ["tarnen", "einbuddeln"],
+	"walk": ["walk", "drive"],
+	"idle": ["idle"],
+	"die": ["die", "destroyed"],
+	"shoot": ["shoot", "fight_ranged", "throw", "fight"],
+	"melee": ["stab", "fight"],
+	"fight": ["fight"],
+	"chop": ["chop"],
+	"build": ["hammer", "build"],
+	"carry_wood": ["wood_carry"],
+	"carry_wood_idle": ["wood_idle", "idle_wood", "wood_pause"],
+	"carry_gold": ["gold_carry", "sack_carry", "gold_drag"],
+	"carry_gold_idle": ["gold_idle", "sack_idle", "idle_gold"],
+	"harvest": ["harvest"],
+	"carry_food": ["basket_carry"],
+	"carry_food_idle": ["basket_idle"],
+	"butcher": ["butcher", "debone"],
+	"heal": ["heal", "dance"],
+	"hide": ["hide", "dig_in"],
 	"swim": ["swim"],
-	"paddle": ["paddeln"],
-	"idle_water": ["stehen_wasser"],
-	"die_water": ["destroy_wasser"],
+	"paddle": ["paddle"],
+	"idle_water": ["idle_water"],
+	"die_water": ["destroyed_water"],
 }
-## Projectile sheets in a unit's folder (arrows, knives, tomahawks, cannonballs, dynamite).
-const PROJECTILE_STEMS := ["pfeil", "messer", "tomahawk", "kugel", "dynamit"]
+## Projectile sheets in a unit's set (arrows, knives, tomahawks, cannonballs, dynamite).
+const PROJECTILE_STEMS := ["arrow", "knife", "tomahawk", "ball", "dynamite"]
 ## The manual's hunting unit of each people.
 const HUNTER_NAMES := ["Militiaman", "Trapper", "Arrow shooter", "Hunter"]
 ## Load per trip when the editor data gives none ("Tragkapazität": workers 15, wagons 100+).
@@ -39,21 +38,20 @@ const CARRY_AMOUNT := 10
 const UNNAMED_VEHICLE := {"walk": 0, "idle": 2, "die": 4}
 
 ## Riding versions of the actions (commanders, cavalry and other units with horse sheets).
-## The original files misspell a few of them (sterebn, stehen_reiten).
 const MOUNTED_STEMS := {
-	"walk": ["reiten"],
-	"idle": ["stehen_pferd", "stehen_reiten"],
-	"die": ["sterben_pferd", "sterebn_pferd"],
-	"shoot": ["pferd_schiessen", "schiessen_pferd", "kaempfen_pferd"],
-	"melee": ["stechen_pferd", "kaempfen_pferd", "mpfen_pferd"],
-	"fight": ["kaempfen_pferd", "mpfen_pferd"],
+	"walk": ["ride"],
+	"idle": ["idle_horse", "ride_idle"],
+	"die": ["die_horse"],
+	"shoot": ["horse_shoot", "shoot_horse", "fight_horse"],
+	"melee": ["stab_horse", "fight_horse"],
+	"fight": ["fight_horse"],
 }
 
 static var _cache := {}
 
 var directory := ""
+var set_path := ""  ## the animation set (.anims.json)
 var bob: BobFile
-var palette: ImageTexture
 var ramps: Texture2D
 var speed := 60.0
 var type_id := -1  ## object type id (BobListe.blf), for names and stats
@@ -86,35 +84,43 @@ static func for_guid(unit_guid: int) -> UnitType:
 	var type := ObjectTypes.get_type(GameData.type_for_guid(unit_guid))
 	if type == null:
 		return null
-	return load_type(type.directory(), type.name.contains("Pferd"), type.id)
+	return load_type(type.directory(), type.is_mounted(), type.id)
 
 
+## The unit kind drawn from the animation sets in `dir`: the one of object type
+## `forced_type_id`, else the first unit type there (riding or not), else the folder's
+## first set.
 static func load_type(dir: String, riding := false, forced_type_id := -1) -> UnitType:
 	var key := dir + ("#mounted" if riding else "") + ("#%d" % forced_type_id if forced_type_id >= 0 else "")
 	if _cache.has(key):
 		return _cache[key]
-	var bob_path := ""
-	for archive in GameData.archives:
-		for path in archive.list(dir + "/"):
-			if path.ends_with(".bob") and path.count("/") == dir.count("/") + 1:
-				bob_path = path
-	if bob_path.is_empty():
-		push_error("No .bob in %s" % dir)
+	var set_path := ""
+	var type_id := forced_type_id
+	if forced_type_id >= 0 and ObjectTypes.get_type(forced_type_id) and ObjectTypes.get_type(forced_type_id).directory() == dir:
+		set_path = ObjectTypes.get_type(forced_type_id).anims
+	else:
+		for id in ObjectTypes.count():
+			var t := ObjectTypes.get_type(id)
+			if t.kind == ObjectTypes.Kind.UNIT and t.directory() == dir and t.is_mounted() == riding:
+				set_path = t.anims
+				if type_id < 0:
+					type_id = id
+				break
+	if set_path.is_empty():
+		for file in GameData.list(dir):
+			if file.ends_with(".anims.json"):
+				set_path = dir.path_join(file)
+				break
+	if set_path.is_empty():
+		push_error("No animation set in %s" % dir)
 		return null
 	var unit_type := UnitType.new()
 	unit_type.directory = dir
+	unit_type.set_path = set_path
 	unit_type.mounted = riding
-	unit_type.bob = GameData.load_bob(bob_path)
-	unit_type.palette = GameData.load_palette_texture(dir, unit_type.bob.palettes)
-	unit_type.ramps = GameData.load_ramps(bob_path)
-	unit_type.type_id = forced_type_id
-	if forced_type_id < 0:
-		for id in ObjectTypes.count():
-			var t := ObjectTypes.get_type(id)
-			if t.kind == ObjectTypes.Kind.UNIT and t.bob_path == bob_path \
-					and t.name.contains("Pferd") == riding:
-				unit_type.type_id = id
-				break
+	unit_type.bob = GameData.load_bob(set_path)
+	unit_type.ramps = GameData.load_ramps(set_path)
+	unit_type.type_id = type_id
 	unit_type._setup_combat()
 	_cache[key] = unit_type
 	return unit_type
@@ -130,19 +136,19 @@ func _setup_combat() -> void:
 	if int(stats.get("carry", 0)) > 0:
 		carry = int(stats.carry)
 	damage = stats.get("damage", damage)
-	sight = GameData.def_value("Sichtweite%d" % int(stats.get("sight_tier", 1)), 320)
-	speed = GameData.def_value("LaufenSpeed%d" % int(stats.get("speed_tier", 2)), 100) * 0.6
+	sight = GameData.def_tier("sight_range", int(stats.get("sight_tier", 1)), 320)
+	speed = GameData.def_tier("walk_speed", int(stats.get("speed_tier", 2)), 100) * 0.6
 	ranged = int(stats.get("range_tier", 0)) >= 1 and int(stats.get("ranged", 0)) > 0
 	var attack := anim_index("shoot" if ranged else "melee")
 	if attack < 0 and ranged:
 		attack = anim_index("melee")
 	if ranged:
-		attack_range = GameData.def_value("ReichweiteFernwaffe%d" % int(stats.get("range_tier", 2)), 200)
-		min_range = GameData.def_value("MindestReichweite%d" % maxi(0, int(stats.get("min_range_tier", 0))), 0)
-		reload_ms = GameData.def_value("KampffrequenzFern%d" % int(stats.get("ranged_rate_tier", 2)), 4000)
+		attack_range = GameData.def_tier("ranged_range", int(stats.get("range_tier", 2)), 200)
+		min_range = GameData.def_tier("min_range", maxi(0, int(stats.get("min_range_tier", 0))), 0)
+		reload_ms = GameData.def_tier("ranged_rate", int(stats.get("ranged_rate_tier", 2)), 4000)
 	else:
 		attack_range = 36.0
-		reload_ms = GameData.def_value("KampffrequenzNah%d" % int(stats.get("melee_rate_tier", 1)), 300) * 10
+		reload_ms = GameData.def_tier("melee_rate", int(stats.get("melee_rate_tier", 1)), 300) * 10
 	if attack >= 0:
 		# Attack sheets hold one to three blocks (aim, fire, reload) played in file order.
 		var sheet := bob.anims[attack].sub_sprite
@@ -177,7 +183,7 @@ func anim_index(action: String) -> int:
 			if riding >= 0:
 				return riding
 	# The Mexican transport wagon's sheets are unnamed; wagons all use drive, stand, wreck.
-	if UNNAMED_VEHICLE.has(action) and bob.sub_sprites.size() > 0 and bob.sub_sprites[0].to_lower().begins_with("bilderliste") \
+	if UNNAMED_VEHICLE.has(action) and bob.sub_sprites.size() > 0 and bob.sub_sprites[0].get_file().begins_with("sheet") \
 			and bob.anims.size() > UNNAMED_VEHICLE[action]:
 		return UNNAMED_VEHICLE[action]
 	return -1
@@ -191,12 +197,12 @@ func _find(stem: String, riding: bool, projectile := false) -> int:
 		var sub := bob.anims[i].sub_sprite
 		if sub >= bob.sub_sprites.size() or bob.sub_sprite_is_shadow[sub]:
 			continue
-		var file := bob.sub_sprites[sub].to_lower()
+		var file := bob.sub_sprites[sub].get_file()
 		if not file.contains(stem):
 			continue
 		if projectile:
 			return i
-		var on_horse := (file.contains("pferd") and not file.contains("ohne_pferd")) or file.contains("reiten")
+		var on_horse := (file.contains("horse") and not file.contains("without_horse")) or file.contains("ride")
 		if on_horse and not riding:
 			continue
 		return i
@@ -217,16 +223,8 @@ func can_build(guid := -1) -> bool:
 	return is_farmer() and (guid < 0 or guid in MapObject.FOOD_STORES)
 
 
-## "säen" is spelled several ways in the file names (saehen, sähen, sähene).
 func _sow_anim() -> int:
-	for i in bob.anims.size():
-		var sub := bob.anims[i].sub_sprite
-		if bob.sub_sprite_is_shadow[sub]:
-			continue
-		var file := bob.sub_sprites[sub].to_lower()
-		if file.contains("aehen") or (file.contains("_s") and file.contains("hen") and not file.contains("stehen")):
-			return i
-	return -1
+	return _find("sow", false)
 
 
 func is_hunter() -> bool:
@@ -251,4 +249,4 @@ func can_gather(resource: String) -> bool:
 
 func sprite_for(anim_index_value: int) -> RdSprite:
 	var anim := bob.anims[anim_index_value]
-	return GameData.load_sprite(directory.path_join(bob.sub_sprites[anim.sub_sprite]))
+	return GameData.load_set_sheet(set_path, bob, anim.sub_sprite)

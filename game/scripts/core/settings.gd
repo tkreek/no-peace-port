@@ -1,12 +1,12 @@
 class_name Settings
 extends RefCounted
-## Player preferences, kept in user://settings.cfg beside the install paths: the original's
+## Player preferences, kept in user://settings.cfg beside the asset folder path: the original's
 ## settings (music and sound volume, scroll speed) and the modern ones it lacked (window
-## mode and size, vsync, interface scale, edge scrolling, classic or upscaled graphics).
+## mode and size, vsync, interface scale, edge scrolling).
 
 const PATH := "user://settings.cfg"
 const DEFAULTS := {"music_volume": 0.55, "sound_volume": 1.0, "scroll_speed": 1.0, "ui_scale": 1.0,
-		"edge_scroll": 1.0, "fullscreen": 0.0, "window_size": 0.0, "vsync": 1.0, "classic_graphics": 0.0}
+		"edge_scroll": 1.0, "fullscreen": 0.0, "window_size": 0.0, "vsync": 1.0}
 ## Window sizes offered in windowed mode (index 0 keeps whatever size the window has).
 const WINDOW_SIZES := [Vector2i.ZERO, Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080),
 		Vector2i(2560, 1440), Vector2i(3840, 2160)]

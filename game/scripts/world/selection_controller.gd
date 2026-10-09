@@ -466,7 +466,7 @@ func select_building(building: MapObject) -> void:
 	selected_building = building
 	building.selected = true
 	if building.is_tree():
-		Sound.play_named("holz hacken")  # trees have no selection sound of their own
+		Sound.play_named("chop_wood")  # trees have no selection sound of their own
 	elif building.is_mine():
 		Sound.play_event(MapObject.GOLD_MINE_GUID, Sound.Event.SELECT)
 	else:

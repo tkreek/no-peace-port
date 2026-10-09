@@ -42,10 +42,10 @@ func _init(owner: MapObject, placed_amount: int) -> void:
 	var name := object.object_type.name
 	if object.guid == MapObject.FIELD_GUID:
 		resource = "food"
-	elif name.begins_with("Baum"):
+	elif name.begins_with("tree"):
 		resource = "wood"
 		amount = TREE_WOOD
-	elif name.begins_with("Mine"):
+	elif name.begins_with("mine"):
 		resource = "gold"
 		amount = placed_amount if placed_amount > 0 else MINE_GOLD
 
@@ -114,12 +114,12 @@ func mine_stage() -> int:
 	return 1 if mine_work < MINE_FRAMED_AFTER else 2
 
 
-## Picks and rubble from inside a worked mine ("sound goldmine"), heard from afar and
+## Picks and rubble from inside a worked mine ("gold_mine"), heard from afar and
 ## through the fog; it keeps going while anyone works inside and stops soon after.
 func _keep_mine_sound() -> void:
 	_mine_heard = Time.get_ticks_msec()
 	if _mine_sound == null:
-		_mine_sound = Sound.work_emitter("sound goldmine")
+		_mine_sound = Sound.work_emitter("gold_mine")
 		if _mine_sound == null:
 			return
 		_mine_sound.position = object.work_rect().get_center() - object.position

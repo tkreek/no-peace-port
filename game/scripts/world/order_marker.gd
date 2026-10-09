@@ -6,9 +6,9 @@ extends Node2D
 ## - a building's assembly location: the waving position flag (global/gfx/positionsfahne)
 ##   in the player's colour, shown while the building is selected.
 
-const TARGET_BOB := "global/gfx/usa/zeiger/Zeiger.bob"
+const TARGET_BOB := "interface/pointer/pointer.anims.json"
 const TARGET_ANIM := 10
-const FLAG_BOB := "global/gfx/positionsfahne/positionsfahne.bob"
+const FLAG_BOB := "interface/rally_flag/rally_flag.anims.json"
 
 var looping := false
 var _bob_path := ""
@@ -63,8 +63,6 @@ func _setup(bob_path: String, anim: int, team: int, loop: bool, with_shadow := f
 		queue_free()
 		return
 	z_index = 5  # over units and scenery
-	var palette := GameData.load_palette_texture(bob_path.get_base_dir(),
-			_bob.palettes_for_sheet(_bob.anims[anim].sub_sprite))
 	if with_shadow and _bob.anims.size() > anim + 1:
 		_shadow = Sprite2D.new()
 		_shadow.centered = false
@@ -79,13 +77,13 @@ func _setup(bob_path: String, anim: int, team: int, loop: bool, with_shadow := f
 		queue_free()
 		return
 	SpriteMaterials.prepare(_body, sheet)
-	_body.material = SpriteMaterials.body(sheet, palette, GameData.load_ramps(bob_path))
-	_body.set_instance_shader_parameter("palette_row", clampi(team, 0, _bob.palettes.size() - 1))
+	_body.material = SpriteMaterials.body(sheet, GameData.load_ramps(bob_path))
+	_body.set_instance_shader_parameter("palette_row", clampi(team, 0, _bob.teams - 1))
 	_apply()
 
 
 func _sheet(anim: int) -> RdSprite:
-	return GameData.load_sprite(_bob_path.get_base_dir().path_join(_bob.sub_sprites[_bob.anims[anim].sub_sprite]))
+	return GameData.load_set_sheet(_bob_path, _bob, _bob.anims[anim].sub_sprite)
 
 
 func _process(delta: float) -> void:

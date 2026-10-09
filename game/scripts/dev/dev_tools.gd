@@ -136,8 +136,8 @@ func selftest() -> void:
 			for biome in ["steppe", "wiese"]:
 				var tid := GameData.type_for_guid(guid, biome)
 				var t := ObjectTypes.get_type(tid)
-				var bob := GameData.load_bob(t.bob_path) if t else null
-				print("guid %d %s -> type %d %s %s anims=%d stats=%s" % [guid, biome, tid, t.name if t else "?", t.bob_path if t else "", bob.anims.size() if bob else -1, GameData.stats(guid).get("name")])
+				var bob := GameData.load_bob(t.anims) if t else null
+				print("guid %d %s -> type %d %s %s anims=%d stats=%s" % [guid, biome, tid, t.name if t else "?", t.anims if t else "", bob.anims.size() if bob else -1, GameData.stats(guid).get("name")])
 	if GameData.cmdline_option("selftest") == "units":
 		# Every unit: its editor stats beside what the game derives (combat, animations).
 		var ids := GameData.stats_guids()
@@ -162,7 +162,7 @@ func selftest() -> void:
 				_anim_file(ut, "walk"), _anim_file(ut, "die"), _anim_file(ut, "idle"), s.get("cost")])
 	if GameData.cmdline_option("selftest") == "stats":
 		var d := DefaultsData.load()
-		print("defaults entries: ", d.size(), " sample: ", d.get(258), " raw bytes: ", GameData.read("Defaults.dat").size())
+		print("defaults entries: ", d.size(), " sample: ", d.get(258), " raw bytes: ", GameData.read("data/defaults.json").size())
 		for guid in GameData.stats_guids():
 			var st := GameData.stats(guid)
 			if st.get("kind") in ["unit", "structure"]:

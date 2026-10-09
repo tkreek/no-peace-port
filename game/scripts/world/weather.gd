@@ -4,10 +4,10 @@ extends Node2D
 ## (anim 0), rains, hails or storms for a while (anim 2), and dissolves (anim 4). `tick`
 ## is called every second while it lasts (lightning damage, for example).
 
-const LIGHTNING_BOB := "global/gfx/blitzwolke/wolke_blitz.bob"
-const HAIL_BOB := "global/gfx/hagelwolke/hagel.bob"
-const RAIN_BOB := "global/gfx/regenwolke/regen.bob"
-const SHIELD_BOB := "global/gfx/schutzschirm/schutzschirm.bob"
+const LIGHTNING_BOB := "effects/lightning_cloud/cloud_lightning.anims.json"
+const HAIL_BOB := "effects/hail_cloud/hail.anims.json"
+const RAIN_BOB := "effects/rain_cloud/rain.anims.json"
+const SHIELD_BOB := "effects/shield/shield.anims.json"
 ## Clouds float this far above the spot (their sheets are anchored on the ground, which put
 ## them over the heads of the units beneath), slightly see-through.
 const CLOUD_LIFT := 64.0

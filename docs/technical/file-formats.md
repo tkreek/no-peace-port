@@ -3,6 +3,11 @@
 Reverse-engineering notes for the English Windows CD release (2000). Source data lives in the
 gitignored `original/` folder and is never committed.
 
+These are the original game's formats. The game itself no longer reads them: the tools
+convert them into the asset folder (`tools/assets/build_assets.py`, whose docstring lists the
+asset formats). They are documented here for the tools and for mapping more of the
+original later.
+
 ## Getting the data out
 
 | Step | Tool | Notes |

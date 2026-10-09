@@ -1,24 +1,21 @@
 extends Node
 ## Autoload "Sound": the original sound events and music.
 ##
-## sfx/sfxguids.dat:
-##   u32 version, u32 sound_count, sound_count x { u32 id; u32 volume; char path[100] }
-##   u32 object_count, object_count x { u32 guid; u32 n; u32 events[20]; u32 sounds[20] }
-## Each object GUID (see GUIDS.INI) maps event ids to sound ids; repeated events are variants.
-## Event ids (sfx/properties.ini):
+## Each object GUID maps event ids to sound ids (data/sounds.json); repeated events are
+## variants. Event ids (from the original sfx/properties.ini):
 
 enum Event {
 	SELECT = 100, ORDER = 101, DIE = 102, SHOOT = 103, MELEE = 104, CHOP = 105, SWIM = 106, BUILD = 107,
 	FINISHED = 150, BURNING = 151, RUBBLE = 152, UNIT_READY = 153,
 }
 
-const SFX_TABLE := "sfx/sfxguids.dat"
+const SOUND_TABLE := "data/sounds.json"
 const MAX_VOICES := 24
 ## How far (px) world sounds carry by default, and work going on (axes, mines, building)
 ## that you hear beyond the screen edge and through the fog of war, fading with distance.
 const HEARING_RANGE := 1800.0
 const WORK_RANGE := 3200.0
-const FACTION_MUSIC := {"usa": "USA.mp3", "mex": "MEX.mp3", "ind": "IND.mp3", "des": "DES.mp3"}
+const FACTION_MUSIC := {"usa": "americans", "mex": "mexicans", "ind": "natives", "des": "outlaws"}
 
 var sfx_volume := 1.0
 var music_volume := 0.55
@@ -37,31 +34,21 @@ func _ready() -> void:
 	Settings.apply.call_deferred()
 
 
+## The sound table (assets: data/sounds.json, from the original sfxguids.dat): sound id ->
+## {file, volume}, and per GUID the sounds of each event.
 func _load_table() -> void:
-	var d := GameData.read(SFX_TABLE)
-	if d.size() < 8:
+	var data = GameData.read_json(SOUND_TABLE)
+	if not data is Dictionary:
 		push_warning("No sound table")
 		return
-	var count := d.decode_u32(4)
-	var pos := 8
-	for i in count:
-		var path := _c_string(d, pos + 8, 100)
-		_sounds[d.decode_u32(pos)] = {"path": path, "volume": d.decode_u32(pos + 4)}
-		pos += 108
-	var objects := d.decode_u32(pos)
-	pos += 4
-	for i in objects:
-		var guid := d.decode_u32(pos)
-		var n := mini(d.decode_u32(pos + 4), 20)
+	for id in data.sounds:
+		var entry: Dictionary = data.sounds[id]
+		_sounds[id.to_int()] = {"path": entry.file, "volume": int(entry.volume)}
+	for guid in data.events:
 		var table := {}
-		for k in n:
-			var event := d.decode_u32(pos + 8 + k * 4)
-			var sound := d.decode_u32(pos + 88 + k * 4)
-			if not table.has(event):
-				table[event] = PackedInt32Array()
-			table[event].append(sound)
-		_events[guid] = table
-		pos += 168
+		for event in data.events[guid]:
+			table[event.to_int()] = PackedInt32Array(data.events[guid][event])
+		_events[guid.to_int()] = table
 
 
 ## Play an object's sound for `event`. With a position the sound is placed in the world,
@@ -74,9 +61,9 @@ func play_event(guid: int, event: int, at = null, cooldown_ms := 250, source := 
 		if _sounds.has(id):
 			options.append(id)
 	# The original table points the Mexican woman's axe at a sound that does not exist;
-	# every people's woodcutters use the same "sound holz hacken".
+	# every people's woodcutters use the same "chop_wood".
 	if options.is_empty() and event == Event.CHOP:
-		var axe := _sound_id("holz hacken")
+		var axe := _sound_id("chop_wood")
 		if axe >= 0:
 			options.append(axe)
 	if options.is_empty():
@@ -113,7 +100,7 @@ func _sound_id(fragment: String) -> int:
 	return -1
 
 
-## Play the first sound whose file name contains `fragment` (lower case).
+## Play the first sound whose file name contains `fragment` (e.g. "chop_wood").
 func play_named(fragment: String, at = null) -> void:
 	for id in _sounds:
 		if String(_sounds[id].path).to_lower().contains(fragment):
@@ -162,10 +149,10 @@ func verify_all() -> Array:
 	return [ok, failed]
 
 
-## The original mission jingles: sfx/missions/gewonnen.mp3 / verloren.mp3.
+## The original mission jingles (sounds/missions/won.mp3, lost.mp3).
 func play_mission_result(won: bool) -> void:
 	_music.stop()
-	var stream := _stream("sfx/missions/gewonnen.mp3" if won else "sfx/missions/verloren.mp3")
+	var stream := _stream("sounds/missions/won.mp3" if won else "sounds/missions/lost.mp3")
 	if stream:
 		var player := AudioStreamPlayer.new()
 		player.stream = stream
@@ -174,11 +161,11 @@ func play_mission_result(won: bool) -> void:
 
 
 func play_music(faction: String) -> void:
-	var path := GameData.install_dir.path_join("Music").path_join(FACTION_MUSIC.get(faction, "TIT.mp3"))
-	if not FileAccess.file_exists(path):
+	var path := "music/%s.mp3" % FACTION_MUSIC.get(faction, "title")
+	if not GameData.exists(path):
 		return
 	var stream := AudioStreamMP3.new()
-	stream.data = FileAccess.get_file_as_bytes(path)
+	stream.data = GameData.read(path)
 	stream.loop = true
 	_music.stream = stream
 	_music.volume_db = linear_to_db(maxf(0.001, music_volume))
@@ -206,8 +193,3 @@ func _stream(path: String) -> AudioStream:
 	_streams[path] = stream
 	return stream
 
-
-static func _c_string(d: PackedByteArray, offset: int, size: int) -> String:
-	var raw := d.slice(offset, offset + size)
-	var end := raw.find(0)
-	return raw.slice(0, end if end >= 0 else size).get_string_from_ascii()

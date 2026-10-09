@@ -5,13 +5,13 @@ extends Node2D
 ## deals the damage when it lands; cannonballs and dynamite burst into the original
 ## explosion animation and hurt everyone close by.
 
-const SPEED := {"kugel": 1100.0, "dynamit": 480.0, "tomahawk": 620.0, "messer": 720.0}
+const SPEED := {"ball": 1100.0, "dynamite": 480.0, "tomahawk": 620.0, "knife": 720.0}
 const DEFAULT_SPEED := 900.0  # arrows
-const ARC := {"kugel": 0.18, "dynamit": 0.3, "tomahawk": 0.12, "messer": 0.06}
-const EXPLOSION_BOB := "global/gfx/explosion/explosiv.bob"
+const ARC := {"ball": 0.18, "dynamite": 0.3, "tomahawk": 0.12, "knife": 0.06}
+const EXPLOSION_BOB := "effects/explosion/explosion.anims.json"
 const SPLASH_RADIUS := 40.0
 ## Impact sounds from the sound table (GUID 720 cannonball, 721 dynamite; event "shoot").
-const IMPACT_SOUND := {"kugel": 720, "dynamit": 721}
+const IMPACT_SOUND := {"ball": 720, "dynamite": 721}
 
 var _type: UnitType
 var _anim := -1
@@ -33,7 +33,7 @@ static func launch(shooter: Unit, target: Node2D, damage: float, hit: bool) -> v
 	var p := Projectile.new()
 	p._type = shooter.unit_type
 	p._anim = shooter.unit_type.projectile_anim
-	var file := p._type.bob.sub_sprites[p._type.bob.anims[p._anim].sub_sprite].to_lower()
+	var file := p._type.bob.sub_sprites[p._type.bob.anims[p._anim].sub_sprite].get_file()
 	for kind in UnitType.PROJECTILE_STEMS:
 		if file.contains(kind):
 			p._kind = kind
@@ -60,8 +60,8 @@ func _setup(team: int) -> void:
 	if sheet == null:
 		return
 	SpriteMaterials.prepare(_body, sheet)
-	_body.material = SpriteMaterials.body(sheet, _type.palette, _type.ramps)
-	_body.set_instance_shader_parameter("palette_row", clampi(team, 0, _type.bob.palettes.size() - 1))
+	_body.material = SpriteMaterials.body(sheet, _type.ramps)
+	_body.set_instance_shader_parameter("palette_row", clampi(team, 0, _type.bob.teams - 1))
 	_apply(_to - _from)
 
 
@@ -98,7 +98,7 @@ func _apply(heading: Vector2) -> void:
 
 
 func _land() -> void:
-	var explodes := _kind == "kugel" or _kind == "dynamit"
+	var explodes := _kind == "ball" or _kind == "dynamite"
 	if _hit and is_instance_valid(_target) and _target.is_alive():
 		if is_instance_valid(_attacker):
 			_attacker.deal_damage(_target, _damage, explodes)

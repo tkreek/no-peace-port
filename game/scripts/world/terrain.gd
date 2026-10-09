@@ -1,10 +1,14 @@
 class_name Terrain
 extends Node2D
-## Renders an AlfMap's terrain with the original biome atlas and ground textures.
+## Renders an AlfMap's terrain with the landscape's tile atlas and ground textures
+## (assets: terrain/prairie, terrain/meadow).
 
 const GROUND_LAYERS := 40
 const GROUND_SIZE := 512
 const TerrainShader := preload("res://shaders/terrain.gdshader")
+const FOLDERS := {"steppe": "terrain/prairie", "wiese": "terrain/meadow"}
+
+static var _atlases := {}
 
 var map: AlfMap
 var biome := "steppe"
@@ -18,13 +22,12 @@ var _cells_texture: ImageTexture
 func setup(alf_map: AlfMap, biome_name: String) -> void:
 	map = alf_map
 	biome = biome_name
-	var directory := "%s/gfx/landschaft" % biome
-	var atlas := RdImage.read_indexed_pic(GameData.read(directory.path_join("steppe.pic")))
+	var atlas := atlas_for(biome)
 	_atlas = atlas
 	if atlas.is_empty():
 		push_error("Missing terrain atlas for biome %s" % biome)
 		return
-
+	var folder := folder_for(biome)
 	_material = ShaderMaterial.new()
 	_material.shader = TerrainShader
 	_cells = _cell_image()
@@ -34,22 +37,40 @@ func setup(alf_map: AlfMap, biome_name: String) -> void:
 			Image.create_from_data(atlas.width, atlas.height, false, Image.FORMAT_R8, atlas.pixels)))
 	_material.set_shader_parameter("atlas_palette", ImageTexture.create_from_image(_palette_image(atlas.palette)))
 	_material.set_shader_parameter("atlas_tiles_per_row", atlas.width / AlfMap.CELL_SIZE)
-	var enhanced := _enhanced_dir()
-	_material.set_shader_parameter("ground", _ground_textures(directory, atlas.palette, enhanced))
-	if not enhanced.is_empty():
-		var meta: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(enhanced.path_join("terrain.json")))
-		var art := Image.load_from_file(enhanced.path_join("terrain_atlas.png"))
-		art.generate_mipmaps()
-		_material.set_shader_parameter("enhanced", true)
-		_material.set_shader_parameter("hd_atlas", ImageTexture.create_from_image(art))
-		_material.set_shader_parameter("hd_layers", ImageTexture.create_from_image(
-				Image.load_from_file(enhanced.path_join("terrain_layers.png"))))
-		_material.set_shader_parameter("hd_tile", int(meta.tile))
-		_material.set_shader_parameter("hd_columns", int(meta.columns))
+	_material.set_shader_parameter("ground", _ground_textures(folder, atlas.palette))
+	var meta: Dictionary = GameData.read_json(folder.path_join("terrain.json"))
+	var art := GameData.load_image(folder.path_join("terrain_atlas.png"))
+	art.generate_mipmaps()
+	_material.set_shader_parameter("enhanced", true)
+	_material.set_shader_parameter("hd_atlas", ImageTexture.create_from_image(art))
+	_material.set_shader_parameter("hd_layers", ImageTexture.create_from_image(
+			GameData.load_image(folder.path_join("terrain_layers.png"))))
+	_material.set_shader_parameter("hd_tile", int(meta.tile))
+	_material.set_shader_parameter("hd_columns", int(meta.columns))
 	_material.set_shader_parameter("ground_period", float(GROUND_SIZE))
 	_material.set_shader_parameter("map_size", Vector2(map.pixel_size()))
 	material = _material
 	queue_redraw()
+
+
+## The landscape's terrain folder in the assets.
+static func folder_for(biome_name: String) -> String:
+	return FOLDERS.get(biome_name, FOLDERS.steppe)
+
+
+## The landscape's 32 px tile atlas as palette indices (indices 5..39 stand for the ground
+## textures, the rest are colours): {width, height, pixels, palette (256 RGB)}.
+static func atlas_for(biome_name: String) -> Dictionary:
+	if not _atlases.has(biome_name):
+		var folder := folder_for(biome_name)
+		var image := GameData.load_image(folder.path_join("atlas_index.png"))
+		var palette = GameData.read_json(folder.path_join("atlas_palette.json"))
+		if image == null or not palette is Array:
+			return {}
+		image.convert(Image.FORMAT_L8)
+		_atlases[biome_name] = {"width": image.get_width(), "height": image.get_height(),
+				"pixels": image.get_data(), "palette": PackedByteArray(palette)}
+	return _atlases[biome_name]
 
 
 func _draw() -> void:
@@ -83,28 +104,15 @@ func _palette_image(rgb: PackedByteArray) -> Image:
 	return image
 
 
-## One layer per placeholder palette index; textures are tiled up to GROUND_SIZE square.
-## Indices without a texture file fall back to their flat placeholder colour.
-## Folder of the upscaled terrain for this biome, or "" to use the original pixels.
-func _enhanced_dir() -> String:
-	if GameData.enhanced_dir.is_empty():
-		return ""
-	var dir := GameData.enhanced_dir.path_join("terrain").path_join(biome)
-	return dir if FileAccess.file_exists(dir.path_join("terrain.json")) else ""
-
-
-func _ground_textures(directory: String, atlas_palette: PackedByteArray, enhanced: String) -> Texture2DArray:
+## One layer per placeholder palette index (ground_<index>.png, tiled up to twice
+## GROUND_SIZE square); indices without a texture get their flat placeholder colour.
+func _ground_textures(folder: String, atlas_palette: PackedByteArray) -> Texture2DArray:
 	var layers: Array[Image] = []
-	var size := GROUND_SIZE * (2 if not enhanced.is_empty() else 1)
+	var size := GROUND_SIZE * 2
 	for index in GROUND_LAYERS:
-		var image: Image
-		if not enhanced.is_empty() and FileAccess.file_exists(enhanced.path_join("ground_%d.png" % index)):
-			image = Image.load_from_file(enhanced.path_join("ground_%d.png" % index))
+		var image := GameData.load_image(folder.path_join("ground_%d.png" % index))
+		if image:
 			image.convert(Image.FORMAT_RGB8)
-		else:
-			image = GameData.load_image(directory.path_join("steppe%d.pic" % index))
-			if image and not enhanced.is_empty():
-				image.resize(image.get_width() * 2, image.get_height() * 2, Image.INTERPOLATE_LANCZOS)
 		var layer := Image.create_empty(size, size, false, Image.FORMAT_RGB8)
 		if image:
 			for y in range(0, size, image.get_height()):

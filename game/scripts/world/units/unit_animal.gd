@@ -5,17 +5,17 @@ extends UnitPart
 ## wild or enemy cows by coming close.
 
 ## Food from a hunted animal, by object name prefix: buffalo, cow, horse.
-const MEAT := {"Tier_B": 150, "Tier_K": 100, "Tier_P": 60}
+const MEAT := {"animal_buffalo": 150, "animal_cow": 100, "animal_horse": 60}
 const CARCASS_SECONDS := 120.0  # an animal with meat left stays this long
 ## Cattle: cows graze up to 25 gold of value; driven alive to an animal-processing building
 ## they are paid out (the Native facility pays food as well).
-const COW_DIR := "global/gfx/animals/kuh"
+const COW_DIR := "animals/cow"
 const COW_MAX_VALUE := 25.0
 const COW_GRAZE_SECONDS := 200.0  # from nothing to full value
 const HERDERS := [463, 464, 263, 264, 156, 157, 353, 354]
 ## A riderless horse stays its people's for a minute (lead it into a corral, hacienda or
 ## ranch to add it to the horses) before running wild again.
-const HORSE_DIR := "global/gfx/animals/pferd"
+const HORSE_DIR := "animals/horse"
 const OWNED_HORSE_SECONDS := 60.0
 
 var hunted := false  ## the meat has been taken
@@ -31,9 +31,9 @@ var _is_cow := false
 
 func _init(owner: Unit) -> void:
 	super(owner)
-	var dir := unit.unit_type.directory.to_lower()
-	_is_horse = dir.ends_with("animals/pferd")
-	_is_cow = dir.ends_with("animals/kuh")
+	var dir := unit.unit_type.directory
+	_is_horse = dir == HORSE_DIR
+	_is_cow = dir == COW_DIR
 	busy = _is_horse or _is_cow or unit.unit_type.guid() in HERDERS
 
 

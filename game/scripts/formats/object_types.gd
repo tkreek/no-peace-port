@@ -1,25 +1,21 @@
 class_name ObjectTypes
 extends RefCounted
-## The original object type table, BobListe.blf ("RDBF").
-##
-## Part 1: u32 capacity, then `capacity` x { u32 ?; char bob_path[80]; i32 ? } -- .bob file list.
-## Part 2: one record per object type id (the ids maps and GUIDS.INI use, 0..434):
-##   char name[0x50]; u32 bob_id @0x50; u32 kind @0x54; i32 anim @0x6c; i32 shadow_anim @0x70
-##   (0x104 bytes in total, partly uninitialised memory in the original file), then a
-##   "BARY" footprint: i32 anchor_x, anchor_y; u32 width, height, cols, rows, count; u32 cells[count]
-##   on a 16 px grid.
+## The object types (assets: data/object_types.json, made from the original BobListe.blf):
+## one entry per type id (the ids maps and the GUID table use), with its English name (the
+## original German one translated, e.g. tree_deciduous_large_01_prairie), kind, animation
+## set and the animations it shows, and its footprint on the 16 px collision grid.
+## Names end in _prairie or _meadow for the landscape variants of buildings and nature.
 
 enum Kind { NONE = 0, UNIT = 1, BUILDING = 2, ELEMENT = 3 }
 
-const PATH := "BobListe.blf"
-const HEADER_SIZE := 0x104
+const PATH := "data/object_types.json"
 const FOOTPRINT_CELL := 16
 
 
 class ObjectType:
 	var id := 0
 	var name := ""
-	var bob_path := ""
+	var anims := ""  ## animation set (.anims.json); empty for placeholders
 	var kind := Kind.NONE
 	var anim := 0
 	var shadow_anim := -1
@@ -29,10 +25,14 @@ class ObjectType:
 	var footprint_cells := PackedInt32Array()
 
 	func directory() -> String:
-		return bob_path.get_base_dir()
+		return anims.get_base_dir()
 
 	func is_meadow() -> bool:
-		return name.ends_with("_Wi")
+		return name.ends_with("_meadow")
+
+	## Units on horseback (and loose horses) use the riding sheets.
+	func is_mounted() -> bool:
+		return name.ends_with("_mounted") or name == "animal_horse"
 
 
 static var _types: Array[ObjectType] = []
@@ -50,47 +50,31 @@ static func count() -> int:
 	return _types.size()
 
 
+## The first type with this name, or -1.
+static func named(name: String) -> int:
+	for id in count():
+		if _types[id].name == name:
+			return id
+	return -1
+
+
 static func _load() -> void:
-	var d := GameData.read(GameData.table_path(PATH))
-	if d.slice(0, 4).get_string_from_ascii() != "RDBF":
-		push_error("BobListe.blf missing or invalid")
+	var data = GameData.read_json(PATH)
+	if not data is Array:
+		push_error("%s missing or invalid" % PATH)
 		return
-	var capacity := d.decode_u32(4)
-	var bobs := PackedStringArray()
-	for i in capacity:
-		bobs.append(_c_string(d, 8 + i * 88 + 4, 80).replace("\\", "/").to_lower())
-	var pos := 8 + capacity * 88
-	while pos + HEADER_SIZE + 32 <= d.size():
-		var bary := pos + HEADER_SIZE
+	for entry: Dictionary in data:
 		var t := ObjectType.new()
-		if d.decode_u32(pos + 0x54) == 0xFFFFFFFF:
-			# Expansion placeholder records have no footprint (and no usable graphics).
-			t.id = _types.size()
-			t.name = _c_string(d, pos, 0x50)
-			_types.append(t)
-			pos = bary
-			continue
-		if d.slice(bary, bary + 4).get_string_from_ascii() != "BARY":
-			break  # trailing data after the last record
-		t.id = _types.size()
-		t.name = _c_string(d, pos, 0x50)
-		var bob_id := d.decode_u32(pos + 0x50)
-		t.bob_path = bobs[bob_id] if bob_id < bobs.size() else ""
-		t.kind = d.decode_u32(pos + 0x54) as Kind
-		t.anim = d.decode_s32(pos + 0x6C)
-		t.shadow_anim = d.decode_s32(pos + 0x70)
-		t.footprint_anchor = Vector2i(d.decode_s32(bary + 4), d.decode_s32(bary + 8))
-		t.footprint_size = Vector2i(d.decode_u32(bary + 12), d.decode_u32(bary + 16))
-		t.footprint_grid = Vector2i(d.decode_u32(bary + 20), d.decode_u32(bary + 24))
-		var cells := d.decode_u32(bary + 28)
-		t.footprint_cells.resize(cells)
-		for i in cells:
-			t.footprint_cells[i] = d.decode_u32(bary + 32 + i * 4)
+		t.id = int(entry.id)
+		t.name = entry.name
+		t.anims = entry.get("anims", "")
+		t.kind = int(entry.get("kind", 0)) as Kind
+		t.anim = int(entry.get("anim", 0))
+		t.shadow_anim = int(entry.get("shadow_anim", -1))
+		if entry.has("footprint"):
+			var f: Dictionary = entry.footprint
+			t.footprint_anchor = Vector2i(f.anchor[0], f.anchor[1])
+			t.footprint_size = Vector2i(f.size[0], f.size[1])
+			t.footprint_grid = Vector2i(f.grid[0], f.grid[1])
+			t.footprint_cells = PackedInt32Array(f.cells)
 		_types.append(t)
-		pos = bary + 32 + cells * 4
-
-
-static func _c_string(d: PackedByteArray, offset: int, size: int) -> String:
-	var raw := d.slice(offset, offset + size)
-	var end := raw.find(0)
-	return raw.slice(0, end if end >= 0 else size).get_string_from_ascii()

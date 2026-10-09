@@ -3,13 +3,13 @@ extends Control
 ## available), laid out for widescreen: the 4:3 artwork is centred at full height over a
 ## blurred, darkened copy of itself, and the original glow sprites back the buttons.
 
-const MAIN_BG := "global/gfx/menues/main/mainmenu2.pic"
-const MAIN_BG_BASE := "global/gfx/menues/main/mainmenu.pic"
-const MAIN_GLOW := "global/gfx/menues/main/bilderliste__1.spr"
-const SETUP_BG := "global/gfx/menues/selectgame/selectgame.pic"
-const SETUP_SPRITES := "global/gfx/menues/selectgame/piclist00.spr"
-const LOADING_BG := "global/gfx/ladebild/ladebild2.pic"
-const LOADING_BG_BASE := "global/gfx/ladebild/ladebild1024768.pic"
+const MAIN_BG := "interface/menus/main/main_menu_2.png"
+const MAIN_BG_BASE := "interface/menus/main/main_menu.png"
+const MAIN_GLOW := "interface/menus/main/sheet_1"
+const SETUP_BG := "interface/menus/select_game/select_game.png"
+const SETUP_SPRITES := "interface/menus/select_game/sheet_00"
+const LOADING_BG := "interface/loading_screen/loading_screen_2.png"
+const LOADING_BG_BASE := "interface/loading_screen/loading_screen_1024768.png"
 const ART_SIZE := Vector2(800, 600)
 ## Areas of the selectgame artwork (800x600 coordinates).
 const SETUP_TITLE := Rect2(277, 103, 247, 30)
@@ -42,7 +42,7 @@ func _ready() -> void:
 	if _skip_to_game():
 		return
 	if not GameData.is_ready():
-		add_child(MenuStyle.label("Original game data not found.\nStart with --install-dir=<folder containing america0.rda>", 24))
+		add_child(MenuStyle.label("Game assets not found.\nBuild them with tools/assets/build_assets.py, or start with --assets-dir=<folder>", 24))
 		return
 	_glow = GameData.load_sprite(MAIN_GLOW)
 	_setup_sprites = GameData.load_sprite(SETUP_SPRITES)
@@ -170,8 +170,8 @@ func _build_main() -> Control:
 		get_tree().change_scene_to_file("res://scenes/editor.tscn")))
 	column.add_child(_glow_button(GameData.menu_text(50, "Settings"), func() -> void: _show("settings")))
 	column.add_child(_glow_button(GameData.menu_text(14, "Exit game"), func() -> void: get_tree().quit()))
-	var version := MenuStyle.label("America Remastered — original data%s" %
-			(" + expansion pack" if GameData.has_expansion else ""), 11, MenuStyle.TEXT_DIM)
+	var version := MenuStyle.label("America Remastered%s" %
+			(" — with the expansion pack" if GameData.has_expansion else ""), 11, MenuStyle.TEXT_DIM)
 	version.position = Vector2(12, 578)
 	screen.add_child(version)
 	return screen
@@ -500,12 +500,13 @@ func _on_map_selected(index: int) -> void:
 
 ## Quick overview from the biome's per-tile minimap colours.
 func _preview_image(map: AlfMap) -> Image:
-	var bytes := GameData.read("%s/gfx/landschaft/minimap.pic" % map.guess_biome())
+	var colours := GameData.load_image(Terrain.folder_for(map.guess_biome()).path_join("minimap_colors.png"))
 	var image := Image.create_empty(map.columns, map.rows, false, Image.FORMAT_RGB8)
+	if colours == null:
+		return image
 	for i in map.tile_ids.size():
-		var offset := 20 + map.tile_ids[i] * 2
-		if offset + 2 <= bytes.size():
-			image.set_pixel(i % map.columns, i / map.columns, RdImage.rgb555(bytes.decode_u16(offset)))
+		if map.tile_ids[i] < colours.get_width():
+			image.set_pixel(i % map.columns, i / map.columns, colours.get_pixel(map.tile_ids[i], 0))
 	return image
 
 

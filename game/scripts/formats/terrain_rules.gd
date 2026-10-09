@@ -1,24 +1,16 @@
 class_name TerrainRules
 extends RefCounted
-## The expansion level editor's terrain rules (<biome>.gfs, "RDGS"), which the map editor
-## paints with.
-##
-## Layout (u32 values from 0xA8): a 840-entry header, then 4 collision flags per atlas tile
-## (one per 16 px quarter, the same flags as a map's BITARRAY), then 18 material records of
-## 623 values (name at +4 as "name#nnn|nnnn"), then the block records:
-##   [1, variants, material A, material B (-1 = plain A), width, height, shape code]
-##   followed by `variants` grids of 8x8 atlas tile ids (-1 = unused).
+## The expansion level editor's terrain rules, which the map editor paints with (assets:
+## terrain/<landscape>/rules.json, made from the original Steppe.gfs / wiese.gfs; see
+## docs/technical/file-formats.md):
+##   flags     4 collision flags per atlas tile (one per 16 px quarter, as in a map's grid)
+##   materials 18 material names
+##   blocks    [{a, b (-1 = plain a), size [w, h], shape, grids: 8x8 tile id grids per variant}]
 ## Ordinary blocks are 2x2 tiles (64 px): a plain material, or a transition between two
 ## neighbouring materials whose shape code says which of the block's six lattice points
 ## (see TerrainPainter) lie in A or in B. The cliffs between ground and plateau use larger
 ## and differently coded pieces, which the editor does not paint yet.
 
-const FILES := {"steppe": "Steppe.gfs", "wiese": "wiese.gfs"}
-const FLAGS_AT := 840
-const MATERIALS_AT := 30840
-const MATERIAL_SIZE := 623
-const MATERIAL_COUNT := 18
-const RECORDS_AT := 42056
 const PLAIN := 35  ## shape code of a plain (single-material) block in a map's LVMATRIX
 ## Shape codes by the material at the block's lattice points TL, TR, ML, MR, BL, BR.
 const SHAPES := {
@@ -55,37 +47,26 @@ static func for_biome(biome_name: String) -> TerrainRules:
 	if _cache.has(biome_name):
 		return _cache[biome_name]
 	var rules: TerrainRules = null
-	var bytes := GameData.read(FILES.get(biome_name, "Steppe.gfs"))
-	if bytes.size() > 0xA8 and bytes.slice(0, 4).get_string_from_ascii() == "RDGS":
+	var data = GameData.read_json(Terrain.folder_for(biome_name).path_join("rules.json"))
+	if data is Dictionary:
 		rules = TerrainRules.new()
 		rules.biome = biome_name
-		rules._parse(bytes.slice(0xA8).to_int32_array())
+		rules._parse(data)
 	_cache[biome_name] = rules
 	return rules
 
 
-func _parse(v: PackedInt32Array) -> void:
-	flags = v.slice(FLAGS_AT, MATERIALS_AT)
-	var i := RECORDS_AT
-	while i + 7 <= v.size():
-		if v[i] == 0 and i + 1 < v.size() and v[i + 1] == 1:
-			i += 1  # a stray separator before the last records
-			continue
-		if v[i] != 1:
-			break
-		var variants := v[i + 1]
-		var a := v[i + 2]
-		var b := v[i + 3]
-		var square := v[i + 4] == 2 and v[i + 5] == 2
-		var code := v[i + 6]
-		var start := i + 7
-		i = start + 64 * variants
-		if not square or (b >= 0 and not SHAPES.values().has(code)):
+func _parse(data: Dictionary) -> void:
+	flags = PackedInt32Array(data.flags)
+	for record: Dictionary in data.blocks:
+		var a := int(record.a)
+		var b := int(record.b)
+		var code := int(record.shape)
+		if int(record.size[0]) != 2 or int(record.size[1]) != 2 or (b >= 0 and not SHAPES.values().has(code)):
 			continue
 		var list: Array = []
-		for k in variants:
-			var grid := start + 64 * k
-			var block := [v[grid], v[grid + 1], v[grid + 8], v[grid + 9]]
+		for grid: Array in record.grids:
+			var block := [int(grid[0]), int(grid[1]), int(grid[8]), int(grid[9])]
 			if block.has(-1):
 				continue
 			list.append(block)

@@ -41,8 +41,7 @@ func _think() -> void:
 			unit.hunt(unit._nearest_animal())
 	var field_count := MapObject.all_objects.filter(func(o: MapObject) -> bool:
 		return o.is_field() and o.owner_index == player.index).size()
-	var farmers := units.filter(func(u: Unit) -> bool:
-		return u.unit_type.can_gather("food") and u.unit_type.anim_index("build") < 0).size()
+	var farmers := units.filter(func(u: Unit) -> bool: return u.unit_type.is_farmer()).size()
 	if hq.queue.size() < 2:
 		var want_farmer := farmers < field_count * 2
 		if want_farmer or workers.size() < TARGET_WORKERS:
@@ -50,7 +49,7 @@ func _think() -> void:
 				var unit_type := _unit_type_for(guid)
 				if unit_type == null or GameData.stats(guid).get("damage", 0) > 4:
 					continue
-				var is_farmer := unit_type.can_gather("food") and unit_type.anim_index("build") < 0
+				var is_farmer := unit_type.is_farmer()
 				var is_builder := unit_type.anim_index("build") >= 0 and unit_type.can_gather("wood")
 				if (want_farmer and is_farmer) or (not want_farmer and is_builder):
 					hq.enqueue(guid)
@@ -142,10 +141,8 @@ func _farm(units: Array, hq: MapObject) -> void:
 			units_root.add_child(field)
 			fields.append(field)
 	for unit: Unit in units:
-		if unit.state != Unit.State.IDLE or not unit.unit_type.can_gather("food") or fields.is_empty():
+		if unit.state != Unit.State.IDLE or not unit.unit_type.is_farmer() or fields.is_empty():
 			continue
-		if unit.unit_type.anim_index("build") >= 0:
-			continue  # builders keep cutting wood and mining
 		var least: MapObject = fields[0]
 		var counts := {}
 		for other: Unit in units:

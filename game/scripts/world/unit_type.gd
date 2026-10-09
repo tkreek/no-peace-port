@@ -24,9 +24,12 @@ const ACTION_STEMS := {
 const HUNTER_NAMES := ["Militiaman", "Trapper", "Arrow shooter", "Hunter"]
 ## Alternative file names some factions use for the same action.
 const ACTION_FALLBACKS := {
-	"carry_gold": "sack_tragen",
-	"carry_gold_idle": "sack_stehen",
-	"melee": "kaempfen",
+	"carry_gold": ["sack_tragen", "gold_schleppen"],
+	"carry_gold_idle": ["sack_stehen", "stehen_gold"],
+	"carry_wood_idle": ["stehen_holz"],
+	"melee": ["kaempfen", "mpfen"],  # "kämpfen" with the umlaut in some file names
+	"fight": ["mpfen"],
+	"build": ["bauen"],
 }
 const CARRY_AMOUNT := 10
 
@@ -112,9 +115,16 @@ func anim_index(action: String) -> int:
 	if action == "sow":
 		return _sow_anim()
 	var index := bob.find_anim(ACTION_STEMS.get(action, action))
-	if index < 0 and ACTION_FALLBACKS.has(action):
-		index = bob.find_anim(ACTION_FALLBACKS[action])
+	for alternative in ACTION_FALLBACKS.get(action, []):
+		if index >= 0:
+			break
+		index = bob.find_anim(alternative)
 	return index
+
+
+## Women and similar units that work fields rather than cutting wood for construction.
+func is_farmer() -> bool:
+	return can_gather("food") and not (can_gather("wood") and anim_index("build") >= 0)
 
 
 ## "säen" is spelled several ways in the file names (saehen, sähen, sähene).

@@ -8,6 +8,7 @@ extends Node2D
 ##   --scenario=battle  two infantry squads fighting in front of the camera
 ##   --scenario=food    women farm two fields at a finca, militiamen hunt
 ##   --scenario=economy player 1's workers gather the nearest wood and gold
+##   --faction=ind|mex|des|usa  your people (default mex); --enemy=... the computer's (default usa)
 ##   --fog=off  disable the fog of war
 ##   --ai=off  no computer opponent (for isolated tests)
 ##   --ai-vs-ai=1  computer controls player 1 as well
@@ -29,11 +30,15 @@ var _game_over := false
 var players := {}
 var start_positions := {}  # player -> Vector2, from the map's Editor_Start markers
 
-## Starting setup per player for this test scene: HQ object type and worker unit folder.
-const FACTION_STARTS := {
-	1: {"hq": 3, "workers": "global/gfx/mex/landarbeiter", "army": "global/gfx/mex/infanterist"},
-	2: {"hq": 2, "workers": "global/gfx/usa/siedler", "army": "global/gfx/usa/infanterist"},
+## Main building and a representative soldier per people (for --scenario=battle).
+const FACTIONS := {
+	"ind": {"main": 100, "army": 160},
+	"mex": {"main": 200, "army": 258},
+	"des": {"main": 300, "army": 356},
+	"usa": {"main": 400, "army": 458},
 }
+const START_BUILDERS := 5
+const START_FARMERS := 3
 
 
 func _ready() -> void:
@@ -63,9 +68,9 @@ func _ready() -> void:
 	camera.make_current()
 
 	var size := Vector2(map.pixel_size())
-	players[1] = Player.new(1, "mex")
-	players[2] = Player.new(2, "usa")
-	for player in FACTION_STARTS:
+	players[1] = Player.new(1, _faction_option("faction", "mex"))
+	players[2] = Player.new(2, _faction_option("enemy", "usa"))
+	for player in players:
 		_setup_player(player, start_positions.get(player, size * Vector2(0.5, 0.15 if player == 2 else 0.85)))
 	camera.position = _vector_option("camera", start_positions.get(1, size / 2.0))
 	if GameData.cmdline_option("scenario") == "economy":
@@ -87,8 +92,8 @@ func _ready() -> void:
 	if GameData.cmdline_option("scenario") == "battle":
 		# Two infantry lines facing each other in front of the camera.
 		var centre := camera.position
-		_spawn_squad(FACTION_STARTS[1].army, 1, centre + Vector2(-60, 120), 9)
-		_spawn_squad(FACTION_STARTS[2].army, 2, centre + Vector2(60, -160), 9)
+		_spawn_squad(_unit_dir(FACTIONS[players[1].faction].army), 1, centre + Vector2(-60, 120), 9)
+		_spawn_squad(_unit_dir(FACTIONS[players[2].faction].army), 2, centre + Vector2(60, -160), 9)
 	camera.set_zoom_level(GameData.cmdline_option("zoom", "1").to_float())
 	fog.enabled = GameData.cmdline_option("fog", "on") != "off"
 	add_child(fog)
@@ -201,19 +206,44 @@ func _on_unit_trained(building: MapObject, unit_guid: int) -> void:
 	unit.move_to(unit.position + Vector2(randf_range(-40, 40), 50))
 
 
+func _faction_option(name: String, default: String) -> String:
+	var value := GameData.cmdline_option(name, default)
+	return value if FACTIONS.has(value) else default
+
+
+## Unit folder for a GUID (units look the same in both biomes).
+func _unit_dir(guid: int) -> String:
+	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, terrain.biome))
+	return type.directory() if type else ""
+
+
+## The people's main building at the start point, with builders and farmers in front of it.
 func _setup_player(player: int, start: Vector2) -> void:
-	var setup: Dictionary = FACTION_STARTS[player]
+	var main_guid: int = FACTIONS[players[player].faction].main
+	var main_type := ObjectTypes.get_type(GameData.type_for_guid(main_guid, terrain.biome))
 	var hq := MapObject.new()
 	hq.position = start
-	if hq.setup(ObjectTypes.get_type(setup.hq), player):
+	if hq.setup(main_type, player):
 		units_root.add_child(hq)
-		nav.block_footprint(ObjectTypes.get_type(setup.hq), start)
+		nav.block_footprint(main_type, start)
 	else:
 		hq.free()
-	# Workers gather in front of the HQ, the army a little further out towards the map centre.
+		return
 	var toward_centre := (Vector2(terrain.map.pixel_size()) / 2.0 - start).normalized()
-	_spawn_squad(setup.workers, player, start + toward_centre * 220.0, 5)
-	_spawn_squad(setup.army, player, start + toward_centre * 380.0, 9)
+	var builder := ""
+	var farmer := ""
+	for guid in hq.trainable_units():
+		var unit_type := UnitType.load_type(_unit_dir(guid))
+		if unit_type == null:
+			continue
+		if builder.is_empty() and unit_type.can_gather("wood") and unit_type.anim_index("build") >= 0:
+			builder = _unit_dir(guid)
+		elif farmer.is_empty() and unit_type.is_farmer():
+			farmer = _unit_dir(guid)
+	if not builder.is_empty():
+		_spawn_squad(builder, player, start + toward_centre * 220.0, START_BUILDERS)
+	if not farmer.is_empty():
+		_spawn_squad(farmer, player, start + toward_centre * 220.0 + toward_centre.orthogonal() * 120.0, START_FARMERS)
 
 
 func _spawn_squad(directory: String, team: int, centre: Vector2, count: int) -> void:

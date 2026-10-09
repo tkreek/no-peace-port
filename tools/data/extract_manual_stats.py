@@ -123,9 +123,9 @@ def main():
                 entry["damage"] = parse_damage(f["Damage per blow"])
             if "Place of production" in f:
                 place = normalize(f["Place of production"])
-                entry["produced_at"] = next((g for n, g in
-                                             {normalize(texts[x]): x for x in range(100, 450) if x in texts}.items()
-                                             if n == place), f["Place of production"])
+                structures = next(r for _, fac, k, r in SECTIONS if fac == faction and k == "structure")
+                entry["produced_at"] = next((x for x in structures if x in texts and normalize(texts[x]) == place),
+                                            f["Place of production"])
             residence = re.search(r"Residence for\s+(\d+)\s+units", f.get("Function", ""))
             if residence:
                 entry["housing"] = int(residence.group(1))

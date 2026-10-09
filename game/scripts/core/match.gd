@@ -38,6 +38,10 @@ var difficulty := 2
 var map_path := ""
 ## One entry per player in start-point order: {"faction": "mex", "ai": false}
 var players: Array[Dictionary] = []
+## A test game started from the map editor: the map to return to (no victory checks while
+## it runs), and the editor's own settings to restore.
+var editor_map := ""
+var editor_state := {}
 
 
 func setup(map: String, slots: Array[Dictionary]) -> void:

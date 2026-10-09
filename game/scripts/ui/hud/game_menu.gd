@@ -33,6 +33,13 @@ func toggle() -> void:
 			hud.get_tree().paused = false
 			hud.get_tree().reload_current_scene()],
 		["Main menu", to_main_menu],
+	] if Match.editor_map.is_empty() else [
+		[GameData.menu_text(57, "Continue"), toggle],
+		[GameData.menu_text(54, "Restart"), func() -> void:
+			hud.get_tree().paused = false
+			hud.get_tree().reload_current_scene()],
+		["Back to the map editor", to_editor],
+		["Main menu", to_main_menu],
 	])
 
 
@@ -76,7 +83,16 @@ func to_main_menu() -> void:
 	hud.get_tree().paused = false
 	Engine.time_scale = 1.0
 	Match.configured = false
+	Match.editor_map = ""
 	hud.get_tree().change_scene_to_file("res://scenes/menu.tscn")
+
+
+## Leave a test game for the map editor, which reopens the map.
+func to_editor() -> void:
+	hud.get_tree().paused = false
+	Engine.time_scale = 1.0
+	Match.configured = false
+	hud.get_tree().change_scene_to_file("res://scenes/editor.tscn")
 
 
 ## A dimmed screen with a board holding a title and a column of buttons [[text, action]...].

@@ -64,15 +64,18 @@ static func for_type(type_id: int, team: int) -> Thumbnail:
 	var frame_in_anim := -1
 	if type.kind == ObjectTypes.Kind.BUILDING:
 		anim_index = 2 if bob.anims.size() > 3 else 0
-	else:
+	elif type.kind == ObjectTypes.Kind.UNIT:
 		anim_index = maxi(0, bob.find_anim("stehen"))
+		frame_in_anim = 0
+	else:  # trees, rocks, mines: the type's own animation, first frame
+		anim_index = clampi(type.anim, 0, bob.anims.size() - 1)
 		frame_in_anim = 0
 	var anim := bob.anims[anim_index]
 	var sheet := GameData.load_sprite(type.directory().path_join(bob.sub_sprites[anim.sub_sprite]))
 	if sheet == null:
 		return null
 	var frame := anim.frames[frame_in_anim if frame_in_anim >= 0 else anim.frames.size() - 1]
-	if type.kind != ObjectTypes.Kind.BUILDING:
+	if type.kind == ObjectTypes.Kind.UNIT:
 		frame += 1 * anim.frames_per_direction  # direction 1 = facing south
 	if frame >= sheet.frame_count():
 		return null

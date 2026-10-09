@@ -387,10 +387,19 @@ func maps_dir() -> String:
 	return install_dir.path_join("Levels")
 
 
-## Skirmish maps from both installs: base .alf and expansion .ulf.
+## Where the map editor saves: maps/ next to the game folder (beside original/) when run
+## from the project, next to the executable in an exported build.
+func custom_maps_dir() -> String:
+	var base := ProjectSettings.globalize_path("res://").path_join("..") if OS.has_feature("editor") \
+			else OS.get_executable_path().get_base_dir()
+	return base.path_join("maps").simplify_path()
+
+
+## Skirmish maps from both installs (base .alf and expansion .ulf) and the map editor's.
 func map_files() -> PackedStringArray:
 	var out := PackedStringArray()
-	for dir in [install_dir.path_join("Levels"), addon_dir.path_join("Levels") if not addon_dir.is_empty() else ""]:
+	for dir in [install_dir.path_join("Levels"), addon_dir.path_join("Levels") if not addon_dir.is_empty() else "",
+			custom_maps_dir()]:
 		if dir.is_empty() or not DirAccess.dir_exists_absolute(dir):
 			continue
 		for file in DirAccess.get_files_at(dir):

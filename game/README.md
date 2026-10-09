@@ -74,6 +74,22 @@ Any of `--map`, `--scenario`, `--screenshot`, `--report-after` skips the menu an
   ground, passive. Z: patrol, C: follow, G/L: into / out of quarters, I: assembly location.
 - Esc: in-game menu (save, load, options). Settings are also on the main menu.
 
+## Map editor
+
+Main menu → Map editor (or `-- --editor[=<map file>]`).
+
+- Top bar: New, Open, Save (to `maps/` beside `game/`, as `[N Players] - title.ulf`), Test (saves
+  and plays the map at once; Esc → "Back to the map editor"), Undo, Erase, the map's title.
+- Terrain: pick a material and paint (left drag). Materials only blend into their neighbours,
+  so painting water into steppe grows shore and shallow-water rings by itself. `[` `]` set the
+  brush size. Painting needs the expansion's `Steppe.gfs` / `wiese.gfs`.
+- Nature, Buildings, Units: pick an object (buildings and units for the chosen player), click
+  to place. Right click removes the object under the cursor with any tool.
+- Players: put each player's start point; choose their people and whether the computer plays
+  them in test games; start resources.
+- A player who owns placed units or buildings starts a game with exactly those, without the
+  usual main building and workers: a few units on an empty map make a quick test bench.
+
 ## Layout
 
 - `scripts/formats/`: readers for the original formats (RDA archives, LZW, `.alf` maps, sprites,
@@ -89,6 +105,8 @@ Any of `--map`, `--scenario`, `--screenshot`, `--report-after` skips the menu an
     condition, production and defence.
 - `scripts/game/`: players (stockpiles, housing, research, trading), saved games, and the
   computer player in `ai/` (economy, building, army).
+- `scripts/editor/`: the map editor (`MapEditor`, its interface, and `TerrainPainter`, which
+  lays terrain out with the expansion editor's rules read by `formats/terrain_rules.gd`).
 - `scripts/ui/`: main menu, settings, minimap, thumbnails; the in-game interface in `hud/`
   (selection panel, command panel, game menu).
 - `scripts/dev/`: test scenarios (`--scenario=`), self-tests, headless reports and the profiler.

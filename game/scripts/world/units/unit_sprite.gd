@@ -37,6 +37,12 @@ func _setup_sprites(type: UnitType, palette_row: int) -> void:
 	set_palette_row(palette_row)
 
 
+## Health bars and the like above every sprite (Unit draws them; a bare sprite, such as the
+## map editor's preview, has none).
+func _draw_overlay(_canvas: Node2D) -> void:
+	pass
+
+
 func set_palette_row(row: int) -> void:
 	_body.set_instance_shader_parameter("palette_row", clampi(row, 0, unit_type.bob.palettes.size() - 1))
 

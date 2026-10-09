@@ -83,8 +83,12 @@ func _menu_screenshot() -> void:
 	get_tree().quit()
 
 
-## Development options (map, scenario, screenshot, selftest) start the game directly.
+## Development options (map, scenario, screenshot, selftest) start the game directly,
+## --editor the map editor.
 func _skip_to_game() -> bool:
+	if GameData.cmdline_option("editor") != "" or GameData.cmdline_option("editor-selftest") != "":
+		get_tree().change_scene_to_file.call_deferred("res://scenes/editor.tscn")
+		return true
 	for option in ["map", "scenario", "screenshot", "selftest", "report-after"]:
 		if GameData.cmdline_option(option) != "":
 			get_tree().change_scene_to_file.call_deferred("res://scenes/main.tscn")
@@ -162,6 +166,8 @@ func _build_main() -> Control:
 			await get_tree().process_frame
 			await get_tree().process_frame
 			get_tree().change_scene_to_file("res://scenes/main.tscn")))
+	column.add_child(_glow_button("Map editor", func() -> void:
+		get_tree().change_scene_to_file("res://scenes/editor.tscn")))
 	column.add_child(_glow_button(GameData.menu_text(50, "Settings"), func() -> void: _show("settings")))
 	column.add_child(_glow_button(GameData.menu_text(14, "Exit game"), func() -> void: get_tree().quit()))
 	var version := MenuStyle.label("America Remastered — original data%s" %

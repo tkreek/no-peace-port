@@ -8,7 +8,8 @@ extends RefCounted
 ## packed 2 = zlib (.ulf, expansion maps).
 ##
 ## Known chunks: SPIELER (players), LVL_INFO (name, size, start resources),
-## LVMATRIX (u32 per cell: low 16 bits = 32x32 terrain atlas tile), BITARRAY,
+## LVMATRIX (u32 per cell: low 16 bits = 32x32 terrain atlas tile, high 16 bits = the
+## level editor's shape code, see TerrainRules), BITARRAY,
 ## PINSMATR, BOBLISTE (object types), EINHEIT (units), EIGENSCH (object properties),
 ## AREA/ABLAUF (mission trigger areas and scripts).
 
@@ -21,6 +22,7 @@ var rows := 0
 var start_resources := {}
 var chunks := {}  # name -> PackedByteArray (first occurrence)
 var tile_ids := PackedInt32Array()
+var tile_codes := PackedInt32Array()  ## LVMATRIX high words (TerrainRules shape codes)
 var placements: Array[Placement] = []
 ## BITARRAY: map-wide "BARY" grid of 16 px cells, one u32 of flags each (see NavGrid).
 var grid_size := Vector2i.ZERO
@@ -73,8 +75,10 @@ static func from_bytes(bytes: PackedByteArray) -> AlfMap:
 func _parse() -> void:
 	var info: PackedByteArray = chunks.get("LVL_INFO", PackedByteArray())
 	if info.size() >= 0x11C:
-		var end := info.find(0)
-		title = info.slice(0, end if end >= 0 else 64).get_string_from_ascii()
+		# Base game maps keep the title at 0, the expansion's (and ours) at 0x10.
+		var at := 0 if info[0] != 0 else 0x10
+		var end := info.find(0, at)
+		title = info.slice(at, end if end >= 0 else at + 64).get_string_from_ascii()
 		columns = info.decode_u32(0x114)
 		rows = info.decode_u32(0x118)
 	if info.size() >= 0x130:
@@ -100,8 +104,10 @@ func _parse() -> void:
 		grid_flags = bits.slice(32, 32 + grid_size.x * grid_size.y * 4).to_int32_array()
 	var matrix: PackedByteArray = chunks.get("LVMATRIX", PackedByteArray())
 	tile_ids.resize(columns * rows)
+	tile_codes.resize(columns * rows)
 	for i in mini(tile_ids.size(), matrix.size() / 4):
 		tile_ids[i] = matrix.decode_u16(i * 4)
+		tile_codes[i] = matrix.decode_u16(i * 4 + 2)
 
 
 ## "wiese" if the map uses meadow object variants, otherwise "steppe".
@@ -115,3 +121,80 @@ func guess_biome() -> String:
 
 func pixel_size() -> Vector2i:
 	return Vector2i(columns * CELL_SIZE, rows * CELL_SIZE)
+
+
+# ------------------------------------------------------------------ writing (map editor)
+
+## An empty map of `columns` x `rows` 32 px cells (the terrain is left to the caller).
+static func create(map_title: String, map_columns: int, map_rows: int) -> AlfMap:
+	var map := AlfMap.new()
+	map.title = map_title
+	map.columns = map_columns
+	map.rows = map_rows
+	map.tile_ids.resize(map_columns * map_rows)
+	map.tile_codes.resize(map_columns * map_rows)
+	map.grid_size = Vector2i(map_columns * 2, map_rows * 2)
+	map.grid_flags.resize(map.grid_size.x * map.grid_size.y)
+	map.start_resources = {"food": 1000, "wood": 1000, "gold": 1000, "guns": 10}
+	return map
+
+
+## The map as an expansion level file (zlib-packed chunks, like the expansion editor's).
+func to_bytes() -> PackedByteArray:
+	var out := PackedByteArray()
+	out.append_array("RDCHUNK.VERSION".to_ascii_buffer())
+	out.append_array(PackedByteArray([0, 0x20, 0, 0, 0, 0, 0, 0, 0]))
+	out.append_array("RDLF".to_ascii_buffer())
+	out.append_array(_u32s([8]))
+	var info := PackedByteArray()
+	info.resize(0x130)
+	var name_bytes := title.to_ascii_buffer().slice(0, 0x100 - 1)
+	for i in name_bytes.size():
+		info[0x10 + i] = name_bytes[i]
+	info.encode_u32(0x110, 1)
+	info.encode_u32(0x114, columns)
+	info.encode_u32(0x118, rows)
+	info.encode_u32(0x11C, 1)
+	for key in ["food", "wood", "gold", "guns"]:
+		info.encode_u32(0x120 + ["food", "wood", "gold", "guns"].find(key) * 4, int(start_resources.get(key, 0)))
+	var objects := _u32s([placements.size()])
+	for p in placements:
+		objects.append_array(_u32s([int(p.position.x), int(p.position.y), p.type_id, p.owner, p.amount, p.content]))
+	var matrix := PackedByteArray()
+	matrix.resize(tile_ids.size() * 4)
+	for i in tile_ids.size():
+		matrix.encode_u16(i * 4, tile_ids[i])
+		matrix.encode_u16(i * 4 + 2, tile_codes[i] if i < tile_codes.size() else 0)
+	var bits := "BARY".to_ascii_buffer()
+	bits.append_array(_u32s([0, 0, grid_size.x * 16, grid_size.y * 16, grid_size.x, grid_size.y, grid_flags.size()]))
+	bits.append_array(grid_flags.to_byte_array())
+	for chunk in [["LVL_INFO", info], ["BOBLISTE", objects], ["LVMATRIX", matrix], ["BITARRAY", bits]]:
+		_append_chunk(out, chunk[0], chunk[1])
+	return out
+
+
+func save(file_path: String) -> bool:
+	var file := FileAccess.open(file_path, FileAccess.WRITE)
+	if file == null:
+		push_error("Cannot write map %s" % file_path)
+		return false
+	file.store_buffer(to_bytes())
+	return true
+
+
+static func _append_chunk(out: PackedByteArray, name: String, body: PackedByteArray) -> void:
+	var packed := body.compress(FileAccess.COMPRESSION_DEFLATE)
+	var header := name.to_ascii_buffer()
+	header.resize(8)
+	var start := out.size()
+	out.append_array(header)
+	out.append_array(_u32s([start + 16 + 4 + packed.size(), 2, body.size()]))
+	out.append_array(packed)
+
+
+static func _u32s(values: Array) -> PackedByteArray:
+	var bytes := PackedByteArray()
+	bytes.resize(values.size() * 4)
+	for i in values.size():
+		bytes.encode_u32(i * 4, values[i])
+	return bytes

@@ -11,6 +11,8 @@ var biome := "steppe"
 var _material: ShaderMaterial
 var _ground_average := PackedColorArray()  # mean colour per ground layer
 var _atlas: Dictionary
+var _cells: Image
+var _cells_texture: ImageTexture
 
 
 func setup(alf_map: AlfMap, biome_name: String) -> void:
@@ -25,7 +27,9 @@ func setup(alf_map: AlfMap, biome_name: String) -> void:
 
 	_material = ShaderMaterial.new()
 	_material.shader = TerrainShader
-	_material.set_shader_parameter("cells", ImageTexture.create_from_image(_cell_image()))
+	_cells = _cell_image()
+	_cells_texture = ImageTexture.create_from_image(_cells)
+	_material.set_shader_parameter("cells", _cells_texture)
 	_material.set_shader_parameter("atlas_index", ImageTexture.create_from_image(
 			Image.create_from_data(atlas.width, atlas.height, false, Image.FORMAT_R8, atlas.pixels)))
 	_material.set_shader_parameter("atlas_palette", ImageTexture.create_from_image(_palette_image(atlas.palette)))
@@ -60,6 +64,17 @@ func _cell_image() -> Image:
 		bytes[i * 2] = map.tile_ids[i] & 0xFF
 		bytes[i * 2 + 1] = map.tile_ids[i] >> 8
 	return Image.create_from_data(map.columns, map.rows, false, Image.FORMAT_RG8, bytes)
+
+
+## Show changed tiles (the map editor): `rect` in cells.
+func refresh_cells(rect: Rect2i) -> void:
+	if _cells == null:
+		return
+	for y in range(rect.position.y, rect.end.y):
+		for x in range(rect.position.x, rect.end.x):
+			var tile := map.tile_ids[y * map.columns + x]
+			_cells.set_pixel(x, y, Color8(tile & 0xFF, tile >> 8, 0))
+	_cells_texture.update(_cells)
 
 
 func _palette_image(rgb: PackedByteArray) -> Image:
@@ -111,21 +126,25 @@ func _ground_textures(directory: String, atlas_palette: PackedByteArray, enhance
 ## One pixel per 32 px cell, averaging a 4x4 sample of each cell's composited colour.
 func overview_image() -> Image:
 	var image := Image.create_empty(map.columns, map.rows, false, Image.FORMAT_RGB8)
+	for i in map.tile_ids.size():
+		image.set_pixel(i % map.columns, i / map.columns, tile_color(map.tile_ids[i]))
+	return image
+
+
+## The average colour of an atlas tile with its ground textures (a 4x4 sample).
+func tile_color(tile: int) -> Color:
 	var width: int = _atlas.width
 	var per_row := width / AlfMap.CELL_SIZE
 	var pixels: PackedByteArray = _atlas.pixels
 	var palette: PackedByteArray = _atlas.palette
-	for i in map.tile_ids.size():
-		var tile := map.tile_ids[i]
-		var origin := Vector2i(tile % per_row, tile / per_row) * AlfMap.CELL_SIZE
-		var sum := Color(0, 0, 0)
-		for sy in 4:
-			for sx in 4:
-				var p := origin + Vector2i(4 + sx * 8, 4 + sy * 8)
-				var index := pixels[p.y * width + p.x]
-				if index < GROUND_LAYERS:
-					sum += _ground_average[index]
-				else:
-					sum += Color8(palette[index * 3], palette[index * 3 + 1], palette[index * 3 + 2])
-		image.set_pixel(i % map.columns, i / map.columns, sum / 16.0)
-	return image
+	var origin := Vector2i(tile % per_row, tile / per_row) * AlfMap.CELL_SIZE
+	var sum := Color(0, 0, 0)
+	for sy in 4:
+		for sx in 4:
+			var p := origin + Vector2i(4 + sx * 8, 4 + sy * 8)
+			var index := pixels[p.y * width + p.x]
+			if index < GROUND_LAYERS:
+				sum += _ground_average[index]
+			else:
+				sum += Color8(palette[index * 3], palette[index * 3 + 1], palette[index * 3 + 2])
+	return sum / 16.0

@@ -46,6 +46,12 @@ CHECKS = {
     "menus": ([], 300, [r"builders  \(\d+ units\): Build structure \(B\), Build expanded structure \(V\)",
                         r"farmers  \(\d+ units\): Build structure \(B\), Field"]),
     "saveload": ([], 0, [r"before: units (\d+)", r"after: +units \d+"]),
+    # The map editor: paint a lake (its rings grow), place things, save, read back, redraw
+    # an original map, and drive it with mouse and keyboard events.
+    "editor": ([], 0, [r"lake from the centre out \[\"Deep water\", \"Water\", \"Shallow water\", \"Shore\"",
+                       r"blocks without a piece 0,", r"read back: tiles same, 10 placements, [1-9]\d* water cells",
+                       r"lattice read back, 0 points differ", r"(\d+) of \1 known|1[5-9]\d{3} of 15853 known",
+                       r"stroke painted Desert, right click removed 1, undo back to 10 placements"]),
     # Six computer players for ten game minutes: no script errors, and the waves go out.
     "aigame": (["--ai-vs-ai=1", "--players=mex,usa,ind,des,mex,usa", "--time-scale=4", "--trace-ai=1",
                 "--map=[6 Players] - oasis.alf"], 4500, [r"attacks with \d+ units"]),
@@ -60,6 +66,8 @@ def run(name):
         command += ["--fixed-fps", "30"]
     if name == "parse":
         command += ["--", "--selftest=parse"]
+    elif name == "editor":
+        command += ["--", "--editor-selftest=1"]
     elif name == "aigame":
         command += ["--", "--fog=off"] + args
     else:

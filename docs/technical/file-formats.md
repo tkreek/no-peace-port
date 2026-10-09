@@ -77,7 +77,7 @@ LZW (MSB-first, 9–13-bit codes, 256 clear, 257 end, early change).
 | Chunk | Contents |
 | --- | --- |
 | `LVL_INFO` | title (C string), map width/height in 32 px cells at 0x114/0x118, start resources |
-| `LVMATRIX` | u32 per cell; low 16 bits = 32×32 tile index in the biome atlas (20 tiles per row) |
+| `LVMATRIX` | u32 per cell; low 16 bits = 32×32 tile index in the biome atlas (20 tiles per row), high 16 bits = the editor's shape code (see terrain rules) |
 | `BOBLISTE` | u32 count + 24-byte placements `{u32 x, y, type_id, owner, amount, ?}` (0xCDCDCDCD = unset) |
 | `BITARRAY`, `PINSMATR` | probably passability / height data (TODO) |
 | `EINHEIT`, `EIGENSCH` | per-object property overrides `{u32 object, property, value, ?}` (TODO) |
@@ -85,6 +85,30 @@ LZW (MSB-first, 9–13-bit codes, 256 clear, 257 end, early change).
 | `AREA*`, `ABLAUF*` | mission trigger areas and scripts (TODO) |
 
 Player start points are placements of type `Editor_Start` (owner = player).
+
+## Terrain rules (`Steppe.gfs`, `wiese.gfs`, expansion archives)
+The expansion level editor's auto-tiling rules (`"RDGS"`, atlas path, own name; u32 values from 0xA8).
+Read by `game/scripts/formats/terrain_rules.gd`, used by the map editor.
+
+| u32 index | Contents |
+| --- | --- |
+| 0 .. 839 | header table (unused) |
+| 840 .. 30839 | 4 collision flags per atlas tile (16 px quarters), identical to a map's `BITARRAY` before objects are stamped in |
+| 30840 + 623·k | 18 materials: `name#nnn\|nnnn` at +4 (steppe1/2, Ödland1/2, stein1, Weg, wüste1/2, ufer1, wasser1/2/33, höhe1, höhe_gras1/2, höhe2, Nadelwald, Laubwald) |
+| 42056 .. | block records `[1, variants, A, B (-1 = plain A), w, h, shape]` + `variants` 8×8 grids of tile ids (-1 = unused); one stray 0 before the last records |
+
+Ordinary blocks are 2×2 tiles (64 px). Materials only blend along a tree: 0-1-2-3-4, 4-5-6-7,
+4-8-9-10-11, 4-16, 4-17, 4-12-13-14, 12-15 (4 = stone is the hub). Each blending pair has 24
+transition shapes; 4-12 and 12-15 (plateau cliffs) use ~245 other pieces, partly 6×2.
+
+In a map, blocks sit in 64 px columns starting at odd cell columns, every other column shifted
+half a block down (column k starts on rows of parity k+1). A block therefore touches six lattice
+points (top, middle, bottom of its left and right edges) and its shape code says which hold A:
+patterns `TL TR ML MR BL BR` → code, e.g. `AAAABB` 28, `ABABAB` 16, `AABAAA` 26 (full table in
+`TerrainRules.SHAPES`); plain blocks are code 35. A map stores the code in the high word of each
+`LVMATRIX` cell. Every lattice point is the middle of exactly one block's edge; patterns with no
+piece leave a lone corner to that neighbouring block. Redrawing riverside.alf from its lattice
+reproduces 99.6% of the original shapes (the rest are next to cliffs).
 
 ## Object types (`BobListe.blf`, america2 root)
 `"RDBF"`, u32 capacity (1000), then `capacity × {u32 ?; char bob_path[80]; i32 ?}`: the `.bob`

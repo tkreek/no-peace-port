@@ -31,6 +31,9 @@ var ais: Array[AiPlayer] = []
 var _game_over := false
 var players := {}
 var start_positions := {}  # player -> Vector2, from the map's Editor_Start markers
+## Players the map gives units or buildings of their own: they start with exactly those
+## instead of the usual main building, workers and commander (maps made for tests).
+var placed_owners := {}
 var map_path := ""
 var loaded_game := false
 
@@ -113,7 +116,7 @@ func _ready() -> void:
 		computer[1] = GameData.cmdline_option("ai-vs-ai") != ""
 	for player in players:
 		players[player].set_start_resources(Match.start_resources(map.start_resources))
-		if loading.is_empty():
+		if loading.is_empty() and not placed_owners.has(player):
 			_setup_player(player, start_positions.get(player, _fallback_start(player, size)))
 	camera.position = _vector_option("camera", start_positions.get(1, size / 2.0))
 	# --time-scale=N runs the simulation N times faster (long AI tests).
@@ -175,6 +178,8 @@ func _spawn_placements(map: AlfMap) -> void:
 			continue
 		if type == null or type.bob_path.is_empty() or type.bob_path.begins_with("editor"):
 			continue
+		if placement.owner > 0 and placement.owner < 9:
+			placed_owners[placement.owner] = true
 		if type.kind == ObjectTypes.Kind.UNIT:
 			var unit_type := UnitType.load_type(type.directory(), type.name.contains("Pferd"), type.id)
 			if unit_type == null:
@@ -192,6 +197,9 @@ func _spawn_placements(map: AlfMap) -> void:
 			if object.is_abandoned_store():
 				object.stock.stock_abandoned_store(placement.content, placement.amount)
 			units_root.add_child(object)
+			# The original maps carry their objects' footprints in the collision grid already;
+			# stamping again changes nothing there and fills them in for editor maps.
+			nav.block_footprint(type, placement.position)
 		spawned += 1
 	print("Placed %d/%d map objects in %d ms" % [spawned, map.placements.size(), Time.get_ticks_msec() - started])
 	_grow_forests(map)
@@ -226,7 +234,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## A player is out when they have no buildings and no units left.
 func _check_victory() -> void:
-	if _game_over:
+	if _game_over or Match.editor_map != "":
 		return
 	# Who is still in the game depends on the game type: anyone with units or buildings left,
 	# anyone whose leader lives, or anyone whose main building stands.

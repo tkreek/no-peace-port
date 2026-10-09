@@ -13,10 +13,22 @@ const CARD_STEP := 15.0  # queued units overlap like a hand of cards
 const GROUP_ICON := 34.0
 const STANCE_NAMES := {Unit.Stance.AGGRESSIVE: "Act aggressively", Unit.Stance.DEFENSIVE: "Act defensively",
 		Unit.Stance.HOLD: "Hold ground", Unit.Stance.PASSIVE: "Passive"}
+## Status icons (HudStyle.STATUS_ICONS) for the stats, as in the original status menu.
+const ICON_ENERGY := 8
+const ICON_RIFLE := 0
+const ICON_FIST := 9
+const ICON_MORALE := 12
+const ICON_EXPERIENCE := 10
+const ICON_MAGIC := 11
+const ICON_SIGHT := 13
+const ICON_PEOPLE := 5
 
 var hud: Hud
 var _panel: Control  # the left plank everything sits on
 var _title := HudStyle.label(22)
+var _info := VBoxContainer.new()  # the stat icons, then any further detail as text
+var _stats := HFlowContainer.new()
+var _stats_signature := ""
 var _detail := HudStyle.label(16)
 var _health_bar := HudStyle.progress_bar(Color(0.35, 0.75, 0.2))
 var _portrait := TextureRect.new()
@@ -31,8 +43,11 @@ func _init(owner: Hud, panel: Control) -> void:
 	hud = owner
 	_panel = panel
 	_health_bar.max_value = 100.0
-	for item: Control in [_title, _detail, _health_bar]:
+	for item: Control in [_title, _info, _health_bar]:
 		panel.add_child(item)
+	_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_info.add_child(_stats)
+	_info.add_child(_detail)
 	_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_portrait.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
@@ -52,6 +67,10 @@ func layout() -> void:
 	_title.add_theme_font_size_override("font_size", int(22 * scale))
 	_detail.add_theme_font_size_override("font_size", int(13 * scale))
 	_detail.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_info.add_theme_constant_override("separation", int(2 * scale))
+	_stats.add_theme_constant_override("h_separation", int(12 * scale))
+	_stats.add_theme_constant_override("v_separation", int(1 * scale))
+	_stats_signature = ""
 	_group_box.position = pad + Vector2(0, 2) * scale
 	_queue_signature = ""
 	_group_signature = ""
@@ -66,7 +85,8 @@ func _layout_text(with_portrait: bool) -> void:
 	_title.position = pad + Vector2(x, 0)
 	_health_bar.position = pad + Vector2(x, 34 * scale)
 	_health_bar.size = Vector2(maxf(80 * scale, _panel.size.x - pad.x * 2 - x - 20 * scale), 8 * scale)
-	_detail.position = pad + Vector2(x, 44 * scale)
+	_info.position = pad + Vector2(x, 44 * scale)
+	_info.size = Vector2(maxf(80 * scale, _panel.size.x - pad.x * 2 - x - 20 * scale), 0)
 	_queue_box.position = pad + Vector2(0, 86) * scale
 
 
@@ -77,12 +97,14 @@ func refresh() -> void:
 	if units.is_empty() and object:
 		_set_portrait(object.guid, object)
 		_title.visible = true
-		_detail.visible = true
+		_info.visible = true
 		_title.text = object.display_name()
 		_health_bar.visible = object.is_building()
 		_health_bar.max_value = object.max_health
 		_health_bar.value = object.health
+		_show_stats(_object_stats(object))
 		_detail.text = _object_detail(object)
+		_detail.visible = not _detail.text.is_empty()
 		_refresh_queue(object if object.is_building() else null)
 		_refresh_group([])
 		return
@@ -90,7 +112,7 @@ func refresh() -> void:
 	_refresh_group(units if units.size() > 1 else [])
 	_health_bar.visible = units.size() == 1
 	_title.visible = units.size() <= 1
-	_detail.visible = units.size() <= 1
+	_info.visible = units.size() == 1
 	if units.size() != 1:
 		_set_portrait(-1, null)
 		_title.text = ""
@@ -101,33 +123,90 @@ func refresh() -> void:
 	_title.text = unit.display_name()
 	_health_bar.max_value = unit.max_health
 	_health_bar.value = unit.health
+	_show_stats(_unit_stats(unit))
 	_detail.text = _unit_detail(unit)
+	_detail.visible = not _detail.text.is_empty()
 
 
-## Everything worth knowing about one unit: energy, weapon, range, reload, sight, speed.
+## A unit's status as icon and value pairs: energy, attack force (with the upgrades' bonus),
+## morale and experience as in the original status menu; then magic, sight, the load in
+## hand and the passengers aboard.
+func _unit_stats(unit: Unit) -> Array:
+	var stats := [[ICON_ENERGY, "%d/%d" % [unit.health, unit.max_health], "Energy"]]
+	if not unit.unit_type.attack_anims.is_empty():
+		var bonus := int(unit.bonus("attack"))
+		var attack := "%d" % unit.unit_type.damage + (" +%d" % bonus if bonus > 0 else "")
+		var tip := "Attack force%s\nDamage per blow now %d (morale and experience included)" % [
+				" (+%d from upgrades)" % bonus if bonus > 0 else "", unit.attack_damage()]
+		stats.append([ICON_RIFLE if unit.unit_type.ranged else ICON_FIST, attack, tip])
+	if unit.team > 0:
+		stats.append([ICON_MORALE, "%d%%" % roundi(unit.morale() * 100), "Morale"])
+		stats.append([ICON_EXPERIENCE, "%d%%" % roundi(unit.experience * 100), "Experience"])
+	if UnitMagic.CASTERS.has(unit.unit_type.guid()):
+		stats.append([ICON_MAGIC, "%d/%d" % [unit.magic.magic_energy, unit.magic.magic_pool()], "Magic energy"])
+	stats.append([ICON_SIGHT, "%d" % unit.sight(), "Sight"])
+	if unit.work.carried > 0 and Player.RESOURCES.has(unit.work.carrying):
+		stats.append([Player.RESOURCES[unit.work.carrying].icon, "%d" % unit.work.carried, "Carrying %s" % unit.work.carrying])
+	if unit.water.is_boat():
+		stats.append([ICON_PEOPLE, "%d/%d" % [unit.water.passengers.size(), unit.water.capacity()], "Passengers"])
+	return stats
+
+
+## What the icons don't say: the weapon's reach and pace, speed and stance, special states.
 func _unit_detail(unit: Unit) -> String:
-	var lines := PackedStringArray(["Energy %d / %d   Morale %d%%   Experience %d%%" % [unit.health, unit.max_health,
-			roundi(unit.morale() * 100), roundi(unit.experience * 100)]])
+	var lines := PackedStringArray()
 	if not unit.unit_type.attack_anims.is_empty():
 		var weapon := "Range %d" % unit.attack_range() if unit.unit_type.ranged else "Melee"
-		lines.append("Damage %d   %s" % [unit.attack_damage(), weapon])
-		lines.append("Reload %.1f s   Sight %d" % [unit.unit_type.reload_ms / 1000.0, unit.sight()])
-		lines.append("Speed %d   %s" % [unit.move_speed(), STANCE_NAMES[unit.stance]])
-	else:
-		lines.append("Sight %d   Speed %d" % [unit.sight(), unit.move_speed()])
-	if unit.work.carried > 0:
+		lines.append("%s · reload %.1f s · speed %d\n%s" % [weapon, unit.unit_type.reload_ms / 1000.0,
+				unit.move_speed(), STANCE_NAMES[unit.stance]])
+	if unit.work.carried > 0 and not Player.RESOURCES.has(unit.work.carrying):
 		lines.append("Carrying %d %s" % [unit.work.carried, unit.work.carrying])
-	if unit.water.is_boat():
-		lines.append("Passengers %d / %d" % [unit.water.passengers.size(), unit.water.capacity()])
 	if not unit.tepees.packed.is_empty():
 		lines.append("Carrying a packed %s" % String(GameData.stats(int(unit.tepees.packed.guid)).get("name", "tepee")).to_lower())
 	if unit.animal.is_cow():
 		lines.append("Worth %d gold (up to %d)" % [unit.animal.cattle_value, UnitAnimal.COW_MAX_VALUE])
-	if UnitMagic.CASTERS.has(unit.unit_type.guid()):
-		lines.append("Magic %d / %d" % [unit.magic.magic_energy, unit.magic.magic_pool()])
 	if unit.magic.shield_time > 0.0:
 		lines.append("Shielded %d s" % ceili(unit.magic.shield_time))
 	return "\n".join(lines)
+
+
+## A building's energy and housing as icons (trees, mines and fields have only text).
+func _object_stats(object: MapObject) -> Array:
+	if not object.is_building():
+		return []
+	var stats := [[ICON_ENERGY, "%d/%d" % [object.health, object.max_health], "Energy"]]
+	var housing := int(GameData.stats(object.guid).get("housing", 0))
+	if housing > 0 and object.complete:
+		stats.append([ICON_PEOPLE, "%d" % housing, "Houses %d" % housing])
+	return stats
+
+
+## Show `stats` ([icon frame, value, tooltip] each) as rows of icons with their values. The
+## icons are rebuilt only when which ones are shown changes; the values every frame.
+func _show_stats(stats: Array) -> void:
+	_stats.visible = not stats.is_empty()
+	var signature := ",".join(stats.map(func(entry: Array) -> String: return str(entry[0])))
+	var scale := hud.ui_scale
+	if signature != _stats_signature:
+		_stats_signature = signature
+		for child in _stats.get_children():
+			_stats.remove_child(child)
+			child.queue_free()
+		for entry: Array in stats:
+			var pair := HBoxContainer.new()
+			pair.add_theme_constant_override("separation", int(3 * scale))
+			var icon := HudStyle.status_icon(entry[0])
+			icon.custom_minimum_size = Vector2(18, 18) * scale
+			pair.add_child(icon)
+			var value := HudStyle.label(int(14 * scale))
+			value.name = "Value"
+			pair.add_child(value)
+			_stats.add_child(pair)
+	var pairs := _stats.get_children()
+	for i in mini(pairs.size(), stats.size()):
+		(pairs[i].get_node("Value") as Label).text = stats[i][1]
+		pairs[i].tooltip_text = stats[i][2]
+		(pairs[i].get_child(0) as Control).tooltip_text = stats[i][2]
 
 
 func _object_detail(object: MapObject) -> String:
@@ -149,8 +228,7 @@ func _object_detail(object: MapObject) -> String:
 	if object.owner_index != hud.player.index and Player.by_index.has(object.owner_index):
 		owner_note = "\n" + Match.faction_name(Player.by_index[object.owner_index].faction)
 	if not object.complete:
-		return "Under construction %d%%\nEnergy %d / %d%s" % [int(object.build_progress * 100), object.health,
-				object.max_health, owner_note]
+		return "Under construction %d%%%s" % [int(object.build_progress * 100), owner_note]
 	var production := object.production
 	if not production.queue.is_empty():
 		var current := GameData.stats(production.queue[0])
@@ -159,7 +237,6 @@ func _object_detail(object: MapObject) -> String:
 	if object.guid == BuildingProduction.DISTILLERY_GUID:
 		owner_note += "\n" + ("Distilling %d wood into %d food every %d s" % [BuildingProduction.DISTILL_WOOD,
 				BuildingProduction.DISTILL_FOOD, BuildingProduction.DISTILL_SECONDS] if production.distilling else "Resting")
-	var housing := int(GameData.stats(object.guid).get("housing", 0))
 	var defence := object.defence
 	var quartered := "\nQuartered %d / %d" % [defence.garrison.size(), defence.capacity()] if defence.capacity() > 0 else ""
 	if object.is_abandoned_store():
@@ -167,8 +244,7 @@ func _object_detail(object: MapObject) -> String:
 				else "Abandoned warehouse (empty)"
 	if object.is_gold_warehouse():
 		quartered += "\nGold stored: %d (send a wagon to haul it)" % stock.stored_gold
-	return "Energy %d / %d%s%s%s" % [object.health, object.max_health,
-			"\nHouses %d" % housing if housing > 0 else "", quartered, owner_note]
+	return (quartered + owner_note).strip_edges()
 
 
 ## The portrait of the selected unit or object at the left of the panel.

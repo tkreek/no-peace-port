@@ -89,6 +89,17 @@ func _exit_tree() -> void:
 	all_objects.erase(self)
 
 
+var _flash_time := 0.0
+var _flash_color := Color.WHITE
+
+
+## Briefly pulse the object and ring it, to confirm it was picked as an order's target.
+func flash(color := Color(1.0, 0.9, 0.4)) -> void:
+	_flash_time = 1.0
+	_flash_color = color
+	set_process(true)
+
+
 func is_alive() -> bool:
 	return not is_building() or health > 0.0
 
@@ -323,6 +334,14 @@ func enqueue(unit_guid: int) -> bool:
 
 
 func _process(delta: float) -> void:
+	if _flash_time > 0.0:
+		_flash_time = maxf(0.0, _flash_time - delta)
+		var pulse := 0.5 + 0.5 * sin(_flash_time * TAU * 3.0)
+		_body.self_modulate = Color.WHITE.lerp(_flash_color * 1.6, pulse * _flash_time)
+		_overlay.queue_redraw()
+		if _flash_time <= 0.0:
+			_body.self_modulate = Color.WHITE
+			set_process(is_building() or is_field())
 	if is_field() and field_state == Field.GROWING:
 		field_progress += delta / FIELD_GROW_SECONDS
 		if field_progress >= 1.0:
@@ -423,6 +442,14 @@ func _show(sprite: Sprite2D, anim_index: int, frame_hint: int) -> bool:
 func _draw_overlay(canvas: Node2D) -> void:
 	var rect := footprint_rect()
 	rect.position -= position
+	if _flash_time > 0.0:
+		var work := work_rect()
+		work.position -= position
+		var radius := maxf(work.size.x * 0.55, 20.0)
+		canvas.draw_set_transform(work.get_center() + Vector2(0, work.size.y * 0.3), 0.0, Vector2(1.0, 0.55))
+		canvas.draw_arc(Vector2.ZERO, radius * (1.25 - _flash_time * 0.25), 0.0, TAU, 48,
+				Color(_flash_color, _flash_time), 2.5, true)
+		canvas.draw_set_transform(Vector2.ZERO)
 	if Unit.debug_paths and object_type:
 		canvas.draw_rect(rect, Color(0, 1, 1, 0.8), false, 1.5)
 		canvas.draw_circle(Vector2.ZERO, 3, Color.RED)

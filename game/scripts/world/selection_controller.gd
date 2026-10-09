@@ -59,6 +59,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				order_gather(source)
 			else:
 				_order_move(world)
+				if not selection.is_empty():
+					OrderMarker.spawn(units_root, world, player_team)
 	elif event is InputEventMouseMotion and _pressed:
 		_dragging = _dragging or get_global_mouse_position().distance_to(_drag_start) > DRAG_THRESHOLD / get_viewport().get_canvas_transform().get_scale().x
 		queue_redraw()
@@ -119,6 +121,7 @@ func order_build(site: MapObject) -> void:
 	var builders := selection.filter(_is_builder)
 	if builders.is_empty():
 		return
+	site.flash()
 	Sound.play_event(builders[0].unit_type.guid(), Sound.Event.ORDER)
 	for unit: Unit in builders:
 		unit.build(site)
@@ -133,6 +136,7 @@ func order_gather(source: MapObject) -> void:
 		return is_instance_valid(u) and u.is_alive() and u.unit_type.can_gather(source.resource))
 	if gatherers.is_empty():
 		return
+	source.flash()
 	Sound.play_event(gatherers[0].unit_type.guid(), Sound.Event.ORDER)
 	for unit: Unit in gatherers:
 		unit.gather(source)
@@ -150,6 +154,7 @@ func order_attack(enemy: Node2D) -> void:
 	selection = selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
 	if selection.is_empty():
 		return
+	enemy.flash(Color(1.0, 0.35, 0.3))
 	Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	for unit in selection:
 		unit.attack(enemy)

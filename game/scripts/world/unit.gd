@@ -97,6 +97,15 @@ func _exit_tree() -> void:
 	all_units.erase(self)
 
 
+var _flash_time := 0.0
+
+
+## Briefly tint the unit to confirm it was picked as an attack target.
+func flash(color := Color(1.0, 0.35, 0.3)) -> void:
+	_flash_time = 0.8
+	_body.self_modulate = color
+
+
 func display_name() -> String:
 	return unit_type.display_name()
 
@@ -211,6 +220,10 @@ func take_damage(amount: float, attacker: Node2D = null) -> void:
 
 func _process(delta: float) -> void:
 	_cooldown = maxf(0.0, _cooldown - delta)
+	if _flash_time > 0.0:
+		_flash_time -= delta
+		if _flash_time <= 0.0:
+			_body.self_modulate = Color.WHITE
 	match state:
 		State.IDLE:
 			_scan_timer -= delta

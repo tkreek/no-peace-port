@@ -386,6 +386,7 @@ func _scenario_help_build() -> void:
 	var site: MapObject = MapObject.all_objects.filter(func(o: MapObject) -> bool: return not o.complete)[0]
 	selection._select(workers.slice(1), false)
 	selection.order_build(site)
+	OrderMarker.spawn(units_root, site.position + Vector2(-160, 60), 1)
 	var helpers := workers.filter(func(u: Unit) -> bool: return u.build_site == site).size()
 	print("help-build: %d of %d workers now building" % [helpers, workers.size()])
 

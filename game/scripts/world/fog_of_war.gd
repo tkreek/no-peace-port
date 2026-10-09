@@ -139,10 +139,22 @@ func _circle(radius: int) -> PackedVector2Array:
 	return _circles[radius]
 
 
+## A detector of ours (arrow shooter, militiaman, hunter, trapper) with `point` in sight.
+func _detects(point: Vector2) -> bool:
+	for unit in Unit.all_units:
+		if unit.team == player_team and unit.is_alive() and unit.unit_type.guid() in Unit.DETECTORS \
+				and unit.position.distance_to(point) <= unit.sight():
+			return true
+	return false
+
+
 ## Enemy units only show while in sight; enemy buildings once explored. Own things always.
 func _apply_to_objects() -> void:
 	for unit in Unit.all_units:
-		unit.fogged = enabled and unit.team != player_team and not is_visible_at(unit.position)
+		unit.fogged = unit.team != player_team and ((enabled and not is_visible_at(unit.position)) \
+				or (unit.concealed and not unit.detected_by(player_team)))
 	for object in MapObject.all_objects:
 		if object.is_building() and object.owner_index != player_team:
 			object.visible = not enabled or is_explored_at(object.footprint_rect().get_center())
+			if object.is_trap():
+				object.visible = object.visible and is_visible_at(object.position) and _detects(object.position)

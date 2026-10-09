@@ -98,7 +98,7 @@ func _place(at: Vector2, keep_placing: bool) -> void:
 		site.free()
 		return
 	objects_root.add_child(site)
-	var is_field := site.is_field()
+	var is_field := site.is_field() or site.is_trap()  # neither blocks the way
 	if not is_field:
 		NavGrid.current.block_footprint(placing_type, at)
 	# Units now standing inside the footprint step out to the nearest free cell.

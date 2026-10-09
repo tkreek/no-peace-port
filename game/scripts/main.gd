@@ -134,6 +134,10 @@ func _ready() -> void:
 		_scenario_trade.call_deferred()
 	if GameData.cmdline_option("scenario") == "rob":
 		_scenario_rob.call_deferred()
+	if GameData.cmdline_option("scenario") == "camouflage":
+		_scenario_camouflage.call_deferred()
+	if GameData.cmdline_option("scenario") == "pitfall":
+		_scenario_pitfall.call_deferred()
 	if GameData.cmdline_option("scenario") == "orders":
 		_scenario_orders.call_deferred()
 	# --time-scale=N runs the simulation N times faster (long AI tests).
@@ -786,6 +790,49 @@ func _scenario_rob() -> void:
 		await get_tree().create_timer(5.0).timeout
 		print("t=%ds store %d, our gold +%d, robber phase %d carrying %d inside %s; wagon team %d" % [(i + 1) * 5, store.stored_gold,
 				players[1].resources.gold - gold, robber._gather_phase, robber.carried, robber.inside, wagon.team])
+	get_tree().quit()
+
+
+## Camouflaged riflemen beside enemy infantry go unseen until a trapper comes along.
+func _scenario_camouflage() -> void:
+	var centre := Vector2(terrain.map.pixel_size()) / 2.0  # away from both bases
+	centre = (Vector2(nav.nearest_walkable(nav.cell_of(centre))) + Vector2(0.5, 0.5)) * NavGrid.CELL
+	players[1].researched[915] = true
+	_spawn_squad(160, 1, centre, 2)
+	var hiders := units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.guid() == 160)
+	for h: Unit in hiders:
+		h.stance = Unit.Stance.PASSIVE
+		h.conceal()
+	_spawn_squad(458, 2, centre + Vector2(150, 0), 3)
+	await get_tree().create_timer(10.0).timeout
+	print("unseen: concealed %s, energy %s, fogged to player 2's eyes n/a" % [hiders.map(func(h: Unit) -> bool: return h.concealed), hiders.map(func(h: Unit) -> int: return int(h.health))])
+	_spawn_squad(461, 2, centre + Vector2(220, 40), 1)
+	await get_tree().create_timer(12.0).timeout
+	print("after the trapper: energy %s" % [hiders.map(func(h: Unit) -> int: return int(h.health))])
+	get_tree().quit()
+
+
+## A pitfall between enemy infantry and our base: they walk into it, our own unit does not.
+func _scenario_pitfall() -> void:
+	var centre := Vector2(terrain.map.pixel_size()) / 2.0
+	centre = (Vector2(nav.nearest_walkable(nav.cell_of(centre))) + Vector2(0.5, 0.5)) * NavGrid.CELL
+	var type := ObjectTypes.get_type(GameData.type_for_guid(MapObject.PITFALL_GUID, terrain.biome))
+	var pit := MapObject.new()
+	pit.position = centre
+	pit.setup(type, 1)
+	units_root.add_child(pit)
+	_spawn_squad(458, 2, centre + Vector2(-200, 0), 4)
+	_spawn_squad(152, 1, centre + Vector2(-120, 60), 1)
+	var friend: Unit = units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.guid() == 152 and n.position.distance_to(centre) < 200)[0]
+	friend.move_to(pit.footprint_rect().get_center() + Vector2(60, 0))
+	for n in units_root.get_children():
+		if n is Unit and n.team == 2 and n.position.distance_to(centre) < 300:
+			n.stance = Unit.Stance.PASSIVE
+			n.move_to(pit.footprint_rect().get_center() + Vector2(220, 0))
+	await get_tree().create_timer(12.0).timeout
+	var foes := units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 and n.position.distance_to(centre) < 400)
+	print("enemies alive %s; our warrior alive %s; pit %s" % [foes.map(func(f: Unit) -> bool: return f.is_alive()), friend.is_alive(),
+			"spent" if not is_instance_valid(pit) or not pit.is_alive() else "%d kills" % pit.trap_kills])
 	get_tree().quit()
 
 

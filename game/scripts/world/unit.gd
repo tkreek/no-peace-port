@@ -317,6 +317,69 @@ func change_team(new_team: int) -> void:
 	flash(Color(1.0, 0.9, 0.4))
 
 
+## Camouflage (Native arrow shooters, flaming arrow shooters and riflemen after the upgrade)
+## and the outlaw assassin digging in: hidden from enemies unless a detector (arrow shooter,
+## militiaman, hunter, trapper) has them in sight. Any order breaks cover.
+const CAMOUFLAGE := {156: 915, 158: 915, 160: 915, 362: 0}
+const DETECTORS := [156, 157, 261, 358, 461]
+var concealed := false
+
+
+func can_hide() -> bool:
+	return _may(CAMOUFLAGE) and unit_type.anim_index("hide") >= 0
+
+
+func conceal() -> void:
+	if not can_hide() or not is_alive():
+		return
+	stop()
+	concealed = true
+	modulate.a = 0.55  # see-through for its owner; enemies don't see it at all
+	_play_once_then_hold("hide")
+
+
+func uncover() -> void:
+	if concealed:
+		concealed = false
+		modulate.a = 1.0
+
+
+func _play_once_then_hold(action: String) -> void:
+	play(action)
+
+
+## Traps are only found by detectors (arrow shooters, militiamen, hunters, trappers).
+func _sees_trap(trap: MapObject) -> bool:
+	for other in all_units:
+		if other.team == team and other.is_alive() and other.unit_type.guid() in DETECTORS \
+				and other.position.distance_to(trap.position) <= other.sight():
+			return true
+	return false
+
+
+## Whether `team` has a detector with this unit in sight.
+func detected_by(by_team: int) -> bool:
+	for other in all_units:
+		if other.team == by_team and other.is_alive() and other.unit_type.guid() in DETECTORS \
+				and other.position.distance_to(position) <= other.sight():
+			return true
+	return false
+
+
+func _update_hidden() -> void:
+	if state != State.IDLE:
+		uncover()
+		return
+	play("hide")
+	# A dug-in assassin stabs whoever comes within reach.
+	if unit_type.guid() == 362 and not unit_type.attack_anims.is_empty():
+		for other in all_units:
+			if other.is_alive() and other.team > 0 and other.team != team and other.position.distance_to(position) < 40.0:
+				uncover()
+				attack(other)
+				return
+
+
 ## Native Americans heal over time with herb blends; outlaws once Self-healing is researched.
 const SELF_HEALING_UPGRADE := 957
 const SELF_HEAL_PER_SECOND := 0.6
@@ -420,6 +483,8 @@ func _may_engage(enemy: Node2D) -> bool:
 func is_enemy_of(other: Unit) -> bool:
 	if other.state == State.QUARTERED:
 		return false  # out of reach behind the walls
+	if other.concealed and not other.detected_by(team):
+		return false
 	return other.team != team and other.team > 0 and team > 0
 
 
@@ -448,6 +513,7 @@ func follow(leader: Unit) -> void:
 
 
 func _clear_orders() -> void:
+	uncover()
 	_patrol.clear()
 	follow_target = null
 	heal_target = null
@@ -638,6 +704,11 @@ func _process(delta: float) -> void:
 		_update_heal(delta)
 		_advance(delta)
 		return
+	if concealed:
+		_update_hidden()
+		if concealed:
+			_advance(delta)
+			return
 	match state:
 		State.IDLE:
 			_scan_timer -= delta
@@ -1199,7 +1270,8 @@ func _nearest_target(radius: float) -> Node2D:
 	var best: MapObject = null
 	var best_distance := radius
 	for object in MapObject.all_objects:
-		if object.is_building() and object.owner_index > 0 and object.owner_index != team and object.is_alive():
+		if object.is_building() and object.owner_index > 0 and object.owner_index != team and object.is_alive() \
+				and not (object.is_trap() and not _sees_trap(object)):
 			var distance := position.distance_to(_aim_point(object))
 			if distance < best_distance:
 				best = object

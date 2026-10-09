@@ -248,6 +248,35 @@ func add_repair_work(seconds: float) -> bool:
 var _repair_debt := 0.0
 
 
+## The Native pitfall (manual): crossed safely by its own people, deadly to enemies, hidden
+## from them unless a detector sees it, spent after three kills.
+const PITFALL_GUID := 114
+const PITFALL_KILLS := 3
+var trap_kills := 0
+var _trap_scan := 0.0
+
+
+func is_trap() -> bool:
+	return guid == PITFALL_GUID
+
+
+func _spring_trap(delta: float) -> void:
+	_trap_scan -= delta
+	if _trap_scan > 0.0:
+		return
+	_trap_scan = 0.2
+	var pit := footprint_rect().get_center()
+	for unit in Unit.all_units:
+		if unit.is_alive() and unit.team > 0 and unit.team != owner_index and not unit.inside \
+				and not unit.unit_type.is_transport() and unit.position.distance_to(pit) < 30.0:
+			unit.take_damage(unit.max_health * 10.0, self)
+			trap_kills += 1
+			if trap_kills >= PITFALL_KILLS:
+				health = 0.0
+				_destroy()
+				return
+
+
 ## Tear the building down (Del). Queued orders are refunded, and so is the part of the
 ## construction cost not yet built into an unfinished site.
 func demolish() -> void:
@@ -286,7 +315,8 @@ func _destroy() -> void:
 
 
 func is_building() -> bool:
-	return object_type != null and object_type.kind == ObjectTypes.Kind.BUILDING and guid != FIELD_GUID
+	return object_type != null and (object_type.kind == ObjectTypes.Kind.BUILDING or guid == PITFALL_GUID) \
+			and guid != FIELD_GUID
 
 
 func is_field() -> bool:
@@ -458,7 +488,7 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 	elif type.name.begins_with("Mine"):
 		resource = "gold"
 		amount = placed_amount if placed_amount > 0 else MINE_GOLD
-	elif type.kind == ObjectTypes.Kind.BUILDING:
+	elif type.kind == ObjectTypes.Kind.BUILDING or guid == PITFALL_GUID:
 		max_health = GameData.stats(guid).get("health", 1000)
 		health = max_health
 		if under_construction:
@@ -698,6 +728,8 @@ func _process(delta: float) -> void:
 		_distill(delta)
 	if guid in INCOME_BUILDINGS and complete and health > 0.0:
 		_earn(delta)
+	if is_trap() and complete and health > 0.0:
+		_spring_trap(delta)
 	if guid in TRADE_BUILDINGS and complete:
 		var market: Player = Player.by_index.get(owner_index)
 		if market:

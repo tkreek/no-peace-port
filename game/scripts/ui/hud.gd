@@ -36,6 +36,7 @@ const FORMATION_NAMES := {Unit.Formation.COLUMN: "Column", Unit.Formation.DOUBLE
 const ICON_FOLLOW := 2  # two men walking one behind the other
 const ICON_PATROL := 4  # two men with an arrow
 const ICON_RALLY := 12  # Iconserstereihe: signpost
+const ICON_HIDE := 14  # Iconserstereihe: hooded figure
 const ICON_ENTER := 2  # Iconserstereihe: arrow into a doorway
 const ICON_LEAVE := 0  # arrow out of a doorway
 const ICON_DEMOLISH := 8  # Iconserstereihe: gravestone
@@ -630,6 +631,13 @@ func _refresh_commands() -> void:
 				for formation in FORMATION_ICONS:
 					_add_icon_command(_formation_icons, FORMATION_ICONS[formation], FORMATION_NAMES[formation],
 							func() -> void: set_formation(formation), formations.size() == 1 and formations.has(formation))
+		var hiders := units.filter(func(u: Unit) -> bool: return u.can_hide())
+		if not hiders.is_empty():
+			var assassin := hiders.any(func(u: Unit) -> bool: return u.unit_type.guid() == 362)
+			_add_icon_command(_extra_icons, ICON_HIDE, "Dig in: wait hidden and stab passers-by" if assassin \
+					else "Camouflage: blend into the landscape until given another order", func() -> void:
+				for u: Unit in hiders:
+					u.conceal())
 		_add_icon_command(_extra_icons, ICON_ENTER, "Move into quarters (G): click a fort or tower",
 				func() -> void: selection.begin_targeting("quarters"), selection.pending == "quarters")
 		_add_icon_command(_command_icons, ICON_STOP, "Stop (X)", stop_selection)

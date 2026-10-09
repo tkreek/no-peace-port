@@ -24,6 +24,7 @@ const ACTION_STEMS := {
 	"carry_food_idle": ["korb_stehen"],
 	"butcher": ["erlegen", "ausbeinen"],
 	"heal": ["heilen", "tanzen"],
+	"hide": ["tarnen", "einbuddeln"],
 }
 ## Projectile sheets in a unit's folder (arrows, knives, tomahawks, cannonballs, dynamite).
 const PROJECTILE_STEMS := ["pfeil", "messer", "tomahawk", "kugel", "dynamit"]

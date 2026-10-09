@@ -38,7 +38,7 @@ var menu := GameMenu.new(self)
 
 var _left := TextureRect.new()
 var _right := TextureRect.new()
-var _top := NinePatchRect.new()
+var _top := Panel.new()  ## the stockpiles: a slim translucent strip at the top left
 var _resources := HBoxContainer.new()
 var _resource_labels := {}
 var _population_label: Label
@@ -69,8 +69,6 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 		panel.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		panel.mouse_filter = Control.MOUSE_FILTER_STOP
 		root.add_child(panel)
-	_top.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
-	_top.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 	_right.texture = _minimap_panel_texture()
 	_setup_minimap(map, camera, objects, terrain_colors)
 	_setup_resources()
@@ -179,8 +177,6 @@ func _layout() -> void:
 	var bar_h := BAR_HEIGHT * ui_scale
 	var left_size := HudStyle.frame_size(_status_sheet, 0) * ui_scale
 	_left.texture = _status_frame(0, 1.0)
-	_top.texture = _status_frame(1, ui_scale)
-	_top.patch_margin_left = 0
 	var right_size := Vector2(256, 184) * ui_scale
 	_left.position = Vector2(0, view.y - bar_h)
 	_left.size = left_size
@@ -193,28 +189,31 @@ func _layout() -> void:
 		button.size = Vector2(46, 46) * ui_scale
 		button.position = _right.position + Vector2(22, 34 + i * 62) * ui_scale
 
-	var top_h := 30.0 * ui_scale
-	_top.region_rect = Rect2(Vector2.ZERO, Vector2(_top.texture.get_width(), minf(top_h, _top.texture.get_height())))
-	_resources.position = Vector2(12, 3) * ui_scale
-	_resources.size = Vector2(0, top_h - 6 * ui_scale)
-	_resources.add_theme_constant_override("separation", int(8 * ui_scale))
+	var top_h := 22.0 * ui_scale
+	var strip := StyleBoxFlat.new()
+	strip.bg_color = Color(0.05, 0.03, 0.02, 0.55)
+	strip.corner_radius_bottom_right = int(6 * ui_scale)
+	_top.add_theme_stylebox_override("panel", strip)
+	_resources.position = Vector2(8, 2) * ui_scale
+	_resources.size = Vector2(0, top_h - 4 * ui_scale)
+	_resources.add_theme_constant_override("separation", int(4 * ui_scale))
 	for child in _resources.get_children():
 		if child is TextureRect:
-			child.custom_minimum_size = Vector2(22, 22) * ui_scale
+			child.custom_minimum_size = Vector2(16, 16) * ui_scale
 		else:
-			child.add_theme_font_size_override("font_size", int(18 * ui_scale))
-			var width := 64
+			child.add_theme_font_size_override("font_size", int(14 * ui_scale))
+			var width := 44
 			if child == _population_label:
-				width = 90
+				width = 60
 			elif child == _resource_labels.get("gold"):
-				width = 120  # "gold (warehoused)"
+				width = 84  # "gold (warehoused)"
 			elif child == _resource_labels.get("horses"):
-				width = 70
+				width = 48
 			child.custom_minimum_size.x = width * ui_scale
 	# The strip is only as long as the stockpiles need.
 	_resources.reset_size()
 	_top.position = Vector2.ZERO
-	_top.size = Vector2(minf(view.x, _resources.get_combined_minimum_size().x + 30 * ui_scale), top_h)
+	_top.size = Vector2(minf(view.x, _resources.get_combined_minimum_size().x + 16 * ui_scale), top_h)
 	commands.layout(command_area())
 	selected.layout()
 

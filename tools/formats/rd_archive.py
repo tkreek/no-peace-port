@@ -43,7 +43,7 @@ class GameFiles:
 
     def __init__(self, install_dir):
         self.archives = []
-        for i in range(5):
+        for i in (9, 8, 7, 6, 5, 0, 1, 2, 3, 4):  # expansion archives take priority
             path = os.path.join(install_dir, f"america{i}.rda")
             if os.path.exists(path):
                 self.archives.append(RdaArchive(path))

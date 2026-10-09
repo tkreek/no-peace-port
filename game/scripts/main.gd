@@ -50,7 +50,9 @@ func _ready() -> void:
 		return
 	var map_arg := GameData.cmdline_option("map", DEFAULT_MAP)
 	var map_path := map_arg
-	if not map_arg.is_absolute_path():
+	if Match.configured:
+		map_path = Match.map_path
+	elif not map_arg.is_absolute_path():
 		map_path = GameData.maps_dir().path_join(map_arg)
 		for candidate in GameData.map_files():
 			if candidate.get_file() == map_arg:
@@ -73,10 +75,19 @@ func _ready() -> void:
 	camera.make_current()
 
 	var size := Vector2(map.pixel_size())
-	players[1] = Player.new(1, _faction_option("faction", "mex"))
-	players[2] = Player.new(2, _faction_option("enemy", "usa"))
+	Player.by_index.clear()
+	var computer := {}  # player index -> true when AI controlled
+	if Match.configured:
+		for i in Match.players.size():
+			players[i + 1] = Player.new(i + 1, Match.players[i].faction)
+			computer[i + 1] = Match.players[i].ai
+	else:
+		players[1] = Player.new(1, _faction_option("faction", "mex"))
+		players[2] = Player.new(2, _faction_option("enemy", "usa"))
+		computer[2] = GameData.cmdline_option("ai") != "off"
+		computer[1] = GameData.cmdline_option("ai-vs-ai") != ""
 	for player in players:
-		_setup_player(player, start_positions.get(player, size * Vector2(0.5, 0.15 if player == 2 else 0.85)))
+		_setup_player(player, start_positions.get(player, _fallback_start(player, size)))
 	camera.position = _vector_option("camera", start_positions.get(1, size / 2.0))
 	if GameData.cmdline_option("scenario") == "economy":
 		var i := 0
@@ -116,11 +127,8 @@ func _ready() -> void:
 	add_child(hud)
 	hud.setup(map, terrain.overview_image(), camera, units_root, players[1], selection)
 	hud.minimap.move_ordered.connect(selection._order_move)
-	# Player 2 is computer controlled (player 1 too with --ai-vs-ai, for testing).
 	for index in players:
-		if GameData.cmdline_option("ai") == "off":
-			break
-		if index == 2 or GameData.cmdline_option("ai-vs-ai") != "":
+		if computer.get(index, false):
 			var ai := AiPlayer.new()
 			ai.player = players[index]
 			ai.units_root = units_root
@@ -167,6 +175,12 @@ func _spawn_placements(map: AlfMap) -> void:
 	print("Placed %d/%d map objects in %d ms" % [spawned, map.placements.size(), Time.get_ticks_msec() - started])
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE and not event.echo:
+		hud.toggle_menu()
+		get_viewport().set_input_as_handled()
+
+
 ## A player is out when they have no buildings and no units left.
 func _check_victory() -> void:
 	if _game_over:
@@ -209,6 +223,12 @@ func _on_unit_trained(building: MapObject, unit_guid: int) -> void:
 	units_root.add_child(unit)
 	unit.setup(unit_type, building.owner_index)
 	unit.move_to(unit.position + Vector2(randf_range(-40, 40), 50))
+
+
+## Start point when the map has no Editor_Start for a player: spread around the map.
+func _fallback_start(player: int, size: Vector2) -> Vector2:
+	var angle := TAU * float(player - 1) / 8.0 + PI / 2.0
+	return size / 2.0 + Vector2(cos(angle), sin(angle)) * size * 0.38
 
 
 func _faction_option(name: String, default: String) -> String:

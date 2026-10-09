@@ -46,6 +46,7 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	_icon_material = SpriteMaterials.body(_icon_sheet,
 			GameData.load_palette_texture(ICON_BOB.get_base_dir(), icon_bob.palettes), null)
 
+	process_mode = Node.PROCESS_MODE_ALWAYS  # the in-game menu works while paused
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
@@ -355,6 +356,74 @@ func _update_affordability() -> void:
 		button.modulate = Color(1, 1, 1, 0.55) if button.disabled else Color.WHITE
 
 
+var _menu: Control
+
+
+## The in-game menu (Esc): continue, restart, back to the main menu. Pauses the game.
+func toggle_menu() -> void:
+	if _menu:
+		_menu.queue_free()
+		_menu = null
+		get_tree().paused = false
+		return
+	get_tree().paused = true
+	_menu = _menu_panel(GameData.text(50, "Settings"), [
+		[GameData.text(57, "Continue"), toggle_menu],
+		[GameData.text(54, "Restart"), func() -> void:
+			get_tree().paused = false
+			get_tree().reload_current_scene()],
+		["Main menu", _to_main_menu],
+	])
+
+
+func _to_main_menu() -> void:
+	get_tree().paused = false
+	Match.configured = false
+	get_tree().change_scene_to_file("res://scenes/menu.tscn")
+
+
+func _menu_panel(title: String, entries: Array) -> Control:
+	var shade := ColorRect.new()
+	shade.color = Color(0, 0, 0, 0.45)
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.process_mode = Node.PROCESS_MODE_ALWAYS
+	_root.add_child(shade)
+	var panel := PanelContainer.new()
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(0.18, 0.1, 0.05, 0.95)
+	box.border_color = Color(0.62, 0.43, 0.2)
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(4)
+	box.set_content_margin_all(22 * ui_scale)
+	panel.add_theme_stylebox_override("panel", box)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", int(10 * ui_scale))
+	var heading := MenuStyle.label(title, int(26 * ui_scale))
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(heading)
+	for entry in entries:
+		var button := Button.new()
+		button.text = entry[0]
+		button.focus_mode = Control.FOCUS_NONE
+		button.custom_minimum_size = Vector2(260, 36) * ui_scale
+		MenuStyle.style(button, int(18 * ui_scale))
+		var normal := StyleBoxFlat.new()
+		normal.bg_color = Color(0.3, 0.17, 0.08)
+		normal.set_corner_radius_all(3)
+		var hover := normal.duplicate()
+		hover.bg_color = Color(0.48, 0.27, 0.1)
+		button.add_theme_stylebox_override("normal", normal)
+		button.add_theme_stylebox_override("hover", hover)
+		button.add_theme_stylebox_override("pressed", hover)
+		button.pressed.connect(entry[1])
+		column.add_child(button)
+	panel.add_child(column)
+	shade.add_child(panel)
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.position = get_viewport().get_visible_rect().size / 2.0 - panel.get_combined_minimum_size() / 2.0
+	return shade
+
+
 ## Large centred message (victory / defeat).
 func show_banner(text: String) -> void:
 	var label := _label(64)
@@ -365,3 +434,9 @@ func show_banner(text: String) -> void:
 	label.add_theme_constant_override("outline_size", int(10 * ui_scale))
 	_root.add_child(label)
 	label.position = get_viewport().get_visible_rect().size / 2.0 - label.get_minimum_size() / 2.0
+	var back := Button.new()
+	back.text = "Back to main menu"
+	MenuStyle.style(back, int(20 * ui_scale))
+	back.pressed.connect(_to_main_menu)
+	_root.add_child(back)
+	back.position = label.position + Vector2(label.get_minimum_size().x / 2.0 - 110 * ui_scale, label.get_minimum_size().y + 20)

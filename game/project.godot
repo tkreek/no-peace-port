@@ -5,13 +5,14 @@ config_version=5
 [application]
 
 config/name="America Remastered"
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/menu.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 
 [autoload]
 
 GameData="*res://scripts/core/game_data.gd"
 Sound="*res://scripts/core/sound.gd"
+Match="*res://scripts/core/match.gd"
 
 [display]
 

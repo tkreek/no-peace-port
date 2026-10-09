@@ -14,12 +14,19 @@ included in this repository.
    ```
    This yields `original/install/Programm/` with `america0.rda` … `america4.rda` and `Levels/`.
    An existing installation folder works too.
-3. Run:
+3. Optional: the expansion pack. Extract its `Setup/data1.cab` the same way into
+   `original/expansion/install` (or install it into the same folder as the base game). It adds
+   51 maps, new units and buildings, the original portrait icons and the editor's real
+   default stats (`Defaults.dat`).
+4. Run:
    ```bash
    godot --path game -- --install-dir=/path/to/Programm
    ```
    Without `--install-dir` the game looks in `../original/install/Programm` (the dev checkout layout)
-   or `user://settings.cfg` `[paths] install_dir`.
+   or `user://settings.cfg` `[paths] install_dir` (and `addon_dir` for the expansion).
+
+The game opens on the main menu; "Skirmish" picks a map (all 71), your people and up to four
+computer opponents. Esc in a game opens the in-game menu.
 
 ## Enhanced graphics (optional)
 
@@ -37,7 +44,11 @@ The game uses `original/hd` automatically (or `--hd-dir=`, or `[paths] hd_dir` i
 
 ## Options (after `--`)
 
-- `--map=<file in Levels/ or absolute path>`: default `[2 Players] - close combat.alf`.
+Any of `--map`, `--scenario`, `--screenshot`, `--report-after` skips the menu and starts a game.
+
+- `--map=<file in either Levels/ folder or absolute path>`: default `[2 Players] - close combat.alf`.
+- `--faction=ind|mex|des|usa`, `--enemy=...`: the peoples (default Mexicans vs. Americans).
+- `--fog=off`, `--ai=off`, `--expansion=off`.
 - `--biome=steppe|wiese`: override the biome detected from the map's objects.
 - `--camera=x,y`, `--zoom=z`.
 - `--screenshot=<png> --frames=<n>`: render, save a frame and quit (used for automated checks).

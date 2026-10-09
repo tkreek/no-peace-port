@@ -6,13 +6,16 @@ extends Node2D
 
 signal died(unit: Unit)
 
-enum State { IDLE, MOVING, ATTACKING, DEAD }
+enum State { IDLE, MOVING, ATTACKING, GATHERING, DEAD }
+enum Gather { TO_SOURCE, WORKING, TO_DROP_OFF }
 
 const ARRIVE_DISTANCE := 3.0
 const REPATH_MS := 600
 const CORPSE_SECONDS := 20.0
 const SEPARATION_RADIUS := 14.0
 const SCAN_INTERVAL := 0.4
+const WORK_SECONDS := {"wood": 4.0, "gold": 5.0}
+const REACH := 20.0
 
 static var debug_paths := false
 static var all_units: Array[Unit] = []
@@ -30,6 +33,12 @@ var path := PackedVector2Array()
 var state := State.IDLE
 var target: Unit
 var guard_position := Vector2.ZERO  # where an idle unit returns after chasing
+var carrying := ""  # resource in hand
+var carried := 0
+var gather_source: MapObject
+var _gather_phase := Gather.TO_SOURCE
+var _work_timer := 0.0
+var _drop_off: MapObject
 
 var _body := Sprite2D.new()
 var _shadow := Sprite2D.new()
@@ -85,6 +94,8 @@ func move_to(destination: Vector2) -> void:
 	if not is_alive():
 		return
 	target = null
+	gather_source = null
+	visible = true
 	_attack_step = -1
 	guard_position = destination
 	path = _find_path(destination)
@@ -95,13 +106,31 @@ func attack(enemy: Unit) -> void:
 	if not is_alive() or enemy == null or not enemy.is_alive() or unit_type.attack_anims.is_empty():
 		return
 	target = enemy
+	gather_source = null
+	visible = true
 	state = State.ATTACKING
 	path.clear()
+
+
+## Harvest `source` repeatedly, carrying loads to the nearest drop-off.
+func gather(source: MapObject) -> void:
+	if not is_alive() or source == null or not unit_type.can_gather(source.resource):
+		return
+	if carrying != "" and carrying != source.resource:
+		carrying = ""
+		carried = 0
+	gather_source = source
+	target = null
+	state = State.GATHERING
+	_gather_phase = Gather.TO_DROP_OFF if carried >= UnitType.CARRY_AMOUNT else Gather.TO_SOURCE
+	_route_gather()
 
 
 func stop() -> void:
 	path.clear()
 	target = null
+	gather_source = null
+	visible = true
 	_attack_step = -1
 	guard_position = position
 	if is_alive():
@@ -136,7 +165,9 @@ func _process(delta: float) -> void:
 			_follow_path(delta)
 			if path.is_empty():
 				state = State.IDLE
-			play("walk" if state == State.MOVING else "idle")
+			play(_walk_action() if state == State.MOVING else _idle_action())
+		State.GATHERING:
+			_update_gather(delta)
 		State.ATTACKING:
 			_update_attack(delta)
 		State.DEAD:
@@ -145,7 +176,7 @@ func _process(delta: float) -> void:
 				modulate.a = maxf(0.0, 1.0 - (_corpse_timer - CORPSE_SECONDS) / 3.0)
 				if modulate.a <= 0.0:
 					queue_free()
-	if state != State.DEAD:
+	if state != State.DEAD and visible:
 		_separate(delta)
 	if debug_paths:
 		queue_redraw()
@@ -222,6 +253,107 @@ func _die() -> void:
 	play("die")
 	z_index = -1  # corpses lie under the living
 	died.emit(self)
+
+
+func _walk_action() -> String:
+	return "carry_" + carrying if carrying != "" else "walk"
+
+
+func _idle_action() -> String:
+	return "carry_%s_idle" % carrying if carrying != "" else "idle"
+
+
+func _update_gather(delta: float) -> void:
+	match _gather_phase:
+		Gather.TO_SOURCE:
+			if not _source_valid():
+				gather_source = _nearest_source(carrying if carrying != "" else _last_resource(), 1200.0)
+				if gather_source == null:
+					state = State.IDLE
+					return
+				_route_gather()
+			_follow_path(delta)
+			play(_walk_action())
+			if gather_source.footprint_rect().grow(REACH).has_point(position) or path.is_empty():
+				path.clear()
+				_gather_phase = Gather.WORKING
+				_work_timer = WORK_SECONDS.get(gather_source.resource, 4.0)
+				face(gather_source.position - position)
+				if gather_source.resource == "gold":
+					visible = false  # workers go inside the mine
+		Gather.WORKING:
+			_work_timer -= delta
+			if gather_source.resource == "wood":
+				play("chop")
+				if _anim_finished or _step == 0:
+					Sound.play_event(unit_type.guid(), Sound.Event.CHOP, position, 900)
+			if _work_timer > 0.0:
+				return
+			var resource := gather_source.resource if _source_valid() else _last_resource()
+			var got := gather_source.harvest(UnitType.CARRY_AMOUNT) if _source_valid() else 0
+			visible = true
+			if got > 0:
+				carrying = resource
+				carried = got
+			_gather_phase = Gather.TO_DROP_OFF if carried > 0 else Gather.TO_SOURCE
+			_route_gather()
+		Gather.TO_DROP_OFF:
+			if _drop_off == null or not is_instance_valid(_drop_off):
+				_route_gather()
+				if _drop_off == null:
+					state = State.IDLE
+					return
+			_follow_path(delta)
+			play(_walk_action())
+			if _drop_off.footprint_rect().grow(REACH).has_point(position) or path.is_empty():
+				path.clear()
+				var player: Player = Player.by_index.get(team)
+				if player and carried > 0:
+					player.add(carrying, carried)
+				carried = 0
+				_gather_phase = Gather.TO_SOURCE
+				_route_gather()
+
+
+func _route_gather() -> void:
+	if _gather_phase == Gather.TO_DROP_OFF:
+		_drop_off = _nearest_drop_off(carrying)
+		path = _find_path(_drop_off.position) if _drop_off else PackedVector2Array()
+	elif _source_valid():
+		path = _find_path(gather_source.position)
+
+
+func _source_valid() -> bool:
+	return gather_source != null and is_instance_valid(gather_source) and gather_source.resource != "" \
+			and gather_source.amount > 0
+
+
+func _last_resource() -> String:
+	return "wood" if unit_type.can_gather("wood") else "gold"
+
+
+func _nearest_source(resource: String, max_distance := INF) -> MapObject:
+	var best: MapObject = null
+	var best_distance := max_distance
+	for object in MapObject.all_objects:
+		if object.resource == resource and object.amount > 0:
+			var distance := position.distance_to(object.position)
+			if distance < best_distance:
+				best = object
+				best_distance = distance
+	return best
+
+
+func _nearest_drop_off(resource: String) -> MapObject:
+	var best: MapObject = null
+	var best_distance := INF
+	for object in MapObject.all_objects:
+		if object.owner_index == team and resource in object.accepts:
+			var distance := position.distance_to(object.position)
+			if distance < best_distance:
+				best = object
+				best_distance = distance
+	return best
 
 
 func _nearest_enemy(radius: float) -> Unit:

@@ -63,6 +63,22 @@ func block_footprint(type: ObjectTypes.ObjectType, position: Vector2) -> void:
 			flags[cell.y * size.x + cell.x] |= type.footprint_cells[i] & BLOCKED
 
 
+## Clear an object's footprint again (e.g. a felled tree), keeping the ground's own flags.
+func unblock_footprint(type: ObjectTypes.ObjectType, position: Vector2) -> void:
+	if type == null or type.footprint_cells.is_empty():
+		return
+	var origin := cell_of(position - Vector2(type.footprint_anchor))
+	for i in type.footprint_cells.size():
+		if (type.footprint_cells[i] & BLOCKED) == 0:
+			continue
+		var cell := origin + Vector2i(i % type.footprint_grid.x, i / type.footprint_grid.x)
+		if not _astar.is_in_boundsv(cell):
+			continue
+		var index := cell.y * size.x + cell.x
+		flags[index] &= ~BLOCKED
+		_astar.set_point_solid(cell, not _passable_flags(flags[index]))
+
+
 ## Nearest walkable cell to `cell` (spiral search), or `cell` itself if none nearby.
 func nearest_walkable(cell: Vector2i, max_radius := 24) -> Vector2i:
 	if is_walkable(cell):

@@ -9,7 +9,21 @@ const ACTION_STEMS := {
 	"die": "sterben",
 	"shoot": "schiessen",
 	"melee": "stechen",
+	"fight": "kaempfen",
+	"chop": "hacken",
+	"build": "haemmern",
+	"carry_wood": "holz_tragen",
+	"carry_wood_idle": "holz_stehen",
+	"carry_gold": "gold_tragen",
+	"carry_gold_idle": "gold_stehen",
 }
+## Alternative file names some factions use for the same action.
+const ACTION_FALLBACKS := {
+	"carry_gold": "sack_tragen",
+	"carry_gold_idle": "sack_stehen",
+	"melee": "kaempfen",
+}
+const CARRY_AMOUNT := 10
 
 static var _cache := {}
 
@@ -90,7 +104,19 @@ func _setup_combat() -> void:
 
 ## Animation index for an action name, or -1.
 func anim_index(action: String) -> int:
-	return bob.find_anim(ACTION_STEMS.get(action, action))
+	var index := bob.find_anim(ACTION_STEMS.get(action, action))
+	if index < 0 and ACTION_FALLBACKS.has(action):
+		index = bob.find_anim(ACTION_FALLBACKS[action])
+	return index
+
+
+func can_gather(resource: String) -> bool:
+	match resource:
+		"wood":
+			return anim_index("chop") >= 0 and anim_index("carry_wood") >= 0
+		"gold":
+			return anim_index("carry_gold") >= 0
+	return false
 
 
 func sprite_for(anim_index_value: int) -> RdSprite:

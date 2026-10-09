@@ -6,6 +6,8 @@ extends Node2D
 ##   --biome=steppe|wiese
 ##   --screenshot=<png path>  save a frame after --frames=<n> (default 90) and quit
 ##   --scenario=battle  two infantry squads fighting in front of the camera
+##   --scenario=economy player 1's workers gather the nearest wood and gold
+##   --report-after=<frames>  print stockpiles every 300 frames, then quit (use --fixed-fps)
 ##   --camera=x,y  --zoom=z  --order=x,y (screenshot move target)  --debug-paths=1
 
 const DEFAULT_MAP := "[2 Players] - close combat.alf"
@@ -58,6 +60,18 @@ func _ready() -> void:
 	for player in FACTION_STARTS:
 		_setup_player(player, start_positions.get(player, size * Vector2(0.5, 0.15 if player == 2 else 0.85)))
 	camera.position = _vector_option("camera", start_positions.get(1, size / 2.0))
+	if GameData.cmdline_option("scenario") == "economy":
+		var i := 0
+		for node in units_root.get_children():
+			if node is Unit and node.team == 1 and node.unit_type.can_gather("wood"):
+				var unit: Unit = node
+				var resource := "wood" if i % 2 == 0 else "gold"
+				var source := unit._nearest_source(resource) if resource == "wood" else _nearest_mine(unit.position)
+				unit.gather(source)
+				i += 1
+	var report := GameData.cmdline_option("report-after")
+	if report != "":
+		_report_after(report.to_int())
 	if GameData.cmdline_option("scenario") == "battle":
 		# Two infantry lines facing each other in front of the camera.
 		var centre := camera.position
@@ -94,7 +108,7 @@ func _spawn_placements(map: AlfMap) -> void:
 			var object := MapObject.new()
 			object.position = placement.position
 			object.amount = placement.amount
-			if not object.setup(type, placement.owner):
+			if not object.setup(type, placement.owner, placement.amount):
 				object.free()
 				continue
 			units_root.add_child(object)
@@ -131,6 +145,32 @@ func _spawn_squad(directory: String, team: int, centre: Vector2, count: int) -> 
 		unit.direction = 5 if team == 1 else 1
 
 
+func _nearest_mine(from: Vector2) -> MapObject:
+	var best: MapObject = null
+	for object in MapObject.all_objects:
+		if object.resource == "gold" and (best == null or from.distance_to(object.position) < from.distance_to(best.position)):
+			best = object
+	return best
+
+
+func _report_after(frames: int) -> void:
+	for i in frames:
+		await get_tree().process_frame
+		if i % 300 == 0:
+			_print_report(i)
+	_print_report(frames)
+	get_tree().quit()
+
+
+func _print_report(frame: int) -> void:
+	var alive := {}
+	for node in units_root.get_children():
+		if node is Unit and node.is_alive():
+			alive[node.team] = alive.get(node.team, 0) + 1
+	for index in players:
+		print("frame %d player %d: %s units=%d" % [frame, index, players[index].resources, alive.get(index, 0)])
+
+
 func _vector_option(name: String, default: Vector2) -> Vector2:
 	var value := GameData.cmdline_option(name)
 	if value.is_empty():
@@ -145,7 +185,7 @@ func _setup_screenshot() -> void:
 		return
 	camera.input_enabled = false
 	Unit.debug_paths = GameData.cmdline_option("debug-paths") != ""
-	if GameData.cmdline_option("scenario") != "battle":
+	if GameData.cmdline_option("scenario") == "":
 		# Exercise the move order so walking animations show up in the capture.
 		selection._select(units_root.get_children().filter(func(u: Node) -> bool: return u is Unit and u.team == 1), false)
 		selection._order_move(_vector_option("order", camera.position + Vector2(-200, -120)))

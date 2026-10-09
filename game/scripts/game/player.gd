@@ -18,6 +18,8 @@ const RESOURCES := {
 	"guns": {"text": 76, "icon": 0, "def": "Gewehre"},
 }
 
+static var by_index := {}
+
 var index := 1
 var faction := ""
 var resources := {}
@@ -26,6 +28,7 @@ var resources := {}
 func _init(player_index: int, faction_name: String) -> void:
 	index = player_index
 	faction = faction_name
+	by_index[index] = self
 	for key in RESOURCES:
 		resources[key] = GameData.def_value(RESOURCES[key].def, 0)
 

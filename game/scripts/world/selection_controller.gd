@@ -35,8 +35,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				queue_redraw()
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and not selection.is_empty():
 			var enemy := _unit_at(world, false)
+			var source := _resource_at(world)
 			if enemy:
 				order_attack(enemy)
+			elif source and selection.any(func(u: Unit) -> bool: return u.unit_type.can_gather(source.resource)):
+				order_gather(source)
 			else:
 				_order_move(world)
 	elif event is InputEventMouseMotion and _pressed:
@@ -71,6 +74,23 @@ func _units(own: bool) -> Array[Unit]:
 		if child is Unit and child.is_alive() and (child.team == player_team) == own and child.team > 0:
 			out.append(child)
 	return out
+
+
+func _resource_at(point: Vector2) -> MapObject:
+	for object in MapObject.all_objects:
+		if object.resource != "" and object.footprint_rect().grow(6).has_point(point):
+			return object
+	return null
+
+
+func order_gather(source: MapObject) -> void:
+	var gatherers := selection.filter(func(u: Unit) -> bool:
+		return is_instance_valid(u) and u.is_alive() and u.unit_type.can_gather(source.resource))
+	if gatherers.is_empty():
+		return
+	Sound.play_event(gatherers[0].unit_type.guid(), Sound.Event.ORDER)
+	for unit: Unit in gatherers:
+		unit.gather(source)
 
 
 func order_attack(enemy: Unit) -> void:

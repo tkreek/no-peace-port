@@ -95,6 +95,14 @@ func screenshot(path: String) -> void:
 
 ## --selftest=1: decode all sounds and maps, print a summary and quit.
 func selftest() -> void:
+	if GameData.cmdline_option("selftest") == "stats":
+		# --selftest=stats: the stats the game plays with, one JSON line per GUID.
+		var guids := GameData.stats_guids()
+		guids.sort()
+		for guid in guids:
+			print("STATS %d %s" % [guid, JSON.stringify(GameData.stats(guid))])
+		get_tree().quit()
+		return
 	if GameData.cmdline_option("selftest") == "parse":
 		# Load every script once so parse and type errors show up together.
 		var count := 0

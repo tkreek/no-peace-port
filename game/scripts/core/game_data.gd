@@ -191,6 +191,28 @@ func _load_tables() -> void:
 	for guid in EXPANSION_PRODUCTION:
 		if _stats.has(guid):
 			_stats[guid].produced_at = EXPANSION_PRODUCTION[guid]
+	# The expansion manual's values for its new units, structures and upgrades (the editor's
+	# defaults differ for some): res://data/expansion_manual.json, applied last.
+	var manual = JSON.parse_string(FileAccess.get_file_as_string("res://data/expansion_manual.json"))
+	if manual is Dictionary and has_expansion:
+		for key in manual:
+			if not key.is_valid_int():
+				continue
+			var entry: Dictionary = _stats.get(key.to_int(), {})
+			for field in manual[key]:
+				var value = manual[key][field]
+				if field == "cost":
+					value = (value as Dictionary).duplicate()
+					for k in value:
+						value[k] = int(value[k])
+				elif value is float:
+					value = int(value)
+				elif field == "applies_to_guids":
+					value = value.map(func(g) -> int: return int(g))
+				entry[field] = value
+			if not entry.has("icon") and defaults.has(key.to_int()):
+				entry.icon = defaults[key.to_int()].get("icon", "")
+			_stats[key.to_int()] = entry
 	var guids: Dictionary = read_json("data/guids.json")
 	for key in guids:
 		_guids[key.to_int()] = int(guids[key])

@@ -5,7 +5,7 @@ extends UnitPart
 ## militiaman, hunter, trapper) has them in sight. Any order breaks cover. Detectors are also
 ## the only ones who find traps.
 
-const CAMOUFLAGE := {156: 915, 158: 915, 160: 915, 362: 0}  # unit GUID -> upgrade (0 = none)
+const CAMOUFLAGE := {156: 915, 158: 915, 160: 915, 362: 0, 369: 966}  # unit GUID -> upgrade (0 = none)
 const DETECTORS := [156, 157, 261, 358, 461]
 const DETECTOR_REACH := 700.0  # beyond any detector's sight, upgrades included
 const ASSASSIN := 362

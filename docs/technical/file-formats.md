@@ -55,15 +55,45 @@ Unit animation file names: `01_laufen` walk, `02_stehen` idle, `03_sterben` die,
 `u32 width, height, 0`, then `COLS` + 256×RGB palette + `PRAW` + 8-bit pixels, or `P16B` (RGB555)
 / `PRGB`. Used for menus, loading screens, HUD panels, terrain atlases.
 
-### `.spr` (`RDDX`)
-RGB555 atlas. The frame rectangles are not decoded yet; earlier conversions ignored them.
+### `.spr` (`RDDX`): true-colour sprite atlas
+`u32 width, height, 0`, `"P16B"`, `width*height` RGB555 pixels (0 = transparent), then an optional
+`"STAB"` frame table: `u32 count` + `count × {u32 index, x, y, width, height; i32 hotspot_x, hotspot_y}`.
+Used for trees, icons and menu widgets.
 
 ### Terrain (`<biome>/gfx/landschaft`)
 - `steppe.pic`: 640×12000 paletted atlas of 64×64 square tiles (not isometric diamonds).
 - `kleinsteppe.pic`: 80×1500, the same atlas at 1/8 scale (zoomed-out/minimap use).
 - `minimap.pic`: 20×375 RGB555, one pixel per 32×32 block.
-- Many tiles are transition masks: flat red/green/orange regions are placeholder colours the
-  engine fills with other terrain. Composition rules come from the map format (TODO).
+- Atlas palette indices 5–39 are placeholders: index N shows ground texture `steppeN.pic`
+  (512×256 or 512×512, own palette), sampled in world space so it tiles seamlessly. Indices ≥ 40 are
+  literal colours (cliffs, shores). The meadow biome (`wiese/`) uses the same file names.
+  Renderer: `game/shaders/terrain.gdshader`.
+
+## Maps (`.alf`)
+RDCHUNK container: `"RDCHUNK.VERSION\0"`, u32 version, u32 0, `"RDLF"`, u32; from 0x20 chunks of
+`char[8] name, u32 next_chunk_offset (absolute), u32 packed`, then (if packed) `u32 unpacked_size` +
+LZW (MSB-first, 9–13-bit codes, 256 clear, 257 end, early change).
+
+| Chunk | Contents |
+| --- | --- |
+| `LVL_INFO` | title (C string), map width/height in 32 px cells at 0x114/0x118, start resources |
+| `LVMATRIX` | u32 per cell; low 16 bits = 32×32 tile index in the biome atlas (20 tiles per row) |
+| `BOBLISTE` | u32 count + 24-byte placements `{u32 x, y, type_id, owner, amount, ?}` (0xCDCDCDCD = unset) |
+| `BITARRAY`, `PINSMATR` | probably passability / height data (TODO) |
+| `EINHEIT`, `EIGENSCH` | per-object property overrides `{u32 object, property, value, ?}` (TODO) |
+| `SPIELER` | player slots and names |
+| `AREA*`, `ABLAUF*` | mission trigger areas and scripts (TODO) |
+
+Player start points are placements of type `Editor_Start` (owner = player).
+
+## Object types (`BobListe.blf`, america2 root)
+`"RDBF"`, u32 capacity (1000), then `capacity × {u32 ?; char bob_path[80]; i32 ?}`: the `.bob`
+file list. Then one record per object type id (0–434, the ids maps and `GUIDS.INI` use):
+`char name[0x50]; u32 bob_id @0x50; u32 kind @0x54 (1 unit, 2 building, 3 scenery);
+i32 anim @0x6c; i32 shadow_anim @0x70` (0x104 bytes, partly uninitialised memory), followed by a
+`"BARY"` footprint: `i32 anchor_x, anchor_y; u32 width, height, cols, rows, count; u32 cells[count]`
+on a 16 px grid. Meadow variants end in `_Wi`. Building `.bob`s use anim 0/1 for construction
+stages and 2/3 for the finished building.
 
 ## Data
 
@@ -71,11 +101,12 @@ RGB555 atlas. The frame rectangles are not decoded yet; earlier conversions igno
   melee/ranged attack rates (1 s = 100), walk speeds.
 - `GUIDS.INI` / `IDS.INI` / `Guids2.ini`: object type ID ↔ GUID ↔ graphics ID maps, grouped by
   faction (Native, Mexican, Desperado, USA buildings/units, heroes).
-- `rules.def` (`TTRL`), `Defaults.bin`: binary, TODO (likely the tech tree and per-unit stats).
+- `rules.def` (`TTRL`): binary, TODO (likely the tech tree).
+- `Defaults.bin`: RDCHUNK file with `EINHEIT`/`EIGENSCH` chunks: default per-type properties (stats), TODO.
 - `sfx/sfxguids.dat`: sound ID table, TODO.
 
 ## TODO
-- `.alf` maps (terrain layers, objects, triggers, players).
-- `.spr` frame tables, fonts, `.blf`, `.pk`.
+- `.alf` `BITARRAY`/`PINSMATR`, `EIGENSCH` property ids, triggers and scripts.
+- Fonts, `.pk`.
 - `Defaults.bin`, `rules.def`, `sfxguids.dat`, `kimodules/*.mod`.
 - `.bik` videos (Bink 1; ffmpeg can decode).

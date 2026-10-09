@@ -43,7 +43,7 @@ func _process(delta: float) -> void:
 		elif mouse.x > size.x - edge_margin: input.x = 1
 		if mouse.y < edge_margin: input.y = -1
 		elif mouse.y > size.y - edge_margin: input.y = 1
-	position += input.limit_length(1.0) * pan_speed * delta / zoom.x
+	position += input.limit_length(1.0) * pan_speed * Settings.value("scroll_speed") * delta / zoom.x
 	var z := lerpf(zoom.x, _target_zoom * screen_scale(), minf(1.0, delta * 12.0))
 	zoom = Vector2(z, z)
 	_clamp()

@@ -951,11 +951,47 @@ func toggle_menu() -> void:
 	get_tree().paused = true
 	_menu = _menu_panel(GameData.menu_text(50, "Settings"), [
 		[GameData.menu_text(57, "Continue"), toggle_menu],
+		["Options", _show_options],
 		[GameData.menu_text(54, "Restart"), func() -> void:
 			get_tree().paused = false
 			get_tree().reload_current_scene()],
 		["Main menu", _to_main_menu],
 	])
+
+
+## Music, sound and scroll speed (the original's in-game settings), kept between sessions.
+func _show_options() -> void:
+	if _menu:
+		_menu.queue_free()
+	_menu = _menu_panel("Options", [["Back", func() -> void:
+		_menu.queue_free()
+		_menu = null
+		get_tree().paused = false
+		toggle_menu()]])
+	var column: VBoxContainer = _menu.get_child(0).get_child(0)
+	var rows := [["Music volume", "music_volume", 0.0, 1.0], ["Sound volume", "sound_volume", 0.0, 1.0],
+			[GameData.menu_text(213, "Scroll speed"), "scroll_speed", 0.4, 2.5]]
+	for i in rows.size():
+		var row: Array = rows[i]
+		var line := HBoxContainer.new()
+		var label := MenuStyle.label(row[0], int(16 * ui_scale))
+		label.custom_minimum_size.x = 150 * ui_scale
+		line.add_child(label)
+		var slider := HSlider.new()
+		slider.min_value = row[2]
+		slider.max_value = row[3]
+		slider.step = 0.05
+		slider.value = Settings.value(row[1])
+		slider.custom_minimum_size = Vector2(180, 24) * ui_scale
+		slider.process_mode = Node.PROCESS_MODE_ALWAYS
+		var key: String = row[1]
+		slider.value_changed.connect(func(v: float) -> void: Settings.set_value(key, v))
+		line.add_child(slider)
+		column.add_child(line)
+		column.move_child(line, 1 + i)
+	_menu.get_child(0).reset_size()
+	var panel: Control = _menu.get_child(0)
+	panel.position = get_viewport().get_visible_rect().size / 2.0 - panel.get_combined_minimum_size() / 2.0
 
 
 func _to_main_menu() -> void:

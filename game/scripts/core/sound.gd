@@ -21,6 +21,7 @@ const WORK_RANGE := 3200.0
 const FACTION_MUSIC := {"usa": "USA.mp3", "mex": "MEX.mp3", "ind": "IND.mp3", "des": "DES.mp3"}
 
 var sfx_volume := 1.0
+var music_volume := 0.55
 var _sounds := {}       # sound id -> {path, volume}
 var _events := {}       # guid -> {event id -> PackedInt32Array of sound ids}
 var _streams := {}      # path -> AudioStream
@@ -33,6 +34,7 @@ func _ready() -> void:
 	_music.bus = "Master"
 	if GameData.is_ready():
 		_load_table()
+	Settings.apply.call_deferred()
 
 
 func _load_table() -> void:
@@ -179,8 +181,13 @@ func play_music(faction: String) -> void:
 	stream.data = FileAccess.get_file_as_bytes(path)
 	stream.loop = true
 	_music.stream = stream
-	_music.volume_db = linear_to_db(0.55)
+	_music.volume_db = linear_to_db(maxf(0.001, music_volume))
 	_music.play()
+
+
+func set_music_volume(volume: float) -> void:
+	music_volume = volume
+	_music.volume_db = linear_to_db(maxf(0.001, volume))
 
 
 func _stream(path: String) -> AudioStream:

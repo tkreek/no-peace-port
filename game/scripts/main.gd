@@ -144,6 +144,10 @@ func _ready() -> void:
 		_scenario_cattle.call_deferred()
 	if GameData.cmdline_option("scenario") == "surrender":
 		_scenario_surrender.call_deferred()
+	if GameData.cmdline_option("scenario") == "options":
+		(func() -> void:
+			hud.toggle_menu()
+			hud._show_options()).call_deferred()
 	if GameData.cmdline_option("scenario") == "orders":
 		_scenario_orders.call_deferred()
 	# --time-scale=N runs the simulation N times faster (long AI tests).

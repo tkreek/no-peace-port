@@ -29,6 +29,9 @@ func _ready() -> void:
 	if not GameData.is_ready():
 		_show_message("Original game data not found.\nRun with --install-dir=<folder containing america0.rda>")
 		return
+	if GameData.cmdline_option("selftest") != "":
+		_selftest()
+		return
 	var map_arg := GameData.cmdline_option("map", DEFAULT_MAP)
 	var map_path := map_arg if map_arg.is_absolute_path() else GameData.maps_dir().path_join(map_arg)
 	var map := AlfMap.load_from_file(map_path)
@@ -58,6 +61,7 @@ func _ready() -> void:
 	add_child(hud)
 	hud.setup(map, terrain.overview_image(), camera, units_root, players[1], selection)
 	hud.minimap.move_ordered.connect(selection._order_move)
+	Sound.play_music(players[1].faction)
 	DisplayServer.window_set_title("America — %s" % map.title)
 	_setup_screenshot()
 
@@ -141,6 +145,23 @@ func _setup_screenshot() -> void:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)
+	get_tree().quit()
+
+
+## --selftest=1: decode all sounds and maps, print a summary and quit.
+func _selftest() -> void:
+	var result := Sound.verify_all()
+	print("sounds: %d ok, %d failed %s" % [result[0], result[1].size(), result[1]])
+	var maps := 0
+	var bad := PackedStringArray()
+	for file in DirAccess.get_files_at(GameData.maps_dir()):
+		var map := AlfMap.load_from_file(GameData.maps_dir().path_join(file))
+		if map and map.columns > 0 and map.grid_size != Vector2i.ZERO:
+			maps += 1
+		else:
+			bad.append(file)
+	print("maps: %d ok, %d failed %s" % [maps, bad.size(), bad])
+	print("object types: %d" % ObjectTypes.count())
 	get_tree().quit()
 
 

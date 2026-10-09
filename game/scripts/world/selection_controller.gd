@@ -91,6 +91,8 @@ func _select(units: Array, add: bool) -> void:
 		if unit not in selection:
 			selection.append(unit)
 			unit.selected = true
+	if not units.is_empty():
+		Sound.play_event(units[0].unit_type.guid(), Sound.Event.SELECT)
 
 
 func _order_move(target: Vector2) -> void:
@@ -103,6 +105,7 @@ func _order_move(target: Vector2) -> void:
 	for unit in selection:
 		centre += unit.position
 	centre /= count
+	Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	var facing := (target - centre).normalized()
 	if facing == Vector2.ZERO:
 		facing = Vector2.DOWN

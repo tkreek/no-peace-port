@@ -21,6 +21,10 @@ var speed := 60.0
 var type_id := -1  ## object type id (BobListe.blf), for names and stats
 
 
+func guid() -> int:
+	return GameData.guid_for_type(type_id)
+
+
 func display_name() -> String:
 	return GameData.type_name(type_id) if type_id >= 0 else directory.get_file().capitalize()
 

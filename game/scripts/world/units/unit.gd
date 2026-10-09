@@ -86,6 +86,7 @@ func setup(type: UnitType, team_index: int) -> void:
 	stealth = UnitStealth.new(self)
 	water = UnitWater.new(self)
 	tepees = UnitTepees.new(self)
+	ring_on_top = water.is_boat()
 	_parts = [riding, animal, magic, work, tepees, water, stealth]
 	all_units.append(self)
 	play("idle")
@@ -763,8 +764,8 @@ func follow_path(delta: float) -> void:
 func _separate(delta: float) -> void:
 	var push := Vector2.ZERO
 	for other: Unit in UnitGrid.near(position, SEPARATION_RADIUS):
-		if other == self or not other.is_alive():
-			continue
+		if other == self or not other.is_alive() or other.inside:
+			continue  # those aboard a boat or inside a fort don't jostle it
 		var offset := position - other.position
 		var distance := offset.length()
 		if distance < SEPARATION_RADIUS and distance > 0.01:
@@ -785,6 +786,8 @@ func _draw_overlay(canvas: Node2D) -> void:
 		canvas.draw_polyline(points, Color(1, 0.9, 0.2, 0.8), 2.0)
 	if not is_alive() or inside:
 		return
+	if selected and ring_on_top:
+		_draw_ring(canvas, 52.0)
 	if selected or health < max_health:
 		var bar := Rect2(-12, -58, 24, 3)
 		var ratio := health / max_health

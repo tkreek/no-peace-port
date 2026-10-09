@@ -126,9 +126,14 @@ static func _centre(units: Array) -> Vector2:
 	return centre / maxf(1.0, units.size())
 
 
+## The map point under a mouse event (its own position, so injected test clicks land too).
+func _world_point(screen: Vector2) -> Vector2:
+	return get_viewport().get_canvas_transform().affine_inverse() * screen
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
-		var world := get_global_mouse_position()
+		var world := _world_point(event.position)
 		if not pending.is_empty() and event.pressed:
 			if event.button_index == MOUSE_BUTTON_LEFT:
 				_give_targeted(world)
@@ -165,71 +170,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				_dragging = false
 				queue_redraw()
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and not selection.is_empty():
-			if _water_order(world):
-				return
-			var enemy: Node2D = _unit_at(world, false)
-			if enemy == null:
-				enemy = _enemy_building_at(world)
-			var source := _resource_at(world)
-			var animal := _animal_at(world)
-			var site := _building_at(world)
-			if site and (not site.complete or site.condition.needs_repair()) and selection.any(func(u: Unit) -> bool: return _is_builder(u, site.guid)):
-				order_build(site)
-			elif site and site.guid in BuildingProduction.ANIMAL_PROCESSING and site.complete \
-					and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_cow()):
-				for cow: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_cow()):
-					cow.animal.deliver(site)
-				site.flash()
-			elif site and site.is_gold_warehouse() and site.complete and selection.any(_is_transport):
-				order_haul(site)
-			elif _abandoned_at(world) and selection.any(_is_transport):
-				order_haul(_abandoned_at(world))
-			elif site and site.defence.capacity() > 0 and selection.any(_can_quarter):
-				order_quarters(site)
-			elif animal and animal.animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.may_hunt_horses()):
-				# Hunters (but not the Native Americans') shoot the horse for its meat.
-				for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.may_hunt_horses()):
-					unit.hunt(animal)
-				animal.flash(Color(1.0, 0.35, 0.3))
-				Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
-			elif animal and animal.animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.riding.can_mount()):
-				# Mount the wild horse: the nearest unit that can ride takes it.
-				var riders := selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.riding.can_mount())
-				riders.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.distance_to(animal.position) < b.position.distance_to(animal.position))
-				riders[0].mount(animal)
-				animal.flash(Color(1.0, 0.9, 0.4))
-				Sound.play_event(riders[0].unit_type.guid(), Sound.Event.ORDER)
-			elif site and site.guid in BuildingProduction.HORSE_BUILDINGS and site.complete \
-					and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_horse()):
-				for horse: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_horse()):
-					horse.animal.stable(site)
-				site.flash()
-			elif animal and selection.any(func(u: Unit) -> bool: return u.unit_type.is_hunter()):
-				for unit in selection:
-					if is_instance_valid(unit) and unit.unit_type.is_hunter():
-						unit.hunt(animal)
-				Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
-			elif enemy is Unit and enemy.unit_type.is_transport() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_steal()):
-				for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_steal()):
-					unit.steal(enemy)
-				enemy.flash(Color(1.0, 0.9, 0.4))
-				Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
-			elif enemy is MapObject and UnitWork.loot_of(enemy) > 0 and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_rob()):
-				for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_rob()):
-					unit.rob(enemy)
-				enemy.flash(Color(1.0, 0.9, 0.4))
-				Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
-			elif enemy:
-				# Ctrl: shoot the horse rather than its rider.
-				order_attack(enemy, event.ctrl_pressed and enemy is Unit and enemy.unit_type.mounted)
-			elif source and selection.any(func(u: Unit) -> bool: return u.unit_type.can_gather(source.stock.resource)):
-				order_gather(source)
-			else:
-				_order_move(world)
-				if not selection.is_empty():
-					OrderMarker.spawn(units_root, world, player_team)
+			order_at(world, event.ctrl_pressed)
 	elif event is InputEventMouseMotion and _pressed:
-		_dragging = _dragging or get_global_mouse_position().distance_to(_drag_start) > DRAG_THRESHOLD / get_viewport().get_canvas_transform().get_scale().x
+		_dragging = _dragging or _world_point(event.position).distance_to(_drag_start) > DRAG_THRESHOLD / get_viewport().get_canvas_transform().get_scale().x
 		queue_redraw()
 	elif event is InputEventKey and event.pressed and not event.echo:
 		var digit: int = event.keycode - KEY_0
@@ -247,6 +190,77 @@ func _unhandled_input(event: InputEvent) -> void:
 					camera.position = _centre(members)
 		elif event.keycode == KEY_PERIOD:
 			_select_idle_worker()
+
+
+## A right click at `world` with units selected: the order depends on what is there (board
+## or unload a boat, build or repair, deliver cattle, haul, quarters, hunt, mount, steal,
+## rob, attack, gather) and otherwise a move. `ctrl` aims at a rider's horse.
+func order_at(world: Vector2, ctrl := false) -> void:
+	if selection.is_empty():
+		return
+	if _water_order(world):
+		return
+	var enemy: Node2D = _unit_at(world, false)
+	if enemy == null:
+		enemy = _enemy_building_at(world)
+	var source := _resource_at(world)
+	var animal := _animal_at(world)
+	var site := _building_at(world)
+	if site and (not site.complete or site.condition.needs_repair()) and selection.any(func(u: Unit) -> bool: return _is_builder(u, site.guid)):
+		order_build(site)
+	elif site and site.guid in BuildingProduction.ANIMAL_PROCESSING and site.complete \
+			and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_cow()):
+		for cow: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_cow()):
+			cow.animal.deliver(site)
+		site.flash()
+	elif site and site.is_gold_warehouse() and site.complete and selection.any(_is_transport):
+		order_haul(site)
+	elif _abandoned_at(world) and selection.any(_is_transport):
+		order_haul(_abandoned_at(world))
+	elif site and site.defence.capacity() > 0 and selection.any(_can_quarter):
+		order_quarters(site)
+	elif animal and animal.animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.may_hunt_horses()):
+		# Hunters (but not the Native Americans') shoot the horse for its meat.
+		for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.may_hunt_horses()):
+			unit.hunt(animal)
+		animal.flash(Color(1.0, 0.35, 0.3))
+		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
+	elif animal and animal.animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.riding.can_mount()):
+		# Mount the wild horse: the nearest unit that can ride takes it.
+		var riders := selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.riding.can_mount())
+		riders.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.distance_to(animal.position) < b.position.distance_to(animal.position))
+		riders[0].mount(animal)
+		animal.flash(Color(1.0, 0.9, 0.4))
+		Sound.play_event(riders[0].unit_type.guid(), Sound.Event.ORDER)
+	elif site and site.guid in BuildingProduction.HORSE_BUILDINGS and site.complete \
+			and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_horse()):
+		for horse: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_horse()):
+			horse.animal.stable(site)
+		site.flash()
+	elif animal and selection.any(func(u: Unit) -> bool: return u.unit_type.is_hunter()):
+		for unit in selection:
+			if is_instance_valid(unit) and unit.unit_type.is_hunter():
+				unit.hunt(animal)
+		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
+	elif enemy is Unit and enemy.unit_type.is_transport() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_steal()):
+		for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_steal()):
+			unit.steal(enemy)
+		enemy.flash(Color(1.0, 0.9, 0.4))
+		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
+	elif enemy is MapObject and UnitWork.loot_of(enemy) > 0 and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_rob()):
+		for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_rob()):
+			unit.rob(enemy)
+		enemy.flash(Color(1.0, 0.9, 0.4))
+		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
+	elif enemy:
+		# Ctrl: shoot the horse rather than its rider.
+		order_attack(enemy, ctrl and enemy is Unit and enemy.unit_type.mounted)
+	elif source and selection.any(func(u: Unit) -> bool: return u.unit_type.can_gather(source.stock.resource)):
+		order_gather(source)
+	else:
+		_order_move(world)
+		if not selection.is_empty():
+			OrderMarker.spawn(units_root, world, player_team)
 
 
 ## Boats: right-click one of ours with land units selected to board it; a loaded boat
@@ -366,10 +380,11 @@ func order_haul(warehouse: MapObject) -> void:
 		wagon.haul(warehouse)
 
 
-## Workers and women keep working; soldiers, hunters and commanders can take quarters.
+## Workers and women keep working; soldiers, hunters and commanders can take quarters
+## (boats cannot).
 func _can_quarter(u: Unit) -> bool:
 	return is_instance_valid(u) and u.is_alive() and not u.unit_type.can_gather("wood") \
-			and not u.unit_type.is_farmer()
+			and not u.unit_type.is_farmer() and not u.water.is_boat()
 
 
 ## Selected units walk into a fort or tower, as many as there is room for.
@@ -438,8 +453,11 @@ func _unit_at(point: Vector2, own := true) -> Unit:
 	var best: Unit = null
 	var best_distance := CLICK_RADIUS
 	for unit in _units(own):
-		# Units are tall; test against the body centre rather than the feet.
+		# Units are tall; test against the body centre rather than the feet. Big ones (boats,
+		# wagons) also count anywhere on their picture, after anyone nearer the click.
 		var distance := point.distance_to(unit.position + Vector2(0, -20))
+		if distance >= CLICK_RADIUS and unit.hit(point):
+			distance = CLICK_RADIUS - 0.5
 		if distance < best_distance:
 			best = unit
 			best_distance = distance

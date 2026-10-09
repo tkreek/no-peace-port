@@ -113,8 +113,8 @@ func _place(at: Vector2, keep_placing: bool) -> void:
 		NavGrid.current.block_footprint(placing_type, at)
 	# Units now standing inside the footprint step out to the nearest free cell.
 	for unit in Unit.all_units:
-		if not is_field and site.footprint_rect().has_point(unit.position):
-			var cell := NavGrid.current.nearest_walkable(NavGrid.current.cell_of(unit.position))
+		if not is_field and site.footprint_rect().has_point(unit.position) and not unit.inside:
+			var cell := NavGrid.current.nearest_walkable(NavGrid.current.cell_of(unit.position), 24, unit.water.nav_layer())
 			unit.position = (Vector2(cell) + Vector2(0.5, 0.5)) * NavGrid.CELL
 	if unpacker:
 		unpacker.unpack(site)

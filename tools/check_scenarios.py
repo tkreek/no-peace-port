@@ -40,7 +40,8 @@ CHECKS = {
     "unhorse": (["--faction=usa", "--enemy=mex"], 0, [r"gauchos on foot alive \d+ dead [1-9]", r"horses alive [1-9]"]),
     "fire": (["--faction=ind", "--enemy=usa"], 0, [r"\"\d+% burning\", \"\d+% burning\""]),
     "tepee": (["--faction=ind"], 0, [r"tepee gone true", r"\"up 70%\""]),
-    "boats": (["--faction=usa", "--time-scale=4", ISLANDS], 0, [r"aboard 4 / 4", r"passengers 0, soldiers ashore"]),
+    "boats": (["--faction=usa", "--time-scale=4", ISLANDS], 0, [r"clicked boat selected true; sailed [1-9]\d* px, \d{1,2} px short",
+                                                                  r"aboard 4 / 4", r"passengers 0, soldiers ashore"]),
     "swim": (["--faction=ind", ISLANDS], 0, [r"swam: true", r"canoe on water plays paddle"]),
     # The command panel for builders, farmers and every building that trains something.
     "menus": ([], 300, [r"builders  \(\d+ units\): Build structure \(B\), Build expanded structure \(V\)",

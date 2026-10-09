@@ -16,11 +16,79 @@ var groups := {}
 var _drag_start := Vector2.ZERO
 var _dragging := false
 var _pressed := false
+## A command waiting for its target click: "patrol", "follow" or "rally" ("" = none).
+var pending := ""
+var _rally_flag: OrderMarker
+
+
+## Wait for the next left click to give the command (right click cancels).
+func begin_targeting(command: String) -> void:
+	pending = command
+	Input.set_default_cursor_shape(Input.CURSOR_CROSS)
+
+
+func cancel_targeting() -> void:
+	pending = ""
+	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+
+
+func _process(_delta: float) -> void:
+	# The selected building's assembly location shows as a waving flag.
+	var rally := Vector2.INF
+	if is_instance_valid(selected_building) and selected_building.owner_index == player_team:
+		rally = selected_building.rally_point
+	if rally == Vector2.INF:
+		if is_instance_valid(_rally_flag):
+			_rally_flag.queue_free()
+		_rally_flag = null
+	elif not is_instance_valid(_rally_flag):
+		_rally_flag = OrderMarker.flag(units_root, rally, player_team)
+	else:
+		_rally_flag.position = rally
+
+
+func _give_targeted(world: Vector2) -> void:
+	var command := pending
+	cancel_targeting()
+	var units := selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+	match command:
+		"patrol":
+			for unit: Unit in units:
+				unit.patrol(world + (unit.position - _centre(units)))
+			OrderMarker.spawn(units_root, world, player_team)
+		"follow":
+			var leader := _unit_at(world)
+			if leader == null:
+				leader = _unit_at(world, false)
+			if leader:
+				leader.flash(Color(0.5, 0.9, 1.0))
+				for unit: Unit in units:
+					unit.follow(leader)
+		"rally":
+			if is_instance_valid(selected_building):
+				selected_building.rally_point = world
+				OrderMarker.spawn(units_root, world, player_team)
+	if not units.is_empty() and command != "rally":
+		Sound.play_event(units[0].unit_type.guid(), Sound.Event.ORDER)
+
+
+static func _centre(units: Array) -> Vector2:
+	var centre := Vector2.ZERO
+	for unit: Unit in units:
+		centre += unit.position
+	return centre / maxf(1.0, units.size())
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var world := get_global_mouse_position()
+		if not pending.is_empty() and event.pressed:
+			if event.button_index == MOUSE_BUTTON_LEFT:
+				_give_targeted(world)
+			else:
+				cancel_targeting()
+			get_viewport().set_input_as_handled()
+			return
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				_pressed = true
@@ -244,11 +312,7 @@ func _order_move(target: Vector2) -> void:
 	var count := selection.size()
 	if count == 0:
 		return
-	var columns := ceili(sqrt(count))
-	var centre := Vector2.ZERO
-	for unit in selection:
-		centre += unit.position
-	centre /= count
+	var centre := _centre(selection)
 	Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	var facing := (target - centre).normalized()
 	if facing == Vector2.ZERO:
@@ -257,8 +321,38 @@ func _order_move(target: Vector2) -> void:
 	# Keep each unit's relative slot stable: sort by projection onto the formation axes.
 	var ordered := selection.duplicate()
 	ordered.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.dot(-facing) < b.position.dot(-facing))
+	var slots := formation_slots(count, selection[0].formation)
 	for i in count:
-		var row := i / columns
-		var column := i % columns
-		var offset := side * (column - (columns - 1) / 2.0) * FORMATION_SPACING - facing * row * FORMATION_SPACING
+		var offset := (side * slots[i].x - facing * slots[i].y) * FORMATION_SPACING
 		ordered[i].move_to(target + offset)
+
+
+## Re-form the selection on the spot in its new formation, facing down the screen.
+func reform() -> void:
+	var units := selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+	if units.size() > 1:
+		_order_move(_centre(units))
+
+
+## Slot positions (x across, y back from the front, in spacing units) for `count` units.
+static func formation_slots(count: int, formation: Unit.Formation) -> Array[Vector2]:
+	var slots: Array[Vector2] = []
+	var columns := ceili(sqrt(count))
+	if formation == Unit.Formation.DOUBLE_LINE:
+		columns = ceili(count / 2.0)
+	for i in count:
+		match formation:
+			Unit.Formation.COLUMN:
+				slots.append(Vector2(0, i))
+			Unit.Formation.DOUBLE_COLUMN:
+				slots.append(Vector2((i % 2) - 0.5, i / 2))
+			Unit.Formation.WEDGE:
+				var rank := (i + 1) / 2
+				slots.append(Vector2(rank * (-1 if i % 2 else 1) if i > 0 else 0, rank))
+			Unit.Formation.RELAXED:
+				# Loose and uneven: a wider grid with some scatter.
+				var jitter := Vector2(sin(i * 12.9898), cos(i * 78.233)) * 0.3
+				slots.append((Vector2(i % columns - (columns - 1) / 2.0, i / columns)) * 1.35 + jitter)
+			_:
+				slots.append(Vector2(i % columns - (columns - 1) / 2.0, i / columns))
+	return slots

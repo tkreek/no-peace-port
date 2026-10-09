@@ -25,6 +25,15 @@ const STANCE_KEYS := {KEY_A: Unit.Stance.AGGRESSIVE, KEY_D: Unit.Stance.DEFENSIV
 		KEY_Y: Unit.Stance.PASSIVE}
 const FIELD_ICONS := "global/gfx/usa/icons/einheiten/USAEinheiten.spr"
 const ICON_FIELD := 32  # the green crop field among the unit icons
+const FORMATION_ICONS_SHEET := "global/gfx/usa/sonstigeicons/KleineIcons.spr"
+const FORMATION_ICONS := {Unit.Formation.COLUMN: 11, Unit.Formation.DOUBLE_COLUMN: 9, Unit.Formation.WEDGE: 6,
+		Unit.Formation.DOUBLE_LINE: 4, Unit.Formation.SQUARE: 2, Unit.Formation.RELAXED: 0}
+const FORMATION_NAMES := {Unit.Formation.COLUMN: "Column", Unit.Formation.DOUBLE_COLUMN: "Double column",
+		Unit.Formation.WEDGE: "Wedge", Unit.Formation.DOUBLE_LINE: "Double line", Unit.Formation.SQUARE: "Square",
+		Unit.Formation.RELAXED: "Relaxed"}
+const ICON_FOLLOW := 2  # two men walking one behind the other
+const ICON_PATROL := 4  # two men with an arrow
+const ICON_RALLY := 12  # Iconserstereihe: signpost
 const ICON_BACK := 0  # Iconserstereihe: arrow out of a doorway
 ## "Build expanded structure" (V) per the manual's keyboard table; every other structure is
 ## a basic one (B).
@@ -61,6 +70,7 @@ var _icon_sheet: RdSprite
 var _icon_material: Material
 var _command_icons: RdSprite
 var _extra_icons: RdSprite
+var _formation_icons: RdSprite
 var _build_menu := ""  # "", "basic" or "expanded"
 var _queue_box := Control.new()
 var _queue_signature := ""
@@ -75,6 +85,7 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	_status_sheet = GameData.load_sprite(STATUS_SHEET)
 	_command_icons = GameData.load_sprite(COMMAND_ICONS)
 	_extra_icons = GameData.load_sprite(EXTRA_ICONS)
+	_formation_icons = GameData.load_sprite(FORMATION_ICONS_SHEET)
 	var icon_bob := GameData.load_bob(ICON_BOB)
 	_icon_sheet = GameData.load_sprite(ICON_BOB.get_base_dir().path_join(icon_bob.sub_sprites[0]))
 	_icon_material = SpriteMaterials.body(_icon_sheet,
@@ -323,10 +334,10 @@ func _refresh_group(units: Array) -> void:
 			card.add_child(health)
 			_group_box.add_child(card)
 	for card in _group_box.get_children():
-		var unit: Unit = card.get_meta("unit") if card.has_meta("unit") else null
+		var unit = card.get_meta("unit") if card.has_meta("unit") else null  # may have been freed
 		var health := card.get_node_or_null("Health") as ColorRect
-		if unit and is_instance_valid(unit) and health:
-			var ratio := unit.health / unit.max_health if unit.max_health > 0 else 0.0
+		if is_instance_valid(unit) and health:
+			var ratio: float = unit.health / unit.max_health if unit.max_health > 0 else 0.0
 			health.size.x = GROUP_ICON * ui_scale * ratio
 			health.color = Color(0.9, 0.2, 0.1).lerp(Color(0.3, 0.85, 0.2), ratio)
 
@@ -427,15 +438,17 @@ func _refresh_commands() -> void:
 	var fighters := units.filter(func(u: Unit) -> bool: return not u.unit_type.attack_anims.is_empty() \
 			and not u.unit_type.can_build() and u.team == player.index)
 	var stances := {}
+	var formations := {}
 	for u: Unit in fighters:
 		stances[u.stance] = true
+		formations[u.formation] = true
 	if builders.is_empty():
 		_build_menu = ""
 	var research_state := "%d/%s" % [player.researched.size(), building.queue if building else []]
-	var signature := "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [research_state, builders.size() > 0, full_builders,
+	var signature := "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [research_state, builders.size() > 0, full_builders,
 			farmers.size() > 0, building.get_instance_id() if building else 0,
 			building.complete if building else false, _build_menu, fighters.size() > 0, stances.keys(),
-			units.size() > 0]
+			units.size() > 0, formations.keys(), selection.pending]
 	if signature == _command_signature:
 		_update_affordability()
 		return
@@ -471,6 +484,15 @@ func _refresh_commands() -> void:
 				_add_icon_command(_command_icons, STANCE_ICONS[stance], "%s (%s)" % [STANCE_NAMES[stance],
 						OS.get_keycode_string(key)], func() -> void: set_stance(stance),
 						stances.size() == 1 and stances.has(stance))
+		if not fighters.is_empty():
+			_add_icon_command(_command_icons, ICON_PATROL, "Patrol (Z): click the far end of the route",
+					func() -> void: selection.begin_targeting("patrol"), selection.pending == "patrol")
+			_add_icon_command(_command_icons, ICON_FOLLOW, "Follow (C): click the unit to follow",
+					func() -> void: selection.begin_targeting("follow"), selection.pending == "follow")
+			if fighters.size() > 1:
+				for formation in FORMATION_ICONS:
+					_add_icon_command(_formation_icons, FORMATION_ICONS[formation], FORMATION_NAMES[formation],
+							func() -> void: set_formation(formation), formations.size() == 1 and formations.has(formation))
 		_add_icon_command(_command_icons, ICON_STOP, "Stop (S)", stop_selection)
 	elif building and building.complete and building.owner_index == player.index:
 		for guid in building.trainable_units():
@@ -479,6 +501,9 @@ func _refresh_commands() -> void:
 				_add_command(type_id, guid, func() -> void:
 					if not building.enqueue(guid):
 						Sound.play_sound(80))  # the original "not possible" sound
+		if not building.trainable_units().is_empty():
+			_add_icon_command(_extra_icons, ICON_RALLY, "Specify assembly location (I)",
+					func() -> void: selection.begin_targeting("rally"), selection.pending == "rally")
 		for upgrade in building.researchable_upgrades():
 			_add_command(-1, upgrade, func() -> void:
 				if not building.enqueue(upgrade):
@@ -498,6 +523,14 @@ func set_stance(stance: Unit.Stance) -> void:
 	_command_signature = ""
 
 
+func set_formation(formation: Unit.Formation) -> void:
+	for u: Unit in selection.selection:
+		if is_instance_valid(u) and u.is_alive():
+			u.formation = formation
+	selection.reform()
+	_command_signature = ""
+
+
 func stop_selection() -> void:
 	for u: Unit in selection.selection:
 		if is_instance_valid(u):
@@ -514,6 +547,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	var handled := true
 	if key == KEY_S:
 		stop_selection()
+	elif key == KEY_Z or key == KEY_C:
+		if not selection.selection.is_empty():
+			selection.begin_targeting("patrol" if key == KEY_Z else "follow")
+	elif key == KEY_I:
+		if is_instance_valid(selection.selected_building) and selection.selected_building.owner_index == player.index:
+			selection.begin_targeting("rally")
 	elif STANCE_KEYS.has(key):
 		set_stance(STANCE_KEYS[key])
 	elif key == KEY_B or key == KEY_V:

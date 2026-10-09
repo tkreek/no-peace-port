@@ -111,6 +111,8 @@ func _ready() -> void:
 		_scenario_help_build.call_deferred()
 	if GameData.cmdline_option("scenario") == "ui":
 		_scenario_ui.call_deferred()
+	if GameData.cmdline_option("scenario") == "orders":
+		_scenario_orders.call_deferred()
 	var report := GameData.cmdline_option("report-after")
 	if report != "":
 		_report_after(report.to_int())
@@ -253,7 +255,10 @@ func _on_unit_trained(building: MapObject, unit_guid: int) -> void:
 	unit.position = (Vector2(cell) + Vector2(0.5, 0.5)) * NavGrid.CELL
 	units_root.add_child(unit)
 	unit.setup(unit_type, building.owner_index)
-	unit.move_to(unit.position + Vector2(randf_range(-40, 40), 50))
+	if building.rally_point != Vector2.INF:
+		unit.move_to(building.rally_point + Vector2(randf_range(-24, 24), randf_range(-16, 16)))
+	else:
+		unit.move_to(unit.position + Vector2(randf_range(-40, 40), 50))
 
 
 ## Start point when the map has no Editor_Start for a player: spread around the map.
@@ -401,6 +406,61 @@ func _scenario_menus() -> void:
 				if not button.is_queued_for_deletion():
 					names.append("%s%s" % [button.tooltip_text.get_slice("\n", 0), " (off)" if button.disabled else ""])
 			print("%s %s %s (%d units): %s" % [players[1].faction, kind, menu, units.size(), ", ".join(names)])
+
+
+## Formations, patrol, follow and a rally point, with positions printed as they play out.
+func _scenario_orders() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	var start := hq.position + Vector2(0, 220)
+	_spawn_squad(_unit_dir(FACTIONS[players[1].faction].army), 1, start, 6)
+	var squad := units_root.get_children().filter(func(n: Node) -> bool:
+		return n is Unit and n.team == 1 and n.unit_type.guid() == FACTIONS[players[1].faction].army)
+	selection._select(squad, false)
+	hud.set_formation(Unit.Formation.WEDGE)
+	selection._order_move(start + Vector2(0, 200))
+	await get_tree().create_timer(6.0).timeout
+	var centre := SelectionController._centre(squad)
+	print("wedge slots: ", squad.map(func(u: Unit) -> Vector2: return ((u.position - centre) / 26.0).round()))
+	selection.begin_targeting("patrol")
+	selection._give_targeted(start + Vector2(260, 200))
+	var leg := []
+	for i in 12:
+		await get_tree().create_timer(1.5).timeout
+		leg.append(int(squad[0].position.x))
+	print("patrol x over time: ", leg, " state ", squad[0].state)
+	var leader: Unit = units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 \
+			and n not in squad)[0]
+	selection._select(squad.slice(0, 2), false)
+	selection.begin_targeting("follow")
+	selection._give_targeted(leader.position)
+	leader = squad[0].follow_target
+	leader.move_to(leader.position + Vector2(-250, 0))
+	await get_tree().create_timer(8.0).timeout
+	print("follow distances: ", squad.slice(0, 2).map(func(u: Unit) -> int: return int(u.position.distance_to(leader.position))))
+	selection.select_building(hq)
+	selection.begin_targeting("rally")
+	selection._give_targeted(hq.position + Vector2(-300, 150))
+	players[1].resources.food = 5000
+	for u in squad:
+		u.queue_free()  # make room in the housing
+	await get_tree().process_frame
+	var before := units_root.get_children().filter(func(n: Node) -> bool: return n is Unit)
+	print("queued ", GameData.stats(hq.trainable_units()[1]).name, ": ", hq.enqueue(hq.trainable_units()[1]))
+	await get_tree().create_timer(40.0).timeout
+	var newest: Unit = null
+	for n in units_root.get_children():
+		if n is Unit and n.team == 1 and n not in before:
+			newest = n
+	if newest == null:
+		print("nothing trained yet, queue ", hq.queue, " progress ", hq.train_progress)
+		get_tree().quit()
+		return
+	print("rally flag: ", is_instance_valid(selection._rally_flag), " trained unit distance to rally: ",
+			int(newest.position.distance_to(hq.rally_point)))
+	get_tree().quit()
 
 
 ## The HQ with a queue of orders (cards), a right-clicked tree and a move marker.

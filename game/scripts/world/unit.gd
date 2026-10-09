@@ -12,6 +12,8 @@ enum Gather { TO_SOURCE, WORKING, TO_DROP_OFF }
 ## defensive ones only a short way before returning, units holding ground never leave their
 ## spot, and passive units neither move nor fight back.
 enum Stance { AGGRESSIVE, DEFENSIVE, HOLD, PASSIVE }
+## Formations from the command menu (manual 4.2), used when a group is given a move order.
+enum Formation { COLUMN, DOUBLE_COLUMN, WEDGE, DOUBLE_LINE, SQUARE, RELAXED }
 
 const ARRIVE_DISTANCE := 3.0
 const REPATH_MS := 600
@@ -24,6 +26,7 @@ const MEAT := {"Tier_B": 150, "Tier_K": 100, "Tier_P": 60}  # buffalo, cow, hors
 const HUNT_RANGE := 1500.0
 const REACH := 20.0
 const DEFENSIVE_PURSUIT := 160.0  # how far defensive units chase before returning
+const FOLLOW_DISTANCE := 48.0
 
 static var debug_paths := false
 static var all_units: Array[Unit] = []
@@ -44,6 +47,9 @@ var state := State.IDLE
 var target: Node2D  ## Unit or MapObject building
 var attack_moving := false  ## moving, but engage enemies met on the way
 var stance := Stance.AGGRESSIVE
+var formation := Formation.RELAXED
+var follow_target: Unit  ## keep close to this unit until given another order
+var _patrol := PackedVector2Array()  ## the two ends of a patrol route
 var _ordered := false  ## the current target was picked by the player, not by the stance
 var hunting := false  ## target is an animal; carry the meat home after the kill
 var guard_position := Vector2.ZERO  # where an idle unit returns after chasing
@@ -190,14 +196,37 @@ func is_enemy_of(other: Unit) -> bool:
 # ------------------------------------------------------------------ orders
 
 ## Move, fighting any enemy that comes within sight on the way.
-func attack_move(destination: Vector2) -> void:
-	move_to(destination)
+func attack_move(destination: Vector2, keep_orders := false) -> void:
+	move_to(destination, keep_orders)
 	attack_moving = true
 
 
-func move_to(destination: Vector2) -> void:
+## Walk back and forth between here and `destination`, engaging enemies met on the way.
+func patrol(destination: Vector2) -> void:
 	if not is_alive():
 		return
+	var start := position
+	attack_move(destination)
+	_patrol = PackedVector2Array([start, destination])
+
+
+func follow(leader: Unit) -> void:
+	if not is_alive() or leader == null or leader == self or not leader.is_alive():
+		return
+	stop()
+	follow_target = leader
+
+
+func _clear_orders() -> void:
+	_patrol.clear()
+	follow_target = null
+
+
+func move_to(destination: Vector2, keep_orders := false) -> void:
+	if not is_alive():
+		return
+	if not keep_orders:
+		_clear_orders()
 	attack_moving = false
 	target = null
 	gather_source = null
@@ -215,6 +244,8 @@ func attack(enemy: Node2D, ordered := false) -> void:
 	if state != State.ATTACKING:
 		guard_position = position if state != State.MOVING else guard_position
 	_ordered = ordered
+	if ordered:
+		_clear_orders()
 	hunting = false
 	target = enemy
 	gather_source = null
@@ -227,6 +258,7 @@ func attack(enemy: Node2D, ordered := false) -> void:
 func hunt(animal: Unit) -> void:
 	if not unit_type.is_hunter() or animal == null or not animal.is_alive() or animal.team != 0:
 		return
+	_clear_orders()
 	attack(animal)
 	hunting = true
 
@@ -243,6 +275,7 @@ func meat_value() -> int:
 func build(site: MapObject) -> void:
 	if not is_alive() or site == null or site.complete or not unit_type.can_build(site.guid):
 		return
+	_clear_orders()
 	build_site = site
 	target = null
 	gather_source = null
@@ -258,6 +291,7 @@ func gather(source: MapObject) -> void:
 	if carrying != "" and carrying != source.resource:
 		carrying = ""
 		carried = 0
+	_clear_orders()
 	gather_source = source
 	gather_resource = source.resource
 	target = null
@@ -267,6 +301,7 @@ func gather(source: MapObject) -> void:
 
 
 func stop() -> void:
+	_clear_orders()
 	path.clear()
 	target = null
 	gather_source = null
@@ -297,6 +332,8 @@ func _process(delta: float) -> void:
 		_flash_time -= delta
 		if _flash_time <= 0.0:
 			_body.self_modulate = Color.WHITE
+	if follow_target != null and (state == State.IDLE or state == State.MOVING):
+		_update_follow()
 	match state:
 		State.IDLE:
 			_scan_timer -= delta
@@ -318,7 +355,11 @@ func _process(delta: float) -> void:
 						guard_position = resume
 						return
 			_follow_path(delta)
-			if path.is_empty():
+			if path.is_empty() and _patrol.size() == 2:
+				# Turn round at the end of the route.
+				var back := _patrol[0] if position.distance_to(_patrol[1]) < position.distance_to(_patrol[0]) else _patrol[1]
+				attack_move(back, true)
+			elif path.is_empty():
 				state = State.IDLE
 				attack_moving = false
 			play(_walk_action() if state == State.MOVING else _idle_action())
@@ -341,6 +382,22 @@ func _process(delta: float) -> void:
 	_advance(delta)
 
 
+func _update_follow() -> void:
+	if not is_instance_valid(follow_target) or not follow_target.is_alive():
+		follow_target = null
+		return
+	if position.distance_to(follow_target.position) < FOLLOW_DISTANCE:
+		if state == State.MOVING:
+			path.clear()
+			state = State.IDLE
+		return
+	var now := Time.get_ticks_msec()
+	if state == State.IDLE or now - _last_repath > REPATH_MS:
+		_last_repath = now
+		path = _find_path(follow_target.position)
+		state = State.MOVING if not path.is_empty() else State.IDLE
+
+
 func _update_attack(delta: float) -> void:
 	if hunting and is_instance_valid(target) and target is Unit and not target.is_alive() and _attack_step < 0:
 		_carry_meat(target)
@@ -359,8 +416,8 @@ func _update_attack(delta: float) -> void:
 			var enemy := _nearest_target(_engage_radius())
 			if enemy:
 				target = enemy
-			elif position.distance_to(guard_position) > 64.0 and guard_position != Vector2.ZERO:
-				attack_move(guard_position)  # carry on to where we were heading
+			elif (position.distance_to(guard_position) > 64.0 or _patrol.size() == 2) and guard_position != Vector2.ZERO:
+				attack_move(guard_position, true)  # carry on to where we were heading
 				return
 			else:
 				state = State.IDLE

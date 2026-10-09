@@ -294,6 +294,8 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 
 
 var _build_sound_played := false
+## Where units trained here gather ("Specify assembly location"); INF = just outside.
+var rally_point := Vector2.INF
 
 
 ## Add construction work (worker-seconds); returns true when the building completes.

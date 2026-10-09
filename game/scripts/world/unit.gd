@@ -669,7 +669,7 @@ func _update_gather(delta: float) -> void:
 			_work_timer -= delta
 			if gather_source.resource == "wood":
 				if play_repeating("chop"):
-					Sound.play_event(unit_type.guid(), Sound.Event.CHOP, position, 300)
+					Sound.play_event(unit_type.guid(), Sound.Event.CHOP, position, 300, get_instance_id(), Sound.WORK_RANGE)
 			if _work_timer > 0.0:
 				return
 			var resource := gather_source.resource

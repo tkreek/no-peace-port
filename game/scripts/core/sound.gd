@@ -14,6 +14,10 @@ enum Event {
 
 const SFX_TABLE := "sfx/sfxguids.dat"
 const MAX_VOICES := 24
+## How far (px) world sounds carry by default, and work going on (axes, mines, building)
+## that you hear beyond the screen edge and through the fog of war, fading with distance.
+const HEARING_RANGE := 1800.0
+const WORK_RANGE := 3200.0
 const FACTION_MUSIC := {"usa": "USA.mp3", "mex": "MEX.mp3", "ind": "IND.mp3", "des": "DES.mp3"}
 
 var sfx_volume := 1.0
@@ -60,16 +64,35 @@ func _load_table() -> void:
 
 ## Play an object's sound for `event`. With a position the sound is placed in the world,
 ## otherwise it plays as interface feedback (selection and order acknowledgements).
-func play_event(guid: int, event: int, at = null, cooldown_ms := 250) -> void:
+## `source` keeps the cooldown per emitter (e.g. each woodcutter) instead of per kind, so
+## a nearby axe doesn't silence one further off; `reach` is how far away it can be heard.
+func play_event(guid: int, event: int, at = null, cooldown_ms := 250, source := 0, reach := HEARING_RANGE) -> void:
 	var options: PackedInt32Array = _events.get(guid, {}).get(event, PackedInt32Array())
 	if options.is_empty():
 		return
-	var key := "%d:%d" % [guid, event]
+	var key := "%d:%d:%d" % [guid, event, source]
 	var now := Time.get_ticks_msec()
 	if now - int(_last_played.get(key, -100000)) < cooldown_ms:
 		return
 	_last_played[key] = now
-	play_sound(options[randi() % options.size()], at)
+	play_sound(options[randi() % options.size()], at, reach)
+
+
+## A positional player for a looping work sound (e.g. a worked gold mine), not yet started.
+func work_emitter(fragment: String) -> AudioStreamPlayer2D:
+	for id in _sounds:
+		if String(_sounds[id].path).to_lower().contains(fragment):
+			var stream := _stream(_sounds[id].path)
+			if stream == null:
+				return null
+			var p2d := AudioStreamPlayer2D.new()
+			p2d.stream = stream
+			p2d.max_distance = WORK_RANGE
+			p2d.attenuation = 1.0
+			var volume: float = _sounds[id].volume / 200.0 if _sounds[id].volume > 0 else 1.0
+			p2d.volume_db = linear_to_db(volume * sfx_volume * 0.8)
+			return p2d
+	return null
 
 
 ## Play the first sound whose file name contains `fragment` (lower case).
@@ -80,7 +103,7 @@ func play_named(fragment: String, at = null) -> void:
 			return
 
 
-func play_sound(sound_id: int, at = null) -> void:
+func play_sound(sound_id: int, at = null, reach := HEARING_RANGE) -> void:
 	var info: Dictionary = _sounds.get(sound_id, {})
 	if info.is_empty():
 		return
@@ -92,8 +115,8 @@ func play_sound(sound_id: int, at = null) -> void:
 	if at is Vector2:
 		var p2d := AudioStreamPlayer2D.new()
 		p2d.position = at
-		p2d.max_distance = 1400.0
-		p2d.attenuation = 1.5
+		p2d.max_distance = reach
+		p2d.attenuation = 1.0
 		p2d.volume_db = linear_to_db(volume * sfx_volume)
 		p2d.stream = stream
 		get_tree().current_scene.add_child(p2d)

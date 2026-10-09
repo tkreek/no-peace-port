@@ -727,6 +727,9 @@ func _print_report(frame: int) -> void:
 		if object.is_tree():
 			states[object.tree_state] += 1
 	print("  trees standing/felled/stumps: %s" % [states])
+	var mines_heard := MapObject.all_objects.filter(func(o: MapObject) -> bool:
+		return o.is_mine() and o._mine_sound != null and o._mine_sound.playing).size()
+	print("  mines with work sound playing: %d" % mines_heard)
 	for index in players:
 		print("frame %d player %d: %s units=%d" % [frame, index, players[index].resources, alive.get(index, 0)])
 

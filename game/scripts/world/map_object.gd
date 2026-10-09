@@ -222,8 +222,31 @@ func is_mine() -> bool:
 func add_mine_work(seconds: float) -> void:
 	var before := _mine_stage()
 	mine_work += seconds
+	_keep_mine_sound()
 	if _mine_stage() != before:
 		_refresh_sprites()
+
+
+var _mine_sound: AudioStreamPlayer2D
+var _mine_heard := 0  # msec of the last work inside
+
+
+## Picks and rubble from inside a worked mine ("sound goldmine"), heard from afar and
+## through the fog; it keeps going while anyone works inside and stops soon after.
+func _keep_mine_sound() -> void:
+	_mine_heard = Time.get_ticks_msec()
+	if _mine_sound == null:
+		_mine_sound = Sound.work_emitter("sound goldmine")
+		if _mine_sound == null:
+			return
+		_mine_sound.position = work_rect().get_center() - position
+		add_child(_mine_sound)
+		_mine_sound.finished.connect(func() -> void:
+			if Time.get_ticks_msec() - _mine_heard < 1500 and amount > 0:
+				_mine_sound.pitch_scale = randf_range(0.94, 1.06)
+				_mine_sound.play())
+	if not _mine_sound.playing:
+		_mine_sound.play()
 
 
 ## 0 untouched, 1 framing going up, 2 timbered entrance, 3 boarded up (exhausted).
@@ -389,7 +412,7 @@ func add_build_work(seconds: float) -> bool:
 		return true
 	if not _build_sound_played:
 		_build_sound_played = true  # the construction sound plays once, when work begins
-		Sound.play_event(guid, Sound.Event.BUILD, position, 0)
+		Sound.play_event(guid, Sound.Event.BUILD, position, 0, get_instance_id(), Sound.WORK_RANGE)
 	# Worker-seconds: the original production time (one worker), else scaled by energy.
 	var total := float(GameData.stats(guid).get("build_time", max_health * BUILD_WORK_PER_HEALTH))
 	total = maxf(5.0, total)

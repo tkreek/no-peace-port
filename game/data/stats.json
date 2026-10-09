@@ -1,0 +1,1281 @@
+{
+ "100": {
+  "name": "Chief's tepee",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 500
+  },
+  "health": 4000
+ },
+ "101": {
+  "name": "Sleeping tepee",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 150
+  },
+  "health": 500
+ },
+ "102": {
+  "name": "Animal processing",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 200
+  },
+  "health": 600,
+  "prerequisites": "Chief’s tepee, corral"
+ },
+ "103": {
+  "name": "Training tepee",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 400
+  },
+  "health": 1000,
+  "prerequisites": "Chief’s tepee"
+ },
+ "104": {
+  "name": "Gold warehouse",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 100
+  },
+  "health": 250,
+  "prerequisites": "Chief’s tepee"
+ },
+ "105": {
+  "name": "Corral",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 200
+  },
+  "health": 600,
+  "prerequisites": "Chief’s tepee"
+ },
+ "106": {
+  "name": "Trading post",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 100
+  },
+  "health": 300,
+  "prerequisites": "Chief’s tepee, animal-processing facility, corral"
+ },
+ "107": {
+  "name": "Tepee of the Elders",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 400,
+   "gold": 350
+  },
+  "health": 1000,
+  "prerequisites": "Chief’s tepee, wood-processing facility, training tepee"
+ },
+ "108": {
+  "name": "Granary",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 100
+  },
+  "health": 400,
+  "prerequisites": "Chief’s tepee"
+ },
+ "109": {
+  "name": "Wood processing",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 150
+  },
+  "health": 250
+ },
+ "110": {
+  "name": "Campfire",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 100
+  },
+  "health": 400,
+  "prerequisites": "Chief’s tepee, tepee of the elders"
+ },
+ "111": {
+  "name": "Totem pole",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 500,
+   "gold": 500
+  },
+  "health": 0,
+  "prerequisites": "Chief’s tepee, medicine man’s tepee, campfire"
+ },
+ "112": {
+  "name": "Camouflage school",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 300,
+   "gold": 400
+  },
+  "health": 900,
+  "prerequisites": "Chief’s tepee, tepee of the elders"
+ },
+ "114": {
+  "name": "Pitfall",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 150
+  },
+  "health": 150,
+  "prerequisites": "Chief’s tepee, wood-processing facility"
+ },
+ "115": {
+  "name": "Medicine man's tepee",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 300,
+   "gold": 500
+  },
+  "health": 1000,
+  "prerequisites": "Chief’s tepee, tepee of the elders"
+ },
+ "149": {
+  "name": "Field",
+  "faction": "ind",
+  "kind": "structure",
+  "cost": {
+   "wood": 150
+  },
+  "health": 200,
+  "prerequisites": "Granary"
+ },
+ "150": {
+  "name": "Chief",
+  "faction": "ind",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "population": 1
+  },
+  "health": 130,
+  "damage": 15,
+  "produced_at": 100
+ },
+ "152": {
+  "name": "Warrior",
+  "faction": "ind",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "population": 1
+  },
+  "health": 30,
+  "damage": 4,
+  "produced_at": 100
+ },
+ "153": {
+  "name": "Woman",
+  "faction": "ind",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "population": 1
+  },
+  "health": 30,
+  "damage": 4,
+  "produced_at": 100
+ },
+ "154": {
+  "name": "Canoe",
+  "faction": "ind",
+  "kind": "unit",
+  "cost": {
+   "wood": 125,
+   "gold": 50,
+   "population": 2
+  },
+  "health": 125,
+  "damage": 10,
+  "produced_at": 109
+ },
+ "155": {
+  "name": "Travois",
+  "faction": "ind",
+  "kind": "unit",
+  "cost": {
+   "wood": 75,
+   "horses": 1,
+   "population": 1
+  },
+  "health": 80,
+  "damage": 0,
+  "produced_at": 109
+ },
+ "156": {
+  "name": "Arrow shooter",
+  "faction": "ind",
+  "kind": "unit",
+  "cost": {
+   "food": 60,
+   "wood": 25,
+   "population": 1
+  },
+  "health": 35,
+  "damage": 6,
+  "produced_at": 103
+ },
+ "158": {
+  "name": "Flaming arrow shooter",
+  "faction": "ind",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "wood": 50,
+   "gold": 50,
+   "population": 1
+  },
+  "health": 35,
+  "damage": 12,
+  "produced_at": 103
+ },
+ "160": {
+  "name": "Rifleman",
+  "faction": "ind",
+  "kind": "unit",
+  "cost": {
+   "food": 40,
+   "gold": 35,
+   "guns": 1,
+   "population": 1
+  },
+  "health": 40,
+  "damage": 10,
+  "produced_at": 103
+ },
+ "162": {
+  "name": "Spear fighter",
+  "faction": "ind",
+  "kind": "unit",
+  "cost": {
+   "food": 40,
+   "wood": 50,
+   "gold": 30,
+   "population": 1
+  },
+  "health": 40,
+  "damage": 10,
+  "produced_at": 103
+ },
+ "163": {
+  "name": "Knife thrower",
+  "faction": "ind",
+  "kind": "unit",
+  "cost": {
+   "food": 80,
+   "gold": 60,
+   "population": 1
+  },
+  "health": 110,
+  "damage": 14,
+  "produced_at": 103
+ },
+ "164": {
+  "name": "Medicine man",
+  "faction": "ind",
+  "kind": "unit",
+  "cost": {
+   "food": 100,
+   "gold": 100,
+   "population": 1
+  },
+  "health": 60,
+  "damage": 0,
+  "produced_at": 115
+ },
+ "200": {
+  "name": "Command post",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 500
+  },
+  "health": 4000
+ },
+ "201": {
+  "name": "House",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 150
+  },
+  "health": 900
+ },
+ "202": {
+  "name": "Butcher shop",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 350
+  },
+  "health": 1200,
+  "prerequisites": "Command post, hacienda"
+ },
+ "203": {
+  "name": "Barracks",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 250,
+   "gold": 250
+  },
+  "health": 1800,
+  "prerequisites": "Command post, fort"
+ },
+ "205": {
+  "name": "Hacienda",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 300
+  },
+  "health": 1250,
+  "prerequisites": "Command post"
+ },
+ "206": {
+  "name": "Gold warehouse",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 150
+  },
+  "health": 350,
+  "prerequisites": "Command post"
+ },
+ "207": {
+  "name": "Cantina",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 300,
+   "gold": 200
+  },
+  "health": 1200,
+  "prerequisites": "Command post, hacienda, finca"
+ },
+ "208": {
+  "name": "Finca",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 250
+  },
+  "health": 850,
+  "prerequisites": "Command post"
+ },
+ "209": {
+  "name": "Sawmill",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 300
+  },
+  "health": 500
+ },
+ "210": {
+  "name": "Trading post",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 300
+  },
+  "health": 500,
+  "prerequisites": "Command post, butcher shop, hacienda"
+ },
+ "211": {
+  "name": "Weapons factory",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 500,
+   "gold": 300
+  },
+  "health": 2800,
+  "prerequisites": "Fort"
+ },
+ "212": {
+  "name": "Wall",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 25
+  },
+  "health": 800,
+  "prerequisites": "Sawmill, command post"
+ },
+ "213": {
+  "name": "Tower",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 200
+  },
+  "health": 600,
+  "prerequisites": "Sawmill, command post"
+ },
+ "215": {
+  "name": "Church",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 350,
+   "gold": 200
+  },
+  "health": 2400,
+  "prerequisites": "Command post, trading post"
+ },
+ "216": {
+  "name": "Mission",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 400
+  },
+  "health": 2600,
+  "prerequisites": "Command post, trading post"
+ },
+ "217": {
+  "name": "Fort",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 800,
+   "gold": 500
+  },
+  "health": 3000,
+  "prerequisites": "Command post, cantina, sawmill"
+ },
+ "218": {
+  "name": "Wharf",
+  "faction": "mex",
+  "kind": "structure",
+  "cost": {
+   "wood": 250
+  },
+  "health": 800,
+  "prerequisites": "Sawmill, command post"
+ },
+ "250": {
+  "name": "Comandante",
+  "faction": "mex",
+  "kind": "unit",
+  "cost": {
+   "food": 60,
+   "population": 1
+  },
+  "health": 130,
+  "damage": 15,
+  "produced_at": 200
+ },
+ "252": {
+  "name": "Field worker",
+  "faction": "mex",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "population": 1
+  },
+  "health": 30,
+  "damage": 4,
+  "produced_at": 200
+ },
+ "253": {
+  "name": "Woman",
+  "faction": "mex",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "population": 1
+  },
+  "health": 30,
+  "damage": 0,
+  "produced_at": 200
+ },
+ "254": {
+  "name": "Riverboat",
+  "faction": "mex",
+  "kind": "unit",
+  "cost": {
+   "wood": 200,
+   "gold": 100,
+   "population": 3
+  },
+  "health": 250,
+  "damage": 0,
+  "produced_at": 418
+ },
+ "255": {
+  "name": "Transport wagon",
+  "faction": "mex",
+  "kind": "unit",
+  "cost": {
+   "wood": 150,
+   "horses": 1,
+   "population": 1
+  },
+  "health": 150,
+  "damage": 0,
+  "produced_at": 409
+ },
+ "256": {
+  "name": "Nun",
+  "faction": "mex",
+  "kind": "unit",
+  "cost": {
+   "food": 30,
+   "gold": 40,
+   "population": 1
+  },
+  "health": 30,
+  "damage": 0,
+  "produced_at": 415
+ },
+ "257": {
+  "name": "Priest",
+  "faction": "mex",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "gold": 80,
+   "population": 1
+  },
+  "health": 40,
+  "damage": 0,
+  "produced_at": 415
+ },
+ "258": {
+  "name": "Infantryman",
+  "faction": "mex",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "gold": 75,
+   "guns": 1,
+   "population": 1
+  },
+  "health": 70,
+  "damage": 11,
+  "produced_at": 203
+ },
+ "259": {
+  "name": "Cavalryman",
+  "faction": "mex",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "gold": 85,
+   "population": 1
+  },
+  "health": 60,
+  "damage": 15,
+  "produced_at": 203
+ },
+ "261": {
+  "name": "Militiaman",
+  "faction": "mex",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "gold": 50,
+   "guns": 1,
+   "population": 1
+  },
+  "health": 40,
+  "damage": 10,
+  "produced_at": 205
+ },
+ "262": {
+  "name": "Gunslinger",
+  "faction": "mex",
+  "kind": "unit",
+  "cost": {
+   "food": 75,
+   "gold": 90,
+   "population": 1
+  },
+  "health": 100,
+  "damage": 12,
+  "produced_at": 207
+ },
+ "263": {
+  "name": "Gaucho",
+  "faction": "mex",
+  "kind": "unit",
+  "cost": {
+   "food": 80,
+   "population": 1
+  },
+  "health": 40,
+  "damage": 7,
+  "produced_at": 205
+ },
+ "265": {
+  "name": "Cannon",
+  "faction": "mex",
+  "kind": "unit",
+  "cost": {
+   "wood": 100,
+   "gold": 150,
+   "population": 1
+  },
+  "health": 100,
+  "damage": 40,
+  "produced_at": 411
+ },
+ "300": {
+  "name": "Base",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {
+   "wood": 500
+  },
+  "health": 4000
+ },
+ "301": {
+  "name": "Boarding house",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {
+   "wood": 150
+  },
+  "health": 600
+ },
+ "302": {
+  "name": "Butcher shop",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {
+   "wood": 250
+  },
+  "health": 800,
+  "prerequisites": "Base, hunting cabin"
+ },
+ "303": {
+  "name": "Saloon",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {
+   "wood": 400
+  },
+  "health": 1200,
+  "prerequisites": "Base"
+ },
+ "304": {
+  "name": "Gold warehouse",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {
+   "wood": 150
+  },
+  "health": 300,
+  "prerequisites": "Base"
+ },
+ "305": {
+  "name": "Corral",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {
+   "wood": 250
+  },
+  "health": 750,
+  "prerequisites": "Base"
+ },
+ "306": {
+  "name": "Hunting cabin",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {
+   "wood": 300
+  },
+  "health": 600,
+  "prerequisites": "Base"
+ },
+ "307": {
+  "name": "Hotel",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {
+   "wood": 300,
+   "gold": 300
+  },
+  "health": 1400,
+  "prerequisites": "Base, saloon, carpentry shop"
+ },
+ "308": {
+  "name": "Distillery",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {
+   "wood": 200
+  },
+  "health": 600,
+  "prerequisites": "Base"
+ },
+ "309": {
+  "name": "Carpentry shop",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {
+   "wood": 250
+  },
+  "health": 350
+ },
+ "310": {
+  "name": "Drugstore",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {
+   "wood": 300,
+   "gold": 300
+  },
+  "health": 400,
+  "prerequisites": "Base, butcher shop, corral"
+ },
+ "311": {
+  "name": "Cellar",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {
+   "wood": 200,
+   "gold": 200
+  },
+  "health": 1000,
+  "prerequisites": "Base, hotel"
+ },
+ "312": {
+  "name": "Barricade",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {
+   "wood": 10
+  },
+  "health": 300,
+  "prerequisites": "Base, carpentry shop"
+ },
+ "313": {
+  "name": "Lookout",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {
+   "wood": 180
+  },
+  "health": 350,
+  "prerequisites": "Base, carpentry shop"
+ },
+ "314": {
+  "name": "Explosives hut",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {},
+  "health": 1100,
+  "prerequisites": "Base, drugstore Cost 400 wood units, 300 gold units"
+ },
+ "315": {
+  "name": "Boathouse",
+  "faction": "des",
+  "kind": "structure",
+  "cost": {
+   "wood": 250
+  },
+  "health": 600,
+  "prerequisites": "Base, carpentry shop"
+ },
+ "350": {
+  "name": "Band leader",
+  "faction": "des",
+  "kind": "unit",
+  "cost": {
+   "food": 60,
+   "population": 1
+  },
+  "health": 130,
+  "damage": 15,
+  "produced_at": 300
+ },
+ "352": {
+  "name": "Outlaw",
+  "faction": "des",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "population": 1
+  },
+  "health": 30,
+  "damage": 4,
+  "produced_at": 300
+ },
+ "353": {
+  "name": "Barber",
+  "faction": "des",
+  "kind": "unit",
+  "cost": {
+   "food": 80,
+   "population": 1
+  },
+  "health": 40,
+  "damage": 7,
+  "produced_at": 303
+ },
+ "355": {
+  "name": "Flat-bed wagon",
+  "faction": "des",
+  "kind": "unit",
+  "cost": {
+   "wood": 150,
+   "horses": 1,
+   "population": 1
+  },
+  "health": 150,
+  "damage": 0,
+  "produced_at": 309
+ },
+ "356": {
+  "name": "Rifleman",
+  "faction": "des",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "gold": 45,
+   "guns": 1,
+   "population": 1
+  },
+  "health": 50,
+  "damage": 10,
+  "produced_at": 303
+ },
+ "358": {
+  "name": "Hunter",
+  "faction": "des",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "gold": 50,
+   "population": 1
+  },
+  "health": 45,
+  "damage": 7,
+  "produced_at": 306
+ },
+ "359": {
+  "name": "Blaster",
+  "faction": "des",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "gold": 90,
+   "population": 1
+  },
+  "health": 50,
+  "damage": 22,
+  "produced_at": 314
+ },
+ "360": {
+  "name": "Gunslinger",
+  "faction": "des",
+  "kind": "unit",
+  "cost": {
+   "food": 60,
+   "gold": 80,
+   "population": 1
+  },
+  "health": 100,
+  "damage": 12,
+  "produced_at": 307
+ },
+ "362": {
+  "name": "Assassin",
+  "faction": "des",
+  "kind": "unit",
+  "cost": {
+   "food": 80,
+   "gold": 90,
+   "population": 1
+  },
+  "health": 65,
+  "damage": 5,
+  "produced_at": 307
+ },
+ "363": {
+  "name": "Whip cracker",
+  "faction": "des",
+  "kind": "unit",
+  "cost": {
+   "food": 60,
+   "gold": 80,
+   "population": 1
+  },
+  "health": 80,
+  "damage": 14,
+  "produced_at": 303
+ },
+ "364": {
+  "name": "Raft",
+  "faction": "des",
+  "kind": "unit",
+  "cost": {
+   "food": 125,
+   "gold": 60,
+   "population": 3
+  },
+  "health": 125,
+  "damage": 0,
+  "produced_at": 315
+ },
+ "400": {
+  "name": "Headquarters",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 500
+  },
+  "health": 4000
+ },
+ "401": {
+  "name": "House",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 150
+  },
+  "health": 750
+ },
+ "402": {
+  "name": "Stockyard",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 350
+  },
+  "health": 1000,
+  "prerequisites": "Headquarters, trapper’s cabin"
+ },
+ "403": {
+  "name": "Training camp",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 250,
+   "gold": 250
+  },
+  "health": 1400,
+  "prerequisites": "Headquarters, fort"
+ },
+ "405": {
+  "name": "Ranch",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 300
+  },
+  "health": 1000,
+  "prerequisites": "Headquarters"
+ },
+ "406": {
+  "name": "Trapper's cabin",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 300
+  },
+  "health": 600,
+  "prerequisites": "Headquarters"
+ },
+ "407": {
+  "name": "Sheriff's office",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 300,
+   "gold": 200
+  },
+  "health": 1000,
+  "prerequisites": "Headquarters"
+ },
+ "408": {
+  "name": "Farm",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {},
+  "health": 750,
+  "prerequisites": "Headquarters"
+ },
+ "409": {
+  "name": "Sawmill",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 300
+  },
+  "health": 450
+ },
+ "411": {
+  "name": "Weapons factory",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 500,
+   "gold": 300
+  },
+  "health": 2000,
+  "prerequisites": "Headquarters, fort"
+ },
+ "412": {
+  "name": "Stockade",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 15
+  },
+  "health": 500,
+  "prerequisites": "Headquarters, sawmill"
+ },
+ "413": {
+  "name": "Watchtower",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 200
+  },
+  "health": 450,
+  "prerequisites": "Headquarters"
+ },
+ "415": {
+  "name": "Church",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 350,
+   "gold": 200
+  },
+  "health": 1500,
+  "prerequisites": "Headquarters, trading post"
+ },
+ "416": {
+  "name": "Bank",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 400
+  },
+  "health": 1300,
+  "prerequisites": "Headquarters, trading post"
+ },
+ "417": {
+  "name": "Fort",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 800,
+   "gold": 500
+  },
+  "health": 2500,
+  "prerequisites": "Headquarters, sheriff’s office"
+ },
+ "418": {
+  "name": "Wharf",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 250
+  },
+  "health": 700,
+  "prerequisites": "Headquarters, sawmill"
+ },
+ "419": {
+  "name": "Gold warehouse",
+  "faction": "usa",
+  "kind": "structure",
+  "cost": {
+   "wood": 150
+  },
+  "health": 300,
+  "prerequisites": "Headquarters"
+ },
+ "450": {
+  "name": "Commander",
+  "faction": "usa",
+  "kind": "unit",
+  "cost": {
+   "food": 60,
+   "population": 1
+  },
+  "health": 130,
+  "damage": 15,
+  "produced_at": 400
+ },
+ "452": {
+  "name": "Frontiersman",
+  "faction": "usa",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "population": 1
+  },
+  "health": 30,
+  "damage": 4,
+  "produced_at": 400
+ },
+ "453": {
+  "name": "Frontierswoman",
+  "faction": "usa",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "population": 1
+  },
+  "health": 30,
+  "damage": 0,
+  "produced_at": 400
+ },
+ "454": {
+  "name": "Riverboat",
+  "faction": "usa",
+  "kind": "unit",
+  "cost": {
+   "wood": 200,
+   "gold": 100,
+   "population": 3
+  },
+  "health": 250,
+  "damage": 0,
+  "produced_at": 418
+ },
+ "455": {
+  "name": "Covered wagon",
+  "faction": "usa",
+  "kind": "unit",
+  "cost": {
+   "wood": 150,
+   "horses": 1,
+   "population": 1
+  },
+  "health": 120,
+  "damage": 0,
+  "produced_at": 409
+ },
+ "456": {
+  "name": "Stagecoach",
+  "faction": "usa",
+  "kind": "unit",
+  "cost": {
+   "wood": 175,
+   "gold": 50,
+   "population": 1
+  },
+  "health": 200,
+  "damage": 0,
+  "produced_at": 409
+ },
+ "457": {
+  "name": "Nurse",
+  "faction": "usa",
+  "kind": "unit",
+  "cost": {
+   "food": 30,
+   "gold": 50,
+   "population": 1
+  },
+  "health": 30,
+  "damage": 0,
+  "produced_at": 415
+ },
+ "458": {
+  "name": "Infantryman",
+  "faction": "usa",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "gold": 75,
+   "guns": 1,
+   "population": 1
+  },
+  "health": 70,
+  "damage": 12,
+  "produced_at": 403
+ },
+ "459": {
+  "name": "Cavalryman",
+  "faction": "usa",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "gold": 85,
+   "population": 1
+  },
+  "health": 60,
+  "damage": 10,
+  "produced_at": 403
+ },
+ "461": {
+  "name": "Trapper",
+  "faction": "usa",
+  "kind": "unit",
+  "cost": {
+   "food": 50,
+   "gold": 50,
+   "guns": 1,
+   "population": 1
+  },
+  "health": 45,
+  "damage": 8,
+  "produced_at": 406
+ },
+ "462": {
+  "name": "Sheriff",
+  "faction": "usa",
+  "kind": "unit",
+  "cost": {
+   "food": 75,
+   "gold": 90,
+   "population": 1
+  },
+  "health": 100,
+  "damage": 12,
+  "produced_at": 407
+ },
+ "463": {
+  "name": "Cowboy",
+  "faction": "usa",
+  "kind": "unit",
+  "cost": {
+   "food": 80,
+   "population": 1
+  },
+  "health": 40,
+  "damage": 7,
+  "produced_at": 405
+ },
+ "465": {
+  "name": "Cannon",
+  "faction": "usa",
+  "kind": "unit",
+  "cost": {
+   "wood": 100,
+   "gold": 150,
+   "population": 1
+  },
+  "health": 100,
+  "damage": 30,
+  "produced_at": 411
+ }
+}

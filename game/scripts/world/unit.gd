@@ -27,6 +27,9 @@ const HUNT_RANGE := 1500.0
 const REACH := 20.0
 const DEFENSIVE_PURSUIT := 160.0  # how far defensive units chase before returning
 const FOLLOW_DISTANCE := 48.0
+const BUTCHER_SECONDS := 2.5
+const HEAL_PER_SECOND := 4.0
+const HEAL_REACH := 40.0
 
 static var debug_paths := false
 static var all_units: Array[Unit] = []
@@ -51,6 +54,7 @@ var formation := Formation.RELAXED
 var follow_target: Unit  ## keep close to this unit until given another order
 var _patrol := PackedVector2Array()  ## the two ends of a patrol route
 var quarters: MapObject  ## the building this unit is heading into or sitting in
+var heal_target: Unit  ## a wounded friend this nurse, nun, priest or medicine man is tending
 var _ordered := false  ## the current target was picked by the player, not by the stance
 var hunting := false  ## target is an animal; carry the meat home after the kill
 var guard_position := Vector2.ZERO  # where an idle unit returns after chasing
@@ -223,6 +227,7 @@ func follow(leader: Unit) -> void:
 func _clear_orders() -> void:
 	_patrol.clear()
 	follow_target = null
+	heal_target = null
 	if state != State.QUARTERED:
 		quarters = null
 
@@ -387,14 +392,21 @@ func _process(delta: float) -> void:
 			_body.self_modulate = Color.WHITE
 	if follow_target != null and (state == State.IDLE or state == State.MOVING):
 		_update_follow()
+	if heal_target != null and (state == State.IDLE or state == State.MOVING):
+		_update_heal(delta)
+		_advance(delta)
+		return
 	match state:
 		State.IDLE:
 			_scan_timer -= delta
 			if _scan_timer <= 0.0:
 				_scan_timer = SCAN_INTERVAL
-				var enemy := _nearest_enemy(_engage_radius())
-				if enemy:
-					attack(enemy)
+				if is_healer():
+					heal_target = _nearest_wounded()
+				else:
+					var enemy := _nearest_enemy(_engage_radius())
+					if enemy:
+						attack(enemy)
 			play("idle")
 		State.MOVING:
 			if attack_moving:
@@ -435,6 +447,47 @@ func _process(delta: float) -> void:
 	_advance(delta)
 
 
+func is_healer() -> bool:
+	return unit_type.attack_anims.is_empty() and unit_type.anim_index("heal") >= 0
+
+
+func _nearest_wounded() -> Unit:
+	var best: Unit = null
+	var best_distance := sight()
+	for other in all_units:
+		if other != self and other.team == team and other.is_alive() and not other.inside \
+				and other.health < other.max_health:
+			var distance := position.distance_to(other.position)
+			if distance < best_distance:
+				best = other
+				best_distance = distance
+	return best
+
+
+## Walk up to the wounded unit and tend it until it is whole again.
+func _update_heal(delta: float) -> void:
+	if not is_instance_valid(heal_target) or not heal_target.is_alive() or heal_target.inside \
+			or heal_target.health >= heal_target.max_health:
+		heal_target = null
+		state = State.IDLE
+		return
+	if position.distance_to(heal_target.position) > HEAL_REACH:
+		var now := Time.get_ticks_msec()
+		if path.is_empty() or now - _last_repath > REPATH_MS:
+			_last_repath = now
+			path = _find_path(heal_target.position)
+		_follow_path(delta)
+		play("walk")
+		state = State.MOVING
+		return
+	path.clear()
+	state = State.IDLE
+	face(heal_target.position - position)
+	play_repeating("heal")
+	heal_target.health = minf(heal_target.max_health, heal_target.health + HEAL_PER_SECOND * delta)
+	heal_target._overlay.queue_redraw()
+
+
 func _update_follow() -> void:
 	if not is_instance_valid(follow_target) or not follow_target.is_alive():
 		follow_target = null
@@ -453,7 +506,7 @@ func _update_follow() -> void:
 
 func _update_attack(delta: float) -> void:
 	if hunting and is_instance_valid(target) and target is Unit and not target.is_alive() and _attack_step < 0:
-		_carry_meat(target)
+		_butcher(target, delta)
 		return
 	if target == null or not is_instance_valid(target) or not target.is_alive():
 		target = null
@@ -479,6 +532,14 @@ func _update_attack(delta: float) -> void:
 		_continue_attack()
 		return
 	var to_target := _aim_point(target) - position
+	# Cannons cannot fire point-blank: roll back out to their minimum range first.
+	if unit_type.min_range > 0.0 and unit_type.attack_range >= 350.0 and to_target.length() < unit_type.min_range:
+		if path.is_empty():
+			path = _find_path(position - to_target.normalized() * (unit_type.min_range - to_target.length() + 30.0))
+		_follow_path(delta)
+		face(-to_target)
+		play("walk")
+		return
 	if to_target.length() > attack_range() and not _ordered and not hunting:
 		# The stance limits how far a unit goes after enemies it picked itself.
 		var leash := INF
@@ -533,11 +594,14 @@ func _strike() -> void:
 	var event := Sound.Event.SHOOT if unit_type.ranged else Sound.Event.MELEE
 	Sound.play_event(unit_type.guid(), event, position, 60)
 	# Ranged hits are not certain; distance makes them less likely.
+	var hit := true
 	if unit_type.ranged:
 		var accuracy := clampf(1.1 - position.distance_to(_aim_point(target)) / (attack_range() * 1.6), 0.4, 0.95)
-		if randf() > accuracy:
-			return
-	target.take_damage(attack_damage(), self)
+		hit = randf() <= accuracy
+	if unit_type.ranged and unit_type.projectile_anim >= 0:
+		Projectile.launch(self, target, attack_damage(), hit)  # damage lands with it
+	elif hit:
+		target.take_damage(attack_damage(), self)
 
 
 func _die() -> void:
@@ -660,6 +724,28 @@ func _update_build(delta: float) -> void:
 	# Women without a hammering animation swing their axe instead.
 	play_repeating("build" if unit_type.anim_index("build") >= 0 else "chop")
 	build_site.add_build_work(delta)
+
+
+## Walk up to the kill and gut it (the hunters' "erlegen"/"ausbeinen" animation), then
+## carry the meat home.
+func _butcher(animal: Unit, delta: float) -> void:
+	if unit_type.anim_index("butcher") < 0:
+		_carry_meat(animal)
+		return
+	if position.distance_to(animal.position) > 26.0:
+		if path.is_empty():
+			path = _find_path(animal.position)
+			_work_timer = BUTCHER_SECONDS
+		_follow_path(delta)
+		play("walk")
+		if not path.is_empty():
+			return
+	path.clear()
+	face(animal.position - position)
+	play_repeating("butcher")
+	_work_timer -= delta
+	if _work_timer <= 0.0:
+		_carry_meat(animal)
 
 
 func _carry_meat(animal: Unit) -> void:

@@ -115,6 +115,8 @@ func _ready() -> void:
 		_scenario_select.call_deferred()
 	if GameData.cmdline_option("scenario") == "quarters":
 		_scenario_quarters.call_deferred()
+	if GameData.cmdline_option("scenario") == "projectiles":
+		_scenario_projectiles.call_deferred()
 	if GameData.cmdline_option("scenario") == "orders":
 		_scenario_orders.call_deferred()
 	var report := GameData.cmdline_option("report-after")
@@ -123,8 +125,8 @@ func _ready() -> void:
 	if GameData.cmdline_option("scenario") == "battle":
 		# Two infantry lines facing each other in front of the camera.
 		var centre := camera.position
-		_spawn_squad(_unit_dir(FACTIONS[players[1].faction].army), 1, centre + Vector2(-60, 120), 9)
-		_spawn_squad(_unit_dir(FACTIONS[players[2].faction].army), 2, centre + Vector2(60, -160), 9)
+		_spawn_squad(FACTIONS[players[1].faction].army, 1, centre + Vector2(-60, 120), 9)
+		_spawn_squad(FACTIONS[players[2].faction].army, 2, centre + Vector2(60, -160), 9)
 	camera.set_zoom_level(GameData.cmdline_option("zoom", "1").to_float())
 	fog.enabled = GameData.cmdline_option("fog", "on") != "off"
 	add_child(fog)
@@ -171,7 +173,7 @@ func _spawn_placements(map: AlfMap) -> void:
 		if type == null or type.bob_path.is_empty() or type.bob_path.begins_with("editor"):
 			continue
 		if type.kind == ObjectTypes.Kind.UNIT:
-			var unit_type := UnitType.load_type(type.directory())
+			var unit_type := UnitType.load_type(type.directory(), type.name.contains("Pferd"), type.id)
 			if unit_type == null:
 				continue
 			var unit := Unit.new()
@@ -249,7 +251,7 @@ func _on_unit_trained(building: MapObject, unit_guid: int) -> void:
 	var type := ObjectTypes.get_type(type_id)
 	if type == null:
 		return
-	var unit_type := UnitType.load_type(type.directory())
+	var unit_type := UnitType.for_guid(unit_guid)
 	if unit_type == null:
 		return
 	var rect := building.footprint_rect()
@@ -295,23 +297,22 @@ func _setup_player(player: int, start: Vector2) -> void:
 		hq.free()
 		return
 	var toward_centre := (Vector2(terrain.map.pixel_size()) / 2.0 - start).normalized()
-	var builder := ""
-	var farmer := ""
+	var builder := -1
+	var farmer := -1
 	for guid in hq.trainable_units():
-		var unit_type := UnitType.load_type(_unit_dir(guid))
+		var unit_type := UnitType.for_guid(guid)
 		if unit_type == null:
 			continue
-		if builder.is_empty() and unit_type.can_gather("wood") and unit_type.anim_index("build") >= 0:
-			builder = _unit_dir(guid)
-		elif farmer.is_empty() and unit_type.is_farmer():
-			farmer = _unit_dir(guid)
-	if not builder.is_empty():
+		if builder < 0 and unit_type.can_gather("wood") and unit_type.anim_index("build") >= 0:
+			builder = guid
+		elif farmer < 0 and unit_type.is_farmer():
+			farmer = guid
+	if builder >= 0:
 		_spawn_squad(builder, player, start + toward_centre * 220.0, START_BUILDERS)
-	if not farmer.is_empty():
+	if farmer >= 0:
 		_spawn_squad(farmer, player, start + toward_centre * 220.0 + toward_centre.orthogonal() * 120.0, START_FARMERS)
 	# Every people starts with its commander on horseback.
-	var commander_dir := _unit_dir(FACTIONS[players[player].faction].commander)
-	var commander_type := UnitType.load_type(commander_dir, true) if commander_dir else null
+	var commander_type := UnitType.for_guid(FACTIONS[players[player].faction].commander)  # mounted
 	if commander_type:
 		var commander := Unit.new()
 		var spot := start + toward_centre * 300.0 - toward_centre.orthogonal() * 100.0
@@ -320,8 +321,9 @@ func _setup_player(player: int, start: Vector2) -> void:
 		commander.setup(commander_type, player)
 
 
-func _spawn_squad(directory: String, team: int, centre: Vector2, count: int) -> void:
-	var unit_type := UnitType.load_type(directory)
+## `what` is a unit GUID or (for tests) a unit graphics folder.
+func _spawn_squad(what: Variant, team: int, centre: Vector2, count: int) -> void:
+	var unit_type := UnitType.for_guid(what) if what is int else UnitType.load_type(what)
 	if unit_type == null:
 		return
 	var columns := ceili(sqrt(count))
@@ -354,7 +356,7 @@ func _scenario_research() -> void:
 	camera.position = factory.position
 	print("research options: ", Array(factory.researchable_upgrades()).map(func(g: int) -> String: return GameData.stats(g).name))
 	print("queue rifle 1:", factory.enqueue(925), " rifle 2 now:", factory.enqueue(926))
-	_spawn_squad(_unit_dir(258), 1, hq.position + Vector2(0, 200), 1)
+	_spawn_squad(258, 1, hq.position + Vector2(0, 200), 1)
 	var infantry: Unit = units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == 258)[0]
 	print("before: damage %.0f health %.0f" % [infantry.attack_damage(), infantry.max_health])
 	await get_tree().create_timer(65.0).timeout
@@ -471,7 +473,7 @@ func _scenario_quarters() -> void:
 	units_root.add_child(tower)
 	nav.block_footprint(type, tower.position)
 	var army: int = FACTIONS[players[1].faction].army
-	_spawn_squad(_unit_dir(army), 1, tower.position + Vector2(0, 160), 4)
+	_spawn_squad(army, 1, tower.position + Vector2(0, 160), 4)
 	var squad := units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 \
 			and n.unit_type.guid() == army)
 	selection._select(squad, false)
@@ -479,7 +481,7 @@ func _scenario_quarters() -> void:
 	await get_tree().create_timer(8.0).timeout
 	print("capacity %d, quartered %d, outside %d" % [tower.capacity(), tower.garrison.size(),
 			squad.filter(func(u: Unit) -> bool: return not u.inside).size()])
-	_spawn_squad(_unit_dir(FACTIONS[players[2].faction].army), 2, tower.position + Vector2(260, 0), 3)
+	_spawn_squad(FACTIONS[players[2].faction].army, 2, tower.position + Vector2(260, 0), 3)
 	var enemies := units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 \
 			and n.position.distance_to(tower.position) < 400)
 	for e: Unit in enemies:
@@ -495,6 +497,33 @@ func _scenario_quarters() -> void:
 	get_tree().quit()
 
 
+## Cannons, archers and a knife thrower against infantry; a nurse tends a wounded soldier.
+func _scenario_projectiles() -> void:
+	var centre := camera.position
+	_spawn_squad(465, 1, centre + Vector2(-140, 160), 2)   # cannons
+	_spawn_squad(156, 1, centre + Vector2(0, 160), 3)      # arrow shooters
+	_spawn_squad(163, 1, centre + Vector2(120, 160), 1)    # knife thrower
+	_spawn_squad(457, 1, centre + Vector2(220, 200), 1)    # nurse
+	_spawn_squad(458, 1, centre + Vector2(260, 200), 1)    # wounded infantryman
+	_spawn_squad(258, 2, centre + Vector2(0, -150), 6)
+	var wounded: Unit = null
+	for n in units_root.get_children():
+		if n is Unit and n.team == 1 and n.unit_type.guid() == 458:
+			wounded = n
+	wounded.health = 40.0
+	for n in units_root.get_children():
+		if n is Unit and n.team == 2:
+			n.stance = Unit.Stance.PASSIVE
+	var shooters := units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 \
+			and not n.unit_type.attack_anims.is_empty() and n != wounded)
+	print("shooters: ", shooters.map(func(u: Unit) -> String: return "%s ranged=%s proj=%d range=%d" % [u.display_name(), u.unit_type.ranged, u.unit_type.projectile_anim, u.attack_range()]))
+	await get_tree().create_timer(float(GameData.cmdline_option("wait", "20"))).timeout
+	var enemies := units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2)
+	print("enemy energy: ", enemies.map(func(u: Unit) -> int: return int(u.health)), " wounded now ", int(wounded.health))
+	if GameData.cmdline_option("screenshot") == "":
+		get_tree().quit()
+
+
 ## Formations, patrol, follow and a rally point, with positions printed as they play out.
 func _scenario_orders() -> void:
 	var hq: MapObject = null
@@ -502,7 +531,7 @@ func _scenario_orders() -> void:
 		if object.is_building() and object.owner_index == 1:
 			hq = object
 	var start := hq.position + Vector2(0, 220)
-	_spawn_squad(_unit_dir(FACTIONS[players[1].faction].army), 1, start, 6)
+	_spawn_squad(FACTIONS[players[1].faction].army, 1, start, 6)
 	var squad := units_root.get_children().filter(func(n: Node) -> bool:
 		return n is Unit and n.team == 1 and n.unit_type.guid() == FACTIONS[players[1].faction].army)
 	selection._select(squad, false)
@@ -639,8 +668,8 @@ func _scenario_food() -> void:
 	units_root.add_child(finca)
 	nav.block_footprint(finca_type, finca.position)
 	ai.free()
-	_spawn_squad("global/gfx/mex/frau", 1, finca.position + Vector2(0, 120), 3)
-	_spawn_squad("global/gfx/mex/milizionaer", 1, hq.position + Vector2(0, 160), 2)
+	_spawn_squad(253, 1, finca.position + Vector2(0, 120), 3)
+	_spawn_squad(261, 1, hq.position + Vector2(0, 160), 2)
 	var field_type := ObjectTypes.get_type(GameData.type_for_guid(MapObject.FIELD_GUID, terrain.biome))
 	var fields: Array[MapObject] = []
 	for k in 2:
@@ -758,6 +787,28 @@ func _selftest() -> void:
 				var t := ObjectTypes.get_type(tid)
 				var bob := GameData.load_bob(t.bob_path) if t else null
 				print("guid %d %s -> type %d %s %s anims=%d stats=%s" % [guid, biome, tid, t.name if t else "?", t.bob_path if t else "", bob.anims.size() if bob else -1, GameData.stats(guid).get("name")])
+	if GameData.cmdline_option("selftest") == "units":
+		# Every unit: its editor stats beside what the game derives (combat, animations).
+		var ids := GameData.stats_guids()
+		ids.sort()
+		for guid in ids:
+			var s := GameData.stats(guid)
+			if s.get("kind") != "unit":
+				continue
+			var t := ObjectTypes.get_type(GameData.type_for_guid(guid))
+			if t == null:
+				print("%d %s NO TYPE" % [guid, s.get("name")])
+				continue
+			var ut := UnitType.for_guid(guid)
+			if ut == null:
+				continue
+			print("%d %-24s %-18s hp=%s m%s/r%s spd%s sight%s rng%s mr%s rr%s minr%s | hp%d dmg%d %s rng%d reload%d sight%d spd%d atk=%s walk=%s die=%s idle=%s cost=%s" % [
+				guid, s.get("name"), t.directory().get_file(), s.get("health"), s.get("melee"), s.get("ranged"),
+				s.get("speed_tier"), s.get("sight_tier"), s.get("range_tier"), s.get("melee_rate_tier"),
+				s.get("ranged_rate_tier"), s.get("min_range_tier"), ut.health, ut.damage,
+				"R" if ut.ranged else "M", ut.attack_range, ut.reload_ms, ut.sight, ut.speed,
+				Array(ut.attack_anims).map(func(i: int) -> String: return ut.bob.sub_sprites[ut.bob.anims[i].sub_sprite]),
+				_anim_file(ut, "walk"), _anim_file(ut, "die"), _anim_file(ut, "idle"), s.get("cost")])
 	if GameData.cmdline_option("selftest") == "stats":
 		var d := DefaultsData.load()
 		print("defaults entries: ", d.size(), " sample: ", d.get(258), " raw bytes: ", GameData.read("Defaults.dat").size())
@@ -766,6 +817,11 @@ func _selftest() -> void:
 			if st.get("kind") in ["unit", "structure"]:
 				print("  %d %s %s %s hp=%s dmg=%s cost=%s at=%s types=%s" % [guid, st.get("faction"), st.get("kind"), st.get("name"), st.get("health"), st.get("damage"), st.get("cost"), st.get("produced_at"), st.get("types")])
 	get_tree().quit()
+
+
+func _anim_file(ut: UnitType, action: String) -> String:
+	var i := ut.anim_index(action)
+	return ut.bob.sub_sprites[ut.bob.anims[i].sub_sprite].get_basename() if i >= 0 else "-"
 
 
 func _show_message(text: String) -> void:

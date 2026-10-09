@@ -79,8 +79,7 @@ func _hq() -> MapObject:
 
 
 func _unit_type_for(guid: int) -> UnitType:
-	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, biome))
-	return UnitType.load_type(type.directory()) if type else null
+	return UnitType.for_guid(guid)
 
 
 ## Idle workers go to wood or gold so that roughly WOOD_SHARE of them cut wood.

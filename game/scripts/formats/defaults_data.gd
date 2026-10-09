@@ -66,7 +66,8 @@ static func load() -> Dictionary:
 			var name := line.get_slice("\"", 1).get_slice("|", 0)
 			name = name.substr(name.find(" ") + 1) if name.contains(". ") else name
 			var fields := line.get_slice("\"", 2).strip_edges().split(" ", false)
-			current = {"name_de": name, "faction": faction, "kind": kind, "properties": {}, "types": []}
+			current = {"name_de": name, "faction": faction, "kind": kind, "properties": {}, "values": {},
+					"types": []}
 			for i in range(4, fields.size()):
 				current.types.append(fields[i].to_int())
 			out[guid] = current
@@ -79,6 +80,9 @@ static func load() -> Dictionary:
 			continue
 		var parts := line.split(" ", false)
 		if parts.size() >= 4 and parts[0].is_valid_int() and (parts[1] == "+" or parts[1] == "-"):
+			# "+" marks the values the editor shows; switched-off ("-") entries still hold the
+			# unit's rate and minimum range tiers.
+			current.values[parts[0].to_int()] = parts[3].to_int()
 			if parts[1] == "+":
 				current.properties[parts[0].to_int()] = parts[3].to_int()
 	return out
@@ -112,14 +116,20 @@ static func to_stats(entry: Dictionary, base: Dictionary) -> Dictionary:
 	if p.has(106 if unit else 6):
 		stats.build_time = int(p[106 if unit else 6])
 	if unit:
-		stats.damage = maxi(int(p.get(113, 0)), int(p.get(114, 0)))
+		# Fighters keep their attack value in "Angriffswert Fern" (114) even when the range
+		# tier (115) is 0, i.e. hand to hand; workers have only "Angriffswert Nah" (113).
+		var v: Dictionary = entry.get("values", p)
 		stats.melee = int(p.get(113, 0))
 		stats.ranged = int(p.get(114, 0))
-		var tiers := {110: "speed_tier", 112: "sight_tier", 115: "range_tier", 116: "melee_rate_tier",
-				117: "ranged_rate_tier", 120: "min_range_tier", 111: "carry"}
+		stats.damage = stats.ranged if stats.ranged > 0 else stats.melee
+		var tiers := {110: "speed_tier", 112: "sight_tier", 111: "carry"}
 		for id in tiers:
 			if p.has(id):
 				stats[tiers[id]] = int(p[id])
+		var combat_tiers := {115: "range_tier", 116: "melee_rate_tier", 117: "ranged_rate_tier", 120: "min_range_tier"}
+		for id in combat_tiers:
+			if v.has(id):
+				stats[combat_tiers[id]] = int(v[id])
 	else:
 		if p.has(9):
 			stats.housing = int(p[9])

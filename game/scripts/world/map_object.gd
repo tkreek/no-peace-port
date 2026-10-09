@@ -25,6 +25,11 @@ const DROP_OFFS := {
 }
 const FOOD_STORES := [108, 208, 408]
 const FIELD_GUID := 149
+## Horses are raised at the corral (Native, outlaw), hacienda and ranch, which shelter five
+## each ("zero of five possible horses"); mounted units cost one.
+const HORSE_GUID := 9001
+const HORSE_BUILDINGS := [105, 205, 305, 405]
+const HORSES_PER_BUILDING := 5
 const GOLD_MINE_GUID := 700  # selection sound "sound goldmine"
 const FIELDS_PER_STORE := 5
 const DISTILLERY_GUID := 308
@@ -537,6 +542,8 @@ func trainable_units() -> PackedInt32Array:
 	var out := PackedInt32Array()
 	if not complete:
 		return out
+	if guid in HORSE_BUILDINGS:
+		out.append(HORSE_GUID)
 	for unit_guid in GameData.stats_guids():
 		var stats := GameData.stats(unit_guid)
 		if stats.get("kind") == "unit" and int(stats.get("produced_at", -1)) == guid:
@@ -571,11 +578,16 @@ func enqueue(unit_guid: int) -> bool:
 			return false
 		queue.append(unit_guid)
 		return true
+	if unit_guid == HORSE_GUID:
+		if int(player.resources.get("horses", 0)) + player.queued_horses() >= player.horse_capacity() \
+				or not player.spend(GameData.stats(HORSE_GUID).cost):
+			return false
+		queue.append(unit_guid)
+		return true
 	if unit_guid in Player.COMMANDERS and player.has_commander():
 		return false
 	var cost: Dictionary = GameData.stats(unit_guid).get("cost", {}).duplicate()
 	cost.erase("population")
-	cost.erase("horses")
 	if player == null or not player.has_room() or not player.spend(cost):
 		return false
 	queue.append(unit_guid)
@@ -624,6 +636,12 @@ func _process(delta: float) -> void:
 			var player: Player = Player.by_index.get(owner_index)
 			if player:
 				player.complete_research(unit_guid)
+			return
+		if unit_guid == HORSE_GUID:
+			var owner_player: Player = Player.by_index.get(owner_index)
+			if owner_player:
+				owner_player.add("horses", 1)
+			Sound.play_event(guid, Sound.Event.UNIT_READY, position, 0)
 			return
 		Sound.play_event(guid, Sound.Event.UNIT_READY, position, 0)
 		unit_trained.emit(self, unit_guid)

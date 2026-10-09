@@ -234,6 +234,22 @@ func _load_tables() -> void:
 				_stats[guid].name = _texts[guid]
 		elif entry.kind == "upgrade" and _stats.has(guid) and entry.has("icon"):
 			_stats[guid].icon = entry.icon  # upgrade stats come from the manual; take the picture
+	# Mounted units are trained where their foot version is ("mounted: + 1 horse").
+	var by_name := {}
+	for guid in _stats:
+		if _stats[guid].get("kind") == "unit":
+			by_name["%s|%s" % [_stats[guid].get("faction"), String(_stats[guid].get("name", "")).to_lower()]] = guid
+	for guid in _stats:
+		var st: Dictionary = _stats[guid]
+		var name := String(st.get("name", ""))
+		if st.get("kind") == "unit" and name.begins_with("Mounted ") and not st.has("produced_at"):
+			var foot: int = by_name.get("%s|%s" % [st.get("faction"), name.substr(8).to_lower()], -1)
+			if foot >= 0 and _stats[foot].has("produced_at"):
+				st.produced_at = _stats[foot].produced_at
+	# Raising a horse (manual: corral, hacienda, ranch; "costs food"; no editor entry).
+	_stats[MapObject.HORSE_GUID] = {"kind": "horse", "name": "Horse", "faction": "", "build_time": 20,
+			"cost": {"food": 50}, "icon": "Potraits/Sonstige_icons/z02_pferd.bmp",
+			"function": "Raises a horse for mounted units (each horse building shelters %d)" % MapObject.HORSES_PER_BUILDING}
 	for guid in EXPANSION_PRODUCTION:
 		if _stats.has(guid):
 			_stats[guid].produced_at = EXPANSION_PRODUCTION[guid]

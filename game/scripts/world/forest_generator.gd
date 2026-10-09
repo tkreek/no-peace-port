@@ -15,7 +15,7 @@ const BORDER_INDEX := 6
 const SPACING := 56.0
 const JITTER := 18.0
 const KEEP_CLEAR := 96.0  # around mines and other objects
-const START_CLEAR := 320.0  # around player start points
+const START_CLEAR := 250.0  # around player start points (room for the main building)
 ## Wood per tree from Defaults.dat (Rohstoffe 302): large 250, small 200, bare 150.
 const WOOD := {"gr": 250, "kl": 200, "ohne": 150}
 

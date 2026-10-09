@@ -13,7 +13,7 @@ const TEAM_COLORS := [
 const RESOURCES := {
 	"food": {"text": 72, "icon": 4, "def": "Nahrung"},
 	"wood": {"text": 73, "icon": 2, "def": "Holz"},
-	"leather": {"text": 74, "icon": 3, "def": "Leder"},
+	"horses": {"text": 0, "icon": 6, "def": "Pferde"},
 	"gold": {"text": 75, "icon": 1, "def": "Gold"},
 	"guns": {"text": 76, "icon": 0, "def": "Gewehre"},
 }
@@ -77,8 +77,27 @@ func queued_units() -> int:
 	var count := 0
 	for object in MapObject.all_objects:
 		if object.owner_index == index:
-			count += object.queue.size()
+			for item in object.queue:
+				if GameData.stats(item).get("kind") == "unit":
+					count += 1
 	return count
+
+
+func queued_horses() -> int:
+	var count := 0
+	for object in MapObject.all_objects:
+		if object.owner_index == index:
+			count += Array(object.queue).count(MapObject.HORSE_GUID)
+	return count
+
+
+## Room for horses: five in every finished corral, hacienda or ranch.
+func horse_capacity() -> int:
+	var cap := 0
+	for object in MapObject.all_objects:
+		if object.owner_index == index and object.guid in MapObject.HORSE_BUILDINGS and object.complete and object.is_alive():
+			cap += MapObject.HORSES_PER_BUILDING
+	return cap
 
 
 ## Commanders (on foot or mounted): a people may only ever have one.

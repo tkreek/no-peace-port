@@ -13,8 +13,13 @@ const SUPPLY_PRESETS := [{}, {"food": 500, "wood": 500, "gold": 500, "guns": 5},
 		{"food": 1000, "wood": 1000, "gold": 1000, "guns": 10},
 		{"food": 2000, "wood": 2000, "gold": 2000, "guns": 20}]
 
+## Computer AI level (Menu.eng 198..201: very easy, easy, medium, difficult).
+const DIFFICULTY_TEXT := [198, 199, 200, 201]
+const DIFFICULTY_NAMES := ["Very easy", "Easy", "Medium", "Difficult"]
+
 var configured := false
 var supply := 0
+var difficulty := 2
 var map_path := ""
 ## One entry per player in start-point order: {"faction": "mex", "ai": false}
 var players: Array[Dictionary] = []

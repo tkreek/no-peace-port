@@ -25,6 +25,7 @@ var _preview := TextureRect.new()
 var _map_info := Label.new()
 var _slots := VBoxContainer.new()
 var _supply := OptionButton.new()
+var _difficulty := OptionButton.new()
 var _faction := OptionButton.new()
 
 
@@ -243,6 +244,18 @@ func _build_setup() -> Control:
 	MenuStyle.style(_supply, 13)
 	supply.add_child(_supply)
 	players_box.add_child(supply)
+	# Raw materials and the computer's level share one line.
+	var level := supply
+	level.add_theme_constant_override("separation", 6)
+	var gap := Control.new()
+	gap.custom_minimum_size.x = 18
+	level.add_child(gap)
+	level.add_child(_fixed_label(GameData.menu_text(265, "Computer AI"), 92))
+	for i in Match.DIFFICULTY_TEXT.size():
+		_difficulty.add_item(GameData.menu_text(Match.DIFFICULTY_TEXT[i], Match.DIFFICULTY_NAMES[i]))
+	_difficulty.select(Match.difficulty)
+	MenuStyle.style(_difficulty, 13)
+	level.add_child(_difficulty)
 
 	var buttons := HBoxContainer.new()
 	buttons.position = Vector2(214, 548)
@@ -361,6 +374,7 @@ func _start() -> void:
 		slots.append({"faction": "usa", "ai": true})
 	Match.setup(map.path, slots)
 	Match.supply = _supply.selected
+	Match.difficulty = _difficulty.selected
 	_show_loading()
 	await get_tree().process_frame
 	await get_tree().process_frame

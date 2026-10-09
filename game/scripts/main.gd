@@ -127,8 +127,12 @@ func _ready() -> void:
 		_scenario_damage.call_deferred()
 	if GameData.cmdline_option("scenario") == "gold":
 		_scenario_gold.call_deferred()
+	if GameData.cmdline_option("scenario") == "woodcut":
+		_scenario_woodcut.call_deferred()
 	if GameData.cmdline_option("scenario") == "orders":
 		_scenario_orders.call_deferred()
+	# --time-scale=N runs the simulation N times faster (long AI tests).
+	Engine.time_scale = clampf(GameData.cmdline_option("time-scale", "1").to_float(), 0.1, 8.0)
 	var report := GameData.cmdline_option("report-after")
 	if report != "":
 		_report_after(report.to_int())
@@ -160,6 +164,7 @@ func _ready() -> void:
 			ai.player = players[index]
 			ai.units_root = units_root
 			ai.biome = terrain.biome
+			ai.difficulty = Match.difficulty if Match.configured else GameData.cmdline_option("difficulty", "2").to_int()
 			add_child(ai)
 			ais.append(ai)
 	var check := Timer.new()
@@ -685,6 +690,21 @@ func _scenario_gold() -> void:
 	get_tree().quit()
 
 
+## One worker on the nearest tree: what each second of a wood round trip is spent on.
+func _scenario_woodcut() -> void:
+	var worker: Unit = units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.can_gather("wood") and n.unit_type.anim_index("build") >= 0)[0]
+	var tree := worker._nearest_source("wood")
+	print("tree %d px away, wood %d" % [worker.position.distance_to(tree.position), tree.amount])
+	worker.gather(tree)
+	var wood: int = players[1].resources.wood
+	for i in 60:
+		await get_tree().create_timer(1.0).timeout
+		print("t=%2d phase=%d action=%-14s pos=%s path=%d carried=%d tree=%s d_tree=%d wood+%d" % [i + 1, worker._gather_phase, worker._action,
+				worker.position.round(), worker.path.size(), worker.carried, worker.gather_source.position if is_instance_valid(worker.gather_source) else null,
+				worker.position.distance_to(worker.gather_source.position) if is_instance_valid(worker.gather_source) else -1, players[1].resources.wood - wood])
+	get_tree().quit()
+
+
 ## Formations, patrol, follow and a rally point, with positions printed as they play out.
 func _scenario_orders() -> void:
 	var hq: MapObject = null
@@ -858,6 +878,13 @@ func _nearest_mine(from: Vector2) -> MapObject:
 	return best
 
 
+var game_time := 0.0  # simulated seconds since the match began
+
+
+func _process(delta: float) -> void:
+	game_time += delta
+
+
 func _report_after(frames: int) -> void:
 	for i in frames:
 		await get_tree().process_frame
@@ -894,7 +921,7 @@ func _print_report(frame: int) -> void:
 	var carcasses := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 0 and not u.is_alive() and u.has_meat())
 	print("  carcasses: %s" % [carcasses.map(func(u: Unit) -> int: return u.meat_left)])
 	for index in players:
-		print("frame %d player %d: %s units=%d" % [frame, index, players[index].resources, alive.get(index, 0)])
+		print("frame %d (%ds) player %d: %s units=%d" % [frame, int(game_time), index, players[index].resources, alive.get(index, 0)])
 
 
 func _vector_option(name: String, default: Vector2) -> Vector2:

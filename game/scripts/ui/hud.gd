@@ -142,7 +142,7 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 		icon.material = _icon_material
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon.tooltip_text = GameData.text(Player.RESOURCES[key].text, key)
+		icon.tooltip_text = GameData.text(Player.RESOURCES[key].text, key.capitalize())
 		_resources.add_child(icon)
 		icon.set_instance_shader_parameter("palette_row", 0)
 		var label := _label(18)
@@ -182,7 +182,14 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	_refresh_resources()
 
 
-func _process(_delta: float) -> void:
+var _resource_timer := 0.0
+
+
+func _process(delta: float) -> void:
+	_resource_timer -= delta
+	if _resource_timer <= 0.0:
+		_resource_timer = 0.5
+		_refresh_resources()  # horse room and warehoused gold change with buildings too
 	_population_label.text = "%d / %d" % [player.population(), player.population_cap()]
 	_refresh_selection()
 	_refresh_commands()
@@ -234,6 +241,8 @@ func _layout() -> void:
 				width = 90
 			elif child == _resource_labels.get("gold"):
 				width = 120  # "gold (warehoused)"
+			elif child == _resource_labels.get("horses"):
+				width = 70
 			child.custom_minimum_size.x = width * ui_scale
 
 	# Command buttons fill the plank area between the selection panel and the minimap.
@@ -261,6 +270,7 @@ func _refresh_resources() -> void:
 	for key in _resource_labels:
 		_resource_labels[key].text = str(player.resources.get(key, 0))
 	# Gold still in warehouses shows in brackets, as in the original resource bar.
+	_resource_labels.horses.text = "%d / %d" % [player.resources.get("horses", 0), player.horse_capacity()]
 	var warehoused := player.warehoused_gold()
 	if warehoused > 0:
 		_resource_labels.gold.text = "%d (%d)" % [player.resources.get("gold", 0), warehoused]
@@ -625,7 +635,11 @@ func _refresh_commands() -> void:
 	elif building and building.complete and building.owner_index == player.index:
 		for guid in building.trainable_units():
 			var type_id := GameData.type_for_guid(guid, biome)
-			if type_id >= 0:
+			if guid == MapObject.HORSE_GUID:
+				_add_command(-1, guid, func() -> void:
+					if not building.enqueue(guid):
+						Sound.play_sound(80))
+			elif type_id >= 0:
 				_add_command(type_id, guid, func() -> void:
 					if not building.enqueue(guid):
 						Sound.play_sound(80))  # the original "not possible" sound
@@ -952,6 +966,8 @@ func _unavailable_reason(guid: int, cost: Dictionary) -> String:
 		return "Build a %s first (each allows %d fields)" % [store, MapObject.FIELDS_PER_STORE] if store \
 				else "Needs a food store"
 	var stats := GameData.stats(guid)
+	if guid == MapObject.HORSE_GUID and int(player.resources.get("horses", 0)) + player.queued_horses() >= player.horse_capacity():
+		return "No room for more horses (%d per corral, hacienda or ranch)" % MapObject.HORSES_PER_BUILDING
 	if stats.get("kind") == "upgrade" and not player.can_research(guid):
 		return "Already researched or in progress" if player.researched.has(guid) or player.is_researching(guid) \
 				else "Research the previous level first"

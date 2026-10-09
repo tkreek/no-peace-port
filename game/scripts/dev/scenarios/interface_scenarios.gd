@@ -225,3 +225,27 @@ func _scenario_icons() -> void:
 	var builders := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.anim_index("build") >= 0)
 	main.selection._select(builders, false)
 	main.hud.commands.open_build_menu("expanded")
+
+
+## Filling the housing warns once; a train order with no room left warns again.
+func _scenario_poplimit() -> void:
+	var player: Player = main.players[1]
+	var hq: MapObject = player.main_building()
+	await get_tree().process_frame
+	var before := main.hud.population_warnings
+	main._spawn_squad(main.FACTIONS[player.faction].army, 1, hq.position + Vector2(0, 260),
+			player.population_limit() - player.population())
+	for i in 3:
+		await get_tree().process_frame
+	var filled := main.hud.population_warnings - before
+	main.selection.select_building(hq)
+	player.resources.food = 5000
+	await get_tree().process_frame
+	await get_tree().process_frame
+	for button in main.hud.commands.grid.get_children():
+		if GameData.stats(button.get_meta("guid", -1)).get("kind") == "unit":
+			button.pressed.emit()
+			break
+	print("population %d / %d: warned on filling %d, on a train order %d" % [player.population(), player.population_limit(),
+			filled, main.hud.population_warnings - before - filled])
+	get_tree().quit()

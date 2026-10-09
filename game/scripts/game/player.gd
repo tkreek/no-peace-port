@@ -148,8 +148,13 @@ func has_commander() -> bool:
 	return false
 
 
+## The most units the people may have: its housing, within the match's population limit.
+func population_limit() -> int:
+	return mini(population_cap(), Match.population_limit)
+
+
 func has_room() -> bool:
-	return population() + queued_units() < mini(population_cap(), Match.population_limit)
+	return population() + queued_units() < population_limit()
 
 
 ## The people's leader (chief, comandante, band leader, commander) if alive.

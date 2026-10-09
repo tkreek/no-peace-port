@@ -14,6 +14,10 @@ const BAR_HEIGHT := 167.0
 const MAP_MODE_ICONS := [13, 15, 17]  # KleineIcons: landscape, field, armed men
 const MAP_MODE_NAMES := ["Regular map (Alt+N)", "Economic map (Alt+R)", "Military map (Alt+C)"]
 const ICON_IDLE := 19  # KleineIcons: a lone cowboy
+## Full housing ("sound kein wohnraum mehr.wav", text 805) and the match's population limit
+## ("sound bevölkerungslimit erreicht.wav", text 807).
+const HOUSING_FULL_SOUND := 76
+const POPULATION_LIMIT_SOUND := 52
 
 var player: Player
 var selection: SelectionController
@@ -40,6 +44,9 @@ var _map_button: Button
 var _idle_button: Button
 var _resource_timer := 0.0
 var _scale_setting := 1.0
+var _at_population_limit := false
+## How often the population limit has been announced (for the checks).
+var population_warnings := 0
 
 
 func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D, local_player: Player,
@@ -71,6 +78,7 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	_refresh_resources()
+	_at_population_limit = player.population() >= player.population_limit()
 
 
 func _setup_minimap(map: AlfMap, camera: Camera2D, objects: Node2D, terrain_colors: Image) -> void:
@@ -129,9 +137,29 @@ func _process(delta: float) -> void:
 	if _resource_timer <= 0.0:
 		_resource_timer = 0.5
 		_refresh_resources()  # horse room and warehoused gold change with buildings too
-	_population_label.text = "%d / %d" % [player.population(), player.population_cap()]
+	var population := player.population()
+	_population_label.text = "%d / %d" % [population, player.population_cap()]
+	_check_population_limit(population)
 	selected.refresh()
 	commands.refresh()
+
+
+## The warning sound and message when the people fill their housing (or the match's limit).
+func _check_population_limit(population: int) -> void:
+	var at_limit := population >= player.population_limit()
+	if at_limit and not _at_population_limit:
+		warn_population_limit()
+	_at_population_limit = at_limit
+
+
+func warn_population_limit() -> void:
+	population_warnings += 1
+	if Match.population_limit <= player.population_cap():
+		Sound.play_sound(POPULATION_LIMIT_SOUND)
+		notify(GameData.text(807, "We've reached our population limit"))
+	else:
+		Sound.play_sound(HOUSING_FULL_SOUND)
+		notify(GameData.text(805, "We don't have enough living space"))
 
 
 ## Screen area covered by the HUD (for camera bounds and clicks).

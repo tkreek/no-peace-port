@@ -205,7 +205,11 @@ func _add_unit_commands(units: Array, builders: Array, full_builders: bool, farm
 func _add_building_commands(building: MapObject) -> void:
 	var production := building.production
 	var enqueue := func(item: int) -> void:
-		if not production.enqueue(item):
+		if production.enqueue(item):
+			return
+		if GameData.stats(item).get("kind") == "unit" and not hud.player.has_room():
+			hud.warn_population_limit()
+		else:
 			Sound.play_sound(CANNOT)
 	for guid in production.trainable_units():
 		if BuildingProduction.is_trade(guid):

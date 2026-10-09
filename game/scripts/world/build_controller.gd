@@ -8,6 +8,7 @@ signal placed(site: MapObject)
 
 const VALID := Color(0.6, 1.0, 0.6, 0.7)
 const INVALID := Color(1.0, 0.4, 0.4, 0.7)
+const CANNOT_BUILD_SOUND := 80  # "sound nicht bebaubar.wav" in the original sound table
 
 var player: Player
 var selection: SelectionController
@@ -97,7 +98,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _place(at: Vector2, keep_placing: bool) -> void:
 	var unpacker := _unpacker
 	if not can_place(at) or (unpacker == null and not player.spend(_cost())):
-		Sound.play_sound(_cannot_build_sound())
+		Sound.play_sound(CANNOT_BUILD_SOUND)
 		return
 	if unpacker != null and not is_instance_valid(unpacker):
 		cancel()
@@ -132,8 +133,3 @@ func _place(at: Vector2, keep_placing: bool) -> void:
 	cancel()
 	if keep_placing:
 		start(type_id)
-
-
-## "sound nicht bebaubar.wav" in the original sound table.
-func _cannot_build_sound() -> int:
-	return 80

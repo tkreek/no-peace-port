@@ -51,6 +51,8 @@ CHECKS = {
                         r"farmers  \(\d+ units\): Field \(F\)"]),
     "stages": ([], 0, [r"structures (\d+): construction ends on the finished picture \1, burnt \1, rubble \1 \[\]"]),
     "furnace": ([], 0, [r"furnace glows: idle false, working true, after cancelling false"]),
+    "repair": ([], 0, [r"right click: soldier to quarters true, workers repairing false",
+                       r"repair command: repaired true"]),
     "poplimit": ([], 0, [r"warned on filling 1, on a train order 1"]),
     "picking": ([], 0, [r"roof \(picture centre, upper third\) +-> true", r"walls centre +-> true",
                         r"open corner of the walls' box +-> false"]),

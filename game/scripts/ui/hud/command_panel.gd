@@ -18,6 +18,7 @@ const ICON_BUILD_EXPANDED := 16  # large hammer: structures with enhanced functi
 const ICON_FOLLOW := 2  # two men walking one behind the other
 const ICON_PATROL := 4  # two men with an arrow
 const ICON_DISMOUNT := 54  # horse with an arrow
+const ICON_REPAIR := 20  # carpenter's tools
 ## Iconserstereihe frames.
 const ICON_RALLY := 12  # signpost
 const ICON_HIDE := 14  # hooded figure
@@ -150,6 +151,8 @@ func _add_unit_commands(units: Array, builders: Array, farmers: Array, fighters:
 	if not builders.is_empty():
 		_add_icon(command_icons, ICON_BUILD, "Build structure (B)", func() -> void: open_build_menu("basic"))
 		_add_icon(command_icons, ICON_BUILD_EXPANDED, "Build expanded structure (V)", func() -> void: open_build_menu("expanded"))
+		_add_icon(command_icons, ICON_REPAIR, "Repair (R): click a damaged building",
+				func() -> void: selection.begin_targeting("repair"), selection.pending == "repair")
 	if not farmers.is_empty():
 		var field_type := GameData.type_for_guid(MapObject.FIELD_GUID, hud.biome)
 		if field_type >= 0:
@@ -524,6 +527,10 @@ func handle_key(key: int) -> bool:
 		KEY_I:
 			if ours:
 				selection.begin_targeting("rally")
+		KEY_R:
+			if units.is_empty() or not units.all(func(u: Unit) -> bool: return u.unit_type.can_build()):
+				return false
+			selection.begin_targeting("repair")
 		KEY_B, KEY_V:
 			if not units.is_empty() and units.all(func(u: Unit) -> bool: return u.unit_type.can_build()):
 				open_build_menu("basic" if key == KEY_B else "expanded")

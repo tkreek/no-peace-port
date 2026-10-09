@@ -416,3 +416,38 @@ func _scenario_furnace() -> void:
 	print("furnace glows: idle %s, working %s, after cancelling %s" % [idle, working, factory._ambient != null])
 	get_tree().quit()
 
+
+
+## A damaged tower: a right click with workers and a soldier selected quarters the soldier
+## (the workers don't start repairing); the Repair button, then a click on it, sets the
+## workers to work.
+func _scenario_repair() -> void:
+	var hq: MapObject = main.players[1].main_building()
+	var guid: int = {"mex": 213, "usa": 413, "des": 313, "ind": 111}[main.players[1].faction]
+	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
+	var tower := MapObject.new()
+	tower.position = AiBuilder.find_spot(type, hq.position)
+	tower.setup(type, 1)
+	main.units_root.add_child(tower)
+	main.nav.block_footprint(type, tower.position)
+	tower.take_damage(tower.max_health * 0.5)
+	var army: int = main.FACTIONS[main.players[1].faction].army
+	main._spawn_squad(army, 1, tower.position + Vector2(0, 140), 1)
+	var soldier: Unit = Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 1 and u.unit_type.guid() == army)[0]
+	var builders := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 1 and u.unit_type.can_build())
+	main.selection._select(builders + [soldier], false)
+	main.selection.order_at(tower.work_rect().get_center())
+	await get_tree().create_timer(1.0).timeout
+	print("right click: soldier to quarters %s, workers repairing %s" % [soldier.quarters == tower,
+			builders.any(func(u: Unit) -> bool: return u.work.build_site == tower)])
+	main.selection._select(builders, false)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	for button in main.hud.commands.grid.get_children():
+		if String(button.get_meta("tooltip", "")).begins_with("Repair"):
+			button.pressed.emit()
+	await _click(tower.work_rect().get_center())
+	var before := tower.health
+	await get_tree().create_timer(20.0).timeout
+	print("repair command: repaired %s (energy %d -> %d)" % [tower.health > before, before, tower.health])
+	get_tree().quit()

@@ -16,7 +16,7 @@ var groups := {}
 var _drag_start := Vector2.ZERO
 var _dragging := false
 var _pressed := false
-## A command waiting for its target click: "patrol", "follow" or "rally" ("" = none).
+## A command waiting for its target click: "patrol", "follow", "repair", "rally"... ("" = none).
 var pending := ""
 var camera: Camera2D
 var _last_group := -1
@@ -105,6 +105,13 @@ func _give_targeted(world: Vector2) -> void:
 			var building := _building_at(world)
 			if building and building.defence.capacity() > 0:
 				order_quarters(building)
+		"repair":
+			var building := _building_at(world)
+			if building and building.complete and building.condition.needs_repair():
+				order_build(building)
+			else:
+				Sound.play_sound(BuildController.CANNOT_BUILD_SOUND)
+				return
 		"look":
 			var saloon := selected_building
 			if is_instance_valid(saloon) and saloon.guid == BuildingProduction.SALOON and Time.get_ticks_msec() >= saloon.production.look_ready_at:
@@ -206,7 +213,11 @@ func order_at(world: Vector2, ctrl := false) -> void:
 	var source := _resource_at(world)
 	var animal := _animal_at(world)
 	var site := _building_at(world)
-	if site and (not site.complete or site.condition.needs_repair()) and selection.any(func(u: Unit) -> bool: return _is_builder(u, site.guid)):
+	# A damaged fort or tower takes in those who can quarter; workers repair it with the
+	# Repair command (or a right click when nobody selected would take quarters).
+	var quartering := site != null and site.complete and site.defence.capacity() > 0 and selection.any(_can_quarter)
+	if site and (not site.complete or (site.condition.needs_repair() and not quartering)) \
+			and selection.any(func(u: Unit) -> bool: return _is_builder(u, site.guid)):
 		order_build(site)
 	elif site and site.guid in BuildingProduction.ANIMAL_PROCESSING and site.complete \
 			and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_cow()):

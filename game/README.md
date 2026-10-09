@@ -65,6 +65,7 @@ Any of `--map`, `--scenario`, `--screenshot`, `--report-after` skips the menu an
 - Right click: move in formation, attack a unit or building, gather from a tree or gold mine.
   Ctrl+right click on a rider: shoot the horse instead of the rider.
 - Workers: build menu in the bottom bar; left click places, right click / Esc cancels, Shift keeps placing.
+  Repair (R), then click a damaged building.
 - Buildings: train units from the bottom bar (needs housing; houses and HQs provide it).
 - Mixed groups show only the commands every member can carry out.
 - Boats: right-click your boat with land units selected to board it; right-click land with a

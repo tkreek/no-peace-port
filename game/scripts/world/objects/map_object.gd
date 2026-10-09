@@ -390,14 +390,17 @@ func refresh_sprites() -> bool:
 		# Construction stages are the frames of anim 0 (shadow anim 1); 2/3 hold the finished frame.
 		if not complete and health > 0.0:
 			body_anim = 0
-			var stages := _bob.anims[0].frames.size()
+			var stages := _construction_stages()
 			frame_hint = mini(stages - 1, int(build_progress * stages))
 		else:
 			body_anim = 2 if _bob.anims.size() > 3 else 0
+			frame_hint = 0 if body_anim == 2 else -1  # walls list several pictures; the first is the one built
 		if health <= 0.0 and _has_sheet(RUBBLE_ANIM):
 			body_anim = RUBBLE_ANIM
+			frame_hint = 0
 		elif condition.burnt() and _has_sheet(BURNT_ANIM):
 			body_anim = BURNT_ANIM
+			frame_hint = 0
 		shadow_anim = _bob.shadow_for(body_anim)
 	elif shadow_anim == body_anim:
 		shadow_anim = _bob.shadow_for(body_anim)
@@ -411,6 +414,19 @@ func refresh_sprites() -> bool:
 		_update_ambient()
 	_shadow.visible = shadow_anim >= 0 and shadow_anim < _bob.anims.size() and _show(_shadow, shadow_anim, frame_hint)
 	return true
+
+
+## How many of anim 0's frames are construction stages: up to the finished picture. Many
+## lists run on past it (a stray repeat of the first stage, or a placement-preview frame),
+## which would flash the bare foundation or a preview just before completion.
+func _construction_stages() -> int:
+	var frames := _bob.anims[0].frames
+	if _bob.anims.size() > 2:
+		var finished := _bob.anims[2].frames
+		for i in frames.size():
+			if finished.has(frames[i]):
+				return i + 1
+	return frames.size()
 
 
 func shows_rubble() -> bool:

@@ -339,3 +339,44 @@ func _scenario_abandoned() -> void:
 		print("  t=%d wagon state %d phase %d carrying %s %d path %d at %s" % [(k + 1) * 10, wagon.state, wagon.work.phase, wagon.work.carrying, wagon.work.carried, wagon.path.size(), wagon.position.round()])
 	print("store left %d; %s %d -> %d" % [store.stock.loot, store.stock.loot_kind, before[store.stock.loot_kind], main.players[1].resources[store.stock.loot_kind]])
 	get_tree().quit()
+
+
+## Every people's structures in both landscapes: the last construction stage is the finished
+## picture, and a burnt and a destroyed one show their damage pictures.
+func _scenario_stages() -> void:
+	var total := 0
+	var finished_last := 0
+	var burnt := 0
+	var rubble := 0
+	var wrong := []
+	for guid in GameData.stats_guids():
+		if GameData.stats(guid).get("kind") != "structure" or guid in [MapObject.FIELD_GUID, MapObject.PITFALL_GUID]:
+			continue
+		for biome in ["steppe", "wiese"]:
+			var type := ObjectTypes.get_type(GameData.type_for_guid(guid, biome))
+			if type == null:
+				continue
+			total += 1
+			var b := MapObject.new()
+			b.setup(type, 1, 0, true)
+			b.build_progress = 0.99
+			b.refresh_sprites()
+			var last_stage := b._body.region_rect
+			b.complete = true
+			b.health = b.max_health
+			b.refresh_sprites()
+			if b._body.region_rect == last_stage:
+				finished_last += 1
+			else:
+				wrong.append("%d %s" % [guid, biome])
+			b.health = b.max_health * 0.2
+			b.refresh_sprites()
+			burnt += 1 if b._body_anim == MapObject.BURNT_ANIM else 0
+			b.health = 0.0
+			b.refresh_sprites()
+			rubble += 1 if b.shows_rubble() else 0
+			b.free()
+	print("structures %d: construction ends on the finished picture %d, burnt %d, rubble %d %s" % [total,
+			finished_last, burnt, rubble, wrong])
+	get_tree().quit()
+

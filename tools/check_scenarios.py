@@ -45,6 +45,7 @@ CHECKS = {
     # The command panel for builders, farmers and every building that trains something.
     "menus": ([], 300, [r"builders  \(\d+ units\): Build structure \(B\), Build expanded structure \(V\)",
                         r"farmers  \(\d+ units\): Build structure \(B\), Field"]),
+    "stages": ([], 0, [r"structures (\d+): construction ends on the finished picture \1, burnt \1, rubble \1 \[\]"]),
     "poplimit": ([], 0, [r"warned on filling 1, on a train order 1"]),
     "saveload": ([], 0, [r"before: units (\d+)", r"after: +units \d+"]),
     # Six computer players for ten game minutes: no script errors, and the waves go out.

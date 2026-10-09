@@ -47,6 +47,7 @@ func _ready() -> void:
 	add_child(_art)
 	_screens.main = _build_main()
 	_screens.setup = _build_setup()
+	_screens.settings = _build_settings()
 	for screen in _screens.values():
 		_art.add_child(screen)
 	get_viewport().size_changed.connect(_fit)
@@ -95,8 +96,8 @@ func _show(screen: String) -> void:
 		_screens[key].visible = key == screen
 	var art: TextureRect = get_node_or_null("Art")
 	if art:
-		var path := MAIN_BG if screen == "main" else SETUP_BG
-		if screen == "main" and not GameData.exists(MAIN_BG):
+		var path := SETUP_BG if screen == "setup" else MAIN_BG
+		if path == MAIN_BG and not GameData.exists(MAIN_BG):
 			path = MAIN_BG_BASE
 		_set_backdrop(path)
 
@@ -152,6 +153,7 @@ func _build_main() -> Control:
 			await get_tree().process_frame
 			await get_tree().process_frame
 			get_tree().change_scene_to_file("res://scenes/main.tscn")))
+	column.add_child(_glow_button(GameData.menu_text(50, "Settings"), func() -> void: _show("settings")))
 	column.add_child(_glow_button(GameData.menu_text(14, "Exit game"), func() -> void: get_tree().quit()))
 	var version := MenuStyle.label("America Remastered — original data%s" %
 			(" + expansion pack" if GameData.has_expansion else ""), 11, MenuStyle.TEXT_DIM)
@@ -201,6 +203,36 @@ func _frame(sheet: RdSprite, frame: int) -> Texture2D:
 	atlas.atlas = sheet.texture
 	atlas.region = Rect2(sheet.rects[frame])
 	return atlas
+
+
+# ------------------------------------------------------------------ settings
+
+## Sound, scrolling, interface and display settings on a dark board over the title art.
+func _build_settings() -> Control:
+	var screen := Control.new()
+	screen.size = ART_SIZE
+	var panel := PanelContainer.new()
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(0.12, 0.07, 0.03, 0.9)
+	box.border_color = Color(0.62, 0.43, 0.2)
+	box.set_border_width_all(1)
+	box.set_corner_radius_all(4)
+	box.set_content_margin_all(18)
+	panel.add_theme_stylebox_override("panel", box)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 12)
+	var heading := MenuStyle.label(GameData.menu_text(50, "Settings"), 24)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(heading)
+	column.add_child(SettingsPanel.create(15, 170))
+	var back := _small_button(GameData.menu_text(16, "Back"), func() -> void: _show("main"))
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	column.add_child(back)
+	panel.add_child(column)
+	screen.add_child(panel)
+	panel.reset_size()
+	panel.position = Vector2(ART_SIZE.x * 0.5 - panel.get_combined_minimum_size().x * 0.5, 150)
+	return screen
 
 
 # ------------------------------------------------------------------ skirmish setup

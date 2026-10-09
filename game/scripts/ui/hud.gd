@@ -193,7 +193,14 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 var _resource_timer := 0.0
 
 
+var _scale_setting := 1.0
+
+
 func _process(delta: float) -> void:
+	if Settings.value("ui_scale") != _scale_setting:
+		_layout()
+		_command_signature = ""
+		_group_signature = ""
 	_resource_timer -= delta
 	if _resource_timer <= 0.0:
 		_resource_timer = 0.5
@@ -213,7 +220,8 @@ func blocks_point(screen_point: Vector2) -> bool:
 
 func _layout() -> void:
 	var view := get_viewport().get_visible_rect().size
-	ui_scale = clampf(minf(view.y / 1080.0, view.x / 1920.0) * 1.15, 0.8, 2.5)
+	_scale_setting = Settings.value("ui_scale")
+	ui_scale = clampf(minf(view.y / 1080.0, view.x / 1920.0) * 1.15 * _scale_setting, 0.6, 3.0)
 	var bar_h := BAR_HEIGHT * ui_scale
 	var left_size := _frame_size(_status_sheet, 0) * ui_scale
 	_left.texture = _status_frame(0, 1.0)
@@ -1066,26 +1074,9 @@ func _show_options() -> void:
 		get_tree().paused = false
 		toggle_menu()]])
 	var column: VBoxContainer = _menu.get_child(0).get_child(0)
-	var rows := [["Music volume", "music_volume", 0.0, 1.0], ["Sound volume", "sound_volume", 0.0, 1.0],
-			[GameData.menu_text(213, "Scroll speed"), "scroll_speed", 0.4, 2.5]]
-	for i in rows.size():
-		var row: Array = rows[i]
-		var line := HBoxContainer.new()
-		var label := MenuStyle.label(row[0], int(16 * ui_scale))
-		label.custom_minimum_size.x = 150 * ui_scale
-		line.add_child(label)
-		var slider := HSlider.new()
-		slider.min_value = row[2]
-		slider.max_value = row[3]
-		slider.step = 0.05
-		slider.value = Settings.value(row[1])
-		slider.custom_minimum_size = Vector2(180, 24) * ui_scale
-		slider.process_mode = Node.PROCESS_MODE_ALWAYS
-		var key: String = row[1]
-		slider.value_changed.connect(func(v: float) -> void: Settings.set_value(key, v))
-		line.add_child(slider)
-		column.add_child(line)
-		column.move_child(line, 1 + i)
+	var rows := SettingsPanel.create(int(16 * ui_scale), 190 * ui_scale)
+	column.add_child(rows)
+	column.move_child(rows, 1)
 	_menu.get_child(0).reset_size()
 	var panel: Control = _menu.get_child(0)
 	panel.position = get_viewport().get_visible_rect().size / 2.0 - panel.get_combined_minimum_size() / 2.0

@@ -36,7 +36,8 @@ func _process(delta: float) -> void:
 	var viewport := get_viewport()
 	if not input_enabled:
 		input = Vector2.ZERO
-	elif DisplayServer.window_is_focused() and viewport.get_visible_rect().has_point(viewport.get_mouse_position()):
+	elif Settings.enabled("edge_scroll") and DisplayServer.window_is_focused() \
+			and viewport.get_visible_rect().has_point(viewport.get_mouse_position()):
 		var mouse := viewport.get_mouse_position()
 		var size := viewport.get_visible_rect().size
 		if mouse.x < edge_margin: input.x = -1

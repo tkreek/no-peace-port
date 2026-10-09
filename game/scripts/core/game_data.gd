@@ -108,7 +108,7 @@ func table_path(base_path: String) -> String:
 
 
 func _resolve_enhanced_dir() -> String:
-	if cmdline_option("graphics") == "classic":
+	if cmdline_option("graphics") == "classic" or (cmdline_option("graphics") == "" and Settings.enabled("classic_graphics")):
 		return ""
 	var dir := cmdline_option("hd-dir")
 	if dir.is_empty():

@@ -60,6 +60,11 @@ CHECKS = {
                         r"open corner of the walls' box +-> false"]),
     # The dead rot to bones, ruins smoulder, an eagle flies over.
     "remains": ([ISLANDS], 0, [r"remains: \[.*step [12].*step [12]", r"smoke plumes: [23], flyers: [1-9]"]),
+    # Expansion abilities: saboteurs empty and take a fort, the warrior spirit, the armored stagecoach.
+    "saboteur": (["--faction=des"], 0, [r"saboteur: garrison \[5, 2, 0, 0\], fort now player 1"]),
+    "spirit": (["--faction=ind"], 0, [r"before upgrade false, invoked true, morale 1\.\d+ -> 1\.\d+, energy left 0, again false, auras 3",
+                                      r"afterwards morale \d\.\d+, auras 0"]),
+    "coach": (["--faction=mex"], 0, [r"aboard 2 / 2, enlarged 4 / 4, enemy hit true, guards dead with the coach 4"]),
     "saveload": ([], 0, [r"before: units (\d+)", r"after: +units \d+"]),
     # The map editor: paint a lake (its rings grow), place things, save, read back, redraw
     # an original map, and drive it with mouse and keyboard events.

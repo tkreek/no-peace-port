@@ -44,6 +44,17 @@ const DISTILL_SECONDS := 15.0
 const DISTILL_WOOD := 20
 const DISTILL_FOOD := 40
 ## The outlaws' saloon looks over the land once Lift fog of war is researched.
+## The Natives' tepee of the ancestors (expansion manual 4.1) invokes the warrior spirit:
+## for 75 units of its magic energy, which builds back up slowly, every military unit of
+## its people gains 5, 10 or 20% morale for a while (Warrior spirit 1, 2 or 3).
+const SPIRIT_TEPEE := 116
+const SPIRIT_UPGRADES := [968, 969, 970]
+const SPIRIT_BOOST := [0.05, 0.10, 0.20]
+const SPIRIT_COST := 75.0
+const SPIRIT_MAX := 150.0
+const SPIRIT_REGEN := 0.5  # magic energy per second
+const SPIRIT_SECONDS := 30.0
+
 const SALOON := 303
 const LIFT_FOG_UPGRADE := 965
 const LOOK_RECHARGE := 60.0
@@ -56,6 +67,7 @@ var progress := 0.0  ## 0..1 for queue[0]
 var rally_point := Vector2.INF  ## where trained units gather; INF = just outside
 var distilling := true  ## its owner can let a distillery rest, keeping the wood
 var look_ready_at := 0.0  ## msec when the saloon can look again
+var spirit_energy := SPIRIT_COST  ## the tepee of the ancestors' magic energy
 var _trade_terms: Array[Dictionary] = []  # what each queued trade was paid with, in order
 var _income_timer := 0.0
 var _distill_timer := 0.0
@@ -117,6 +129,30 @@ func researchable_upgrades() -> PackedInt32Array:
 				and (player.can_research(upgrade) or upgrade in queue):
 			out.append(upgrade)
 	return out
+
+
+## The highest Warrior spirit level the owner has researched (0 = none).
+func spirit_level() -> int:
+	var player := owner()
+	var level := 0
+	for i in SPIRIT_UPGRADES.size():
+		if player and player.researched.has(SPIRIT_UPGRADES[i]):
+			level = i + 1
+	return level
+
+
+## Invoke the warrior spirit over the people's fighting units; false when it can't be now.
+func invoke_spirit() -> bool:
+	var level := spirit_level()
+	if building.guid != SPIRIT_TEPEE or level == 0 or spirit_energy < SPIRIT_COST or not building.complete:
+		return false
+	spirit_energy -= SPIRIT_COST
+	for unit in Unit.all_units:
+		# Everyone who fights (the Natives' warriors also gather and build), not the women.
+		if unit.team == building.owner_index and unit.is_alive() and not unit.unit_type.attack_anims.is_empty() \
+				and not unit.unit_type.is_farmer():
+			unit.inspire(SPIRIT_BOOST[level - 1], SPIRIT_SECONDS)
+	return true
 
 
 static func is_trade(item: int) -> bool:
@@ -190,6 +226,8 @@ func cancel_all() -> void:
 
 func update(delta: float) -> void:
 	var guid := building.guid
+	if guid == SPIRIT_TEPEE and building.complete and building.health > 0.0:
+		spirit_energy = minf(SPIRIT_MAX, spirit_energy + SPIRIT_REGEN * delta)
 	if guid == DISTILLERY_GUID:
 		_distill(delta)
 	if guid in INCOME_BUILDINGS and building.health > 0.0:

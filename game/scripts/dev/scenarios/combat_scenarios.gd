@@ -343,3 +343,92 @@ func _scenario_remains() -> void:
 			main.ambience.get_child_count()])
 	if GameData.cmdline_option("screenshot").is_empty():
 		get_tree().quit()
+
+
+func _new_units(guid: int, team: int, at: Vector2, count: int) -> Array:
+	var before := Unit.all_units.duplicate()
+	main._spawn_squad(guid, team, at, count)
+	return Unit.all_units.filter(func(u: Unit) -> bool: return u not in before)
+
+
+func _new_building(guid: int, owner: int, at: Vector2) -> MapObject:
+	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
+	var building := MapObject.new()
+	building.position = AiBuilder.find_spot(type, at, 300)
+	building.setup(type, owner)
+	main.units_root.add_child(building)
+	main.nav.block_footprint(type, building.position)
+	return building
+
+
+## Expansion: outlaw saboteurs against an American fort with five soldiers inside. Each one
+## that gets in throws out three and dies; the last takes the empty fort (--faction=des).
+func _scenario_saboteur() -> void:
+	var at: Vector2 = main.camera.position + Vector2(300, 0)
+	var fort := _new_building(417, 2, at)
+	for soldier: Unit in _new_units(458, 2, fort.position + Vector2(0, 200), 5):
+		soldier.stance = Unit.Stance.PASSIVE
+		fort.defence.enter(soldier)
+	var counts := [fort.defence.garrison.size()]
+	var saboteurs := _new_units(369, 1, fort.position + Vector2(-260, 220), 3)
+	for saboteur: Unit in saboteurs:
+		saboteur.sabotage(fort)
+		for i in 60:
+			await get_tree().create_timer(0.5).timeout
+			if not saboteur.is_alive():
+				break
+		counts.append(fort.defence.garrison.size())
+		for u: Unit in Unit.all_units:
+			if u.team == 2 and u.is_alive() and not u.inside:
+				u.stance = Unit.Stance.PASSIVE
+	print("saboteur: garrison %s, fort now player %d, saboteurs left %d" % [counts, fort.owner_index,
+			saboteurs.filter(func(u: Unit) -> bool: return u.is_alive()).size()])
+	if GameData.cmdline_option("screenshot").is_empty():
+		get_tree().quit()
+
+
+## Expansion: the tepee of the ancestors invokes the warrior spirit over three warriors
+## (--faction=ind).
+func _scenario_spirit() -> void:
+	var tepee := _new_building(116, 1, main.camera.position + Vector2(250, 0))
+	var warriors := _new_units(152, 1, tepee.position + Vector2(0, 200), 3)
+	var before: float = warriors[0].morale()
+	var without_upgrade := tepee.production.invoke_spirit()
+	main.players[1].researched[968] = true
+	var invoked := tepee.production.invoke_spirit()
+	var again := tepee.production.invoke_spirit()
+	var auras := warriors.filter(func(u: Unit) -> bool: return is_instance_valid(u._aura)).size()
+	print("spirit: before upgrade %s, invoked %s, morale %.2f -> %.2f, energy left %d, again %s, auras %d" % [
+			without_upgrade, invoked, before, warriors[0].morale(), tepee.production.spirit_energy, again, auras])
+	await get_tree().create_timer(BuildingProduction.SPIRIT_SECONDS + 1.0).timeout
+	print("spirit: afterwards morale %.2f, auras %d" % [warriors[0].morale(),
+			warriors.filter(func(u: Unit) -> bool: return is_instance_valid(u._aura)).size()])
+	if GameData.cmdline_option("screenshot").is_empty():
+		get_tree().quit()
+
+
+## Expansion: four Mexican soldiers board an armored stagecoach (two fit, four after the
+## Enlarge stagecoach upgrade), shoot from it at an enemy, and die when it is wrecked
+## (--faction=mex).
+func _scenario_coach() -> void:
+	var at: Vector2 = main.camera.position
+	var coach: Unit = _new_units(266, 1, at, 1)[0]
+	var guards := _new_units(258, 1, at + Vector2(-120, 80), 4)
+	main.selection.order_board(coach, guards)
+	await get_tree().create_timer(8.0).timeout
+	var first := "%d / %d" % [coach.water.passengers.size(), coach.water.capacity()]
+	main.players[1].researched[UnitWater.ENLARGE_COACH] = true
+	main.selection.order_board(coach, guards.filter(func(u: Unit) -> bool: return not u.inside))
+	await get_tree().create_timer(8.0).timeout
+	var enlarged := "%d / %d" % [coach.water.passengers.size(), coach.water.capacity()]
+	var enemy: Unit = _new_units(458, 2, coach.position + Vector2(160, 0), 1)[0]
+	enemy.stance = Unit.Stance.PASSIVE
+	var enemy_health := enemy.health
+	await get_tree().create_timer(10.0).timeout
+	var hit := enemy.health < enemy_health
+	coach.take_damage(coach.max_health * 2.0)
+	await get_tree().process_frame
+	print("coach: aboard %s, enlarged %s, enemy hit %s, guards dead with the coach %d" % [first, enlarged, hit,
+			guards.filter(func(u: Unit) -> bool: return not u.is_alive()).size()])
+	if GameData.cmdline_option("screenshot").is_empty():
+		get_tree().quit()

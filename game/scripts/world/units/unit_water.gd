@@ -4,11 +4,19 @@ extends UnitPart
 ## water and land" (and fights only on it), and Native infantry and travois swim once Swim
 ## is researched. Boats carry units across; those aboard shoot from the deck. When a boat
 ## sinks, its passengers drown unless they can swim.
+##
+## The Mexicans' armored stagecoach (expansion manual 4.2) carries guards the same way on
+## land: any two units (four after Enlarge stagecoach), safe inside and shooting out even
+## while it drives; when it is destroyed, everyone inside dies with it.
 
 const BOATS := [254, 454, 364]  # Mexican and American riverboats, the outlaws' raft
 const CANOE := 154
 const SWIM_UPGRADES := [914, 995]  # the base game's and the expansion's Swim
 const BOAT_CAPACITY := {254: 10, 454: 10, 364: 8}  # the raft "transports up to 8 units"
+const COACH := 266
+const ENLARGE_COACH := 971
+const COACH_CAPACITY := 2
+const ENLARGED_COACH_CAPACITY := 4
 const BOARD_REACH := 72.0
 const LANDING_REACH := 7  # cells from the boat to dry land when unloading
 ## On deep water swimmers swim and the canoe paddles (its land sheets show it carried).
@@ -19,18 +27,28 @@ var vessel: Unit  ## the boat this unit is heading for or sitting in
 var _unload_at := Vector2.INF  ## where the passengers go once the boat reaches the shore
 var _deck_scan := 0.0
 var _boat := false
+var _coach := false
 
 
 func _init(owner: Unit) -> void:
 	super(owner)
 	_boat = unit.unit_type.guid() in BOATS
+	_coach = unit.unit_type.guid() == COACH
 
 
 func is_boat() -> bool:
 	return _boat
 
 
+## Boats and the armored stagecoach take units aboard.
+func is_carrier() -> bool:
+	return _boat or _coach
+
+
 func capacity() -> int:
+	if _coach:
+		var owner := player()
+		return ENLARGED_COACH_CAPACITY if owner and owner.researched.has(ENLARGE_COACH) else COACH_CAPACITY
 	return BOAT_CAPACITY.get(unit.unit_type.guid(), 0)
 
 
@@ -93,7 +111,7 @@ func update(delta: float) -> bool:
 ## Walk to the shore by the boat and climb aboard (the boat comes to meet them, see
 ## SelectionController.order_board).
 func board(boat: Unit) -> void:
-	if not unit.is_alive() or boat == null or not boat.water.is_boat() or boat.team != unit.team or _boat \
+	if not unit.is_alive() or boat == null or not boat.water.is_carrier() or boat.team != unit.team or is_carrier() \
 			or boat.water.passengers.size() >= boat.water.capacity():
 		return
 	unit.clear_orders()
@@ -134,7 +152,12 @@ func take_aboard(passenger: Unit) -> bool:
 
 ## Sail to the shore nearest `point` and put the passengers ashore there.
 func unload_at(point: Vector2) -> void:
-	if not _boat or passengers.is_empty():
+	if not is_carrier() or passengers.is_empty():
+		return
+	if _coach:
+		# The guards climb out where the coach stands and go on from there.
+		_unload_at = point
+		_disembark()
 		return
 	var nav := NavGrid.current
 	var landing := point
@@ -218,8 +241,17 @@ func _update_boat(delta: float) -> void:
 			passenger.fire_from_quarters(best, unit.position, passenger.attack_range())
 
 
-## The boat goes down: swimmers make for the shore, the rest drown.
+## The boat goes down: swimmers make for the shore, the rest drown. Nobody gets out of a
+## wrecked stagecoach.
 func sink() -> void:
+	if _coach:
+		for passenger in passengers:
+			if is_instance_valid(passenger) and passenger.is_alive():
+				passenger.leave_quarters(unit.position)
+				passenger.health = 0.0
+				passenger.die()
+		passengers.clear()
+		return
 	for passenger in passengers:
 		if not is_instance_valid(passenger) or not passenger.is_alive():
 			continue

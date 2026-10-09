@@ -254,6 +254,12 @@ func order_at(world: Vector2, ctrl := false) -> void:
 				unit.hunt(animal)
 		animal.flash(Color(1.0, 0.35, 0.3))  # marked as the target, like an attack order
 		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
+	elif enemy is MapObject and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.saboteur.can_sabotage(enemy)):
+		# Saboteurs go in to throw the defenders out or take the empty building.
+		for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.saboteur.can_sabotage(enemy)):
+			unit.sabotage(enemy)
+		enemy.flash(Color(1.0, 0.9, 0.4))
+		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	elif enemy is Unit and enemy.unit_type.is_transport() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_steal()):
 		for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_steal()):
 			unit.steal(enemy)
@@ -280,8 +286,8 @@ func order_at(world: Vector2, ctrl := false) -> void:
 func _water_order(world: Vector2) -> bool:
 	var units := selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
 	var boat := _unit_at(world)
-	var walkers := units.filter(func(u: Unit) -> bool: return not u.water.is_boat() and u.unit_type.guid() != UnitWater.CANOE)
-	if boat and boat.water.is_boat() and not walkers.is_empty():
+	var walkers := units.filter(func(u: Unit) -> bool: return not u.water.is_carrier() and u.unit_type.guid() != UnitWater.CANOE)
+	if boat and boat.water.is_carrier() and boat.team == player_team and not walkers.is_empty():
 		order_board(boat, walkers)
 		return true
 	var loaded := units.filter(func(u: Unit) -> bool: return u.water.is_boat() and not u.water.passengers.is_empty())
@@ -308,7 +314,7 @@ func order_board(boat: Unit, walkers: Array) -> void:
 	boat.flash(Color(0.5, 0.9, 1.0))
 	Sound.play_event(walkers[0].unit_type.guid(), Sound.Event.ORDER)
 	var nav := NavGrid.current
-	if nav and boat.state == Unit.State.IDLE:
+	if nav and boat.water.is_boat() and boat.state == Unit.State.IDLE:
 		var centre := _centre(walkers)
 		var shore := nav.nearest_passable(nav.cell_of(centre), 40, NavGrid.Layer.WATER)
 		if shore.x >= 0 and nav.center_of(shore).distance_to(boat.position) > UnitWater.BOARD_REACH:
@@ -396,7 +402,7 @@ func order_haul(warehouse: MapObject) -> void:
 ## (boats cannot).
 func _can_quarter(u: Unit) -> bool:
 	return is_instance_valid(u) and u.is_alive() and not u.unit_type.can_gather("wood") \
-			and not u.unit_type.is_farmer() and not u.water.is_boat()
+			and not u.unit_type.is_farmer() and not u.water.is_carrier()
 
 
 ## Selected units walk into a fort or tower, as many as there is room for.

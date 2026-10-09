@@ -158,7 +158,7 @@ func _unit_stats(unit: Unit) -> Array:
 	stats.append([ICON_SIGHT, "%d" % unit.sight(), "Sight"])
 	if unit.work.carried > 0 and Player.RESOURCES.has(unit.work.carrying):
 		stats.append([Player.RESOURCES[unit.work.carrying].icon, "%d" % unit.work.carried, "Carrying %s" % unit.work.carrying])
-	if unit.water.is_boat():
+	if unit.water.is_carrier():
 		stats.append([ICON_PEOPLE, "%d/%d" % [unit.water.passengers.size(), unit.water.capacity()], "Passengers"])
 	return stats
 
@@ -245,6 +245,8 @@ func _object_detail(object: MapObject) -> String:
 	if object.guid == BuildingProduction.DISTILLERY_GUID:
 		owner_note += "\n" + ("Distilling %d wood into %d food every %d s" % [BuildingProduction.DISTILL_WOOD,
 				BuildingProduction.DISTILL_FOOD, BuildingProduction.DISTILL_SECONDS] if production.distilling else "Resting")
+	if object.guid == BuildingProduction.SPIRIT_TEPEE and object.owner_index == hud.player.index:
+		owner_note += "\nMagic energy %d / %d" % [production.spirit_energy, BuildingProduction.SPIRIT_MAX]
 	var defence := object.defence
 	var quartered := "\nQuartered %d / %d" % [defence.garrison.size(), defence.capacity()] if defence.capacity() > 0 else ""
 	if object.is_abandoned_store():

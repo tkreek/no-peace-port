@@ -195,9 +195,10 @@ func _add_unit_commands(units: Array, builders: Array, farmers: Array, fighters:
 		_add_icon(extra_icons, ICON_HIDE, "Dig in: wait hidden and stab passers-by" if assassin \
 				else "Camouflage: blend into the landscape until given another order",
 				func() -> void: for_each_selected(func(u: Unit) -> void: u.conceal()))
-	if units.all(func(u: Unit) -> bool: return u.water.is_boat()) \
+	if units.all(func(u: Unit) -> bool: return u.water.is_carrier()) \
 			and units.any(func(u: Unit) -> bool: return not u.water.passengers.is_empty()):
-		_add_icon(extra_icons, ICON_LEAVE, "Unload (U): put the passengers ashore at the nearest bank\n(or right-click the land where they should go)",
+		_add_icon(extra_icons, ICON_LEAVE, "Remove units (U): the guards climb out" if units.all(func(u: Unit) -> bool: return not u.water.is_boat())
+				else "Unload (U): put the passengers ashore at the nearest bank\n(or right-click the land where they should go)",
 				unload_boats)
 	if units.all(func(u: Unit) -> bool: return u.tepees.can_pack()):
 		_add_icon(extra_icons, ICON_ENTER, "Pack tepee (G): click one of your tepees",
@@ -241,6 +242,14 @@ func _add_building_commands(building: MapObject) -> void:
 		var ready := Time.get_ticks_msec() >= production.look_ready_at
 		_add_spell(BuildingProduction.LIFT_FOG_UPGRADE, "Look over the land: click a spot to lift the fog there for a while" +
 				("" if ready else "\n(recovering)"), "look")
+	var spirit := production.spirit_level()
+	if building.guid == BuildingProduction.SPIRIT_TEPEE and spirit > 0:
+		_add_spell(BuildingProduction.SPIRIT_UPGRADES[spirit - 1],
+				"Invoke warrior spirit: every fighting unit gains %d%% morale for %d s\nCosts %d magic energy (see the tepee's energy)" % [
+				roundi(BuildingProduction.SPIRIT_BOOST[spirit - 1] * 100), BuildingProduction.SPIRIT_SECONDS,
+				BuildingProduction.SPIRIT_COST], "", func() -> void:
+					if not production.invoke_spirit():
+						Sound.play_sound(CANNOT))
 	if building.guid == BuildingProduction.DISTILLERY_GUID:
 		_add_icon(command_icons, ICON_STOP, "Stop distilling (keeps the wood)" if production.distilling \
 				else "Start distilling again (%d wood into %d food every %d s)" % [BuildingProduction.DISTILL_WOOD,
@@ -263,7 +272,9 @@ func _add_icon(sheet: RdSprite, frame: int, tip: String, action: Callable, activ
 	return button
 
 
-func _add_spell(spell: int, tip: String, command := "") -> void:
+## A spell or skill button with the upgrade's picture: it starts targeting `command`
+## (default "spell:<id>"), or runs `action` at once when given.
+func _add_spell(spell: int, tip: String, command := "", action := Callable()) -> void:
 	var button := Button.new()
 	button.focus_mode = Control.FOCUS_NONE
 	HudStyle.clear_styles(button)
@@ -275,7 +286,10 @@ func _add_spell(spell: int, tip: String, command := "") -> void:
 		thumb.set_anchors_preset(Control.PRESET_FULL_RECT)
 		button.add_child(thumb)
 	var order := command if command != "" else "spell:%d" % spell
-	button.pressed.connect(func() -> void: hud.selection.begin_targeting(order))
+	if action.is_valid():
+		button.pressed.connect(action)
+	else:
+		button.pressed.connect(func() -> void: hud.selection.begin_targeting(order))
 	grid.add_child(button)
 
 
@@ -497,7 +511,7 @@ func unpack_tepee() -> void:
 
 func unload_boats() -> void:
 	for_each_selected(func(u: Unit) -> void:
-		if u.water.is_boat():
+		if u.water.is_carrier():
 			u.unload_at(u.position))
 
 
@@ -522,7 +536,7 @@ func handle_key(key: int) -> bool:
 			if ours:
 				building.condition.demolish()
 		KEY_U:
-			if not units.any(func(u: Unit) -> bool: return u.water.is_boat()):
+			if not units.any(func(u: Unit) -> bool: return u.water.is_carrier()):
 				return false
 			unload_boats()
 		KEY_G:

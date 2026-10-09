@@ -12,6 +12,7 @@ extends Node2D
 signal construction_finished(building: MapObject)
 signal unit_trained(building: MapObject, unit_guid: int)
 signal destroyed(building: MapObject)
+signal captured(building: MapObject, from_owner: int)
 
 ## Drop-off buildings by GUID (main buildings take everything).
 const MAIN_BUILDINGS := [100, 200, 300, 400]
@@ -119,6 +120,26 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 	_team_row = mini(owner if type.kind == ObjectTypes.Kind.BUILDING and owner > 0 else 0, _bob.teams - 1)
 	_body.set_instance_shader_parameter("palette_row", _palette_row(_body_anim))
 	return true
+
+
+## Taken over by another people (a saboteur in an empty fort, a captured trap): those
+## inside step out, the queue is refunded to the old owner, and it takes the new colours.
+func capture(new_owner: int) -> void:
+	if not _is_building or new_owner == owner_index:
+		return
+	var from_owner := owner_index
+	defence.release()
+	production.cancel_all()
+	production.rally_point = Vector2.INF
+	owner_index = new_owner
+	accepts = drop_off_for(guid) if complete else PackedStringArray()
+	_team_row = mini(new_owner, _bob.teams - 1)
+	_body.set_instance_shader_parameter("palette_row", _palette_row(_body_anim))
+	if _ambient:
+		_ambient.set_instance_shader_parameter("palette_row", _palette_row(AMBIENT_ANIM))
+	selected = false
+	redraw_overlay()
+	captured.emit(self, from_owner)
 
 
 func _enter_tree() -> void:

@@ -61,6 +61,7 @@ var magic: UnitMagic
 var stealth: UnitStealth
 var water: UnitWater
 var tepees: UnitTepees
+var saboteur: UnitSabotage
 var _parts: Array[UnitPart] = []  # in the order they get the frame
 
 var _patrol := PackedVector2Array()  ## the two ends of a patrol route
@@ -88,8 +89,9 @@ func setup(type: UnitType, team_index: int) -> void:
 	stealth = UnitStealth.new(self)
 	water = UnitWater.new(self)
 	tepees = UnitTepees.new(self)
+	saboteur = UnitSabotage.new(self)
 	ring_on_top = water.is_boat()
-	_parts = [riding, animal, magic, work, tepees, water, stealth]
+	_parts = [riding, animal, magic, work, tepees, water, stealth, saboteur]
 	all_units.append(self)
 	play("idle")
 
@@ -192,9 +194,34 @@ const LEADER_REACH := 1200.0  # beyond this the leader's presence no longer help
 const HOME_REACH := 2400.0  # the leader's own morale is lowest this far from home
 var _morale := 1.0
 var _morale_timer := 0.0
+## The warrior spirit (BuildingProduction.invoke_spirit): extra morale for a while, shown
+## by an aura round the unit.
+const AURA := "effects/aura/aura.anims.json"
+var _spirit := 0.0
+var _spirit_left := 0.0
+var _aura: OrderMarker
 
 
 func morale() -> float:
+	return _base_morale() + (_spirit if _spirit_left > 0.0 else 0.0)
+
+
+## Fill the unit with the warrior spirit: `boost` more morale for `seconds`.
+func inspire(boost: float, seconds: float) -> void:
+	_spirit = maxf(_spirit if _spirit_left > 0.0 else 0.0, boost)
+	_spirit_left = seconds
+	if not is_instance_valid(_aura):
+		_aura = OrderMarker.effect_loop(self, Vector2.ZERO, AURA, 0)
+
+
+func _fade_spirit(delta: float) -> void:
+	_spirit_left -= delta
+	if _spirit_left <= 0.0 and is_instance_valid(_aura):
+		_aura.queue_free()
+		_aura = null
+
+
+func _base_morale() -> float:
 	if team <= 0:
 		return 1.0
 	var now := Time.get_ticks_msec() / 1000.0
@@ -213,7 +240,7 @@ func morale() -> float:
 		_morale = lerpf(MORALE_MAX, MORALE_MIN, clampf(away / HOME_REACH, 0.0, 1.0))
 	else:
 		var closeness := 1.0 - clampf(position.distance_to(leader.position) / LEADER_REACH, 0.0, 1.0)
-		_morale = MORALE_MIN + (leader.morale() - MORALE_MIN) * closeness
+		_morale = MORALE_MIN + (leader._base_morale() - MORALE_MIN) * closeness
 	return _morale
 
 
@@ -386,6 +413,11 @@ func steal(vehicle: Unit) -> void:
 	work.steal(vehicle)
 
 
+## A saboteur's order: into an enemy fort, tower or trap (UnitSabotage).
+func sabotage(building: MapObject) -> void:
+	saboteur.sabotage(building)
+
+
 func mount(horse: Unit) -> void:
 	riding.mount(horse)
 
@@ -510,6 +542,8 @@ func die() -> void:
 
 func _process(delta: float) -> void:
 	_cooldown = maxf(0.0, _cooldown - delta)
+	if _spirit_left > 0.0:
+		_fade_spirit(delta)
 	if state == State.QUARTERED:
 		return
 	if quarters != null and (state == State.MOVING or state == State.IDLE) and is_instance_valid(quarters) \

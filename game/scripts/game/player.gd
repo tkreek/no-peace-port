@@ -36,6 +36,15 @@ func _init(player_index: int, faction_name: String) -> void:
 		resources[key] = 0
 
 
+## Gold sitting in gold warehouses, not yet hauled to the main building ("main (warehoused)").
+func warehoused_gold() -> int:
+	var total := 0
+	for object in MapObject.all_objects:
+		if object.owner_index == index and object.is_gold_warehouse() and object.is_alive():
+			total += object.stored_gold
+	return total
+
+
 func set_start_resources(amounts: Dictionary) -> void:
 	for key in RESOURCES:
 		resources[key] = int(amounts.get(key, 0))

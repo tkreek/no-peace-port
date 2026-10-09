@@ -29,6 +29,7 @@ const ACTION_STEMS := {
 const PROJECTILE_STEMS := ["pfeil", "messer", "tomahawk", "kugel", "dynamit"]
 ## The manual's hunting unit of each people.
 const HUNTER_NAMES := ["Militiaman", "Trapper", "Arrow shooter", "Hunter"]
+## Load per trip when the editor data gives none ("Tragkapazität": workers 15, wagons 100+).
 const CARRY_AMOUNT := 10
 const UNNAMED_VEHICLE := {"walk": 0, "idle": 2, "die": 4}
 
@@ -62,7 +63,8 @@ var reload_ms := 1500
 var attack_anims := PackedInt32Array()
 var fire_step := 0  ## index into attack_anims at which the shot/blow lands
 var min_range := 0.0  ## ranged units cannot fire at enemies closer than this
-var projectile_anim := -1  ## a flying arrow, knife, tomahawk, cannonball or stick of dynamite
+var projectile_anim := -1
+var carry := CARRY_AMOUNT  ## resources carried per trip  ## a flying arrow, knife, tomahawk, cannonball or stick of dynamite
 
 
 func guid() -> int:
@@ -120,6 +122,8 @@ static func load_type(dir: String, riding := false, forced_type_id := -1) -> Uni
 func _setup_combat() -> void:
 	var stats := GameData.stats(guid())
 	health = stats.get("health", health)
+	if int(stats.get("carry", 0)) > 0:
+		carry = int(stats.carry)
 	damage = stats.get("damage", damage)
 	sight = GameData.def_value("Sichtweite%d" % int(stats.get("sight_tier", 1)), 320)
 	speed = GameData.def_value("LaufenSpeed%d" % int(stats.get("speed_tier", 2)), 100) * 0.6
@@ -222,6 +226,11 @@ func _sow_anim() -> int:
 
 func is_hunter() -> bool:
 	return GameData.stats(guid()).get("name", "") in HUNTER_NAMES
+
+
+## Wagons, travois and stagecoaches haul gold from gold warehouses to the main building.
+func is_transport() -> bool:
+	return carry >= 50 and attack_anims.is_empty()
 
 
 func can_gather(resource: String) -> bool:

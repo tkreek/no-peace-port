@@ -80,6 +80,7 @@ var _gather_phase := Gather.TO_SOURCE
 var _work_timer := 0.0
 var _drop_off: MapObject
 var build_site: MapObject
+var _haul_wait := 0.0
 var _field_spot := Vector2.INF  # this unit's patch of the field it works
 var _field_spot_of: MapObject
 
@@ -366,7 +367,7 @@ func gather(source: MapObject) -> void:
 	gather_resource = source.resource
 	target = null
 	state = State.GATHERING
-	_gather_phase = Gather.TO_DROP_OFF if carried >= UnitType.CARRY_AMOUNT else Gather.TO_SOURCE
+	_gather_phase = Gather.TO_DROP_OFF if carried >= unit_type.carry else Gather.TO_SOURCE
 	_route_gather()
 
 
@@ -449,7 +450,10 @@ func _process(delta: float) -> void:
 				attack_moving = false
 			play(_walk_action() if state == State.MOVING else _idle_action())
 		State.GATHERING:
-			_update_gather(delta)
+			if gather_resource == "haul":
+				_update_haul(delta)
+			else:
+				_update_gather(delta)
 		State.BUILDING:
 			_update_build(delta)
 		State.ATTACKING:
@@ -697,7 +701,7 @@ func _update_gather(delta: float) -> void:
 			if _work_timer > 0.0:
 				return
 			var resource := gather_source.resource
-			var got := gather_source.harvest(UnitType.CARRY_AMOUNT)
+			var got := gather_source.harvest(unit_type.carry)
 			inside = false
 			if got > 0:
 				carrying = resource
@@ -716,7 +720,10 @@ func _update_gather(delta: float) -> void:
 				path.clear()
 				var player: Player = Player.by_index.get(team)
 				if player and carried > 0:
-					player.add(carrying, carried)
+					if carrying == "gold" and _drop_off.is_gold_warehouse():
+						_drop_off.store_gold(carried)  # usable once a wagon brings it to the HQ
+					else:
+						player.add(carrying, carried)
 				carried = 0
 				carrying = ""  # walk back empty-handed
 				if gather_resource == "meat":
@@ -729,6 +736,85 @@ func _update_gather(delta: float) -> void:
 					return
 				_gather_phase = Gather.TO_SOURCE
 				_route_gather()
+
+
+## Shuttle gold from a gold warehouse to the main building for as long as it holds any;
+## an empty warehouse is waited at, since the miners keep filling it.
+func haul(warehouse: MapObject) -> void:
+	if not is_alive() or warehouse == null or not unit_type.is_transport():
+		return
+	_clear_orders()
+	gather_source = warehouse
+	gather_resource = "haul"
+	target = null
+	state = State.GATHERING
+	_gather_phase = Gather.TO_DROP_OFF if carried > 0 else Gather.TO_SOURCE
+	path = _find_path(warehouse.work_rect().get_center()) if carried == 0 else PackedVector2Array()
+
+
+func _update_haul(delta: float) -> void:
+	if gather_source == null or not is_instance_valid(gather_source) or not gather_source.is_alive():
+		gather_source = null
+		if carried == 0:
+			state = State.IDLE
+			return
+		_gather_phase = Gather.TO_DROP_OFF
+	match _gather_phase:
+		Gather.TO_SOURCE:
+			if path.is_empty() and not gather_source.work_rect().grow(REACH * 2).has_point(position):
+				path = _find_path(gather_source.work_rect().get_center())
+			_follow_path(delta)
+			play(_walk_action())
+			if gather_source.work_rect().grow(REACH * 2).has_point(position) or path.is_empty():
+				path.clear()
+				_gather_phase = Gather.WORKING
+				_work_timer = 1.0
+		Gather.WORKING:
+			play("idle")
+			_work_timer -= delta
+			_haul_wait += delta
+			# Leave with a full load, or whatever there is after a while.
+			if _work_timer > 0.0 or (gather_source.stored_gold < unit_type.carry and _haul_wait < 8.0):
+				return
+			carried = gather_source.take_gold(unit_type.carry)
+			if carried <= 0:
+				_work_timer = 2.0  # wait for the miners
+				return
+			_haul_wait = 0.0
+			carrying = "gold"
+			_gather_phase = Gather.TO_DROP_OFF
+			_drop_off = _main_building()
+			path = _find_path(_drop_off.position) if _drop_off else PackedVector2Array()
+		Gather.TO_DROP_OFF:
+			if _drop_off == null or not is_instance_valid(_drop_off):
+				_drop_off = _main_building()
+				if _drop_off == null:
+					state = State.IDLE
+					return
+				path = _find_path(_drop_off.position)
+			_follow_path(delta)
+			play(_walk_action())
+			if _drop_off.work_rect().grow(REACH * 2).has_point(position) or path.is_empty():
+				path.clear()
+				var player: Player = Player.by_index.get(team)
+				if player and carried > 0:
+					player.add("gold", carried)
+				carried = 0
+				carrying = ""
+				if gather_source and is_instance_valid(gather_source):
+					_gather_phase = Gather.TO_SOURCE
+					path = _find_path(gather_source.work_rect().get_center())
+				else:
+					state = State.IDLE
+
+
+func _main_building() -> MapObject:
+	var best: MapObject = null
+	for object in MapObject.all_objects:
+		if object.owner_index == team and object.guid in MapObject.MAIN_BUILDINGS and object.complete and object.is_alive() \
+				and (best == null or position.distance_to(object.position) < position.distance_to(best.position)):
+			best = object
+	return best
 
 
 func _update_build(delta: float) -> void:

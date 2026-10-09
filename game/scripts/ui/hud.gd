@@ -229,7 +229,12 @@ func _layout() -> void:
 			child.custom_minimum_size = Vector2(22, 22) * ui_scale
 		else:
 			child.add_theme_font_size_override("font_size", int(18 * ui_scale))
-			child.custom_minimum_size.x = (90 if child == _population_label else 64) * ui_scale
+			var width := 64
+			if child == _population_label:
+				width = 90
+			elif child == _resource_labels.get("gold"):
+				width = 120  # "gold (warehoused)"
+			child.custom_minimum_size.x = width * ui_scale
 
 	# Command buttons fill the plank area between the selection panel and the minimap.
 	var button_size := 50.0 * ui_scale
@@ -255,6 +260,10 @@ func _layout() -> void:
 func _refresh_resources() -> void:
 	for key in _resource_labels:
 		_resource_labels[key].text = str(player.resources.get(key, 0))
+	# Gold still in warehouses shows in brackets, as in the original resource bar.
+	var warehoused := player.warehoused_gold()
+	if warehoused > 0:
+		_resource_labels.gold.text = "%d (%d)" % [player.resources.get("gold", 0), warehoused]
 
 
 func _refresh_selection() -> void:
@@ -329,6 +338,8 @@ func _object_detail(object: MapObject) -> String:
 				current.get("name", "?"), int(object.train_progress * 100)]
 	var housing := int(GameData.stats(object.guid).get("housing", 0))
 	var quartered := "\nQuartered %d / %d" % [object.garrison.size(), object.capacity()] if object.capacity() > 0 else ""
+	if object.is_gold_warehouse() and object.complete:
+		quartered += "\nGold stored: %d (send a wagon to haul it)" % object.stored_gold
 	return "Energy %d / %d%s%s%s" % [object.health, object.max_health,
 			"\nHouses %d" % housing if housing > 0 else "", quartered, owner_note]
 

@@ -179,6 +179,27 @@ func _update_garrison(delta: float) -> void:
 			unit.fire_from_quarters(best, centre)
 
 
+func is_gold_warehouse() -> bool:
+	return guid in DROP_OFFS.gold and guid not in MAIN_BUILDINGS
+
+
+func store_gold(amount_in: int) -> void:
+	stored_gold += amount_in
+	var player: Player = Player.by_index.get(owner_index)
+	if player:
+		player.resources_changed.emit()
+
+
+func take_gold(wanted: int) -> int:
+	var taken := mini(wanted, stored_gold)
+	stored_gold -= taken
+	if taken > 0:
+		var player: Player = Player.by_index.get(owner_index)
+		if player:
+			player.resources_changed.emit()
+	return taken
+
+
 ## Tear the building down (Del). Queued orders are refunded, and so is the part of the
 ## construction cost not yet built into an unfinished site.
 func demolish() -> void:
@@ -433,6 +454,8 @@ func _palette_row(anim_index: int) -> int:
 
 
 var _build_sound_played := false
+## Gold delivered to a gold warehouse: the people's, but only usable once hauled to the HQ.
+var stored_gold := 0
 var _team_row := 0
 var _body_anim := -1
 ## Building anims shared by every building descriptor (body/shadow pairs).

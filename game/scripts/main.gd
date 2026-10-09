@@ -125,6 +125,8 @@ func _ready() -> void:
 		_scenario_picking.call_deferred()
 	if GameData.cmdline_option("scenario") == "damage":
 		_scenario_damage.call_deferred()
+	if GameData.cmdline_option("scenario") == "gold":
+		_scenario_gold.call_deferred()
 	if GameData.cmdline_option("scenario") == "orders":
 		_scenario_orders.call_deferred()
 	var report := GameData.cmdline_option("report-after")
@@ -646,6 +648,41 @@ func _scenario_damage() -> void:
 	ai.free()
 	camera.position = built[1].position + Vector2(0, -60)
 	print("damage: ", built.map(func(b: MapObject) -> String: return "%d%% anim %d fires %d" % [int(100 * b.health / b.max_health), b._body_anim, b._fires.size()]))
+
+
+## Miners fill a gold warehouse by the nearest mine; a wagon hauls it to the main building.
+func _scenario_gold() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	var mine := _nearest_mine(hq.position)
+	var store_guid: int = {"mex": 206, "usa": 419, "ind": 104, "des": 304}[players[1].faction]
+	var wagon_guid: int = {"mex": 255, "usa": 455, "ind": 155, "des": 355}[players[1].faction]
+	var type := ObjectTypes.get_type(GameData.type_for_guid(store_guid, terrain.biome))
+	var ai := AiPlayer.new()
+	var store := MapObject.new()
+	store.position = ai._find_spot(type, mine.position, 100)
+	ai.free()
+	store.setup(type, 1)
+	units_root.add_child(store)
+	nav.block_footprint(type, store.position)
+	hq.accepts = PackedStringArray(["wood", "food"])  # test: miners must use the warehouse
+	var workers := units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.can_gather("gold"))
+	for w: Unit in workers.slice(0, 3):
+		w.gather(mine)
+	_spawn_squad(wagon_guid, 1, hq.position + Vector2(0, 220), 1)
+	var wagon: Unit = units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == wagon_guid)[0]
+	print("mine %d px from HQ, warehouse %d px from mine; wagon carry %d transport=%s" % [mine.position.distance_to(hq.position),
+			store.position.distance_to(mine.position), wagon.unit_type.carry, wagon.unit_type.is_transport()])
+	var start_gold: int = players[1].resources.gold
+	for i in 16:
+		await get_tree().create_timer(10.0).timeout
+		if i == 3:
+			wagon.haul(store)
+		print("t=%ds gold +%d warehoused %d wagon state %d carrying %d" % [(i + 1) * 10, players[1].resources.gold - start_gold,
+				players[1].warehoused_gold(), wagon.state, wagon.carried])
+	get_tree().quit()
 
 
 ## Formations, patrol, follow and a rally point, with positions printed as they play out.

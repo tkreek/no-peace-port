@@ -122,6 +122,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			var site := _building_at(world)
 			if site and not site.complete and selection.any(_is_builder):
 				order_build(site)
+			elif site and site.is_gold_warehouse() and site.complete and selection.any(_is_transport):
+				order_haul(site)
 			elif site and site.capacity() > 0 and selection.any(_can_quarter):
 				order_quarters(site)
 			elif animal and selection.any(func(u: Unit) -> bool: return u.unit_type.is_hunter()):
@@ -204,6 +206,19 @@ func _resource_at(point: Vector2) -> MapObject:
 
 func _is_builder(u: Unit, guid := -1) -> bool:
 	return is_instance_valid(u) and u.is_alive() and u.unit_type.can_build(guid)
+
+
+func _is_transport(u: Unit) -> bool:
+	return is_instance_valid(u) and u.is_alive() and u.unit_type.is_transport()
+
+
+## Selected wagons start shuttling the warehouse's gold to the main building.
+func order_haul(warehouse: MapObject) -> void:
+	var wagons := selection.filter(_is_transport)
+	warehouse.flash()
+	Sound.play_event(wagons[0].unit_type.guid(), Sound.Event.ORDER)
+	for wagon: Unit in wagons:
+		wagon.haul(warehouse)
 
 
 ## Workers and women keep working; soldiers, hunters and commanders can take quarters.

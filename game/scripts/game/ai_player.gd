@@ -280,9 +280,9 @@ func _total_cost(guid: int) -> int:
 
 
 ## Search outward from the HQ for a free footprint.
-func _find_spot(type: ObjectTypes.ObjectType, around: Vector2) -> Vector2:
+func _find_spot(type: ObjectTypes.ObjectType, around: Vector2, min_radius := 220) -> Vector2:
 	var nav := NavGrid.current
-	for radius in range(220, 900, 48):
+	for radius in range(min_radius, 900, 32):
 		for step in 12:
 			var spot := around + Vector2(radius, 0).rotated(step * TAU / 12.0 + radius * 0.37)
 			spot = (spot / NavGrid.CELL).round() * NavGrid.CELL

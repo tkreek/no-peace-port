@@ -837,9 +837,9 @@ func toggle_menu() -> void:
 		get_tree().paused = false
 		return
 	get_tree().paused = true
-	_menu = _menu_panel(GameData.text(50, "Settings"), [
-		[GameData.text(57, "Continue"), toggle_menu],
-		[GameData.text(54, "Restart"), func() -> void:
+	_menu = _menu_panel(GameData.menu_text(50, "Settings"), [
+		[GameData.menu_text(57, "Continue"), toggle_menu],
+		[GameData.menu_text(54, "Restart"), func() -> void:
 			get_tree().paused = false
 			get_tree().reload_current_scene()],
 		["Main menu", _to_main_menu],

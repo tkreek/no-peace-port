@@ -31,6 +31,7 @@ var _bob_cache := {}
 var _sprite_cache := {}
 var _palette_cache := {}
 var _texts := {}       # text id -> String (TEXTE.eng, text2.eng)
+var _menu_texts := {}  # text id -> String (Menu.eng: menu captions, a separate numbering)
 var _guids := {}       # object type id -> GUID (GUIDS.INI steppe + Guids2.ini meadow)
 var _defs := {}        # DEFS.INI key -> value
 var _stats := {}
@@ -138,8 +139,21 @@ func read_text(path: String) -> String:
 
 
 func load_image(path: String) -> Image:
+	var enhanced := enhanced_image(path)
+	if enhanced:
+		return enhanced
 	var bytes := read(path)
 	return RdImage.pic_to_image(bytes) if not bytes.is_empty() else null
+
+
+## The upscaled version of a still image (tools/upscale/hd_images.py), or null.
+func enhanced_image(path: String) -> Image:
+	if enhanced_dir.is_empty():
+		return null
+	var file := enhanced_dir.path_join(RdaArchive.normalize(path)) + ".png"
+	if not FileAccess.file_exists(file):
+		return null
+	return Image.load_from_file(file)
 
 
 func load_bob(path: String) -> BobFile:
@@ -194,6 +208,11 @@ func _load_tables() -> void:
 			var id := line.get_slice("=", 0).strip_edges()
 			if "=" in line and id.is_valid_int() and not _texts.has(id.to_int()):
 				_texts[id.to_int()] = line.substr(line.find("=") + 1).strip_edges()
+	for file in ["global/guids2/Menu.eng", "global/guids/Menu.eng"]:
+		for line in read_latin1(file).split("\n"):
+			var id := line.get_slice("=", 0).strip_edges()
+			if "=" in line and id.is_valid_int() and not _menu_texts.has(id.to_int()):
+				_menu_texts[id.to_int()] = line.substr(line.find("=") + 1).strip_edges()
 	var stats_json = JSON.parse_string(FileAccess.get_file_as_string("res://data/stats.json"))
 	if stats_json is Dictionary:
 		for key in stats_json:
@@ -241,6 +260,11 @@ func read_latin1(path: String) -> String:
 
 func text(id: int, fallback: String = "") -> String:
 	return _texts.get(id, fallback)
+
+
+## A caption from the menus' own text table (Menu.eng).
+func menu_text(id: int, fallback: String = "") -> String:
+	return _menu_texts.get(id, fallback)
 
 
 func guid_for_type(type_id: int) -> int:

@@ -3,6 +3,9 @@ extends TextureRect
 ## A command-button picture made from an object's own sprite (finished building or a unit
 ## facing the viewer), drawn with its team colours.
 
+static var _textures := {}  # portrait path -> texture
+
+
 ## The original portrait (expansion Potraits/*.bmp) for a GUID, or null.
 static func portrait(guid: int) -> Thumbnail:
 	return from_bmp(GameData.stats(guid).get("icon", ""))
@@ -12,6 +15,13 @@ static func portrait(guid: int) -> Thumbnail:
 static func from_bmp(path: String) -> Thumbnail:
 	if path.is_empty() or not GameData.exists(path):
 		return null
+	if _textures.has(path):
+		return _portrait_thumb(_textures[path])
+	var enhanced := GameData.enhanced_image(path)
+	if enhanced:
+		enhanced.generate_mipmaps()  # 4x pictures shown at button size
+		_textures[path] = ImageTexture.create_from_image(enhanced)
+		return _portrait_thumb(_textures[path])
 	var bytes := GameData.read(path)
 	if bytes.size() < 54:
 		return null
@@ -28,12 +38,17 @@ static func from_bmp(path: String) -> Thumbnail:
 			var c := image.get_pixel(x, y)
 			if c.r8 > 240 and c.g8 < 20 and c.b8 > 240:  # magenta colour key
 				image.set_pixel(x, y, Color(0, 0, 0, 0))
+	_textures[path] = ImageTexture.create_from_image(image)
+	return _portrait_thumb(_textures[path])
+
+
+static func _portrait_thumb(texture: Texture2D) -> Thumbnail:
 	var thumb := Thumbnail.new()
 	thumb.set_meta("portrait", true)
-	thumb.texture = ImageTexture.create_from_image(image)
+	thumb.texture = texture
 	thumb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	thumb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	thumb.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	thumb.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return thumb
 

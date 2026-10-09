@@ -137,7 +137,7 @@ func _build_main() -> Control:
 	column.add_theme_constant_override("separation", 14)
 	screen.add_child(column)
 	column.add_child(_glow_button("Skirmish", func() -> void: _show("setup")))
-	column.add_child(_glow_button(GameData.text(14, "Exit game"), func() -> void: get_tree().quit()))
+	column.add_child(_glow_button(GameData.menu_text(14, "Exit game"), func() -> void: get_tree().quit()))
 	var version := MenuStyle.label("America Remastered — original data%s" %
 			(" + expansion pack" if GameData.has_expansion else ""), 11, MenuStyle.TEXT_DIM)
 	version.position = Vector2(12, 578)
@@ -193,7 +193,7 @@ func _frame(sheet: RdSprite, frame: int) -> Texture2D:
 func _build_setup() -> Control:
 	var screen := Control.new()
 	screen.size = ART_SIZE
-	var title := MenuStyle.label(GameData.text(21, "Select a level:"), 16)
+	var title := MenuStyle.label(GameData.menu_text(21, "Select a level:"), 16)
 	title.position = SETUP_TITLE.position
 	title.size = SETUP_TITLE.size
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -237,9 +237,9 @@ func _build_setup() -> Control:
 	players_box.add_child(you)
 	players_box.add_child(_slots)
 	var supply := HBoxContainer.new()
-	supply.add_child(_fixed_label(GameData.text(268, "Raw materials"), 110))
+	supply.add_child(_fixed_label(GameData.menu_text(268, "Raw materials"), 110))
 	for i in Match.SUPPLY_TEXT.size():
-		_supply.add_item(GameData.text(Match.SUPPLY_TEXT[i], Match.SUPPLY_NAMES[i]))
+		_supply.add_item(GameData.menu_text(Match.SUPPLY_TEXT[i], Match.SUPPLY_NAMES[i]))
 	MenuStyle.style(_supply, 13)
 	supply.add_child(_supply)
 	players_box.add_child(supply)
@@ -247,8 +247,8 @@ func _build_setup() -> Control:
 	var buttons := HBoxContainer.new()
 	buttons.position = Vector2(214, 548)
 	buttons.add_theme_constant_override("separation", 24)
-	buttons.add_child(_small_button(GameData.text(16, "Back"), func() -> void: _show("main")))
-	buttons.add_child(_small_button(GameData.text(15, "Start"), _start))
+	buttons.add_child(_small_button(GameData.menu_text(16, "Back"), func() -> void: _show("main")))
+	buttons.add_child(_small_button(GameData.menu_text(15, "Start"), _start))
 	screen.add_child(buttons)
 
 	_load_map_list()

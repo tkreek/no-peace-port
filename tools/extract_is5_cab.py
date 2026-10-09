@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
-"""Extract the America CD's InstallShield 5 DATA1.CAB.
+"""Extract the America CDs' InstallShield 5 DATA1.CAB (base game and expansion pack).
 
-unshield parses the file table fine but fails on this cabinet's payload, which
-is stored as a sequence of [u16 length][raw-deflate block] chunks. We take the
-file table from `unshield -D 3 l` and inflate the chunks ourselves.
+unshield parses the file table fine but fails on most of these cabinets' payloads,
+which are stored as a sequence of [u16 length][raw-deflate block] chunks. We take the
+file table from `unshield -D 3 l` and inflate the chunks ourselves; the few files
+stored the way unshield expects (e.g. the expansion's executables) are left to it.
 
 Usage: tools/extract_is5_cab.py <DATA1.CAB> <output-dir>
 """
 import os
 import re
+import shutil
 import struct
 import subprocess
 import sys
+import tempfile
 import zlib
 
 
@@ -41,13 +44,30 @@ def extract(cab, offset, compressed_size, out):
 
 def main():
     cab_path, out_root = sys.argv[1:3]
+    fallback = []
     with open(cab_path, "rb") as cab:
         for name, offset, size in file_table(cab_path):
             path = os.path.join(out_root, name)
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "wb") as out:
-                extract(cab, offset, size, out)
+            try:
+                with open(path, "wb") as out:
+                    extract(cab, offset, size, out)
+            except zlib.error:
+                os.remove(path)
+                fallback.append(name)
+                continue
             print(f"{os.path.getsize(path):>11} {name}")
+    if fallback:
+        # Let unshield extract the remaining files, then move them into place.
+        with tempfile.TemporaryDirectory() as tmp:
+            subprocess.run(["unshield", "-d", tmp, "x", cab_path], capture_output=True)
+            for name in fallback:
+                source = os.path.join(tmp, name)
+                if os.path.exists(source):
+                    shutil.move(source, os.path.join(out_root, name))
+                    print(f"{os.path.getsize(os.path.join(out_root, name)):>11} {name} (unshield)")
+                else:
+                    print(f"FAILED {name}")
 
 
 if __name__ == "__main__":

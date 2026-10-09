@@ -27,6 +27,11 @@ def read_bobliste(path):
         bob_id, kind = struct.unpack_from("<II", d, pos + 0x50)
         anim, shadow = struct.unpack_from("<ii", d, pos + 0x6C)
         bary = pos + 0x104
+        if kind == 0xFFFFFFFF:  # (expansion) placeholder record without a footprint
+            types.append(dict(id=len(types), name=name, bob=bob_id, bob_path="", kind=0, anim=anim,
+                              shadow_anim=shadow, footprint=dict(anchor=(0, 0), size=(0, 0), cols=0, rows=0, cells=())))
+            pos = bary
+            continue
         if d[bary:bary + 4] != b"BARY":
             break  # trailing data after the last type record
         ax, ay, w, h, cols, rows, count = struct.unpack_from("<iiIIIII", d, bary + 4)

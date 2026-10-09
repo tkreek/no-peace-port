@@ -62,9 +62,16 @@ static func _load() -> void:
 	var pos := 8 + capacity * 88
 	while pos + HEADER_SIZE + 32 <= d.size():
 		var bary := pos + HEADER_SIZE
+		var t := ObjectType.new()
+		if d.decode_u32(pos + 0x54) == 0xFFFFFFFF:
+			# Expansion placeholder records have no footprint (and no usable graphics).
+			t.id = _types.size()
+			t.name = _c_string(d, pos, 0x50)
+			_types.append(t)
+			pos = bary
+			continue
 		if d.slice(bary, bary + 4).get_string_from_ascii() != "BARY":
 			break  # trailing data after the last record
-		var t := ObjectType.new()
 		t.id = _types.size()
 		t.name = _c_string(d, pos, 0x50)
 		var bob_id := d.decode_u32(pos + 0x50)

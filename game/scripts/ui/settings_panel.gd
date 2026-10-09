@@ -48,6 +48,9 @@ func _build() -> void:
 		var box := CheckBox.new()
 		box.button_pressed = Settings.enabled(row[1])
 		box.focus_mode = Control.FOCUS_NONE
+		# The default box is dark grey and vanishes on the dark board: draw our own.
+		box.add_theme_icon_override("unchecked", _box_icon(false))
+		box.add_theme_icon_override("checked", _box_icon(true))
 		var key: String = row[1]
 		box.toggled.connect(func(on: bool) -> void:
 			Settings.set_value(key, 1.0 if on else 0.0)
@@ -78,6 +81,24 @@ func _add_row(caption: String, controls: Array) -> void:
 	for control: Control in controls:
 		line.add_child(control)
 	add_child(line)
+
+
+## A parchment-coloured frame, filled when ticked.
+func _box_icon(ticked: bool) -> Texture2D:
+	var size := maxi(12, int(text_size * 1.1))
+	var image := Image.create_empty(size, size, false, Image.FORMAT_RGBA8)
+	var edge := maxi(2, size / 9)
+	for y in size:
+		for x in size:
+			var border := x < edge or y < edge or x >= size - edge or y >= size - edge
+			var inner := x >= edge * 2 and y >= edge * 2 and x < size - edge * 2 and y < size - edge * 2
+			if border:
+				image.set_pixel(x, y, MenuStyle.TEXT)
+			elif ticked and inner:
+				image.set_pixel(x, y, MenuStyle.TEXT_HOVER)
+			else:
+				image.set_pixel(x, y, Color(0, 0, 0, 0.35))
+	return ImageTexture.create_from_image(image)
 
 
 static func _percent(v: float) -> String:

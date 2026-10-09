@@ -13,7 +13,8 @@ const LOADING_BG_BASE := "global/gfx/ladebild/ladebild1024768.pic"
 const ART_SIZE := Vector2(800, 600)
 ## Areas of the selectgame artwork (800x600 coordinates).
 const SETUP_TITLE := Rect2(277, 103, 247, 30)
-const SETUP_LIST := Rect2(214, 170, 374, 270)
+const SETUP_LIST := Rect2(214, 170, 374, 200)
+const PLAYER_CELL := Vector2(184, 24)  # one seat in the two-column player grid
 
 var _art := Control.new()  # 800x600 design space, scaled to fit the window
 var _screens := {}
@@ -23,7 +24,7 @@ var _maps: Array[Dictionary] = []
 var _map_list := ItemList.new()
 var _preview := TextureRect.new()
 var _map_info := Label.new()
-var _slots := VBoxContainer.new()
+var _slots := GridContainer.new()  # "You", then one seat per possible opponent
 var _supply := OptionButton.new()
 var _difficulty := OptionButton.new()
 var _game_type := OptionButton.new()
@@ -67,6 +68,12 @@ func _menu_screenshot() -> void:
 	if path.is_empty():
 		return
 	_show(GameData.cmdline_option("menu-screen", "main"))
+	if GameData.cmdline_option("menu-map") != "":
+		_map_list.select(clampi(GameData.cmdline_option("menu-map").to_int(), 0, _maps.size() - 1))
+		_on_map_selected(_map_list.get_selected_items()[0])
+		for row in _slots.get_children():
+			if not row.has_meta("you"):
+				(row.get_child(1) as OptionButton).select(1 + row.get_index() % 4)
 	for i in 10:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
@@ -271,17 +278,18 @@ func _build_setup() -> Control:
 	_map_info.autowrap_mode = TextServer.AUTOWRAP_WORD
 	screen.add_child(_map_info)
 
-	# Players: you, then the computer opponents.
+	# Players in two columns (all eight seats fit): you, then the computer opponents.
 	var players_box := VBoxContainer.new()
-	players_box.position = Vector2(214, 452)
-	players_box.add_theme_constant_override("separation", 4)
+	players_box.position = Vector2(SETUP_LIST.position.x, SETUP_LIST.end.y + 10)
+	players_box.add_theme_constant_override("separation", 6)
 	screen.add_child(players_box)
-	var you := HBoxContainer.new()
-	you.add_child(_fixed_label("You", 110))
+	_slots.columns = 2
+	_slots.add_theme_constant_override("h_separation", 6)
+	_slots.add_theme_constant_override("v_separation", 3)
+	var you := _player_cell("You", _faction)
+	you.set_meta("you", true)
 	_fill_factions(_faction, 0)
-	MenuStyle.style(_faction, 13)
-	you.add_child(_faction)
-	players_box.add_child(you)
+	_slots.add_child(you)
 	players_box.add_child(_slots)
 	var supply := HBoxContainer.new()
 	supply.add_child(_fixed_label(GameData.menu_text(268, "Raw materials"), 110))
@@ -331,6 +339,17 @@ func _build_setup() -> Control:
 	return screen
 
 
+func _player_cell(caption: String, option: OptionButton) -> HBoxContainer:
+	var cell := HBoxContainer.new()
+	cell.add_theme_constant_override("separation", 4)
+	cell.add_child(_fixed_label(caption, 58))
+	MenuStyle.style(option, 12)
+	option.custom_minimum_size = Vector2(PLAYER_CELL.x - 62, PLAYER_CELL.y)
+	option.clip_text = true
+	cell.add_child(option)
+	return cell
+
+
 func _fixed_label(text: String, width: float) -> Label:
 	var label := MenuStyle.label(text, 13)
 	label.custom_minimum_size.x = width
@@ -342,7 +361,9 @@ func _fill_factions(option: OptionButton, selected: int, closed := false) -> voi
 	if closed:
 		option.add_item("— closed —")
 	for faction in Match.FACTIONS:
-		option.add_item(("Computer: " if closed else "") + Match.faction_name(faction))
+		option.add_item(Match.faction_name(faction))
+	if closed:
+		option.tooltip_text = "A computer player, or closed"
 	option.select(selected)
 
 
@@ -399,19 +420,15 @@ func _on_map_selected(index: int) -> void:
 		_preview.texture = ImageTexture.create_from_image(_preview_image(alf))
 		_map_info.text = "%d players · %d × %d · %s" % [map.players, alf.columns, alf.rows,
 				"forest" if alf.guess_biome() == "wiese" else "prairie"]
-	# One row per possible opponent; the first is a computer player by default.
+	# One seat per possible opponent; the first is a computer player by default.
 	for child in _slots.get_children():
-		child.queue_free()
+		if not child.has_meta("you"):
+			_slots.remove_child(child)
+			child.queue_free()
 	for slot in range(1, map.players):
-		var row := HBoxContainer.new()
-		row.add_child(_fixed_label("Player %d" % (slot + 1), 110))
 		var option := OptionButton.new()
 		_fill_factions(option, 2 if slot == 1 else 0, true)
-		MenuStyle.style(option, 13)
-		row.add_child(option)
-		_slots.add_child(row)
-		if slot >= 4:
-			row.visible = false  # keep the panel tidy; up to 4 opponents are offered
+		_slots.add_child(_player_cell("Player %d" % (slot + 1), option))
 	_map_list.ensure_current_is_visible()
 
 
@@ -431,6 +448,8 @@ func _start() -> void:
 	var slots: Array[Dictionary] = [{"faction": Match.FACTIONS[_faction.selected], "ai": false}]
 	for row in _slots.get_children():
 		var option: OptionButton = row.get_child(1)
+		if row.has_meta("you"):
+			continue
 		if option.selected > 0:
 			slots.append({"faction": Match.FACTIONS[option.selected - 1], "ai": true})
 	if slots.size() < 2:

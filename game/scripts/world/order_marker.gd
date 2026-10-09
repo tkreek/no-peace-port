@@ -28,11 +28,12 @@ static func spawn(parent: Node, at: Vector2, team: int) -> void:
 
 
 ## A one-shot animation from any original effect bob (explosions, smoke).
-static func effect(parent: Node, at: Vector2, bob_path: String, anim: int) -> void:
+static func effect(parent: Node, at: Vector2, bob_path: String, anim: int) -> OrderMarker:
 	var marker := OrderMarker.new()
 	marker.position = at
 	parent.add_child(marker)
 	marker._setup(bob_path, anim, 0, false)
+	return marker
 
 
 ## A waving flag that stays until freed (assembly location).

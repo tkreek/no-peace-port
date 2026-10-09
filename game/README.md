@@ -64,7 +64,8 @@ Any of `--map`, `--scenario`, `--screenshot`, `--report-after` skips the menu an
 - Left click / drag: select units; click a building to select it. Shift adds.
 - Right click: move in formation, attack a unit or building, gather from a tree or gold mine.
   Ctrl+right click on a rider: shoot the horse instead of the rider.
-- Workers: build menu in the bottom bar; left click places, right click / Esc cancels, Shift keeps placing.
+- Workers: build menu in the bottom bar; left click places, right click / Esc cancels, Shift keeps placing
+  (the workers then build the sites in turn).
   Repair (R), then click a damaged building.
 - Buildings: train units from the bottom bar (needs housing; houses and HQs provide it).
 - Mixed groups show only the commands every member can carry out.

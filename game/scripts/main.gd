@@ -99,6 +99,13 @@ func _ready() -> void:
 		for i in Match.players.size():
 			players[i + 1] = Player.new(i + 1, Match.players[i].faction)
 			computer[i + 1] = Match.players[i].ai
+	elif GameData.cmdline_option("players") != "":
+		# --players=mex,usa,ind,...: one people per start point, all but the first computer
+		# players (the first too with --ai-vs-ai).
+		var factions := GameData.cmdline_option("players").split(",")
+		for i in factions.size():
+			players[i + 1] = Player.new(i + 1, factions[i] if FACTIONS.has(factions[i]) else "mex")
+			computer[i + 1] = i > 0 or GameData.cmdline_option("ai-vs-ai") != ""
 	else:
 		players[1] = Player.new(1, _faction_option("faction", "mex"))
 		players[2] = Player.new(2, _faction_option("enemy", "usa"))
@@ -378,7 +385,12 @@ func _process(delta: float) -> void:
 	game_time += delta
 
 
+var _report_clock := 0
+
+
 func _report_after(frames: int) -> void:
+	_report_clock = Time.get_ticks_usec()
+	Prof.enabled = GameData.cmdline_option("profile") != ""
 	for i in frames:
 		await get_tree().process_frame
 		if i % (60 if GameData.cmdline_option("trace-workers") != "" else 300) == 0:
@@ -413,6 +425,12 @@ func _print_report(frame: int) -> void:
 	print("  mines with work sound playing: %d" % mines_heard)
 	var carcasses := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 0 and not u.is_alive() and u.has_meat())
 	print("  carcasses: %s" % [carcasses.map(func(u: Unit) -> int: return u.meat_left)])
+	var now := Time.get_ticks_usec()
+	print("frame %d: %.2f ms per frame, %d units, %d objects" % [frame, (now - _report_clock) / 1000.0 / 300.0,
+			Unit.all_units.size(), MapObject.all_objects.size()])
+	_report_clock = now
+	if Prof.enabled:
+		Prof.report(300)
 	for index in players:
 		print("frame %d (%ds) player %d: %s units=%d" % [frame, int(game_time), index, players[index].resources, alive.get(index, 0)])
 		if frame % 1800 == 0 and frame > 0:

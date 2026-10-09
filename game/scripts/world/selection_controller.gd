@@ -171,7 +171,7 @@ func _units(own: bool) -> Array[Unit]:
 
 func _animal_at(point: Vector2) -> Unit:
 	for unit in Unit.all_units:
-		if unit.team == 0 and unit.is_alive() and point.distance_to(unit.position + Vector2(0, -12)) < CLICK_RADIUS:
+		if unit.has_meat() and point.distance_to(unit.position + Vector2(0, -12)) < CLICK_RADIUS:
 			return unit
 	return null
 

@@ -4,8 +4,8 @@ extends Camera2D
 
 @export var pan_speed := 900.0
 @export var edge_margin := 6
-@export var min_zoom := 0.5
-@export var max_zoom := 3.0
+@export var min_zoom := 0.75  # wide enough to see a base and its approaches
+@export var max_zoom := 1.75  # close enough for detail without blowing the art up
 @export var zoom_step := 1.15
 
 var bounds := Rect2()

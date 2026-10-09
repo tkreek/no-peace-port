@@ -117,6 +117,10 @@ func _ready() -> void:
 		_scenario_quarters.call_deferred()
 	if GameData.cmdline_option("scenario") == "projectiles":
 		_scenario_projectiles.call_deferred()
+	if GameData.cmdline_option("scenario") == "fields":
+		_scenario_fields.call_deferred()
+	if GameData.cmdline_option("scenario") == "hunt":
+		_scenario_hunt.call_deferred()
 	if GameData.cmdline_option("scenario") == "orders":
 		_scenario_orders.call_deferred()
 	var report := GameData.cmdline_option("report-after")
@@ -524,6 +528,80 @@ func _scenario_projectiles() -> void:
 		get_tree().quit()
 
 
+## The women place a field next to a finished grain store the way a player does, then
+## sow, wait and harvest it; their state and the food are printed as it goes.
+func _scenario_fields() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	var store_guid := 0
+	for guid in MapObject.FOOD_STORES:
+		if GameData.stats(guid).get("faction") == players[1].faction:
+			store_guid = guid
+	var store_type := ObjectTypes.get_type(GameData.type_for_guid(store_guid, terrain.biome))
+	var ai := AiPlayer.new()
+	var store := MapObject.new()
+	store.position = ai._find_spot(store_type, hq.position)
+	ai.free()
+	store.setup(store_type, 1)
+	units_root.add_child(store)
+	nav.block_footprint(store_type, store.position)
+	var women := units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.is_farmer())
+	selection._select(women, false)
+	var field_type := GameData.type_for_guid(MapObject.FIELD_GUID, terrain.biome)
+	build_controller.start(field_type)
+	var placed := false
+	for radius in range(120, 500, 24):
+		for k in 12:
+			var spot := ((store.position + Vector2(radius, 0).rotated(k * TAU / 12.0)) / NavGrid.CELL).round() * NavGrid.CELL
+			if build_controller.can_place(spot):
+				build_controller._place(spot, false)
+				placed = true
+				break
+		if placed:
+			break
+	var field: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_field() and object.owner_index == 1:
+			field = object
+	if field:
+		camera.position = field.position
+	print("field placed=%s complete=%s resource=%s state=%d store=%s" % [placed, field.complete if field else false,
+			field.resource if field else "", field.field_state if field else -1, GameData.stats(store_guid).get("name")])
+	for i in 16:
+		await get_tree().create_timer(5.0).timeout
+		print("t=%ds field state=%d progress=%.2f amount=%d food=%d women=%s" % [(i + 1) * 5, field.field_state,
+				field.field_progress, field.amount, players[1].resources.food,
+				women.map(func(u: Unit) -> String: return "%d/%d/%s" % [u.state, u._gather_phase, u._action])])
+	get_tree().quit()
+
+
+## Two hunters bring down a buffalo and carry it home in loads until it is picked clean.
+func _scenario_hunt() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	_spawn_squad("global/gfx/animals/bueffel", 0, hq.position + Vector2(260, 260), 1)
+	var hunter_guid: int = {"mex": 261, "usa": 461, "ind": 156, "des": 358}[players[1].faction]
+	_spawn_squad(hunter_guid, 1, hq.position + Vector2(0, 200), 2)
+	var buffalo: Unit = null
+	for n in units_root.get_children():
+		if n is Unit and n.team == 0 and n.position.distance_to(hq.position + Vector2(260, 260)) < 60:
+			buffalo = n
+	var hunters := units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == hunter_guid)
+	for h: Unit in hunters:
+		h.hunt(buffalo)
+	var food: int = players[1].resources.food
+	for i in 18:
+		await get_tree().create_timer(5.0).timeout
+		print("t=%ds buffalo alive=%s meat_left=%d visible=%s food +%d hunters=%s" % [(i + 1) * 5, buffalo.is_alive() if is_instance_valid(buffalo) else false,
+				buffalo.meat_left if is_instance_valid(buffalo) else -9, is_instance_valid(buffalo),
+				players[1].resources.food - food, hunters.map(func(h: Unit) -> String: return "%d/%s/%d" % [h.state, h._action, h.carried])])
+	get_tree().quit()
+
+
 ## Formations, patrol, follow and a rally point, with positions printed as they play out.
 func _scenario_orders() -> void:
 	var hq: MapObject = null
@@ -730,6 +808,8 @@ func _print_report(frame: int) -> void:
 	var mines_heard := MapObject.all_objects.filter(func(o: MapObject) -> bool:
 		return o.is_mine() and o._mine_sound != null and o._mine_sound.playing).size()
 	print("  mines with work sound playing: %d" % mines_heard)
+	var carcasses := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 0 and not u.is_alive() and u.has_meat())
+	print("  carcasses: %s" % [carcasses.map(func(u: Unit) -> int: return u.meat_left)])
 	for index in players:
 		print("frame %d player %d: %s units=%d" % [frame, index, players[index].resources, alive.get(index, 0)])
 

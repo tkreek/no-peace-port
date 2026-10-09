@@ -27,7 +27,9 @@ const HUNT_RANGE := 1500.0
 const REACH := 20.0
 const DEFENSIVE_PURSUIT := 160.0  # how far defensive units chase before returning
 const FOLLOW_DISTANCE := 48.0
-const BUTCHER_SECONDS := 2.5
+const BUTCHER_SECONDS := 2.0
+const MEAT_PER_TRIP := 30  # a hunter carries this much home per trip; carcasses last several
+const CARCASS_SECONDS := 120.0  # an animal with meat left stays this long
 const HEAL_PER_SECOND := 4.0
 const HEAL_REACH := 40.0
 
@@ -70,12 +72,16 @@ var inside := false:
 var carrying := ""  # resource in hand ("" when empty-handed)
 var gather_resource := ""  # what this worker is assigned to collect
 var hunted := false  ## an animal whose meat has been taken
+var meat_left := -1  ## a carcass's remaining food (-1 = not yet butchered: its full value)
+var _carcass: Unit  ## the kill a hunter keeps going back to
 var carried := 0
 var gather_source: MapObject
 var _gather_phase := Gather.TO_SOURCE
 var _work_timer := 0.0
 var _drop_off: MapObject
 var build_site: MapObject
+var _field_spot := Vector2.INF  # this unit's patch of the field it works
+var _field_spot_of: MapObject
 
 var _overlay := DrawOverlay.new()
 var _body := Sprite2D.new()
@@ -306,11 +312,25 @@ func attack(enemy: Node2D, ordered := false) -> void:
 
 ## Kill an animal and carry its meat to a butcher or the main building, then hunt again.
 func hunt(animal: Unit) -> void:
-	if not unit_type.is_hunter() or animal == null or not animal.is_alive() or animal.team != 0:
+	if not unit_type.is_hunter() or animal == null or animal.team != 0 or not animal.has_meat():
 		return
 	_clear_orders()
-	attack(animal)
+	if animal.is_alive():
+		attack(animal)
+	else:
+		# Back to a carcass: walk over and cut off the next load.
+		target = animal
+		gather_source = null
+		inside = false
+		_attack_step = -1
+		state = State.ATTACKING
+		path.clear()
 	hunting = true
+	_work_timer = BUTCHER_SECONDS
+
+
+func has_meat() -> bool:
+	return team == 0 and not hunted and (is_alive() or meat_left != 0)
 
 
 func meat_value() -> int:
@@ -436,8 +456,9 @@ func _process(delta: float) -> void:
 			_update_attack(delta)
 		State.DEAD:
 			_corpse_timer += delta
-			if _corpse_timer > CORPSE_SECONDS:
-				modulate.a = maxf(0.0, 1.0 - (_corpse_timer - CORPSE_SECONDS) / 3.0)
+			var lasts := CARCASS_SECONDS if has_meat() else CORPSE_SECONDS
+			if _corpse_timer > lasts:
+				modulate.a = maxf(0.0, 1.0 - (_corpse_timer - lasts) / 3.0)
 				if modulate.a <= 0.0:
 					queue_free()
 	if state != State.DEAD and not inside:
@@ -638,7 +659,10 @@ func _update_gather(delta: float) -> void:
 				_route_gather()
 			_follow_path(delta)
 			play(_walk_action())
-			if gather_source.work_rect().grow(REACH).has_point(position) or path.is_empty():
+			var arrived := gather_source.work_rect().grow(REACH).has_point(position)
+			if gather_source.is_field():
+				arrived = position.distance_to(_work_spot()) < 10.0
+			if arrived or path.is_empty():
 				path.clear()
 				_gather_phase = Gather.WORKING
 				var faster := _bonus("chop_pct") if gather_source.resource == "wood" else _bonus("mine_pct")
@@ -660,7 +684,7 @@ func _update_gather(delta: float) -> void:
 					play_repeating("sow")
 					gather_source.sow(delta)
 				else:
-					play("idle")  # wait for the crop to ripen
+					play_repeating("sow")  # tend the growing crop until it ripens
 				return
 			if gather_source.resource == "food":
 				play_repeating("harvest")
@@ -696,7 +720,7 @@ func _update_gather(delta: float) -> void:
 				carried = 0
 				carrying = ""  # walk back empty-handed
 				if gather_resource == "meat":
-					var next := _nearest_animal()
+					var next: Unit = _carcass if is_instance_valid(_carcass) and _carcass.has_meat() else _nearest_animal()
 					gather_resource = ""
 					if next:
 						hunt(next)
@@ -735,7 +759,6 @@ func _butcher(animal: Unit, delta: float) -> void:
 	if position.distance_to(animal.position) > 26.0:
 		if path.is_empty():
 			path = _find_path(animal.position)
-			_work_timer = BUTCHER_SECONDS
 		_follow_path(delta)
 		play("walk")
 		if not path.is_empty():
@@ -749,10 +772,17 @@ func _butcher(animal: Unit, delta: float) -> void:
 
 
 func _carry_meat(animal: Unit) -> void:
+	if animal.meat_left < 0:
+		animal.meat_left = animal.meat_value()
 	carrying = "food"
-	carried = animal.meat_value()
-	animal.hunted = true
-	animal.queue_free()  # the carcass is carried away
+	carried = mini(MEAT_PER_TRIP, animal.meat_left)
+	animal.meat_left -= carried
+	if animal.meat_left <= 0:
+		animal.hunted = true  # picked clean: the carcass fades away
+		animal._corpse_timer = CORPSE_SECONDS
+		_carcass = null
+	else:
+		_carcass = animal
 	target = null
 	hunting = false
 	gather_resource = "meat"
@@ -766,7 +796,7 @@ func _nearest_animal() -> Unit:
 	var best: Unit = null
 	var best_distance := HUNT_RANGE
 	for other in all_units:
-		if other.team == 0 and other.is_alive():
+		if other.has_meat():
 			var distance := position.distance_to(other.position)
 			if distance < best_distance:
 				best = other
@@ -779,7 +809,22 @@ func _route_gather() -> void:
 		_drop_off = _nearest_drop_off(carrying)
 		path = _find_path(_drop_off.position) if _drop_off else PackedVector2Array()
 	elif _source_valid():
-		path = _find_path(gather_source.position)
+		path = _find_path(_work_spot())
+
+
+## Where to stand to work the current source: on the plot itself for a field (each woman
+## her own patch of the furrows), else at the source and the arrival test does the rest.
+func _work_spot() -> Vector2:
+	if not gather_source.is_field():
+		return gather_source.position
+	if _field_spot == Vector2.INF or _field_spot_of != gather_source:
+		var size := gather_source.footprint_rect().size
+		# The furrows form a diamond around the field's position; keep inside its middle.
+		var u := randf_range(-0.3, 0.3)
+		var v := randf_range(-0.3, 0.3)
+		_field_spot = gather_source.position + Vector2((u - v) * size.x * 0.5, (u + v) * size.y * 0.5)
+		_field_spot_of = gather_source
+	return _field_spot
 
 
 func _source_valid() -> bool:

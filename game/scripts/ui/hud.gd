@@ -58,9 +58,11 @@ var minimap := Minimap.new()
 
 var _root := Control.new()
 var _left := TextureRect.new()
-var _middle := TextureRect.new()
+## The plank between the panels and the top bar: one board stretched along its grain
+## (the original 800x600 bar had room for exactly one), its nailed end kept as is.
+var _middle := NinePatchRect.new()
 var _right := TextureRect.new()
-var _top := TextureRect.new()
+var _top := NinePatchRect.new()
 var _resources := HBoxContainer.new()
 var _resource_labels := {}
 var _selection_title := Label.new()
@@ -104,12 +106,15 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
 
-	for panel: TextureRect in [_middle, _left, _right, _top]:
-		panel.stretch_mode = TextureRect.STRETCH_TILE
+	for panel: TextureRect in [_left, _right]:
 		panel.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	for panel: Control in [_middle, _left, _right, _top]:
 		panel.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		panel.mouse_filter = Control.MOUSE_FILTER_STOP
 		_root.add_child(panel)
+	for plank: NinePatchRect in [_middle, _top]:
+		plank.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+		plank.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 	_left.stretch_mode = TextureRect.STRETCH_SCALE
 	_right.stretch_mode = TextureRect.STRETCH_SCALE
 	_right.texture = _minimap_panel_texture()
@@ -188,6 +193,8 @@ func _layout() -> void:
 	_left.texture = _status_frame(0, 1.0)
 	_middle.texture = _status_frame(1, ui_scale)
 	_top.texture = _status_frame(1, ui_scale)
+	_middle.patch_margin_left = int(30 * ui_scale)  # the nailed end
+	_top.patch_margin_left = 0
 	var right_size := Vector2(256, 184) * ui_scale
 	_left.position = Vector2(0, view.y - bar_h)
 	_left.size = left_size
@@ -202,6 +209,7 @@ func _layout() -> void:
 	var top_h := 30.0 * ui_scale
 	_top.position = Vector2.ZERO
 	_top.size = Vector2(view.x, top_h)
+	_top.region_rect = Rect2(Vector2.ZERO, Vector2(_top.texture.get_width(), minf(top_h, _top.texture.get_height())))
 	_resources.position = Vector2(12, 3) * ui_scale
 	_resources.size = Vector2(view.x - 24 * ui_scale, top_h - 6 * ui_scale)
 	_resources.add_theme_constant_override("separation", int(8 * ui_scale))

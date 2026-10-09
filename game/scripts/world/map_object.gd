@@ -291,6 +291,10 @@ func visual_rect() -> Rect2:
 ## The solid part of the footprint (trunk, walls, mine entrance): where workers stand at.
 ## The full footprint grid also covers the empty space around the sprite.
 func work_rect() -> Rect2:
+	if is_field():
+		# A field has no walls: its furrows fill the middle of the footprint.
+		var rect := footprint_rect()
+		return rect.grow_individual(-rect.size.x * 0.25, -rect.size.y * 0.25, -rect.size.x * 0.25, -rect.size.y * 0.25)
 	if _work_rect.size == Vector2.ZERO:
 		_work_rect = footprint_rect()
 		if object_type and not object_type.footprint_cells.is_empty():

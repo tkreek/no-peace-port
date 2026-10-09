@@ -14,14 +14,17 @@ var selection: SelectionController
 var objects_root: Node2D
 var placing_type: ObjectTypes.ObjectType
 var _ghost: MapObject
+## The travois whose packed tepee is being placed (free: it was paid for once).
+var _unpacker: Unit
 
 
 func is_placing() -> bool:
 	return placing_type != null
 
 
-func start(type_id: int) -> void:
+func start(type_id: int, unpacker: Unit = null) -> void:
 	cancel()
+	_unpacker = unpacker
 	placing_type = ObjectTypes.get_type(type_id)
 	if placing_type == null:
 		return
@@ -40,6 +43,7 @@ func cancel() -> void:
 		_ghost.queue_free()
 	_ghost = null
 	placing_type = null
+	_unpacker = null
 
 
 func _process(_delta: float) -> void:
@@ -65,7 +69,7 @@ func can_place(at: Vector2) -> bool:
 			return false
 	if GameData.guid_for_type(placing_type.id) == MapObject.FIELD_GUID and MapObject.field_allowance(player.index) <= 0:
 		return false
-	return player.can_afford(_cost())
+	return _unpacker != null or player.can_afford(_cost())
 
 
 func _cost() -> Dictionary:
@@ -89,8 +93,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _place(at: Vector2, keep_placing: bool) -> void:
-	if not can_place(at) or not player.spend(_cost()):
+	var unpacker := _unpacker
+	if not can_place(at) or (unpacker == null and not player.spend(_cost())):
 		Sound.play_sound(_cannot_build_sound())
+		return
+	if unpacker != null and not is_instance_valid(unpacker):
+		cancel()
 		return
 	var site := MapObject.new()
 	site.position = at
@@ -106,6 +114,11 @@ func _place(at: Vector2, keep_placing: bool) -> void:
 		if not is_field and site.footprint_rect().has_point(unit.position):
 			var cell := NavGrid.current.nearest_walkable(NavGrid.current.cell_of(unit.position))
 			unit.position = (Vector2(cell) + Vector2(0.5, 0.5)) * NavGrid.CELL
+	if unpacker:
+		unpacker.unpack(site)
+		placed.emit(site)
+		cancel()
+		return
 	for unit in selection.selection:
 		if is_instance_valid(unit) and unit.is_alive():
 			if is_field:

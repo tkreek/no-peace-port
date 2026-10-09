@@ -342,6 +342,8 @@ func _unit_detail(unit: Unit) -> String:
 		lines.append("Sight %d   Speed %d" % [unit.sight(), unit.move_speed()])
 	if unit.carried > 0:
 		lines.append("Carrying %d %s" % [unit.carried, unit.carrying])
+	if not unit.packed_tepee.is_empty():
+		lines.append("Carrying a packed %s" % String(GameData.stats(int(unit.packed_tepee.guid)).get("name", "tepee")).to_lower())
 	if unit.is_cow():
 		lines.append("Worth %d gold (up to %d)" % [unit.cattle_value, Unit.COW_MAX_VALUE])
 	if Unit.CASTERS.has(unit.unit_type.guid()):
@@ -618,11 +620,11 @@ func _refresh_commands() -> void:
 	if builders.is_empty():
 		_build_menu = ""
 	var research_state := "%d/%s" % [player.researched.size(), building.queue if building else []]
-	var signature := "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [research_state, builders.size() > 0, full_builders,
+	var signature := "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [research_state, builders.size() > 0, full_builders,
 			farmers.size() > 0, building.get_instance_id() if building else 0,
 			building.complete if building else false, _build_menu, fighters.size() > 0, stances.keys(),
 			units.size() > 0, formations.keys(), selection.pending,
-			building.garrison.size() if building else 0]
+			building.garrison.size() if building else 0, units.map(func(u: Unit) -> bool: return u.packed_tepee.is_empty())]
 	if signature == _command_signature:
 		_update_affordability()
 		return
@@ -689,6 +691,13 @@ func _refresh_commands() -> void:
 					else "Camouflage: blend into the landscape until given another order", func() -> void:
 				for u: Unit in hiders:
 					u.conceal())
+		if units.all(func(u: Unit) -> bool: return u.can_pack()):
+			_add_icon_command(_extra_icons, ICON_ENTER, "Pack tepee (G): click one of your tepees",
+					func() -> void: selection.begin_targeting("pack"), selection.pending == "pack")
+			var loaded := units.filter(func(u: Unit) -> bool: return not u.packed_tepee.is_empty())
+			if not loaded.is_empty():
+				_add_icon_command(_extra_icons, ICON_LEAVE, "Set up tepee (L): %s" % GameData.stats(int(loaded[0].packed_tepee.guid)).get("name", "tepee"),
+						func() -> void: unpack_tepee())
 		if units.all(selection._can_quarter):
 			_add_icon_command(_extra_icons, ICON_ENTER, "Move into quarters (G): click a fort or tower",
 					func() -> void: selection.begin_targeting("quarters"), selection.pending == "quarters")
@@ -729,6 +738,21 @@ func _refresh_commands() -> void:
 		_add_icon_command(_extra_icons, ICON_DEMOLISH, "Demolish (Del)" if building.complete \
 				else "Demolish (Del) — refunds the unbuilt part", func() -> void: building.demolish())
 	_layout()
+
+
+## Place the tepee the first loaded travois in the selection carries.
+func unpack_tepee() -> void:
+	for u: Unit in selection.selection:
+		if is_instance_valid(u) and u.can_pack() and not u.packed_tepee.is_empty():
+			var type_id := GameData.type_for_guid(int(u.packed_tepee.guid), biome)
+			if type_id >= 0:
+				build_controller.start(type_id, u)
+			return
+
+
+func _all_travois() -> bool:
+	var units := selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+	return not units.is_empty() and units.all(func(u: Unit) -> bool: return u.can_pack())
 
 
 func _open_build_menu(menu: String) -> void:
@@ -780,6 +804,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		var building := selection.selected_building
 		if is_instance_valid(building) and building.owner_index == player.index:
 			building.demolish()
+	elif key == KEY_G and _all_travois():
+		selection.begin_targeting("pack")
+	elif key == KEY_L and _all_travois():
+		unpack_tepee()
 	elif key == KEY_G:
 		if not selection.selection.is_empty():
 			selection.begin_targeting("quarters")

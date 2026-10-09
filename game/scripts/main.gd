@@ -233,6 +233,10 @@ func _check_victory() -> void:
 			for index in players:
 				if players[index].main_building() != null:
 					alive[index] = true
+			# A chief's tepee packed on a travois is still the people's.
+			for unit in Unit.all_units:
+				if unit.is_alive() and unit.team > 0 and int(unit.packed_tepee.get("guid", -1)) in MapObject.MAIN_BUILDINGS:
+					alive[unit.team] = true
 		_:
 			for node in units_root.get_children():
 				if (node is Unit and node.is_alive() and not node.is_cow()) or (node is MapObject and node.is_building() and node.is_alive()):

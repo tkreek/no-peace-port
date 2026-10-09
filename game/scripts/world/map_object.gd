@@ -343,6 +343,36 @@ func demolish() -> void:
 	_destroy()
 
 
+## Packing (a Native tepee onto a travois) or a cancelled set-up: the building leaves
+## without rubble. Quartered units step out and queued orders are refunded.
+func vanish() -> void:
+	release()
+	extinguish()
+	while not queue.is_empty():
+		cancel_queued(queue.size() - 1)
+	if NavGrid.current:
+		NavGrid.current.unblock_footprint(object_type, position)
+	selected = false
+	health = 0.0
+	accepts = PackedStringArray()
+	all_objects.erase(self)
+	queue_free()
+
+
+## A travois has set the tepee up again: it stands at once, as worn as when it was packed.
+func finish_unpack(health_ratio: float) -> void:
+	complete = true
+	build_progress = 1.0
+	health = max_health * clampf(health_ratio, 0.05, 1.0)
+	accepts = _drop_off_for(guid)
+	refresh_upgrades()
+	_refresh_sprites()
+	_update_fires()
+	_overlay.queue_redraw()
+	Sound.play_event(guid, Sound.Event.FINISHED, position, 0)
+	construction_finished.emit(self)
+
+
 func _destroy() -> void:
 	release()  # the quartered units escape the ruins
 	extinguish()

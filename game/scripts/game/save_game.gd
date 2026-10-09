@@ -56,7 +56,7 @@ static func save(main: Node, path := QUICK) -> bool:
 				"health": unit.health, "stance": unit.stance, "formation": unit.formation, "carried": unit.carried,
 				"carrying": unit.carrying, "cattle": unit.cattle_value, "magic": unit.magic_energy,
 				"gather": _key(source) if is_instance_valid(source) and source.resource != "" else "",
-				"gather_resource": unit.gather_resource})
+				"gather_resource": unit.gather_resource, "packed_tepee": unit.packed_tepee})
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		return false
@@ -154,6 +154,9 @@ static func restore(main: Node, data: Dictionary) -> void:
 		unit.carrying = entry.carrying
 		unit.cattle_value = float(entry.cattle)
 		unit.magic_energy = float(entry.magic)
+		var packed: Dictionary = entry.get("packed_tepee", {})
+		if not packed.is_empty():
+			unit.packed_tepee = {"guid": int(packed.guid), "health": float(packed.health)}
 		units[int(entry.id)] = unit
 		if entry.gather != "" and by_key.has(entry.gather):
 			unit.gather.call_deferred(by_key[entry.gather])

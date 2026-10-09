@@ -904,3 +904,37 @@ func _scenario_fire() -> void:
 		print("t=%ds %s" % [(i + 1) * 3, houses.map(func(b: MapObject) -> String:
 				return "%d%%%s" % [int(100 * b.health / b.max_health), " burning" if b.burning > 0.0 else ""] if is_instance_valid(b) else "gone")])
 	get_tree().quit()
+
+
+## A travois packs a sleeping tepee and sets it up again elsewhere.
+func _scenario_tepee() -> void:
+	var hq: MapObject = main.players[1].main_building()
+	var type := ObjectTypes.get_type(GameData.type_for_guid(101, main.terrain.biome))
+	var ai := AiPlayer.new()
+	var tepee := MapObject.new()
+	tepee.position = ai._find_spot(type, hq.position)
+	tepee.setup(type, 1)
+	main.units_root.add_child(tepee)
+	main.nav.block_footprint(type, tepee.position)
+	tepee.take_damage(tepee.max_health * 0.3)
+	var target := ai._find_spot(type, hq.position + Vector2(-400, 300))
+	ai.free()
+	main._spawn_squad(Unit.TRAVOIS, 1, tepee.position + Vector2(0, 160), 1)
+	var travois: Unit = Unit.all_units.filter(func(u: Unit) -> bool: return u.unit_type.guid() == Unit.TRAVOIS)[0]
+	var cap: int = main.players[1].population_cap()
+	main.selection._select([travois], false)
+	main.selection.begin_targeting("pack")
+	main.selection._give_targeted(tepee.work_rect().get_center())
+	await get_tree().create_timer(14.0).timeout
+	print("packed %s, tepee gone %s, housing %d -> %d" % [travois.packed_tepee, not is_instance_valid(tepee), cap, main.players[1].population_cap()])
+	main.hud.unpack_tepee()
+	main.build_controller._place(target, false)
+	for i in 5:
+		await get_tree().create_timer(5.0).timeout
+		var again := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.guid == 101 and o.owner_index == 1)
+		print("t=%ds travois at %s carrying %s; tepees %s" % [(i + 1) * 5, travois.position.round(), not travois.packed_tepee.is_empty(),
+				again.map(func(o: MapObject) -> String: return "%s %d%%" % ["up" if o.complete else "site", int(100 * o.health / o.max_health)])])
+	main.camera.position = target
+	print("housing now %d" % main.players[1].population_cap())
+	if GameData.cmdline_option("screenshot") == "":
+		get_tree().quit()

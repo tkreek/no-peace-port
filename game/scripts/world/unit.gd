@@ -722,6 +722,74 @@ func _become(guid: int) -> Unit:
 	return other
 
 
+## Native Americans "can quickly pack up their tepees, load them onto travois and disappear
+## into the landscape" (manual 5.1; Pack G, Unpack L): the travois takes the tepee down and
+## carries it, and sets it up again wherever it is told, as worn as it was.
+const TRAVOIS := 155
+const TEPEES := [100, 101, 103, 107, 115]  # chief's, sleeping, training, elders', medicine man's
+const PACK_SECONDS := 6.0
+var packed_tepee := {}  ## {"guid", "health"} while a tepee rides on this travois
+var _pack_target: MapObject
+var _unpack_site: MapObject
+var _pack_timer := 0.0
+
+
+func can_pack() -> bool:
+	return unit_type.guid() == TRAVOIS and team > 0 and is_alive()
+
+
+func pack(tepee: MapObject) -> void:
+	if not can_pack() or not packed_tepee.is_empty() or tepee == null or tepee.guid not in TEPEES \
+			or tepee.owner_index != team or not tepee.complete or not tepee.is_alive():
+		return
+	_clear_orders()
+	gather_source = null
+	_pack_target = tepee
+	_pack_timer = 0.0
+	state = State.MOVING
+	path = _find_path(tepee.work_rect().get_center())
+
+
+## Head for the site placed for the carried tepee and set it up there.
+func unpack(site: MapObject) -> void:
+	if not can_pack() or packed_tepee.is_empty() or site == null:
+		return
+	_clear_orders()
+	_unpack_site = site
+	_pack_timer = 0.0
+	state = State.MOVING
+	path = _find_path(site.work_rect().get_center())
+
+
+func _update_pack(delta: float) -> void:
+	var building := _pack_target if _pack_target != null else _unpack_site
+	if not is_instance_valid(building) or (building == _pack_target and not building.is_alive()):
+		_pack_target = null
+		_unpack_site = null
+		return
+	if not building.work_rect().grow(REACH * 2).has_point(position):
+		var now := Time.get_ticks_msec()
+		if path.is_empty() or now - _last_repath > REPATH_MS * 3:
+			_last_repath = now
+			path = _find_path(building.work_rect().get_center())
+		state = State.MOVING
+		return
+	path.clear()
+	state = State.IDLE
+	face(building.work_rect().get_center() - position)
+	_pack_timer += delta
+	if _pack_timer < PACK_SECONDS:
+		return
+	if building == _pack_target:
+		packed_tepee = {"guid": building.guid, "health": building.health / building.max_health}
+		_pack_target = null
+		building.vanish()
+	else:
+		building.finish_unpack(float(packed_tepee.health))
+		packed_tepee = {}
+		_unpack_site = null
+
+
 ## Native Americans heal over time with herb blends; outlaws once Self-healing is researched.
 const SELF_HEALING_UPGRADE := 957
 const SELF_HEAL_PER_SECOND := 0.6
@@ -860,6 +928,10 @@ func follow(leader: Unit) -> void:
 func _clear_orders() -> void:
 	uncover()
 	_mount_target = null
+	_pack_target = null
+	if is_instance_valid(_unpack_site) and not _unpack_site.complete:
+		_unpack_site.vanish()  # the tepee stays on the travois
+	_unpack_site = null
 	_spell = -1
 	_patrol.clear()
 	follow_target = null
@@ -1078,6 +1150,8 @@ func _process(delta: float) -> void:
 		_update_follow()
 	if _steal_target != null and (state == State.IDLE or state == State.MOVING):
 		_update_steal(delta)
+	if (_pack_target != null or _unpack_site != null) and (state == State.IDLE or state == State.MOVING):
+		_update_pack(delta)
 	if heal_target != null and (state == State.IDLE or state == State.MOVING):
 		_update_heal(delta)
 		_advance(delta)
@@ -1428,7 +1502,7 @@ func _update_gather(delta: float) -> void:
 ## Shuttle gold from a gold warehouse to the main building for as long as it holds any;
 ## an empty warehouse is waited at, since the miners keep filling it.
 func haul(warehouse: MapObject) -> void:
-	if not is_alive() or warehouse == null or not unit_type.is_transport() \
+	if not is_alive() or warehouse == null or not unit_type.is_transport() or not packed_tepee.is_empty() \
 			or (warehouse.owner_index != team and not warehouse.is_abandoned_store()):
 		return
 	_clear_orders()

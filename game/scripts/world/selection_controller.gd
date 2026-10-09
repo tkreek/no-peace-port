@@ -93,6 +93,14 @@ func _give_targeted(world: Vector2) -> void:
 				leader.flash(Color(0.5, 0.9, 1.0))
 				for unit: Unit in units:
 					unit.follow(leader)
+		"pack":
+			var tepee := _building_at(world)
+			if tepee and tepee.guid in Unit.TEPEES and tepee.complete:
+				var travois := units.filter(func(u: Unit) -> bool: return u.can_pack() and u.packed_tepee.is_empty())
+				travois.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.distance_to(tepee.position) < b.position.distance_to(tepee.position))
+				if not travois.is_empty():
+					travois[0].pack(tepee)
+					tepee.flash()
 		"quarters":
 			var building := _building_at(world)
 			if building and building.capacity() > 0:

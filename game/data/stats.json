@@ -1023,7 +1023,9 @@
   "name": "Farm",
   "faction": "usa",
   "kind": "structure",
-  "cost": {},
+  "cost": {
+   "wood": 250
+  },
   "health": 750,
   "prerequisites": "Headquarters"
  },

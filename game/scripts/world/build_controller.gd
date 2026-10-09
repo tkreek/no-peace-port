@@ -63,6 +63,8 @@ func can_place(at: Vector2) -> bool:
 	for unit in Unit.all_units:
 		if unit.is_alive() and unit.team != player.index and rect.has_point(unit.position):
 			return false
+	if GameData.guid_for_type(placing_type.id) == MapObject.FIELD_GUID and MapObject.field_allowance(player.index) <= 0:
+		return false
 	return player.can_afford(_cost())
 
 
@@ -96,15 +98,20 @@ func _place(at: Vector2, keep_placing: bool) -> void:
 		site.free()
 		return
 	objects_root.add_child(site)
-	NavGrid.current.block_footprint(placing_type, at)
+	var is_field := site.is_field()
+	if not is_field:
+		NavGrid.current.block_footprint(placing_type, at)
 	# Units now standing inside the footprint step out to the nearest free cell.
 	for unit in Unit.all_units:
-		if site.footprint_rect().has_point(unit.position):
+		if not is_field and site.footprint_rect().has_point(unit.position):
 			var cell := NavGrid.current.nearest_walkable(NavGrid.current.cell_of(unit.position))
 			unit.position = (Vector2(cell) + Vector2(0.5, 0.5)) * NavGrid.CELL
 	for unit in selection.selection:
 		if is_instance_valid(unit) and unit.is_alive():
-			unit.build(site)
+			if is_field:
+				unit.gather(site)
+			else:
+				unit.build(site)
 	placed.emit(site)
 	var type_id := placing_type.id
 	cancel()

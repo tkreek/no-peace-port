@@ -16,7 +16,12 @@ const ACTION_STEMS := {
 	"carry_wood_idle": "holz_stehen",
 	"carry_gold": "gold_tragen",
 	"carry_gold_idle": "gold_stehen",
+	"harvest": "ernten",
+	"carry_food": "korb_tragen",
+	"carry_food_idle": "korb_stehen",
 }
+## The manual's hunting unit of each people.
+const HUNTER_NAMES := ["Militiaman", "Trapper", "Arrow shooter", "Hunter"]
 ## Alternative file names some factions use for the same action.
 const ACTION_FALLBACKS := {
 	"carry_gold": "sack_tragen",
@@ -104,14 +109,34 @@ func _setup_combat() -> void:
 
 ## Animation index for an action name, or -1.
 func anim_index(action: String) -> int:
+	if action == "sow":
+		return _sow_anim()
 	var index := bob.find_anim(ACTION_STEMS.get(action, action))
 	if index < 0 and ACTION_FALLBACKS.has(action):
 		index = bob.find_anim(ACTION_FALLBACKS[action])
 	return index
 
 
+## "säen" is spelled several ways in the file names (saehen, sähen, sähene).
+func _sow_anim() -> int:
+	for i in bob.anims.size():
+		var sub := bob.anims[i].sub_sprite
+		if bob.sub_sprite_is_shadow[sub]:
+			continue
+		var file := bob.sub_sprites[sub].to_lower()
+		if file.contains("aehen") or (file.contains("_s") and file.contains("hen") and not file.contains("stehen")):
+			return i
+	return -1
+
+
+func is_hunter() -> bool:
+	return GameData.stats(guid()).get("name", "") in HUNTER_NAMES
+
+
 func can_gather(resource: String) -> bool:
 	match resource:
+		"food":
+			return anim_index("harvest") >= 0
 		"wood":
 			return anim_index("chop") >= 0 and anim_index("carry_wood") >= 0
 		"gold":

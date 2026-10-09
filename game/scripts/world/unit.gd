@@ -14,7 +14,10 @@ const REPATH_MS := 600
 const CORPSE_SECONDS := 20.0
 const SEPARATION_RADIUS := 14.0
 const SCAN_INTERVAL := 0.4
-const WORK_SECONDS := {"wood": 4.0, "gold": 5.0}
+const WORK_SECONDS := {"wood": 4.0, "gold": 5.0, "food": 5.0}
+## Food from a hunted animal, by object name prefix.
+const MEAT := {"Tier_B": 150, "Tier_K": 100, "Tier_P": 60}  # buffalo, cow, horse
+const HUNT_RANGE := 1500.0
 const REACH := 20.0
 
 static var debug_paths := false
@@ -35,6 +38,7 @@ var path := PackedVector2Array()
 var state := State.IDLE
 var target: Node2D  ## Unit or MapObject building
 var attack_moving := false  ## moving, but engage enemies met on the way
+var hunting := false  ## target is an animal; carry the meat home after the kill
 var guard_position := Vector2.ZERO  # where an idle unit returns after chasing
 ## Hidden by the fog of war (enemy out of sight) / inside a building such as a gold mine.
 var fogged := false:
@@ -47,6 +51,7 @@ var inside := false:
 		visible = not fogged and not inside
 var carrying := ""  # resource in hand ("" when empty-handed)
 var gather_resource := ""  # what this worker is assigned to collect
+var hunted := false  ## an animal whose meat has been taken
 var carried := 0
 var gather_source: MapObject
 var _gather_phase := Gather.TO_SOURCE
@@ -128,11 +133,28 @@ func move_to(destination: Vector2) -> void:
 func attack(enemy: Node2D) -> void:
 	if not is_alive() or enemy == null or not enemy.is_alive() or unit_type.attack_anims.is_empty():
 		return
+	hunting = false
 	target = enemy
 	gather_source = null
 	inside = false
 	state = State.ATTACKING
 	path.clear()
+
+
+## Kill an animal and carry its meat to a butcher or the main building, then hunt again.
+func hunt(animal: Unit) -> void:
+	if not unit_type.is_hunter() or animal == null or not animal.is_alive() or animal.team != 0:
+		return
+	attack(animal)
+	hunting = true
+
+
+func meat_value() -> int:
+	var type := ObjectTypes.get_type(unit_type.type_id)
+	for prefix in MEAT:
+		if type and type.name.begins_with(prefix):
+			return MEAT[prefix]
+	return 60
 
 
 ## Walk to a construction site and work on it until it is finished.
@@ -234,8 +256,18 @@ func _process(delta: float) -> void:
 
 
 func _update_attack(delta: float) -> void:
+	if hunting and is_instance_valid(target) and target is Unit and not target.is_alive() and _attack_step < 0:
+		_carry_meat(target)
+		return
 	if target == null or not is_instance_valid(target) or not target.is_alive():
 		target = null
+		if hunting and _attack_step < 0:
+			var animal := _nearest_animal()  # someone else took this carcass
+			if animal:
+				hunt(animal)
+			else:
+				stop()
+			return
 		if _attack_step < 0:
 			# Look for the next enemy nearby before standing down.
 			var enemy := _nearest_target(unit_type.sight)
@@ -269,7 +301,7 @@ func _update_attack(delta: float) -> void:
 
 
 func _continue_attack() -> void:
-	if target and is_instance_valid(target):
+	if is_instance_valid(target):
 		face(_aim_point(target) - position)
 	if not _anim_finished:
 		return
@@ -309,11 +341,15 @@ func _die() -> void:
 
 
 func _walk_action() -> String:
-	return "carry_" + carrying if carrying != "" else "walk"
+	if carrying != "" and unit_type.anim_index("carry_" + carrying) >= 0:
+		return "carry_" + carrying
+	return "walk"
 
 
 func _idle_action() -> String:
-	return "carry_%s_idle" % carrying if carrying != "" else "idle"
+	if carrying != "" and unit_type.anim_index("carry_%s_idle" % carrying) >= 0:
+		return "carry_%s_idle" % carrying
+	return "idle"
 
 
 func _update_gather(delta: float) -> void:
@@ -335,6 +371,21 @@ func _update_gather(delta: float) -> void:
 				if gather_source.resource == "gold":
 					inside = true  # workers go inside the mine
 		Gather.WORKING:
+			if not _source_valid():
+				# Felled or emptied by someone else: find the next source.
+				inside = false
+				gather_source = null
+				_gather_phase = Gather.TO_SOURCE
+				return
+			if gather_source.is_field() and gather_source.field_state != MapObject.Field.RIPE:
+				if gather_source.field_state == MapObject.Field.FALLOW:
+					play("sow")
+					gather_source.sow(delta)
+				else:
+					play("idle")  # wait for the crop to ripen
+				return
+			if gather_source.resource == "food":
+				play("harvest")
 			_work_timer -= delta
 			if gather_source.resource == "wood":
 				play("chop")
@@ -342,8 +393,8 @@ func _update_gather(delta: float) -> void:
 					Sound.play_event(unit_type.guid(), Sound.Event.CHOP, position, 900)
 			if _work_timer > 0.0:
 				return
-			var resource := gather_source.resource if _source_valid() else _last_resource()
-			var got := gather_source.harvest(UnitType.CARRY_AMOUNT) if _source_valid() else 0
+			var resource := gather_source.resource
+			var got := gather_source.harvest(UnitType.CARRY_AMOUNT)
 			inside = false
 			if got > 0:
 				carrying = resource
@@ -365,6 +416,14 @@ func _update_gather(delta: float) -> void:
 					player.add(carrying, carried)
 				carried = 0
 				carrying = ""  # walk back empty-handed
+				if gather_resource == "meat":
+					var next := _nearest_animal()
+					gather_resource = ""
+					if next:
+						hunt(next)
+					else:
+						state = State.IDLE
+					return
 				_gather_phase = Gather.TO_SOURCE
 				_route_gather()
 
@@ -388,6 +447,32 @@ func _update_build(delta: float) -> void:
 	build_site.add_build_work(delta)
 
 
+func _carry_meat(animal: Unit) -> void:
+	carrying = "food"
+	carried = animal.meat_value()
+	animal.hunted = true
+	animal.queue_free()  # the carcass is carried away
+	target = null
+	hunting = false
+	gather_resource = "meat"
+	gather_source = null
+	state = State.GATHERING
+	_gather_phase = Gather.TO_DROP_OFF
+	_route_gather()
+
+
+func _nearest_animal() -> Unit:
+	var best: Unit = null
+	var best_distance := HUNT_RANGE
+	for other in all_units:
+		if other.team == 0 and other.is_alive():
+			var distance := position.distance_to(other.position)
+			if distance < best_distance:
+				best = other
+				best_distance = distance
+	return best
+
+
 func _route_gather() -> void:
 	if _gather_phase == Gather.TO_DROP_OFF:
 		_drop_off = _nearest_drop_off(carrying)
@@ -397,8 +482,9 @@ func _route_gather() -> void:
 
 
 func _source_valid() -> bool:
-	return gather_source != null and is_instance_valid(gather_source) and gather_source.resource != "" \
-			and gather_source.amount > 0
+	if gather_source == null or not is_instance_valid(gather_source) or gather_source.resource == "":
+		return false
+	return gather_source.is_field() or gather_source.amount > 0
 
 
 func _last_resource() -> String:
@@ -411,7 +497,10 @@ func _nearest_source(resource: String, max_distance := INF) -> MapObject:
 	var best: MapObject = null
 	var best_distance := max_distance
 	for object in MapObject.all_objects:
-		if object.resource == resource and object.amount > 0:
+		var usable := object.resource == resource and (object.amount > 0 or object.is_field())
+		if usable and object.is_field() and object.owner_index != team:
+			usable = false
+		if usable:
 			var distance := position.distance_to(object.position)
 			if distance < best_distance:
 				best = object
@@ -546,6 +635,7 @@ func _advance(delta: float) -> void:
 			_step += 1
 		elif anim.loops():
 			_step = clampi(anim.frames.size() - anim.loop_back, 0, anim.frames.size() - 1)
+			_anim_finished = true  # one full cycle played (attack sequences wait for this)
 		else:
 			_step_time = 0.0
 			_anim_finished = true

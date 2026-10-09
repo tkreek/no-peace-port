@@ -267,7 +267,8 @@ func _refresh_commands() -> void:
 	var units := selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
 	var building := selection.selected_building if is_instance_valid(selection.selected_building) else null
 	var builders := units.filter(func(u: Unit) -> bool: return u.unit_type.anim_index("build") >= 0)
-	var signature := "%s|%s|%s" % [builders.size() > 0, building.get_instance_id() if building else 0,
+	var farmers := units.filter(func(u: Unit) -> bool: return u.unit_type.can_gather("food"))
+	var signature := "%s|%s|%s|%s" % [builders.size() > 0, farmers.size() > 0, building.get_instance_id() if building else 0,
 			building.complete if building else false]
 	if signature == _command_signature:
 		_update_affordability()
@@ -275,8 +276,14 @@ func _refresh_commands() -> void:
 	_command_signature = signature
 	for child in _commands.get_children():
 		child.queue_free()
+	if not farmers.is_empty():
+		var field_type := GameData.type_for_guid(MapObject.FIELD_GUID, biome)
+		if field_type >= 0:
+			_add_command(field_type, MapObject.FIELD_GUID, func() -> void: build_controller.start(field_type))
 	if not builders.is_empty():
 		for guid in _faction_guids("structure"):
+			if guid == MapObject.FIELD_GUID:
+				continue
 			var type_id := GameData.type_for_guid(guid, biome)
 			if type_id >= 0:
 				_add_command(type_id, guid, func() -> void: build_controller.start(type_id))
@@ -332,6 +339,8 @@ func _update_affordability() -> void:
 		cost.erase("horses")
 		var guid: int = button.get_meta("guid")
 		button.disabled = not player.can_afford(cost) or not player.meets_prerequisites(guid)
+		if guid == MapObject.FIELD_GUID:
+			button.disabled = not player.can_afford(cost) or MapObject.field_allowance(player.index) <= 0
 		button.modulate = Color(1, 1, 1, 0.55) if button.disabled else Color.WHITE
 
 

@@ -51,7 +51,8 @@ def normalize(name):
 def parse_cost(text):
     text = re.sub(r"\(mounted[^)]*\)", "", text)  # optional horse when mounted
     cost = {}
-    for amount, word in re.findall(r"(\d+)\s+([a-z]+)", text.lower()):
+    text = re.sub(r"(\d+)\s+units? of\s+", r"\1 ", text.lower())  # "250 units of wood"
+    for amount, word in re.findall(r"(\d+)\s+([a-z]+)", text):
         key = RESOURCE_WORDS.get(word)
         if key:
             cost[key] = cost.get(key, 0) + int(amount)

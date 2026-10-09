@@ -44,7 +44,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			if enemy == null:
 				enemy = _enemy_building_at(world)
 			var source := _resource_at(world)
-			if enemy:
+			var animal := _animal_at(world)
+			if animal and selection.any(func(u: Unit) -> bool: return u.unit_type.is_hunter()):
+				for unit in selection:
+					if is_instance_valid(unit) and unit.unit_type.is_hunter():
+						unit.hunt(animal)
+				Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
+			elif enemy:
 				order_attack(enemy)
 			elif source and selection.any(func(u: Unit) -> bool: return u.unit_type.can_gather(source.resource)):
 				order_gather(source)
@@ -85,8 +91,17 @@ func _units(own: bool) -> Array[Unit]:
 	return out
 
 
+func _animal_at(point: Vector2) -> Unit:
+	for unit in Unit.all_units:
+		if unit.team == 0 and unit.is_alive() and point.distance_to(unit.position + Vector2(0, -12)) < CLICK_RADIUS:
+			return unit
+	return null
+
+
 func _resource_at(point: Vector2) -> MapObject:
 	for object in MapObject.all_objects:
+		if object.is_field() and object.owner_index != player_team:
+			continue
 		if object.resource != "" and object.footprint_rect().grow(6).has_point(point):
 			return object
 	return null

@@ -15,6 +15,29 @@ const BUILD_WORK_PER_HEALTH := 0.05
 const TRAIN_SECONDS := {"default": 14.0, "worker": 9.0}
 const QUEUE_LIMIT := 5
 
+## Drop-off buildings by GUID (main buildings take everything).
+const MAIN_BUILDINGS := [100, 200, 300, 400]
+const DROP_OFFS := {
+	"wood": [109, 209, 309, 409],          # wood processing, sawmills, carpentry shop
+	"gold": [104, 206, 304, 419],          # gold warehouses
+	"food": [108, 208, 408, 102, 202, 302, 402],  # granary, finca, farm; butchers / stockyard
+}
+const FOOD_STORES := [108, 208, 408]
+const FIELD_GUID := 149
+const FIELDS_PER_STORE := 5
+const DISTILLERY_GUID := 308
+
+## Fields: fallow -> sown by a woman -> grow -> ripe, harvested down to fallow again.
+enum Field { FALLOW, GROWING, RIPE }
+const FIELD_SOW_WORK := 8.0     # woman-seconds
+const FIELD_GROW_SECONDS := 45.0
+const FIELD_YIELD := 300
+const FIELD_STAGES := [3, 0, 1, 2]  # frames of anim 0: ploughed, sprouting, growing, ripe
+## Distillery: turns wood into food (the outlaws' liquor) while wood lasts.
+const DISTILL_SECONDS := 15.0
+const DISTILL_WOOD := 20
+const DISTILL_FOOD := 40
+
 static var all_objects: Array[MapObject] = []
 
 var object_type: ObjectTypes.ObjectType
@@ -34,6 +57,9 @@ var complete := true
 var build_progress := 1.0  # 0..1 while under construction
 var queue: PackedInt32Array = []  # unit GUIDs waiting to be trained
 var train_progress := 0.0  # 0..1 for queue[0]
+var field_state := Field.FALLOW
+var field_progress := 0.0  # sowing work done, then growth (0..1)
+var _distill_timer := 0.0
 
 var _bob: BobFile
 var _body: Sprite2D
@@ -79,7 +105,23 @@ func _destroy() -> void:
 
 
 func is_building() -> bool:
-	return object_type != null and object_type.kind == ObjectTypes.Kind.BUILDING
+	return object_type != null and object_type.kind == ObjectTypes.Kind.BUILDING and guid != FIELD_GUID
+
+
+func is_field() -> bool:
+	return guid == FIELD_GUID
+
+
+## Add sowing work; returns true once the field is sown and starts growing.
+func sow(seconds: float) -> bool:
+	if field_state != Field.FALLOW:
+		return true
+	field_progress += seconds / FIELD_SOW_WORK
+	if field_progress >= 1.0:
+		field_state = Field.GROWING
+		field_progress = 0.0
+	_refresh_sprites()
+	return field_state != Field.FALLOW
 
 
 func display_name() -> String:
@@ -99,8 +141,15 @@ static func footprint_rect_for(type: ObjectTypes.ObjectType, at: Vector2) -> Rec
 
 ## Take up to `wanted` units of this object's resource; removes depleted trees.
 func harvest(wanted: int) -> int:
+	if is_field() and field_state != Field.RIPE:
+		return 0
 	var taken := mini(wanted, amount)
 	amount -= taken
+	if is_field():
+		if amount <= 0:
+			field_state = Field.FALLOW
+			resource = "food"
+		_refresh_sprites()
 	if amount <= 0 and resource == "wood":
 		if NavGrid.current:
 			NavGrid.current.unblock_footprint(object_type, position)
@@ -115,7 +164,10 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 	object_type = type
 	owner_index = owner
 	guid = GameData.guid_for_type(type.id)
-	if type.name.begins_with("Baum"):
+	if guid == FIELD_GUID:
+		resource = "food"
+		amount = 0
+	elif type.name.begins_with("Baum"):
 		resource = "wood"
 		amount = TREE_WOOD
 	elif type.name.begins_with("Mine"):
@@ -129,7 +181,7 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 			build_progress = 0.0
 			health = max_health * 0.1
 		else:
-			accepts = _drop_off_for(type.name)
+			accepts = _drop_off_for(guid)
 	_bob = GameData.load_bob(type.bob_path)
 	if _bob == null or _bob.anims.is_empty():
 		return false
@@ -163,7 +215,7 @@ func add_build_work(seconds: float) -> bool:
 	if build_progress >= 1.0:
 		complete = true
 		health = max_health
-		accepts = _drop_off_for(object_type.name)
+		accepts = _drop_off_for(guid)
 		_refresh_sprites()
 		Sound.play_event(guid, Sound.Event.FINISHED, position, 0)
 		construction_finished.emit(self)
@@ -196,6 +248,14 @@ func enqueue(unit_guid: int) -> bool:
 
 
 func _process(delta: float) -> void:
+	if is_field() and field_state == Field.GROWING:
+		field_progress += delta / FIELD_GROW_SECONDS
+		if field_progress >= 1.0:
+			field_state = Field.RIPE
+			amount = FIELD_YIELD
+		_refresh_sprites()
+	if guid == DISTILLERY_GUID and complete:
+		_distill(delta)
 	if queue.is_empty() or not complete:
 		return
 	var unit_guid := queue[0]
@@ -212,11 +272,33 @@ func _process(delta: float) -> void:
 		_overlay.queue_redraw()
 
 
+func _distill(delta: float) -> void:
+	var player: Player = Player.by_index.get(owner_index)
+	if player == null or int(player.resources.get("wood", 0)) < DISTILL_WOOD:
+		return
+	_distill_timer += delta
+	if _distill_timer >= DISTILL_SECONDS:
+		_distill_timer = 0.0
+		player.spend({"wood": DISTILL_WOOD})
+		player.add("food", DISTILL_FOOD)
+
+
 func _refresh_sprites() -> bool:
 	var body_anim := object_type.anim
 	var shadow_anim := object_type.shadow_anim
 	var frame_hint := -1  # -1 = last frame of the animation
-	if is_building():
+	if is_field():
+		body_anim = 0
+		var stage := 0
+		match field_state:
+			Field.GROWING:
+				stage = 1 + mini(1, int(field_progress * 2.0))
+			Field.RIPE:
+				stage = 3 if amount > FIELD_YIELD / 3 else 2
+		var frames := _bob.anims[0].frames
+		frame_hint = frames.find(FIELD_STAGES[stage]) if frames.has(FIELD_STAGES[stage]) else 0
+		shadow_anim = -1
+	elif is_building():
 		# Construction stages are the frames of anim 0 (shadow anim 1); 2/3 hold the finished frame.
 		if not complete:
 			body_anim = 0
@@ -272,12 +354,26 @@ func _draw_overlay(canvas: Node2D) -> void:
 			canvas.draw_rect(Rect2(train.position, Vector2(train.size.x * train_progress, train.size.y)), Color(0.4, 0.7, 1.0))
 
 
-## Which resources a building accepts, from its original object name.
-static func _drop_off_for(name: String) -> PackedStringArray:
-	if name.contains("_HQ") or name.contains("Hauptzelt") or name.contains("Basis"):
+## Which resources a building accepts.
+static func _drop_off_for(building_guid: int) -> PackedStringArray:
+	if building_guid in MAIN_BUILDINGS:
 		return PackedStringArray(["wood", "gold", "food", "leather"])
-	if name.contains("Saege") or name.contains("Holz") or name.contains("Tischlerei"):
-		return PackedStringArray(["wood"])
-	if name.contains("Gold"):
-		return PackedStringArray(["gold"])
-	return PackedStringArray()
+	var out := PackedStringArray()
+	for resource in DROP_OFFS:
+		if building_guid in DROP_OFFS[resource]:
+			out.append(resource)
+	return out
+
+
+## Fields a player may still plant: five per completed food store.
+static func field_allowance(team: int) -> int:
+	var stores := 0
+	var fields := 0
+	for object in all_objects:
+		if object.owner_index != team:
+			continue
+		if object.guid in FOOD_STORES and object.complete and object.is_alive():
+			stores += 1
+		elif object.is_field():
+			fields += 1
+	return stores * FIELDS_PER_STORE - fields

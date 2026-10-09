@@ -30,7 +30,18 @@ func setup(alf_map: AlfMap, biome_name: String) -> void:
 			Image.create_from_data(atlas.width, atlas.height, false, Image.FORMAT_R8, atlas.pixels)))
 	_material.set_shader_parameter("atlas_palette", ImageTexture.create_from_image(_palette_image(atlas.palette)))
 	_material.set_shader_parameter("atlas_tiles_per_row", atlas.width / AlfMap.CELL_SIZE)
-	_material.set_shader_parameter("ground", _ground_textures(directory, atlas.palette))
+	var enhanced := _enhanced_dir()
+	_material.set_shader_parameter("ground", _ground_textures(directory, atlas.palette, enhanced))
+	if not enhanced.is_empty():
+		var meta: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(enhanced.path_join("terrain.json")))
+		var art := Image.load_from_file(enhanced.path_join("terrain_atlas.png"))
+		art.generate_mipmaps()
+		_material.set_shader_parameter("enhanced", true)
+		_material.set_shader_parameter("hd_atlas", ImageTexture.create_from_image(art))
+		_material.set_shader_parameter("hd_layers", ImageTexture.create_from_image(
+				Image.load_from_file(enhanced.path_join("terrain_layers.png"))))
+		_material.set_shader_parameter("hd_tile", int(meta.tile))
+		_material.set_shader_parameter("hd_columns", int(meta.columns))
 	_material.set_shader_parameter("ground_period", float(GROUND_SIZE))
 	_material.set_shader_parameter("map_size", Vector2(map.pixel_size()))
 	material = _material
@@ -59,14 +70,30 @@ func _palette_image(rgb: PackedByteArray) -> Image:
 
 ## One layer per placeholder palette index; textures are tiled up to GROUND_SIZE square.
 ## Indices without a texture file fall back to their flat placeholder colour.
-func _ground_textures(directory: String, atlas_palette: PackedByteArray) -> Texture2DArray:
+## Folder of the upscaled terrain for this biome, or "" to use the original pixels.
+func _enhanced_dir() -> String:
+	if GameData.enhanced_dir.is_empty():
+		return ""
+	var dir := GameData.enhanced_dir.path_join("terrain").path_join(biome)
+	return dir if FileAccess.file_exists(dir.path_join("terrain.json")) else ""
+
+
+func _ground_textures(directory: String, atlas_palette: PackedByteArray, enhanced: String) -> Texture2DArray:
 	var layers: Array[Image] = []
+	var size := GROUND_SIZE * (2 if not enhanced.is_empty() else 1)
 	for index in GROUND_LAYERS:
-		var image := GameData.load_image(directory.path_join("steppe%d.pic" % index))
-		var layer := Image.create_empty(GROUND_SIZE, GROUND_SIZE, false, Image.FORMAT_RGB8)
+		var image: Image
+		if not enhanced.is_empty() and FileAccess.file_exists(enhanced.path_join("ground_%d.png" % index)):
+			image = Image.load_from_file(enhanced.path_join("ground_%d.png" % index))
+			image.convert(Image.FORMAT_RGB8)
+		else:
+			image = GameData.load_image(directory.path_join("steppe%d.pic" % index))
+			if image and not enhanced.is_empty():
+				image.resize(image.get_width() * 2, image.get_height() * 2, Image.INTERPOLATE_LANCZOS)
+		var layer := Image.create_empty(size, size, false, Image.FORMAT_RGB8)
 		if image:
-			for y in range(0, GROUND_SIZE, image.get_height()):
-				for x in range(0, GROUND_SIZE, image.get_width()):
+			for y in range(0, size, image.get_height()):
+				for x in range(0, size, image.get_width()):
 					layer.blit_rect(image, Rect2i(Vector2i.ZERO, image.get_size()), Vector2i(x, y))
 		else:
 			layer.fill(Color8(atlas_palette[index * 3], atlas_palette[index * 3 + 1], atlas_palette[index * 3 + 2]))

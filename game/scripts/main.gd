@@ -6,8 +6,10 @@ extends Node2D
 ##   --biome=steppe|wiese
 ##   --screenshot=<png path>  save a frame after --frames=<n> (default 90) and quit
 ##   --scenario=battle  two infantry squads fighting in front of the camera
+##   --scenario=food    women farm two fields at a finca, militiamen hunt
 ##   --scenario=economy player 1's workers gather the nearest wood and gold
 ##   --fog=off  disable the fog of war
+##   --ai=off  no computer opponent (for isolated tests)
 ##   --ai-vs-ai=1  computer controls player 1 as well
 ##   --report-after=<frames>  print stockpiles every 300 frames, then quit (use --fixed-fps)
 ##   --camera=x,y  --zoom=z  --order=x,y (screenshot move target)  --debug-paths=1
@@ -75,6 +77,8 @@ func _ready() -> void:
 				var source := unit._nearest_source(resource) if resource == "wood" else _nearest_mine(unit.position)
 				unit.gather(source)
 				i += 1
+	if GameData.cmdline_option("scenario") == "food":
+		_scenario_food.call_deferred()
 	if GameData.cmdline_option("scenario") == "build":
 		_scenario_build.call_deferred()
 	var report := GameData.cmdline_option("report-after")
@@ -104,6 +108,8 @@ func _ready() -> void:
 	hud.minimap.move_ordered.connect(selection._order_move)
 	# Player 2 is computer controlled (player 1 too with --ai-vs-ai, for testing).
 	for index in players:
+		if GameData.cmdline_option("ai") == "off":
+			break
 		if index == 2 or GameData.cmdline_option("ai-vs-ai") != "":
 			var ai := AiPlayer.new()
 			ai.player = players[index]
@@ -245,6 +251,42 @@ func _scenario_build() -> void:
 	print("queued: ", hq.enqueue(252), hq.enqueue(252))
 
 
+## A finca with two fields worked by three women, and two militiamen hunting.
+func _scenario_food() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	var ai := AiPlayer.new()
+	ai.biome = terrain.biome
+	var finca_type := ObjectTypes.get_type(GameData.type_for_guid(208, terrain.biome))
+	var finca := MapObject.new()
+	finca.position = ai._find_spot(finca_type, hq.position)
+	finca.setup(finca_type, 1)
+	units_root.add_child(finca)
+	nav.block_footprint(finca_type, finca.position)
+	ai.free()
+	_spawn_squad("global/gfx/mex/frau", 1, finca.position + Vector2(0, 120), 3)
+	_spawn_squad("global/gfx/mex/milizionaer", 1, hq.position + Vector2(0, 160), 2)
+	var field_type := ObjectTypes.get_type(GameData.type_for_guid(MapObject.FIELD_GUID, terrain.biome))
+	var fields: Array[MapObject] = []
+	for k in 2:
+		var field := MapObject.new()
+		field.position = finca.position + Vector2(-140 + k * 150, 170)
+		field.setup(field_type, 1)
+		units_root.add_child(field)
+		fields.append(field)
+	var i := 0
+	for node in units_root.get_children():
+		if node is Unit and node.team == 1:
+			if node.unit_type.can_gather("food") and node.unit_type.anim_index("build") < 0:
+				node.gather(fields[i % 2])
+				i += 1
+			elif node.unit_type.is_hunter():
+				node.hunt(node._nearest_animal())
+	print("food scenario: finca at %s, %d women farming" % [finca.position, i])
+
+
 func _nearest_mine(from: Vector2) -> MapObject:
 	var best: MapObject = null
 	for object in MapObject.all_objects:
@@ -265,6 +307,8 @@ func _report_after(frames: int) -> void:
 func _print_report(frame: int) -> void:
 	if GameData.cmdline_option("trace-workers") != "":
 		for node in units_root.get_children():
+			if node is Unit and node.team == 1 and node.unit_type.is_hunter():
+				print("  hunter state=%d hunting=%s target=%s pos=%s carrying=%s" % [node.state, node.hunting, node.target, node.position.round(), node.carrying])
 			if node is Unit and node.team == 1 and node.state == Unit.State.GATHERING:
 				print("  worker phase=%d action=%s carrying='%s' inside=%s" % [node._gather_phase, node._action, node.carrying, node.inside])
 	var alive := {}
@@ -274,6 +318,8 @@ func _print_report(frame: int) -> void:
 	for object in MapObject.all_objects:
 		if object.is_building() and object.owner_index == 1:
 			print("  %s complete=%s progress=%.2f queue=%s" % [object.display_name(), object.complete, object.build_progress, object.queue])
+		elif object.is_field() and object.owner_index == 1:
+			print("  field state=%d progress=%.2f amount=%d" % [object.field_state, object.field_progress, object.amount])
 	for index in players:
 		print("frame %d player %d: %s units=%d" % [frame, index, players[index].resources, alive.get(index, 0)])
 

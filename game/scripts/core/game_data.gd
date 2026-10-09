@@ -187,6 +187,32 @@ func stats(guid: int) -> Dictionary:
 	return _stats.get(guid, {})
 
 
+## GUIDs of the structures a GUID requires (parsed from the manual's prerequisite names).
+func prerequisites(guid: int) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	var stats := stats(guid)
+	var text: String = stats.get("prerequisites", "")
+	if text.is_empty():
+		return out
+	for raw in text.split(","):
+		var wanted := _name_key(raw)
+		for other in _stats:
+			var candidate: Dictionary = _stats[other]
+			if candidate.faction == stats.faction and candidate.kind == "structure" \
+					and _name_key(candidate.name) == wanted:
+				out.append(other)
+				break
+	return out
+
+
+static func _name_key(name: String) -> String:
+	var key := ""
+	for c in name.to_lower():
+		if c >= "a" and c <= "z":
+			key += c
+	return key
+
+
 func stats_guids() -> Array:
 	return _stats.keys()
 

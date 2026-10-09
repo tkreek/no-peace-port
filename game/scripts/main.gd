@@ -7,6 +7,7 @@ extends Node2D
 ##   --screenshot=<png path>  save a frame after --frames=<n> (default 90) and quit
 ##   --scenario=battle  two infantry squads fighting in front of the camera
 ##   --scenario=economy player 1's workers gather the nearest wood and gold
+##   --ai-vs-ai=1  computer controls player 1 as well
 ##   --report-after=<frames>  print stockpiles every 300 frames, then quit (use --fixed-fps)
 ##   --camera=x,y  --zoom=z  --order=x,y (screenshot move target)  --debug-paths=1
 
@@ -19,6 +20,8 @@ var selection := SelectionController.new()
 var nav := NavGrid.new()
 var hud := Hud.new()
 var build_controller := BuildController.new()
+var ais: Array[AiPlayer] = []
+var _game_over := false
 var players := {}
 var start_positions := {}  # player -> Vector2, from the map's Editor_Start markers
 
@@ -94,6 +97,20 @@ func _ready() -> void:
 	add_child(hud)
 	hud.setup(map, terrain.overview_image(), camera, units_root, players[1], selection)
 	hud.minimap.move_ordered.connect(selection._order_move)
+	# Player 2 is computer controlled (player 1 too with --ai-vs-ai, for testing).
+	for index in players:
+		if index == 2 or GameData.cmdline_option("ai-vs-ai") != "":
+			var ai := AiPlayer.new()
+			ai.player = players[index]
+			ai.units_root = units_root
+			ai.biome = terrain.biome
+			add_child(ai)
+			ais.append(ai)
+	var check := Timer.new()
+	check.wait_time = 2.0
+	check.autostart = true
+	check.timeout.connect(_check_victory)
+	add_child(check)
 	Sound.play_music(players[1].faction)
 	DisplayServer.window_set_title("America — %s" % map.title)
 	_setup_screenshot()
@@ -127,6 +144,27 @@ func _spawn_placements(map: AlfMap) -> void:
 			units_root.add_child(object)
 		spawned += 1
 	print("Placed %d/%d map objects in %d ms" % [spawned, map.placements.size(), Time.get_ticks_msec() - started])
+
+
+## A player is out when they have no buildings and no units left.
+func _check_victory() -> void:
+	if _game_over:
+		return
+	var alive := {}
+	for node in units_root.get_children():
+		if (node is Unit and node.is_alive()) or (node is MapObject and node.is_building() and node.is_alive()):
+			var owner: int = node.team if node is Unit else node.owner_index
+			if owner > 0:
+				alive[owner] = true
+	var human_alive: bool = alive.has(1)
+	var others_alive := alive.keys().any(func(k: int) -> bool: return k != 1)
+	if human_alive and others_alive:
+		return
+	_game_over = true
+	var won := human_alive
+	print("GAME OVER: ", "player 1 wins" if won else "player 1 lost")
+	Sound.play_mission_result(won)
+	hud.show_banner(GameData.text(1 if won else 2, "Victory!" if won else "Defeat"))
 
 
 func _on_building_placed(site: MapObject) -> void:

@@ -33,7 +33,8 @@ var max_health := 100.0
 var health := 100.0
 var path := PackedVector2Array()
 var state := State.IDLE
-var target: Unit
+var target: Node2D  ## Unit or MapObject building
+var attack_moving := false  ## moving, but engage enemies met on the way
 var guard_position := Vector2.ZERO  # where an idle unit returns after chasing
 var carrying := ""  # resource in hand
 var carried := 0
@@ -95,9 +96,16 @@ func is_enemy_of(other: Unit) -> bool:
 
 # ------------------------------------------------------------------ orders
 
+## Move, fighting any enemy that comes within sight on the way.
+func attack_move(destination: Vector2) -> void:
+	move_to(destination)
+	attack_moving = true
+
+
 func move_to(destination: Vector2) -> void:
 	if not is_alive():
 		return
+	attack_moving = false
 	target = null
 	gather_source = null
 	visible = true
@@ -107,7 +115,7 @@ func move_to(destination: Vector2) -> void:
 	state = State.MOVING if not path.is_empty() else State.IDLE
 
 
-func attack(enemy: Unit) -> void:
+func attack(enemy: Node2D) -> void:
 	if not is_alive() or enemy == null or not enemy.is_alive() or unit_type.attack_anims.is_empty():
 		return
 	target = enemy
@@ -155,7 +163,7 @@ func stop() -> void:
 		state = State.IDLE
 
 
-func take_damage(amount: float, attacker: Unit = null) -> void:
+func take_damage(amount: float, attacker: Node2D = null) -> void:
 	if not is_alive():
 		return
 	health = maxf(0.0, health - amount)
@@ -180,9 +188,20 @@ func _process(delta: float) -> void:
 					attack(enemy)
 			play("idle")
 		State.MOVING:
+			if attack_moving:
+				_scan_timer -= delta
+				if _scan_timer <= 0.0:
+					_scan_timer = SCAN_INTERVAL
+					var enemy := _nearest_target(unit_type.sight)
+					if enemy:
+						var resume := guard_position
+						attack(enemy)
+						guard_position = resume
+						return
 			_follow_path(delta)
 			if path.is_empty():
 				state = State.IDLE
+				attack_moving = false
 			play(_walk_action() if state == State.MOVING else _idle_action())
 		State.GATHERING:
 			_update_gather(delta)
@@ -208,16 +227,19 @@ func _update_attack(delta: float) -> void:
 		target = null
 		if _attack_step < 0:
 			# Look for the next enemy nearby before standing down.
-			var enemy := _nearest_enemy(unit_type.sight)
+			var enemy := _nearest_target(unit_type.sight)
 			if enemy:
 				target = enemy
+			elif position.distance_to(guard_position) > 64.0 and guard_position != Vector2.ZERO:
+				attack_move(guard_position)  # carry on to where we were heading
+				return
 			else:
 				state = State.IDLE
 				return
 	if _attack_step >= 0:
 		_continue_attack()
 		return
-	var to_target := target.position - position
+	var to_target := _aim_point(target) - position
 	if to_target.length() > unit_type.attack_range:
 		var now := Time.get_ticks_msec()
 		if path.is_empty() or now - _last_repath > REPATH_MS:
@@ -237,7 +259,7 @@ func _update_attack(delta: float) -> void:
 
 func _continue_attack() -> void:
 	if target and is_instance_valid(target):
-		face(target.position - position)
+		face(_aim_point(target) - position)
 	if not _anim_finished:
 		return
 	if _attack_step == unit_type.fire_step:
@@ -258,7 +280,7 @@ func _strike() -> void:
 	Sound.play_event(unit_type.guid(), event, position, 60)
 	# Ranged hits are not certain; distance makes them less likely.
 	if unit_type.ranged:
-		var accuracy := clampf(1.1 - position.distance_to(target.position) / (unit_type.attack_range * 1.6), 0.4, 0.95)
+		var accuracy := clampf(1.1 - position.distance_to(_aim_point(target)) / (unit_type.attack_range * 1.6), 0.4, 0.95)
 		if randf() > accuracy:
 			return
 	target.take_damage(unit_type.damage, self)
@@ -389,6 +411,30 @@ func _nearest_drop_off(resource: String) -> MapObject:
 	for object in MapObject.all_objects:
 		if object.owner_index == team and resource in object.accepts:
 			var distance := position.distance_to(object.position)
+			if distance < best_distance:
+				best = object
+				best_distance = distance
+	return best
+
+
+## Closest point of a target: a unit's feet, or the nearest edge of a building's footprint.
+func _aim_point(node: Node2D) -> Vector2:
+	if node is MapObject:
+		var rect: Rect2 = node.footprint_rect()
+		return Vector2(clampf(position.x, rect.position.x, rect.end.x), clampf(position.y, rect.position.y, rect.end.y))
+	return node.position
+
+
+## Nearest enemy unit in sight, else nearest enemy building.
+func _nearest_target(radius: float) -> Node2D:
+	var unit := _nearest_enemy(radius)
+	if unit:
+		return unit
+	var best: MapObject = null
+	var best_distance := radius
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index > 0 and object.owner_index != team and object.is_alive():
+			var distance := position.distance_to(_aim_point(object))
 			if distance < best_distance:
 				best = object
 				best_distance = distance

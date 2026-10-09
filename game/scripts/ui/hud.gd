@@ -318,5 +318,18 @@ func _update_affordability() -> void:
 		var cost: Dictionary = GameData.stats(button.get_meta("guid")).get("cost", {}).duplicate()
 		cost.erase("population")
 		cost.erase("horses")
-		button.disabled = not player.can_afford(cost)
+		var guid: int = button.get_meta("guid")
+		button.disabled = not player.can_afford(cost) or not player.meets_prerequisites(guid)
 		button.modulate = Color(1, 1, 1, 0.55) if button.disabled else Color.WHITE
+
+
+## Large centred message (victory / defeat).
+func show_banner(text: String) -> void:
+	var label := _label(64)
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.set_anchors_preset(Control.PRESET_CENTER)
+	label.add_theme_font_size_override("font_size", int(64 * ui_scale))
+	label.add_theme_constant_override("outline_size", int(10 * ui_scale))
+	_root.add_child(label)
+	label.position = get_viewport().get_visible_rect().size / 2.0 - label.get_minimum_size() / 2.0

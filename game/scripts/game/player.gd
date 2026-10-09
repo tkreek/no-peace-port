@@ -37,6 +37,20 @@ func color() -> Color:
 	return TEAM_COLORS[index] if index < TEAM_COLORS.size() else Color.WHITE
 
 
+func has_building(guid: int) -> bool:
+	for object in MapObject.all_objects:
+		if object.owner_index == index and object.guid == guid and object.complete and object.is_alive():
+			return true
+	return false
+
+
+func meets_prerequisites(guid: int) -> bool:
+	for required in GameData.prerequisites(guid):
+		if not has_building(required):
+			return false
+	return true
+
+
 func can_afford(cost: Dictionary) -> bool:
 	for key in cost:
 		if resources.get(key, 0) < cost[key]:

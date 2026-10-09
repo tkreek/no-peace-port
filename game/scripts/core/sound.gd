@@ -113,6 +113,17 @@ func verify_all() -> Array:
 	return [ok, failed]
 
 
+## The original mission jingles: sfx/missions/gewonnen.mp3 / verloren.mp3.
+func play_mission_result(won: bool) -> void:
+	_music.stop()
+	var stream := _stream("sfx/missions/gewonnen.mp3" if won else "sfx/missions/verloren.mp3")
+	if stream:
+		var player := AudioStreamPlayer.new()
+		player.stream = stream
+		add_child(player)
+		player.play()
+
+
 func play_music(faction: String) -> void:
 	var path := GameData.install_dir.path_join("Music").path_join(FACTION_MUSIC.get(faction, "TIT.mp3"))
 	if not FileAccess.file_exists(path):

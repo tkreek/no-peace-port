@@ -40,7 +40,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				_dragging = false
 				queue_redraw()
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and not selection.is_empty():
-			var enemy := _unit_at(world, false)
+			var enemy: Node2D = _unit_at(world, false)
+			if enemy == null:
+				enemy = _enemy_building_at(world)
 			var source := _resource_at(world)
 			if enemy:
 				order_attack(enemy)
@@ -99,7 +101,15 @@ func order_gather(source: MapObject) -> void:
 		unit.gather(source)
 
 
-func order_attack(enemy: Unit) -> void:
+func _enemy_building_at(point: Vector2) -> MapObject:
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index > 0 and object.owner_index != player_team \
+				and object.is_alive() and object.footprint_rect().has_point(point):
+			return object
+	return null
+
+
+func order_attack(enemy: Node2D) -> void:
 	selection = selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
 	if selection.is_empty():
 		return

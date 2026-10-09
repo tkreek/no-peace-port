@@ -6,6 +6,7 @@ extends Node2D
 
 signal construction_finished(building: MapObject)
 signal unit_trained(building: MapObject, unit_guid: int)
+signal destroyed(building: MapObject)
 
 const TREE_WOOD := 150
 const MINE_GOLD := 3000
@@ -49,6 +50,32 @@ func _enter_tree() -> void:
 
 func _exit_tree() -> void:
 	all_objects.erase(self)
+
+
+func is_alive() -> bool:
+	return not is_building() or health > 0.0
+
+
+func take_damage(amount: float, _attacker: Node2D = null) -> void:
+	if not is_building() or health <= 0.0:
+		return
+	health = maxf(0.0, health - amount)
+	_overlay.queue_redraw()
+	if health <= 0.0:
+		_destroy()
+
+
+func _destroy() -> void:
+	Sound.play_event(guid, Sound.Event.RUBBLE, position, 0)
+	queue.clear()
+	accepts = PackedStringArray()
+	if NavGrid.current:
+		NavGrid.current.unblock_footprint(object_type, position)
+	selected = false
+	destroyed.emit(self)
+	var tween := create_tween()
+	tween.tween_property(self, "modulate", Color(0.3, 0.25, 0.2, 0.0), 2.5)
+	tween.tween_callback(queue_free)
 
 
 func is_building() -> bool:

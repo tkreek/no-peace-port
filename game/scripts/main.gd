@@ -5,7 +5,7 @@ extends Node2D
 ##   --map=<file in Levels/ or absolute path>   default "[2 Players] - close combat.alf"
 ##   --biome=steppe|wiese
 ##   --screenshot=<png path>  save a frame after --frames=<n> (default 90) and quit
-##   --camera=x,y  --zoom=z
+##   --camera=x,y  --zoom=z  --order=x,y (screenshot move target)  --debug-paths=1
 
 const DEFAULT_MAP := "[2 Players] - close combat.alf"
 
@@ -13,6 +13,7 @@ var terrain := Terrain.new()
 var units_root := Node2D.new()
 var camera := RtsCamera.new()
 var selection := SelectionController.new()
+var nav := NavGrid.new()
 var start_positions := {}  # player -> Vector2, from the map's Editor_Start markers
 
 ## Starting setup per player for this test scene: HQ object type and worker unit folder.
@@ -37,6 +38,7 @@ func _ready() -> void:
 	terrain.setup(map, GameData.cmdline_option("biome", map.guess_biome()))
 	units_root.y_sort_enabled = true
 	add_child(units_root)
+	nav.setup(map)
 	_spawn_placements(map)
 	selection.units_root = units_root
 	add_child(selection)
@@ -89,6 +91,7 @@ func _setup_player(player: int, start: Vector2) -> void:
 	hq.position = start
 	if hq.setup(ObjectTypes.get_type(setup.hq), player):
 		units_root.add_child(hq)
+		nav.block_footprint(ObjectTypes.get_type(setup.hq), start)
 	else:
 		hq.free()
 	# Workers gather in front of the HQ, the army a little further out towards the map centre.
@@ -125,7 +128,8 @@ func _setup_screenshot() -> void:
 	camera.input_enabled = false
 	# Exercise the move order so walking animations show up in the capture.
 	selection._select(units_root.get_children().filter(func(u: Node) -> bool: return u is Unit and u.team == 1), false)
-	selection._order_move(camera.position + Vector2(-200, -120))
+	Unit.debug_paths = GameData.cmdline_option("debug-paths") != ""
+	selection._order_move(_vector_option("order", camera.position + Vector2(-200, -120)))
 	for i in GameData.cmdline_option("frames", "90").to_int():
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw

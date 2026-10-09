@@ -19,7 +19,10 @@ const PADDING := 1
 
 var is_shadow := false
 var is_true_color := false
-var texture: ImageTexture
+var is_enhanced := false  ## upscaled set: RGBA atlas at `scale`, optional team mask
+var scale := 1.0
+var team_mask: Texture2D
+var texture: Texture2D
 var rects: Array[Rect2i] = []
 var hotspots := PackedVector2Array()
 
@@ -93,6 +96,37 @@ static func load_bytes(bytes: PackedByteArray) -> RdSprite:
 
 func frame_count() -> int:
 	return rects.size()
+
+
+## Show `frame` on `sprite` (texture region, hotspot offset, display scale).
+func apply(sprite: Sprite2D, frame: int) -> void:
+	sprite.texture = texture
+	sprite.region_rect = Rect2(rects[frame])
+	sprite.offset = -hotspots[frame]
+	sprite.scale = Vector2.ONE / scale
+
+
+## Load an upscaled sprite written by tools/upscale/hd_sprites.py (<base>.png/.json[/.team.png]).
+static func load_enhanced(base_path: String) -> RdSprite:
+	var meta: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(base_path + ".json"))
+	var image := Image.load_from_file(base_path + ".png")
+	if meta == null or image == null:
+		return null
+	var sprite := RdSprite.new()
+	sprite.is_enhanced = true
+	sprite.is_shadow = meta.get("kind") == "shadow"
+	sprite.scale = meta.get("scale", 2)
+	image.generate_mipmaps()
+	sprite.texture = ImageTexture.create_from_image(image)
+	for f: Array in meta.frames:
+		sprite.rects.append(Rect2i(f[0], f[1], f[2], f[3]))
+		sprite.hotspots.append(Vector2(f[4], f[5]))
+	if meta.get("team", false):
+		var mask := Image.load_from_file(base_path + ".team.png")
+		if mask:
+			mask.generate_mipmaps()
+			sprite.team_mask = ImageTexture.create_from_image(mask)
+	return sprite
 
 
 static func _load_rddx(bytes: PackedByteArray) -> RdSprite:

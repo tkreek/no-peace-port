@@ -30,3 +30,7 @@ game/assets/reference/
 # Original game distributions
 *.zip
 *.iso
+
+# Downloaded third-party binaries
+tools/bin/
+tools/.venv/

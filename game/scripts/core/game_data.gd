@@ -10,6 +10,8 @@ const ARCHIVES := ["america0.rda", "america1.rda", "america2.rda", "america3.rda
 const SETTINGS_PATH := "user://settings.cfg"
 
 var install_dir := ""
+## Folder with the upscaled set from tools/upscale/hd_sprites.py; empty = classic graphics only.
+var enhanced_dir := ""
 var archives: Array[RdaArchive] = []
 var _bob_cache := {}
 var _sprite_cache := {}
@@ -18,6 +20,7 @@ var _palette_cache := {}
 
 func _ready() -> void:
 	install_dir = _resolve_install_dir()
+	enhanced_dir = _resolve_enhanced_dir()
 	for name in ARCHIVES:
 		var archive := RdaArchive.new()
 		if archive.open(install_dir.path_join(name)) == OK:
@@ -45,6 +48,19 @@ func _resolve_install_dir() -> String:
 	if config.load(SETTINGS_PATH) == OK and config.has_section_key("paths", "install_dir"):
 		return config.get_value("paths", "install_dir")
 	return ProjectSettings.globalize_path("res://").path_join("../original/install/Programm").simplify_path()
+
+
+func _resolve_enhanced_dir() -> String:
+	if cmdline_option("graphics") == "classic":
+		return ""
+	var dir := cmdline_option("hd-dir")
+	if dir.is_empty():
+		var config := ConfigFile.new()
+		if config.load(SETTINGS_PATH) == OK and config.has_section_key("paths", "hd_dir"):
+			dir = config.get_value("paths", "hd_dir")
+		else:
+			dir = ProjectSettings.globalize_path("res://").path_join("../original/hd").simplify_path()
+	return dir if DirAccess.dir_exists_absolute(dir) else ""
 
 
 func read(path: String) -> PackedByteArray:
@@ -81,8 +97,12 @@ func load_bob(path: String) -> BobFile:
 func load_sprite(path: String) -> RdSprite:
 	var key := RdaArchive.normalize(path)
 	if not _sprite_cache.has(key):
-		var bytes := read(path)
-		_sprite_cache[key] = RdSprite.load_bytes(bytes) if not bytes.is_empty() else null
+		var enhanced := enhanced_dir.path_join(key)
+		if not enhanced_dir.is_empty() and FileAccess.file_exists(enhanced + ".json"):
+			_sprite_cache[key] = RdSprite.load_enhanced(enhanced)
+		else:
+			var bytes := read(path)
+			_sprite_cache[key] = RdSprite.load_bytes(bytes) if not bytes.is_empty() else null
 	return _sprite_cache[key]
 
 
@@ -99,6 +119,16 @@ func load_palette_texture(directory: String, files: PackedStringArray) -> ImageT
 	var texture := ImageTexture.create_from_image(image)
 	_palette_cache[key] = texture
 	return texture
+
+
+## Team colour ramps for an upscaled .bob (64 x 9), or null.
+func load_ramps(bob_path: String) -> Texture2D:
+	var path := enhanced_dir.path_join(RdaArchive.normalize(bob_path)) + ".ramps.png"
+	if enhanced_dir.is_empty() or not FileAccess.file_exists(path):
+		return null
+	if not _palette_cache.has(path):
+		_palette_cache[path] = ImageTexture.create_from_image(Image.load_from_file(path))
+	return _palette_cache[path]
 
 
 func maps_dir() -> String:

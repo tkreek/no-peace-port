@@ -16,6 +16,7 @@ static var _cache := {}
 var directory := ""
 var bob: BobFile
 var palette: ImageTexture
+var ramps: Texture2D
 var speed := 60.0
 
 
@@ -34,6 +35,7 @@ static func load_type(dir: String) -> UnitType:
 	unit_type.directory = dir
 	unit_type.bob = GameData.load_bob(bob_path)
 	unit_type.palette = GameData.load_palette_texture(dir, unit_type.bob.palettes)
+	unit_type.ramps = GameData.load_ramps(bob_path)
 	_cache[dir] = unit_type
 	return unit_type
 

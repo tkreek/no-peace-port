@@ -2,8 +2,6 @@ class_name MapObject
 extends Node2D
 ## A static placed object (building or scenery) drawn from its original sprite and shadow.
 
-const PalettedShader := preload("res://shaders/paletted_sprite.gdshader")
-const SHADOW_COLOR := Color(0, 0, 0, 0.45)
 
 var object_type: ObjectTypes.ObjectType
 var owner_index := 0
@@ -25,24 +23,17 @@ func setup(type: ObjectTypes.ObjectType, owner: int) -> bool:
 	elif shadow_anim == body_anim:
 		shadow_anim = bob.shadow_for(body_anim)
 	var palette := GameData.load_palette_texture(type.directory(), bob.palettes)
+	var ramps := GameData.load_ramps(type.bob_path)
 	var team_row := owner if type.kind == ObjectTypes.Kind.BUILDING and owner > 0 else 0
 	if shadow_anim >= 0 and shadow_anim < bob.anims.size():
 		var shadow := _sprite(bob, shadow_anim)
 		if shadow:
-			shadow.modulate = SHADOW_COLOR
-			shadow.z_index = -1
-			shadow.z_as_relative = false
+			SpriteMaterials.make_shadow(shadow)
 			add_child(shadow)
 	var body := _sprite(bob, body_anim)
 	if body == null:
 		return false
-	if body.has_meta("true_color"):
-		add_child(body)
-		return true
-	var mat := ShaderMaterial.new()
-	mat.shader = PalettedShader
-	mat.set_shader_parameter("palette", palette)
-	body.material = mat
+	body.material = SpriteMaterials.body(body.get_meta("sheet"), palette, ramps)
 	add_child(body)
 	body.set_instance_shader_parameter("palette_row", mini(team_row, bob.palettes.size() - 1))
 	return true
@@ -57,12 +48,9 @@ func _sprite(bob: BobFile, anim_index: int) -> Sprite2D:
 	if frame >= sheet.frame_count():
 		return null
 	var sprite := Sprite2D.new()
-	sprite.texture = sheet.texture
 	sprite.centered = false
 	sprite.region_enabled = true
-	sprite.region_rect = Rect2(sheet.rects[frame])
-	sprite.offset = -sheet.hotspots[frame]
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	if sheet.is_true_color:
-		sprite.set_meta("true_color", true)
+	SpriteMaterials.prepare(sprite, sheet)
+	sheet.apply(sprite, frame)
+	sprite.set_meta("sheet", sheet)
 	return sprite

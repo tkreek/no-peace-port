@@ -19,6 +19,9 @@ var rows := 0
 var chunks := {}  # name -> PackedByteArray (first occurrence)
 var tile_ids := PackedInt32Array()
 var placements: Array[Placement] = []
+## BITARRAY: map-wide "BARY" grid of 16 px cells, one u32 of flags each (see NavGrid).
+var grid_size := Vector2i.ZERO
+var grid_flags := PackedInt32Array()
 
 
 ## An object placed in the editor (BOBLISTE record: x, y, type, owner, amount, ?).
@@ -81,6 +84,10 @@ func _parse() -> void:
 			var amount := objects.decode_u32(o + 16)
 			p.amount = amount if amount != 0xCDCDCDCD else 0
 			placements.append(p)
+	var bits: PackedByteArray = chunks.get("BITARRAY", PackedByteArray())
+	if bits.size() >= 32 and bits.slice(0, 4).get_string_from_ascii() == "BARY":
+		grid_size = Vector2i(bits.decode_u32(20), bits.decode_u32(24))
+		grid_flags = bits.slice(32, 32 + grid_size.x * grid_size.y * 4).to_int32_array()
 	var matrix: PackedByteArray = chunks.get("LVMATRIX", PackedByteArray())
 	tile_ids.resize(columns * rows)
 	for i in mini(tile_ids.size(), matrix.size() / 4):

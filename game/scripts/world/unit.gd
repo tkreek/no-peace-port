@@ -4,8 +4,6 @@ extends Node2D
 
 signal died(unit: Unit)
 
-const PalettedShader := preload("res://shaders/paletted_sprite.gdshader")
-const SHADOW_COLOR := Color(0, 0, 0, 0.45)
 const ARRIVE_DISTANCE := 3.0
 
 var unit_type: UnitType
@@ -18,6 +16,7 @@ var direction := 1  # sprite direction row: 0 = SE, then clockwise (1 = S ... 7 
 var max_health := 100.0
 var health := 100.0
 var path := PackedVector2Array()
+static var debug_paths := false
 
 var _body := Sprite2D.new()
 var _shadow := Sprite2D.new()
@@ -31,17 +30,10 @@ var _step_time := 0.0
 func setup(type: UnitType, team_index: int) -> void:
 	unit_type = type
 	team = team_index
-	var body_material := ShaderMaterial.new()
-	body_material.shader = PalettedShader
-	body_material.set_shader_parameter("palette", type.palette)
-	_body.material = body_material
 	for sprite: Sprite2D in [_shadow, _body]:
 		sprite.centered = false
 		sprite.region_enabled = true
-		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_shadow.modulate = SHADOW_COLOR
-	_shadow.z_index = -1
-	_shadow.z_as_relative = false
+	SpriteMaterials.make_shadow(_shadow)
 	add_child(_shadow)
 	add_child(_body)
 	_body.set_instance_shader_parameter("palette_row", clampi(team, 0, type.bob.palettes.size() - 1))
@@ -67,7 +59,10 @@ func play(action: String) -> void:
 
 
 func move_to(target: Vector2) -> void:
-	path = PackedVector2Array([target])
+	if NavGrid.current:
+		path = NavGrid.current.find_path(position, target)
+	else:
+		path = PackedVector2Array([target])
 
 
 func stop() -> void:
@@ -90,6 +85,8 @@ func _process(delta: float) -> void:
 			face(to_target)
 			position += to_target.normalized() * step
 	play("walk" if not path.is_empty() else "idle")
+	if debug_paths:
+		queue_redraw()
 	_advance(delta)
 
 
@@ -123,12 +120,19 @@ func _set_frame(sprite: Sprite2D, anim_index: int) -> void:
 	var frame := dir * anim.frames_per_direction + anim.frames[mini(_step, anim.frames.size() - 1)]
 	if frame >= sheet.frame_count():
 		return
-	sprite.texture = sheet.texture
-	sprite.region_rect = Rect2(sheet.rects[frame])
-	sprite.offset = -sheet.hotspots[frame]
+	if sprite.texture != sheet.texture:
+		SpriteMaterials.prepare(sprite, sheet)
+		if sprite == _body:
+			sprite.material = SpriteMaterials.body(sheet, unit_type.palette, unit_type.ramps)
+	sheet.apply(sprite, frame)
 
 
 func _draw() -> void:
+	if debug_paths and not path.is_empty():
+		var points := PackedVector2Array([Vector2.ZERO])
+		for p in path:
+			points.append(p - position)
+		draw_polyline(points, Color(1, 0.9, 0.2, 0.8), 2.0)
 	if selected:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.55))
 		draw_arc(Vector2.ZERO, 16.0, 0.0, TAU, 32, Color(1, 1, 1, 0.85), 1.5, true)

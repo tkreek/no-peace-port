@@ -175,6 +175,28 @@ func _spawn_placements(map: AlfMap) -> void:
 			units_root.add_child(object)
 		spawned += 1
 	print("Placed %d/%d map objects in %d ms" % [spawned, map.placements.size(), Time.get_ticks_msec() - started])
+	_grow_forests(map)
+
+
+## Plant the map's painted forests (see ForestGenerator).
+func _grow_forests(map: AlfMap) -> void:
+	var started := Time.get_ticks_msec()
+	var avoid: Array[Vector2] = []
+	for object in MapObject.all_objects:
+		if object.resource != "wood":
+			avoid.append(object.position)
+	var trees := ForestGenerator.generate(map, terrain.biome, avoid, start_positions.values())
+	for tree in trees:
+		var type := ObjectTypes.get_type(tree.type_id)
+		var object := MapObject.new()
+		object.position = tree.position
+		if not object.setup(type, 0):
+			object.free()
+			continue
+		object.amount = tree.wood
+		units_root.add_child(object)
+		nav.block_footprint(type, tree.position)
+	print("Grew %d forest trees in %d ms" % [trees.size(), Time.get_ticks_msec() - started])
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -399,6 +421,11 @@ func _print_report(frame: int) -> void:
 			print("  %s complete=%s progress=%.2f queue=%s" % [object.display_name(), object.complete, object.build_progress, object.queue])
 		elif object.is_field() and object.owner_index == 1:
 			print("  field state=%d progress=%.2f amount=%d" % [object.field_state, object.field_progress, object.amount])
+	var states := [0, 0, 0]
+	for object in MapObject.all_objects:
+		if object.is_tree():
+			states[object.tree_state] += 1
+	print("  trees standing/felled/stumps: %s" % [states])
 	for index in players:
 		print("frame %d player %d: %s units=%d" % [frame, index, players[index].resources, alive.get(index, 0)])
 

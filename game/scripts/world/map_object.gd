@@ -27,6 +27,12 @@ const FIELD_GUID := 149
 const FIELDS_PER_STORE := 5
 const DISTILLERY_GUID := 308
 
+## Trees: standing, felled (a trunk lying on the ground while its wood is cut up) and
+## removed (a stump). The tree bobs hold these as frames 12 and 13 (anim pairs 24/25, 26/27).
+enum TreeState { STANDING, FELLED, STUMP }
+const TREE_FELLED_ANIM := 24
+const TREE_STUMP_ANIM := 26
+
 ## Fields: fallow -> sown by a woman -> grow -> ripe, harvested down to fallow again.
 enum Field { FALLOW, GROWING, RIPE }
 const FIELD_SOW_WORK := 8.0     # woman-seconds
@@ -57,6 +63,7 @@ var complete := true
 var build_progress := 1.0  # 0..1 while under construction
 var queue: PackedInt32Array = []  # unit GUIDs waiting to be trained
 var train_progress := 0.0  # 0..1 for queue[0]
+var tree_state := TreeState.STANDING
 var field_state := Field.FALLOW
 var field_progress := 0.0  # sowing work done, then growth (0..1)
 var _distill_timer := 0.0
@@ -176,7 +183,17 @@ func harvest(wanted: int) -> int:
 			field_state = Field.FALLOW
 			resource = "food"
 		_refresh_sprites()
-	if amount <= 0 and resource == "wood":
+	if resource == "wood" and is_tree():
+		if amount <= 0:
+			# All wood taken: only the stump remains, and the ground is passable again.
+			tree_state = TreeState.STUMP
+			resource = ""
+			if NavGrid.current:
+				NavGrid.current.unblock_footprint(object_type, position)
+		elif tree_state == TreeState.STANDING:
+			tree_state = TreeState.FELLED  # the first cut brings the tree down
+		_refresh_sprites()
+	elif amount <= 0 and resource == "wood":
 		if NavGrid.current:
 			NavGrid.current.unblock_footprint(object_type, position)
 		resource = ""
@@ -184,6 +201,11 @@ func harvest(wanted: int) -> int:
 		tween.tween_property(self, "modulate:a", 0.0, 1.5)
 		tween.tween_callback(queue_free)
 	return taken
+
+
+func is_tree() -> bool:
+	return object_type != null and object_type.name.begins_with("Baum") and _bob != null \
+			and _bob.anims.size() > TREE_STUMP_ANIM + 1
 
 
 func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_construction := false) -> bool:
@@ -316,7 +338,10 @@ func _refresh_sprites() -> bool:
 	var body_anim := object_type.anim
 	var shadow_anim := object_type.shadow_anim
 	var frame_hint := -1  # -1 = last frame of the animation
-	if is_mine() and _bob.anims.size() >= 6:
+	if is_tree() and tree_state != TreeState.STANDING:
+		body_anim = TREE_FELLED_ANIM if tree_state == TreeState.FELLED else TREE_STUMP_ANIM
+		shadow_anim = body_anim + 1
+	elif is_mine() and _bob.anims.size() >= 6:
 		# Anim pairs (body, shadow): 0/1 untouched, 2/3 framing -> timbered, 4/5 exhausted.
 		match _mine_stage():
 			0:

@@ -167,6 +167,156 @@ func damage_factor(against: Node2D) -> float:
 	return 1.0
 
 
+## Robbing banks, missions and gold warehouses, and stealing transports (manual 3.9):
+## unit GUID -> the upgrade it needs (0 = none; the outlaws are born robbers).
+const ROBBERS := {152: 916, 155: 916, 252: 941, 255: 941, 452: 991, 455: 991, 456: 991,
+		352: 0, 355: 0, 360: 0, 361: 0}
+const THIEVES := {156: 0, 157: 0, 263: 942, 264: 942, 463: 992, 464: 992, 353: 0, 354: 0,
+		352: 0, 360: 0, 361: 0}
+const ROB_SECONDS := 4.0  # inside the building, filling the bags
+const STEAL_SECONDS := 4.0  # beside the vehicle before it changes hands
+var _steal_target: Unit
+var _steal_time := 0.0
+
+
+func _may(table: Dictionary) -> bool:
+	var me := unit_type.guid()
+	if not table.has(me):
+		return false
+	var player: Player = Player.by_index.get(team)
+	return table[me] == 0 or (player != null and player.researched.has(table[me]))
+
+
+func can_rob() -> bool:
+	return _may(ROBBERS)
+
+
+func can_steal() -> bool:
+	return _may(THIEVES)
+
+
+## Gold an enemy building holds for the taking: a gold warehouse's store, or for a bank or
+## mission its owner's treasury.
+static func loot_of(building: MapObject) -> int:
+	if building.is_gold_warehouse():
+		return building.stored_gold
+	if building.guid in MapObject.INCOME_BUILDINGS:
+		var owner: Player = Player.by_index.get(building.owner_index)
+		return int(owner.resources.get("gold", 0)) if owner else 0
+	return 0
+
+
+func rob(building: MapObject) -> void:
+	if not is_alive() or building == null or not can_rob():
+		return
+	_clear_orders()
+	gather_source = building
+	gather_resource = "rob"
+	target = null
+	state = State.GATHERING
+	_gather_phase = Gather.TO_SOURCE
+	path = _find_path(building.work_rect().get_center())
+
+
+func _update_rob(delta: float) -> void:
+	var building := gather_source
+	if _gather_phase != Gather.TO_DROP_OFF and (building == null or not is_instance_valid(building) or not building.is_alive()):
+		inside = false
+		stop()
+		return
+	match _gather_phase:
+		Gather.TO_SOURCE:
+			_follow_path(delta)
+			play(_walk_action())
+			if building.work_rect().grow(REACH * 2).has_point(position) or path.is_empty():
+				path.clear()
+				if loot_of(building) <= 0:
+					stop()
+					return
+				_gather_phase = Gather.WORKING
+				_work_timer = ROB_SECONDS
+				inside = true
+		Gather.WORKING:
+			_work_timer -= delta
+			if _work_timer > 0.0:
+				return
+			inside = false
+			var bags := unit_type.carry * (1 if unit_type.is_transport() else 3)
+			carried = mini(bags, loot_of(building))
+			if building.is_gold_warehouse():
+				building.take_gold(carried)
+			else:
+				var victim: Player = Player.by_index.get(building.owner_index)
+				if victim:
+					victim.add("gold", -carried)
+			carrying = "gold"
+			_gather_phase = Gather.TO_DROP_OFF
+			_drop_off = _main_building()
+			path = _find_path(_drop_off.position) if _drop_off else PackedVector2Array()
+		Gather.TO_DROP_OFF:
+			if _drop_off == null or not is_instance_valid(_drop_off):
+				stop()
+				return
+			_follow_path(delta)
+			play(_walk_action())
+			if _drop_off.work_rect().grow(REACH * 2).has_point(position) or path.is_empty():
+				var player: Player = Player.by_index.get(team)
+				if player and carried > 0:
+					player.add("gold", carried)
+				carried = 0
+				carrying = ""
+				if is_instance_valid(building) and building.is_alive() and loot_of(building) > 0:
+					_gather_phase = Gather.TO_SOURCE
+					path = _find_path(building.work_rect().get_center())
+				else:
+					stop()
+
+
+func steal(vehicle: Unit) -> void:
+	if not is_alive() or vehicle == null or not can_steal() or not vehicle.unit_type.is_transport():
+		return
+	_clear_orders()
+	_steal_target = vehicle
+	_steal_time = 0.0
+	state = State.MOVING
+	path = _find_path(vehicle.position)
+
+
+## Stay beside the vehicle; once it has been quiet long enough it is ours, cargo and all.
+func _update_steal(delta: float) -> void:
+	var vehicle := _steal_target
+	if not is_instance_valid(vehicle) or not vehicle.is_alive() or vehicle.team == team:
+		_steal_target = null
+		return
+	var distance := position.distance_to(vehicle.position)
+	if distance > 160.0:
+		_steal_time = 0.0  # it got away
+	if distance <= 100.0:
+		_steal_time += delta  # alongside, even on the move
+	if distance > 36.0:
+		var now := Time.get_ticks_msec()
+		if path.is_empty() or now - _last_repath > REPATH_MS / 2:
+			_last_repath = now
+			path = _find_path(vehicle.position)
+		state = State.MOVING
+	else:
+		path.clear()
+		state = State.IDLE
+		face(vehicle.position - position)
+	if _steal_time >= STEAL_SECONDS:
+		vehicle.change_team(team)
+		_steal_target = null
+
+
+## The unit now belongs to another people (a stolen wagon, a converted soldier).
+func change_team(new_team: int) -> void:
+	stop()
+	selected = false
+	team = new_team
+	_body.set_instance_shader_parameter("palette_row", clampi(team, 0, unit_type.bob.palettes.size() - 1))
+	flash(Color(1.0, 0.9, 0.4))
+
+
 ## Native Americans heal over time with herb blends; outlaws once Self-healing is researched.
 const SELF_HEALING_UPGRADE := 957
 const SELF_HEAL_PER_SECOND := 0.6
@@ -301,6 +451,7 @@ func _clear_orders() -> void:
 	_patrol.clear()
 	follow_target = null
 	heal_target = null
+	_steal_target = null
 	if state != State.QUARTERED:
 		quarters = null
 
@@ -481,6 +632,8 @@ func _process(delta: float) -> void:
 			_body.self_modulate = Color.WHITE
 	if follow_target != null and (state == State.IDLE or state == State.MOVING):
 		_update_follow()
+	if _steal_target != null and (state == State.IDLE or state == State.MOVING):
+		_update_steal(delta)
 	if heal_target != null and (state == State.IDLE or state == State.MOVING):
 		_update_heal(delta)
 		_advance(delta)
@@ -520,6 +673,8 @@ func _process(delta: float) -> void:
 		State.GATHERING:
 			if gather_resource == "haul":
 				_update_haul(delta)
+			elif gather_resource == "rob":
+				_update_rob(delta)
 			else:
 				_update_gather(delta)
 		State.BUILDING:

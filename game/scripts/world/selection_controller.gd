@@ -157,6 +157,16 @@ func _unhandled_input(event: InputEvent) -> void:
 					if is_instance_valid(unit) and unit.unit_type.is_hunter():
 						unit.hunt(animal)
 				Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
+			elif enemy is Unit and enemy.unit_type.is_transport() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.can_steal()):
+				for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.can_steal()):
+					unit.steal(enemy)
+				enemy.flash(Color(1.0, 0.9, 0.4))
+				Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
+			elif enemy is MapObject and Unit.loot_of(enemy) > 0 and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.can_rob()):
+				for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.can_rob()):
+					unit.rob(enemy)
+				enemy.flash(Color(1.0, 0.9, 0.4))
+				Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 			elif enemy:
 				order_attack(enemy)
 			elif source and selection.any(func(u: Unit) -> bool: return u.unit_type.can_gather(source.resource)):

@@ -132,6 +132,8 @@ func _ready() -> void:
 		_scenario_woodcut.call_deferred()
 	if GameData.cmdline_option("scenario") == "trade":
 		_scenario_trade.call_deferred()
+	if GameData.cmdline_option("scenario") == "rob":
+		_scenario_rob.call_deferred()
 	if GameData.cmdline_option("scenario") == "orders":
 		_scenario_orders.call_deferred()
 	# --time-scale=N runs the simulation N times faster (long AI tests).
@@ -752,6 +754,38 @@ func _scenario_trade() -> void:
 	print("paid:   %s" % p.resources)
 	await get_tree().create_timer(20.0).timeout
 	print("after:  %s  gun price %d, wood sells for %d" % [p.resources, p.buy_price("guns"), p.sell_price("wood")])
+	get_tree().quit()
+
+
+## Outlaws rob an enemy gold warehouse and a barber steals an enemy wagon.
+func _scenario_rob() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	var enemy_store := 419 if players[2].faction == "usa" else 206
+	var type := ObjectTypes.get_type(GameData.type_for_guid(enemy_store, terrain.biome))
+	var ai := AiPlayer.new()
+	var store := MapObject.new()
+	store.position = ai._find_spot(type, hq.position + Vector2(300, 300))
+	ai.free()
+	store.setup(type, 2)
+	units_root.add_child(store)
+	nav.block_footprint(type, store.position)
+	store.stored_gold = 300
+	_spawn_squad(455 if players[2].faction == "usa" else 255, 2, store.position + Vector2(-200, 120), 1)
+	_spawn_squad(353, 1, hq.position + Vector2(0, 220), 1)
+	var robber: Unit = units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.guid() == 352)[0]
+	var barber: Unit = units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == 353)[0]
+	var wagon: Unit = units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 and n.unit_type.is_transport())[0]
+	print("robber can rob %s, barber can steal %s" % [robber.can_rob(), barber.can_steal()])
+	robber.rob(store)
+	barber.steal(wagon)
+	var gold: int = players[1].resources.gold
+	for i in 8:
+		await get_tree().create_timer(5.0).timeout
+		print("t=%ds store %d, our gold +%d, robber phase %d carrying %d inside %s; wagon team %d" % [(i + 1) * 5, store.stored_gold,
+				players[1].resources.gold - gold, robber._gather_phase, robber.carried, robber.inside, wagon.team])
 	get_tree().quit()
 
 

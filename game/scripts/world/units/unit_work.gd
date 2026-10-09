@@ -214,7 +214,7 @@ func _update_gather(delta: float) -> void:
 				_route()
 			unit.follow_path(delta)
 			unit.play(walk_action())
-			var arrived := gather_source.work_rect().grow(Unit.REACH).has_point(unit.position)
+			var arrived := gather_source.near_walls(unit.position, Unit.REACH)
 			if gather_source.is_field():
 				arrived = unit.position.distance_to(_work_spot()) < 10.0
 			if arrived or unit.path.is_empty():
@@ -265,7 +265,7 @@ func _update_gather(delta: float) -> void:
 					return
 			unit.follow_path(delta)
 			unit.play(walk_action())
-			if _drop_off.work_rect().grow(Unit.REACH).has_point(unit.position) or unit.path.is_empty():
+			if _drop_off.near_walls(unit.position, Unit.REACH) or unit.path.is_empty():
 				unit.path.clear()
 				_deliver()
 				if gather_resource == "meat":
@@ -303,11 +303,11 @@ func _update_haul(delta: float) -> void:
 		phase = Phase.TO_DROP_OFF
 	match phase:
 		Phase.TO_SOURCE:
-			if unit.path.is_empty() and not gather_source.work_rect().grow(Unit.REACH * 2).has_point(unit.position):
+			if unit.path.is_empty() and not gather_source.near_walls(unit.position, Unit.REACH * 2):
 				unit.path = unit.find_path(gather_source.work_rect().get_center())
 			unit.follow_path(delta)
 			unit.play(walk_action())
-			if gather_source.work_rect().grow(Unit.REACH * 2).has_point(unit.position) or unit.path.is_empty():
+			if gather_source.near_walls(unit.position, Unit.REACH * 2) or unit.path.is_empty():
 				unit.path.clear()
 				phase = Phase.WORKING
 				_work_timer = 1.0
@@ -340,7 +340,7 @@ func _update_haul(delta: float) -> void:
 				unit.path = unit.find_path(_drop_off.position)
 			unit.follow_path(delta)
 			unit.play(walk_action())
-			if _drop_off.work_rect().grow(Unit.REACH * 2).has_point(unit.position) or unit.path.is_empty():
+			if _drop_off.near_walls(unit.position, Unit.REACH * 2) or unit.path.is_empty():
 				unit.path.clear()
 				var owner := player()
 				if owner and carried > 0:
@@ -364,7 +364,7 @@ func _update_rob(delta: float) -> void:
 		Phase.TO_SOURCE:
 			unit.follow_path(delta)
 			unit.play(walk_action())
-			if building.work_rect().grow(Unit.REACH * 2).has_point(unit.position) or unit.path.is_empty():
+			if building.near_walls(unit.position, Unit.REACH * 2) or unit.path.is_empty():
 				unit.path.clear()
 				if loot_of(building) <= 0:
 					unit.stop()
@@ -395,7 +395,7 @@ func _update_rob(delta: float) -> void:
 				return
 			unit.follow_path(delta)
 			unit.play(walk_action())
-			if _drop_off.work_rect().grow(Unit.REACH * 2).has_point(unit.position) or unit.path.is_empty():
+			if _drop_off.near_walls(unit.position, Unit.REACH * 2) or unit.path.is_empty():
 				var owner := player()
 				if owner and carried > 0:
 					owner.add("gold", carried)
@@ -439,7 +439,7 @@ func update_building(delta: float) -> void:
 		build_site = null
 		unit.state = Unit.State.IDLE
 		return
-	if not build_site.work_rect().grow(Unit.REACH).has_point(unit.position):
+	if not build_site.near_walls(unit.position, Unit.REACH):
 		if unit.path.is_empty():
 			unit.path = unit.find_path(build_site.position)
 		unit.follow_path(delta)

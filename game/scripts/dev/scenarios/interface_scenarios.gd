@@ -110,6 +110,14 @@ func _scenario_picking() -> void:
 		"picture top-left corner": picture.position + Vector2(4, 4),
 		"footprint bottom-left corner": Vector2(foot.position.x + 2, foot.end.y - 2),
 		"40px right of picture": Vector2(picture.end.x + 40, picture.get_center().y)}
+	# Open ground inside the walls' bounding box (L-shaped and diagonal buildings have some).
+	var walls := hq.work_rect()
+	for y in range(int(walls.position.y) + 2, int(walls.end.y), 4):
+		for x in range(int(walls.position.x) + 2, int(walls.end.x), 4):
+			var p := Vector2(x, y)
+			if not probes.has("open corner of the walls' box") and not hq.near_walls(p, 8.0) \
+					and not hq._body.is_pixel_opaque(hq._body.to_local(p)):
+				probes["open corner of the walls' box"] = p
 	for label in probes:
 		print("%-36s -> %s" % [label, main.selection._building_at(probes[label]) == hq])
 	get_tree().quit()

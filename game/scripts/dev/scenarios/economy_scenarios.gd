@@ -380,3 +380,4 @@ func _scenario_stages() -> void:
 			finished_last, burnt, rubble, wrong])
 	get_tree().quit()
 
+

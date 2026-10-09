@@ -65,6 +65,7 @@ var _palette: Texture2D
 var _ramps: Texture2D
 var _overlay := DrawOverlay.new()
 var _work_rect := Rect2()
+var _walls: Array[Rect2] = []  # the solid footprint cells as row runs, relative to position
 var _team_row := 0
 var _body_anim := -1
 var _ambient: Sprite2D
@@ -259,6 +260,45 @@ func work_rect() -> Rect2:
 	return _work_rect
 
 
+## The solid footprint cells (walls, trunk, mine entrance) as one rectangle per row run,
+## relative to the position. Empty for objects without solid cells.
+func _wall_runs() -> Array[Rect2]:
+	if _walls.is_empty() and object_type and not object_type.footprint_cells.is_empty():
+		var grid := object_type.footprint_grid
+		var origin := -Vector2(object_type.footprint_anchor)
+		for y in grid.y:
+			var x := 0
+			while x < grid.x:
+				if object_type.footprint_cells[y * grid.x + x] & NavGrid.SOLID:
+					var start := x
+					while x < grid.x and object_type.footprint_cells[y * grid.x + x] & NavGrid.SOLID:
+						x += 1
+					_walls.append(Rect2(origin + Vector2(start, y) * NavGrid.CELL, Vector2(x - start, 1) * NavGrid.CELL))
+				x += 1
+	return _walls
+
+
+## The point of the walls nearest `from` (the solid cells, not their bounding rectangle,
+## which for an L-shaped or diagonal building takes in a lot of open ground).
+func wall_point(from: Vector2) -> Vector2:
+	var runs := _wall_runs()
+	if runs.is_empty() or is_field():
+		var rect := work_rect()
+		return from.clamp(rect.position, rect.end)
+	var local := from - position
+	var best := Vector2.INF
+	for run in runs:
+		var p := local.clamp(run.position, run.end)
+		if p.distance_squared_to(local) < best.distance_squared_to(local):
+			best = p
+	return best + position
+
+
+## Whether `point` is within `reach` of the walls (workers at a site, units at quarters...).
+func near_walls(point: Vector2, reach: float) -> bool:
+	return wall_point(point).distance_to(point) <= reach
+
+
 ## Where the object's current picture is drawn, in world coordinates (canopy, roof...).
 func visual_rect() -> Rect2:
 	if _body == null or _body.texture == null:
@@ -269,7 +309,7 @@ func visual_rect() -> Rect2:
 ## Whether a click at `point` (world) lands on this object: on a solid pixel of its picture
 ## (walls, roof, canopy), or on its walls' ground area.
 func hit(point: Vector2) -> bool:
-	if work_rect().grow(4).has_point(point):
+	if near_walls(point, 4.0):
 		return true
 	if _body == null or _body.texture == null or not visual_rect().has_point(point):
 		return false

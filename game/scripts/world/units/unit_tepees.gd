@@ -59,7 +59,7 @@ func update(delta: float) -> bool:
 		_unpack_site = null
 		busy = false
 		return false
-	if not building.work_rect().grow(Unit.REACH * 2).has_point(unit.position):
+	if not building.near_walls(unit.position, Unit.REACH * 2):
 		approach(building.work_rect().get_center(), 0.0, Unit.REPATH_MS * 3)
 		return false
 	unit.path.clear()

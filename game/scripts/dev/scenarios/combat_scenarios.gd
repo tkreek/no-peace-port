@@ -43,7 +43,7 @@ func _scenario_quarters() -> void:
 	var enemies := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 \
 			and n.position.distance_to(spot) < 120)
 	print("enemies %s px from the walls; range in the open %d, from the walls %d" % [enemies.map(func(u: Unit) -> int:
-			return int(u.position.distance_to(u.position.clamp(walls.position, walls.end)))), squad[0].attack_range(), reach])
+			return int(u.position.distance_to(tower.wall_point(u.position)))), squad[0].attack_range(), reach])
 	for e: Unit in enemies:
 		e.stance = Unit.Stance.PASSIVE
 	await get_tree().create_timer(30.0).timeout

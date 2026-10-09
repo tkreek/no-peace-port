@@ -509,7 +509,7 @@ func _process(delta: float) -> void:
 	if state == State.QUARTERED:
 		return
 	if quarters != null and (state == State.MOVING or state == State.IDLE) and is_instance_valid(quarters) \
-			and quarters.work_rect().grow(REACH * 2.0).has_point(position):
+			and quarters.near_walls(position, REACH * 2.0):
 		if not quarters.defence.enter(self):
 			quarters = null
 			stop()
@@ -699,11 +699,10 @@ func _strike() -> void:
 		deal_damage(target, damage)
 
 
-## Closest point of a target: a unit's feet, or the nearest edge of a building's footprint.
+## Closest point of a target: a unit's feet, or the nearest point of a building's walls.
 func aim_point(node: Node2D) -> Vector2:
 	if node is MapObject:
-		var rect: Rect2 = node.work_rect()
-		return Vector2(clampf(position.x, rect.position.x, rect.end.x), clampf(position.y, rect.position.y, rect.end.y))
+		return node.wall_point(position)
 	return node.position
 
 
@@ -717,6 +716,9 @@ func nearest_target(radius: float) -> Node2D:
 	for object in MapObject.structures:
 		if object.is_building() and object.owner_index > 0 and object.owner_index != team and object.is_alive() \
 				and not (object.is_trap() and not UnitStealth.detected(object.position, team)):
+			var bounds := object.work_rect()
+			if position.distance_to(position.clamp(bounds.position, bounds.end)) >= best_distance:
+				continue  # the walls are no nearer than their bounding rectangle
 			var distance := position.distance_to(aim_point(object))
 			if distance < best_distance:
 				best = object

@@ -483,7 +483,8 @@ func _update_spell(delta: float) -> void:
 	face(at - position)
 	play_repeating("heal")  # the medicine man dances, the priest prays
 	_cast_timer += delta
-	if _cast_timer < CAST_SECONDS:
+	var cast_time := CAST_SECONDS / (1.0 + _bonus("convert_pct") / 100.0)  # Power: faster conversion
+	if _cast_timer < cast_time:
 		return
 	if magic_energy >= spell.cost:
 		magic_energy -= spell.cost
@@ -1125,7 +1126,9 @@ func _update_heal(delta: float) -> void:
 	state = State.IDLE
 	face(heal_target.position - position)
 	play_repeating("heal")
-	heal_target.health = minf(heal_target.max_health, heal_target.health + HEAL_PER_SECOND * delta)
+	# Healing energy and Regeneration upgrades: half as much healing again each.
+	var better := 1.0 + (_bonus("heal_pct") + _bonus("heal_regen_pct")) / 100.0
+	heal_target.health = minf(heal_target.max_health, heal_target.health + HEAL_PER_SECOND * better * delta)
 	heal_target._overlay.queue_redraw()
 
 

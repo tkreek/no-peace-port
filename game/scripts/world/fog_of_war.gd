@@ -77,7 +77,9 @@ func update_now() -> void:
 				_reveal(unit.position, unit.sight())
 		for object in MapObject.all_objects:
 			if object.is_building() and object.owner_index == player_team and object.is_alive():
-				_reveal(object.footprint_rect().get_center(), BUILDING_SIGHT)
+				var owner: Player = Player.by_index.get(player_team)
+				var sharper := owner.bonus(object.guid, "sight_pct") if owner else 0.0  # tower Sight upgrades
+				_reveal(object.footprint_rect().get_center(), BUILDING_SIGHT * (1.0 + sharper / 100.0))
 		var now := Time.get_ticks_msec()
 		_reveals = _reveals.filter(func(r: Dictionary) -> bool: return r.until > now)
 		for r in _reveals:

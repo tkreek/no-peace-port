@@ -28,6 +28,13 @@ const FIELD_GUID := 149
 ## Horses are raised at the corral (Native, outlaw), hacienda and ranch, which shelter five
 ## each ("zero of five possible horses"); mounted units cost one.
 const HORSE_GUID := 9001
+const STAGECOACH_UPGRADE := 990
+## The outlaws' saloon looks over the land once Lift fog of war is researched.
+const SALOON := 303
+const LIFT_FOG_UPGRADE := 965
+const LOOK_RECHARGE := 60.0
+var look_ready_at := 0.0  # msec
+const STAGECOACH := 456
 ## Cattle (manual 2.5): raised at the hacienda and ranch, sold alive at animal processing.
 const COW_GUID := 9002
 const COW_BUILDINGS := [205, 405]
@@ -721,9 +728,12 @@ func trainable_units() -> PackedInt32Array:
 	if guid in TRADE_BUILDINGS:
 		for i in TRADES.size():
 			out.append(TRADE_GUID + i)
+	var owner_player: Player = Player.by_index.get(owner_index)
 	for unit_guid in GameData.stats_guids():
 		var stats := GameData.stats(unit_guid)
 		if stats.get("kind") == "unit" and int(stats.get("produced_at", -1)) == guid:
+			if unit_guid == STAGECOACH and (owner_player == null or not owner_player.researched.has(STAGECOACH_UPGRADE)):
+				continue  # needs the Stagecoach upgrade
 			out.append(unit_guid)
 	return out
 

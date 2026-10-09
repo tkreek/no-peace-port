@@ -259,6 +259,11 @@ func _load_tables() -> void:
 	_stats[MapObject.COW_GUID] = {"kind": "cow", "name": "Cow", "faction": "", "build_time": 15,
 			"cost": {"food": 40}, "icon": "Potraits/Sonstige_icons/z08_kuh.bmp",
 			"function": "Raises a cow; it gains up to 25 gold of value while grazing"}
+	# The American "Stagecoach" upgrade (editor GUID 990) the manual lists at the sawmill.
+	if not _stats.has(MapObject.STAGECOACH_UPGRADE):
+		_stats[MapObject.STAGECOACH_UPGRADE] = {"kind": "upgrade", "faction": "usa", "name": "Stagecoach",
+				"produced_at": 409, "cost": {"food": 150, "wood": 150, "gold": 250}, "effects": {},
+				"function": "Allows stagecoaches to be built", "applies_to": "Stagecoaches", "applies_to_guids": [456]}
 	# Raising a horse (manual: corral, hacienda, ranch; "costs food"; no editor entry).
 	_stats[MapObject.HORSE_GUID] = {"kind": "horse", "name": "Horse", "faction": "", "build_time": 20,
 			"cost": {"food": 50}, "icon": "Potraits/Sonstige_icons/z02_pferd.bmp",

@@ -696,6 +696,10 @@ func _refresh_commands() -> void:
 				_add_command(type_id, guid, func() -> void:
 					if not building.enqueue(guid):
 						Sound.play_sound(80))  # the original "not possible" sound
+		if building.guid == MapObject.SALOON and player.researched.has(MapObject.LIFT_FOG_UPGRADE):
+			var ready := Time.get_ticks_msec() >= building.look_ready_at
+			_add_spell_command(MapObject.LIFT_FOG_UPGRADE, "Look over the land: click a spot to lift the fog there for a while" +
+					("" if ready else "\n(recovering)"), "look")
 		if not building.trainable_units().is_empty():
 			_add_icon_command(_extra_icons, ICON_RALLY, "Specify assembly location (I)",
 					func() -> void: selection.begin_targeting("rally"), selection.pending == "rally")
@@ -816,7 +820,7 @@ func _add_icon_command(sheet: RdSprite, frame: int, tip: String, action: Callabl
 	_commands.add_child(button)
 
 
-func _add_spell_command(spell: int, tip: String) -> void:
+func _add_spell_command(spell: int, tip: String, command := "") -> void:
 	var button := Button.new()
 	button.focus_mode = Control.FOCUS_NONE
 	var none := StyleBoxEmpty.new()
@@ -829,7 +833,8 @@ func _add_spell_command(spell: int, tip: String) -> void:
 	if thumb:
 		thumb.set_anchors_preset(Control.PRESET_FULL_RECT)
 		button.add_child(thumb)
-	button.pressed.connect(func() -> void: selection.begin_targeting("spell:%d" % spell))
+	var order := command if command != "" else "spell:%d" % spell
+	button.pressed.connect(func() -> void: selection.begin_targeting(order))
 	_commands.add_child(button)
 
 

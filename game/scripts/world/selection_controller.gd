@@ -97,6 +97,12 @@ func _give_targeted(world: Vector2) -> void:
 			var building := _building_at(world)
 			if building and building.capacity() > 0:
 				order_quarters(building)
+		"look":
+			var saloon := selected_building
+			if is_instance_valid(saloon) and saloon.guid == MapObject.SALOON and Time.get_ticks_msec() >= saloon.look_ready_at:
+				saloon.look_ready_at = Time.get_ticks_msec() + MapObject.LOOK_RECHARGE * 1000.0
+				if FogOfWar.current:
+					FogOfWar.current.reveal_for(world, 450.0, 20.0)
 		"rally":
 			if is_instance_valid(selected_building):
 				selected_building.rally_point = world

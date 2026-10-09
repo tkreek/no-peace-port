@@ -23,6 +23,10 @@ const DROP_OFFS := {
 const FOOD_STORES := [108, 208, 408]
 const FIELD_GUID := 149
 const FIELDS_PER_STORE := 5
+## Fields lie flat on the ground: beneath the women working them, whose feet may be above
+## the field's middle (where y-sorting would put them under it), and beneath corpses and
+## shadows (z -1).
+const FIELD_Z := -2
 const GOLD_MINE_GUID := 700  # selection sound "gold_mine"
 const PITFALL_GUID := BuildingDefence.PITFALL_GUID
 ## Wharves and the boathouse launch boats, so they go up at the water's edge.
@@ -64,6 +68,7 @@ var _shadow: Sprite2D
 var _ramps: Texture2D
 var _overlay := DrawOverlay.new()
 var _work_rect := Rect2()
+var _walls: Array[Rect2] = []  # the solid footprint cells as row runs, relative to position
 var _team_row := 0
 var _body_anim := -1
 var _ambient: Sprite2D
@@ -97,6 +102,8 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 	if _bob == null or _bob.anims.is_empty():
 		return false
 	_is_tree = type.name.begins_with("tree") and _bob.anims.size() > ObjectStock.TREE_STUMP_ANIM + 1
+	if is_field():
+		z_index = FIELD_Z
 	_ramps = GameData.load_ramps(type.anims)
 	_shadow = Sprite2D.new()
 	_body = Sprite2D.new()
@@ -216,6 +223,8 @@ func _process(delta: float) -> void:
 		condition.burn(delta)
 	if complete:
 		production.update(delta)
+		if guid in BuildingProduction.GUN_FACTORIES and (_ambient != null) != _ambient_wanted():
+			_update_ambient()
 		if selected and not production.queue.is_empty():
 			_overlay.queue_redraw()
 
@@ -257,6 +266,45 @@ func work_rect() -> Rect2:
 	return _work_rect
 
 
+## The solid footprint cells (walls, trunk, mine entrance) as one rectangle per row run,
+## relative to the position. Empty for objects without solid cells.
+func _wall_runs() -> Array[Rect2]:
+	if _walls.is_empty() and object_type and not object_type.footprint_cells.is_empty():
+		var grid := object_type.footprint_grid
+		var origin := -Vector2(object_type.footprint_anchor)
+		for y in grid.y:
+			var x := 0
+			while x < grid.x:
+				if object_type.footprint_cells[y * grid.x + x] & NavGrid.SOLID:
+					var start := x
+					while x < grid.x and object_type.footprint_cells[y * grid.x + x] & NavGrid.SOLID:
+						x += 1
+					_walls.append(Rect2(origin + Vector2(start, y) * NavGrid.CELL, Vector2(x - start, 1) * NavGrid.CELL))
+				x += 1
+	return _walls
+
+
+## The point of the walls nearest `from` (the solid cells, not their bounding rectangle,
+## which for an L-shaped or diagonal building takes in a lot of open ground).
+func wall_point(from: Vector2) -> Vector2:
+	var runs := _wall_runs()
+	if runs.is_empty() or is_field():
+		var rect := work_rect()
+		return from.clamp(rect.position, rect.end)
+	var local := from - position
+	var best := Vector2.INF
+	for run in runs:
+		var p := local.clamp(run.position, run.end)
+		if p.distance_squared_to(local) < best.distance_squared_to(local):
+			best = p
+	return best + position
+
+
+## Whether `point` is within `reach` of the walls (workers at a site, units at quarters...).
+func near_walls(point: Vector2, reach: float) -> bool:
+	return wall_point(point).distance_to(point) <= reach
+
+
 ## Where the object's current picture is drawn, in world coordinates (canopy, roof...).
 func visual_rect() -> Rect2:
 	if _body == null or _body.texture == null:
@@ -267,7 +315,7 @@ func visual_rect() -> Rect2:
 ## Whether a click at `point` (world) lands on this object: on a solid pixel of its picture
 ## (walls, roof, canopy), or on its walls' ground area.
 func hit(point: Vector2) -> bool:
-	if work_rect().grow(4).has_point(point):
+	if near_walls(point, 4.0):
 		return true
 	if _body == null or _body.texture == null or not visual_rect().has_point(point):
 		return false
@@ -388,14 +436,17 @@ func refresh_sprites() -> bool:
 		# Construction stages are the frames of anim 0 (shadow anim 1); 2/3 hold the finished frame.
 		if not complete and health > 0.0:
 			body_anim = 0
-			var stages := _bob.anims[0].frames.size()
+			var stages := _construction_stages()
 			frame_hint = mini(stages - 1, int(build_progress * stages))
 		else:
 			body_anim = 2 if _bob.anims.size() > 3 else 0
+			frame_hint = 0 if body_anim == 2 else -1  # walls list several pictures; the first is the one built
 		if health <= 0.0 and _has_sheet(RUBBLE_ANIM):
 			body_anim = RUBBLE_ANIM
+			frame_hint = 0
 		elif condition.burnt() and _has_sheet(BURNT_ANIM):
 			body_anim = BURNT_ANIM
+			frame_hint = 0
 		shadow_anim = _bob.shadow_for(body_anim)
 	elif shadow_anim == body_anim:
 		shadow_anim = _bob.shadow_for(body_anim)
@@ -411,6 +462,19 @@ func refresh_sprites() -> bool:
 	return true
 
 
+## How many of anim 0's frames are construction stages: up to the finished picture. Many
+## lists run on past it (a stray repeat of the first stage, or a placement-preview frame),
+## which would flash the bare foundation or a preview just before completion.
+func _construction_stages() -> int:
+	var frames := _bob.anims[0].frames
+	if _bob.anims.size() > 2:
+		var finished := _bob.anims[2].frames
+		for i in frames.size():
+			if finished.has(frames[i]):
+				return i + 1
+	return frames.size()
+
+
 func shows_rubble() -> bool:
 	return _body_anim == RUBBLE_ANIM
 
@@ -424,11 +488,16 @@ func _has_sheet(anim_index: int) -> bool:
 	return anim_index < _bob.anims.size() and not _bob.sub_sprite_is_shadow[_bob.anims[anim_index].sub_sprite]
 
 
-## Buildings with a moving part (the farm's windmill...) run it once they are finished.
+## Buildings with a moving part (the farm's windmill...) run it once they are finished; the
+## weapons factories' glowing furnace only while they are making something.
+func _ambient_wanted() -> bool:
+	if not complete or condition.burnt() or not _has_sheet(AMBIENT_ANIM) or _bob.anims[AMBIENT_ANIM].frames.size() <= 1:
+		return false
+	return guid not in BuildingProduction.GUN_FACTORIES or not production.queue.is_empty()
+
+
 func _update_ambient() -> void:
-	var wanted := complete and not condition.burnt() and _has_sheet(AMBIENT_ANIM) \
-			and _bob.anims[AMBIENT_ANIM].frames.size() > 1
-	if not wanted:
+	if not _ambient_wanted():
 		if _ambient:
 			_ambient.queue_free()
 			_ambient = null

@@ -18,6 +18,7 @@ const ICON_BUILD_EXPANDED := 16  # large hammer: structures with enhanced functi
 const ICON_FOLLOW := 2  # two men walking one behind the other
 const ICON_PATROL := 4  # two men with an arrow
 const ICON_DISMOUNT := 54  # horse with an arrow
+const ICON_REPAIR := 20  # carpenter's tools
 ## Iconserstereihe frames.
 const ICON_RALLY := 12  # signpost
 const ICON_HIDE := 14  # hooded figure
@@ -92,7 +93,6 @@ func refresh() -> void:
 	var builders := units.filter(func(u: Unit) -> bool: return u.unit_type.can_build())
 	if builders.size() < units.size():
 		builders = []
-	var full_builders := not builders.is_empty() and builders.all(func(u: Unit) -> bool: return u.unit_type.anim_index("build") >= 0)
 	var farmers := units.filter(func(u: Unit) -> bool: return u.unit_type.is_farmer())
 	if farmers.size() < units.size():
 		farmers = []
@@ -107,8 +107,8 @@ func refresh() -> void:
 		formations[u.formation] = true
 	if builders.is_empty():
 		build_menu = ""
-	var wanted := "%d/%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [hud.player.researched.size(),
-			building.production.queue if building else [], builders.size() > 0, full_builders,
+	var wanted := "%d/%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [hud.player.researched.size(),
+			building.production.queue if building else [], builders.size() > 0,
 			farmers.size() > 0, building.get_instance_id() if building else 0,
 			building.complete if building else false, build_menu, fighters.size() > 0, stances.keys(),
 			units.size() > 0, formations.keys(), hud.selection.pending,
@@ -121,9 +121,9 @@ func refresh() -> void:
 	for child in grid.get_children():
 		child.queue_free()
 	if not build_menu.is_empty():
-		_add_build_menu(full_builders)
+		_add_build_menu()
 	elif not units.is_empty():
-		_add_unit_commands(units, builders, full_builders, farmers, fighters, stances, formations)
+		_add_unit_commands(units, builders, farmers, fighters, stances, formations)
 	elif building and building.complete and building.owner_index == hud.player.index:
 		_add_building_commands(building)
 	if building and building.owner_index == hud.player.index:
@@ -135,11 +135,9 @@ func refresh() -> void:
 
 
 ## One of the two building menus: its structures, then a way back.
-func _add_build_menu(full_builders: bool) -> void:
+func _add_build_menu() -> void:
 	for guid in _faction_guids("structure"):
 		if guid == MapObject.FIELD_GUID or (guid in EXPANDED_STRUCTURES) != (build_menu == "expanded"):
-			continue
-		if not full_builders and guid not in MapObject.FOOD_STORES:
 			continue
 		var type_id := GameData.type_for_guid(guid, hud.biome)
 		if type_id >= 0:
@@ -147,13 +145,14 @@ func _add_build_menu(full_builders: bool) -> void:
 	_add_icon(extra_icons, ICON_LEAVE, "Back", func() -> void: open_build_menu(""))
 
 
-func _add_unit_commands(units: Array, builders: Array, full_builders: bool, farmers: Array, fighters: Array,
+func _add_unit_commands(units: Array, builders: Array, farmers: Array, fighters: Array,
 		stances: Dictionary, formations: Dictionary) -> void:
 	var selection := hud.selection
 	if not builders.is_empty():
 		_add_icon(command_icons, ICON_BUILD, "Build structure (B)", func() -> void: open_build_menu("basic"))
-		if full_builders:
-			_add_icon(command_icons, ICON_BUILD_EXPANDED, "Build expanded structure (V)", func() -> void: open_build_menu("expanded"))
+		_add_icon(command_icons, ICON_BUILD_EXPANDED, "Build expanded structure (V)", func() -> void: open_build_menu("expanded"))
+		_add_icon(command_icons, ICON_REPAIR, "Repair (R): click a damaged building",
+				func() -> void: selection.begin_targeting("repair"), selection.pending == "repair")
 	if not farmers.is_empty():
 		var field_type := GameData.type_for_guid(MapObject.FIELD_GUID, hud.biome)
 		if field_type >= 0:
@@ -205,7 +204,11 @@ func _add_unit_commands(units: Array, builders: Array, full_builders: bool, farm
 func _add_building_commands(building: MapObject) -> void:
 	var production := building.production
 	var enqueue := func(item: int) -> void:
-		if not production.enqueue(item):
+		if production.enqueue(item):
+			return
+		if GameData.stats(item).get("kind") == "unit" and not hud.player.has_room():
+			hud.warn_population_limit()
+		else:
 			Sound.play_sound(CANNOT)
 	for guid in production.trainable_units():
 		if BuildingProduction.is_trade(guid):
@@ -524,6 +527,10 @@ func handle_key(key: int) -> bool:
 		KEY_I:
 			if ours:
 				selection.begin_targeting("rally")
+		KEY_R:
+			if units.is_empty() or not units.all(func(u: Unit) -> bool: return u.unit_type.can_build()):
+				return false
+			selection.begin_targeting("repair")
 		KEY_B, KEY_V:
 			if not units.is_empty() and units.all(func(u: Unit) -> bool: return u.unit_type.can_build()):
 				open_build_menu("basic" if key == KEY_B else "expanded")

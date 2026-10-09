@@ -6,7 +6,7 @@ extends UnitPart
 
 ## Food from a hunted animal, by object name prefix: buffalo, cow, horse.
 const MEAT := {"animal_buffalo": 150, "animal_cow": 100, "animal_horse": 60}
-const CARCASS_SECONDS := 120.0  # an animal with meat left stays this long
+const CARCASS_SECONDS := 120.0  # a carcass with meat left that nobody comes back to stays this long
 ## Cattle: cows graze up to 25 gold of value; driven alive to an animal-processing building
 ## they are paid out (the Native facility pays food as well).
 const COW_DIR := "animals/cow"
@@ -88,6 +88,13 @@ func cut_meat(wanted: int) -> int:
 	return cut
 
 
+## A hunter is at work on this carcass or on his way back to it: it stays until picked clean.
+func keep() -> void:
+	if not unit.is_alive() and has_meat():
+		unit._corpse_timer = 0.0
+		unit.modulate.a = 1.0
+
+
 ## How long the body lies before it fades.
 func corpse_seconds() -> float:
 	return CARCASS_SECONDS if has_meat() else Unit.CORPSE_SECONDS
@@ -106,7 +113,7 @@ func deliver(building: MapObject) -> void:
 func _update_cow(delta: float) -> void:
 	if unit.team > 0 and unit.state == Unit.State.IDLE:
 		cattle_value = minf(COW_MAX_VALUE, cattle_value + COW_MAX_VALUE / COW_GRAZE_SECONDS * delta)
-	if is_instance_valid(_deliver_to) and _deliver_to.work_rect().grow(Unit.REACH * 3).has_point(unit.position):
+	if is_instance_valid(_deliver_to) and _deliver_to.near_walls(unit.position, Unit.REACH * 3):
 		var owner := player()
 		if owner:
 			owner.add("gold", int(cattle_value))
@@ -140,7 +147,7 @@ func stable(building: MapObject) -> void:
 func _update_horse(delta: float) -> void:
 	if unit.team <= 0:
 		return
-	if is_instance_valid(_stable) and _stable.work_rect().grow(Unit.REACH * 3).has_point(unit.position):
+	if is_instance_valid(_stable) and _stable.near_walls(unit.position, Unit.REACH * 3):
 		var owner := player()
 		if owner and int(owner.resources.get("horses", 0)) < owner.horse_capacity():
 			owner.add("horses", 1)

@@ -8,8 +8,9 @@ enum Phase { TO_SOURCE, WORKING, TO_DROP_OFF }
 
 const WORK_SECONDS := {"wood": 4.0, "gold": 5.0, "food": 5.0}
 const HUNT_RANGE := 1500.0
-const BUTCHER_SECONDS := 2.0
-const MEAT_PER_TRIP := 30  # a hunter carries this much home per trip; carcasses last several
+## Cutting off a load takes as long as a field worker's harvest (DEFS.INI gives no rates);
+## a hunter carries his "Tragkapazität" like any gatherer, so a buffalo lasts ten trips.
+const BUTCHER_SECONDS := 5.0
 ## Robbing banks, missions and gold warehouses, and stealing transports: unit GUID -> the
 ## upgrade it needs (0 = none; the outlaws are born robbers).
 const ROBBERS := {152: 916, 155: 916, 252: 941, 255: 941, 452: 991, 455: 991, 456: 991,
@@ -24,6 +25,7 @@ var carried := 0
 var gather_resource := ""  ## what this unit is assigned to collect ("haul", "rob" and "meat" too)
 var gather_source: MapObject
 var build_site: MapObject
+var build_queue: Array[MapObject] = []  ## further sites to build in turn (placed with Shift)
 var hunting := false  ## the target is an animal; carry the meat home after the kill
 var phase := Phase.TO_SOURCE
 var _work_timer := 0.0
@@ -38,6 +40,7 @@ var _steal_time := 0.0
 
 func clear_orders() -> void:
 	_steal_target = null
+	build_queue.clear()
 	busy = false
 
 
@@ -95,6 +98,26 @@ func build(site: MapObject) -> void:
 	unit.path = unit.find_path(site.position)
 
 
+## Build `site` after the sites already ordered (Shift-placing several buildings), or at
+## once if not building.
+func queue_build(site: MapObject) -> void:
+	if unit.state == Unit.State.BUILDING and is_instance_valid(build_site) and build_site != site:
+		build_queue.append(site)
+	else:
+		build(site)
+
+
+## The site finished (or gone): go on to the next one still standing, if any.
+func _build_next() -> void:
+	var rest := build_queue.filter(func(s: MapObject) -> bool:
+		return is_instance_valid(s) and s.is_alive() and (not s.complete or s.condition.needs_repair()))
+	if rest.is_empty():
+		build_queue.clear()
+		return
+	build(rest.pop_front())
+	build_queue.assign(rest)
+
+
 ## Kill an animal and carry its meat to a butcher or the main building, then hunt again.
 ## Horses are hunted only when ordered, and never by Native Americans, for whom they are
 ## too valuable as mounts (manual 3.10).
@@ -114,8 +137,9 @@ func hunt(animal: Unit) -> void:
 		unit._attack_step = -1
 		unit.state = Unit.State.ATTACKING
 		unit.path.clear()
+		animal.animal.keep()
 	hunting = true
-	_work_timer = BUTCHER_SECONDS
+	_work_timer = BUTCHER_SECONDS / unit.morale() / unit.effectiveness()
 
 
 func may_hunt_horses() -> bool:
@@ -214,7 +238,7 @@ func _update_gather(delta: float) -> void:
 				_route()
 			unit.follow_path(delta)
 			unit.play(walk_action())
-			var arrived := gather_source.work_rect().grow(Unit.REACH).has_point(unit.position)
+			var arrived := gather_source.near_walls(unit.position, Unit.REACH)
 			if gather_source.is_field():
 				arrived = unit.position.distance_to(_work_spot()) < 10.0
 			if arrived or unit.path.is_empty():
@@ -265,7 +289,7 @@ func _update_gather(delta: float) -> void:
 					return
 			unit.follow_path(delta)
 			unit.play(walk_action())
-			if _drop_off.work_rect().grow(Unit.REACH).has_point(unit.position) or unit.path.is_empty():
+			if _drop_off.near_walls(unit.position, Unit.REACH) or unit.path.is_empty():
 				unit.path.clear()
 				_deliver()
 				if gather_resource == "meat":
@@ -303,11 +327,11 @@ func _update_haul(delta: float) -> void:
 		phase = Phase.TO_DROP_OFF
 	match phase:
 		Phase.TO_SOURCE:
-			if unit.path.is_empty() and not gather_source.work_rect().grow(Unit.REACH * 2).has_point(unit.position):
+			if unit.path.is_empty() and not gather_source.near_walls(unit.position, Unit.REACH * 2):
 				unit.path = unit.find_path(gather_source.work_rect().get_center())
 			unit.follow_path(delta)
 			unit.play(walk_action())
-			if gather_source.work_rect().grow(Unit.REACH * 2).has_point(unit.position) or unit.path.is_empty():
+			if gather_source.near_walls(unit.position, Unit.REACH * 2) or unit.path.is_empty():
 				unit.path.clear()
 				phase = Phase.WORKING
 				_work_timer = 1.0
@@ -340,7 +364,7 @@ func _update_haul(delta: float) -> void:
 				unit.path = unit.find_path(_drop_off.position)
 			unit.follow_path(delta)
 			unit.play(walk_action())
-			if _drop_off.work_rect().grow(Unit.REACH * 2).has_point(unit.position) or unit.path.is_empty():
+			if _drop_off.near_walls(unit.position, Unit.REACH * 2) or unit.path.is_empty():
 				unit.path.clear()
 				var owner := player()
 				if owner and carried > 0:
@@ -364,7 +388,7 @@ func _update_rob(delta: float) -> void:
 		Phase.TO_SOURCE:
 			unit.follow_path(delta)
 			unit.play(walk_action())
-			if building.work_rect().grow(Unit.REACH * 2).has_point(unit.position) or unit.path.is_empty():
+			if building.near_walls(unit.position, Unit.REACH * 2) or unit.path.is_empty():
 				unit.path.clear()
 				if loot_of(building) <= 0:
 					unit.stop()
@@ -395,7 +419,7 @@ func _update_rob(delta: float) -> void:
 				return
 			unit.follow_path(delta)
 			unit.play(walk_action())
-			if _drop_off.work_rect().grow(Unit.REACH * 2).has_point(unit.position) or unit.path.is_empty():
+			if _drop_off.near_walls(unit.position, Unit.REACH * 2) or unit.path.is_empty():
 				var owner := player()
 				if owner and carried > 0:
 					owner.add("gold", carried)
@@ -438,8 +462,9 @@ func update_building(delta: float) -> void:
 			or (build_site.complete and not build_site.condition.needs_repair()):
 		build_site = null
 		unit.state = Unit.State.IDLE
+		_build_next()
 		return
-	if not build_site.work_rect().grow(Unit.REACH).has_point(unit.position):
+	if not build_site.near_walls(unit.position, Unit.REACH):
 		if unit.path.is_empty():
 			unit.path = unit.find_path(build_site.position)
 		unit.follow_path(delta)
@@ -460,6 +485,7 @@ func update_building(delta: float) -> void:
 ## Walk up to the kill and gut it (the hunters' "erlegen"/"ausbeinen" animation), then
 ## carry the meat home.
 func butcher(carcass: Unit, delta: float) -> void:
+	carcass.animal.keep()
 	if unit.unit_type.anim_index("butcher") < 0:
 		_carry_meat(carcass)
 		return
@@ -480,7 +506,7 @@ func butcher(carcass: Unit, delta: float) -> void:
 
 func _carry_meat(carcass: Unit) -> void:
 	carrying = "food"
-	carried = carcass.animal.cut_meat(MEAT_PER_TRIP)
+	carried = carcass.animal.cut_meat(unit.unit_type.carry)
 	_carcass = carcass if carcass.animal.has_meat() else null
 	unit.target = null
 	hunting = false

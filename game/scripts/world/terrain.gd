@@ -9,6 +9,9 @@ const TerrainShader := preload("res://shaders/terrain.gdshader")
 const FOLDERS := {"steppe": "terrain/prairie", "wiese": "terrain/meadow"}
 
 static var _atlases := {}
+## The ground is drawn beneath everything on it, including what lies flat at z -1 (shadows,
+## corpses), which would otherwise be hidden under it.
+const GROUND_Z := -10
 
 var map: AlfMap
 var biome := "steppe"
@@ -21,6 +24,7 @@ var _cells_texture: ImageTexture
 
 func setup(alf_map: AlfMap, biome_name: String) -> void:
 	map = alf_map
+	z_index = GROUND_Z
 	biome = biome_name
 	var atlas := atlas_for(biome)
 	_atlas = atlas

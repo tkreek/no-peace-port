@@ -13,6 +13,8 @@ var selected := false:
 		if is_instance_valid(_overlay):
 			_overlay.queue_redraw()
 
+## Draw the selection ring over the picture (boats: their hulls would hide one underneath).
+var ring_on_top := false
 var _overlay := DrawOverlay.new()
 var _body := Sprite2D.new()
 var _shadow := Sprite2D.new()
@@ -155,9 +157,21 @@ func _set_frame(sprite: Sprite2D, anim_index: int) -> void:
 	sheet.apply(sprite, frame)
 
 
+## Whether `point` (world) is on a solid pixel of the unit's current picture.
+func hit(point: Vector2) -> bool:
+	if _body.texture == null:
+		return false
+	var local := _body.to_local(point)
+	return _body.get_rect().has_point(local) and _body.is_pixel_opaque(local)
+
+
 func _draw() -> void:
 	# The selection ring belongs on the ground, under the unit's own sprite.
-	if selected and is_alive():
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.55))
-		draw_arc(Vector2.ZERO, 16.0, 0.0, TAU, 32, Color(1, 1, 1, 0.85), 1.5, true)
-		draw_set_transform(Vector2.ZERO)
+	if selected and is_alive() and not ring_on_top:
+		_draw_ring(self, 16.0)
+
+
+func _draw_ring(canvas: CanvasItem, radius: float) -> void:
+	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.55))
+	canvas.draw_arc(Vector2.ZERO, radius, 0.0, TAU, 48, Color(1, 1, 1, 0.85), 1.5, true)
+	canvas.draw_set_transform(Vector2.ZERO)

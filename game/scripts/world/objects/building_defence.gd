@@ -4,7 +4,9 @@ extends RefCounted
 ## shooting out at enemies; and the Native pitfall, crossed safely by its own people,
 ## deadly to enemies, hidden from them unless a detector sees it, spent after three kills.
 
-const GARRISON_RANGE_BONUS := 60.0  # firing from the walls / platform reaches further
+## Firing from the walls or a platform reaches a quarter further than in the open, counted
+## from the walls (not the middle of the building, which would eat most of it on a big fort).
+const GARRISON_RANGE_FACTOR := 1.25
 const PITFALL_GUID := 114
 const PITFALL_KILLS := 3
 
@@ -71,21 +73,30 @@ func _update_garrison(delta: float) -> void:
 	if _garrison_scan > 0.0:
 		return
 	_garrison_scan = 0.25
-	var centre := building.work_rect().get_center()
+	var walls := building.work_rect()
+	var centre := walls.get_center()
 	for unit in garrison:
 		if not unit.unit_type.ranged or unit.unit_type.attack_anims.is_empty() or not unit.ready_to_fire():
 			continue
-		var reach := unit.attack_range() + GARRISON_RANGE_BONUS
+		var reach := garrison_range(unit)
 		var best: Node2D = null
 		var best_distance := reach
-		for other: Unit in UnitGrid.near(centre, reach):
+		var loophole := centre
+		for other: Unit in UnitGrid.near(centre, reach + walls.size.length() / 2.0):
 			if other.is_alive() and not other.inside and other.team > 0 and other.team != building.owner_index:
-				var d := centre.distance_to(other.position)
+				var edge := building.wall_point(other.position)
+				var d := edge.distance_to(other.position)
 				if d < best_distance:
 					best = other
 					best_distance = d
+					loophole = edge
 		if best:
-			unit.fire_from_quarters(best, centre)
+			unit.fire_from_quarters(best, loophole, reach)
+
+
+## How far a quartered unit shoots, from the walls.
+static func garrison_range(unit: Unit) -> float:
+	return unit.attack_range() * GARRISON_RANGE_FACTOR
 
 
 func _spring_trap(delta: float) -> void:

@@ -54,7 +54,8 @@ These live in code as named constants and should be tuned through play.
 | Self-healing | 0.6 energy per second | `Unit.SELF_HEAL_PER_SECOND` |
 | Repair | half the building cost for the energy restored | `MapObject.add_repair_work` |
 | Robbing / stealing | 4 s inside a building; 4 s beside a vehicle; robbers carry 3× their normal load | `Unit.ROB_SECONDS`, `STEAL_SECONDS` |
-| Garrison range bonus | +60 px when shooting from a fort or tower | `MapObject.GARRISON_RANGE_BONUS` |
+| Garrison range bonus | a quarter more range when shooting from a fort or tower, counted from its walls | `BuildingDefence.GARRISON_RANGE_FACTOR` |
+| Hunting | 5 s to cut a load (a harvest's time), the hunter's own load (15) per trip; DEFS.INI has no gathering rates | `UnitWork.BUTCHER_SECONDS` |
 | Tepee packing | 6 s to take a tepee down or set it up | `Unit.PACK_SECONDS` |
 | Riverboat capacity | 10 units (the raft's 8 is from the manual) | `Unit.BOAT_CAPACITY` |
 | Boarding and landing | board within 72 px of the boat; land within 7 cells of dry ground | `Unit.BOARD_REACH`, `LANDING_REACH` |

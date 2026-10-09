@@ -110,6 +110,14 @@ func _scenario_picking() -> void:
 		"picture top-left corner": picture.position + Vector2(4, 4),
 		"footprint bottom-left corner": Vector2(foot.position.x + 2, foot.end.y - 2),
 		"40px right of picture": Vector2(picture.end.x + 40, picture.get_center().y)}
+	# Open ground inside the walls' bounding box (L-shaped and diagonal buildings have some).
+	var walls := hq.work_rect()
+	for y in range(int(walls.position.y) + 2, int(walls.end.y), 4):
+		for x in range(int(walls.position.x) + 2, int(walls.end.x), 4):
+			var p := Vector2(x, y)
+			if not probes.has("open corner of the walls' box") and not hq.near_walls(p, 8.0) \
+					and not hq._body.is_pixel_opaque(hq._body.to_local(p)):
+				probes["open corner of the walls' box"] = p
 	for label in probes:
 		print("%-36s -> %s" % [label, main.selection._building_at(probes[label]) == hq])
 	get_tree().quit()
@@ -225,3 +233,27 @@ func _scenario_icons() -> void:
 	var builders := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.anim_index("build") >= 0)
 	main.selection._select(builders, false)
 	main.hud.commands.open_build_menu("expanded")
+
+
+## Filling the housing warns once; a train order with no room left warns again.
+func _scenario_poplimit() -> void:
+	var player: Player = main.players[1]
+	var hq: MapObject = player.main_building()
+	await get_tree().process_frame
+	var before := main.hud.population_warnings
+	main._spawn_squad(main.FACTIONS[player.faction].army, 1, hq.position + Vector2(0, 260),
+			player.population_limit() - player.population())
+	for i in 3:
+		await get_tree().process_frame
+	var filled := main.hud.population_warnings - before
+	main.selection.select_building(hq)
+	player.resources.food = 5000
+	await get_tree().process_frame
+	await get_tree().process_frame
+	for button in main.hud.commands.grid.get_children():
+		if GameData.stats(button.get_meta("guid", -1)).get("kind") == "unit":
+			button.pressed.emit()
+			break
+	print("population %d / %d: warned on filling %d, on a train order %d" % [player.population(), player.population_limit(),
+			filled, main.hud.population_warnings - before - filled])
+	get_tree().quit()

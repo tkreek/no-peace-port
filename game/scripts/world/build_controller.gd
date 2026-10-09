@@ -3,11 +3,13 @@ extends Node2D
 ## Building placement: a ghost of the finished building follows the mouse (snapped to the
 ## 16 px collision grid), tinted green or red by whether the footprint is free. Left click
 ## places a construction site and sends the selected builders; right click / Esc cancels.
+## With Shift held the placing goes on, and the builders take the sites in turn.
 
 signal placed(site: MapObject)
 
 const VALID := Color(0.6, 1.0, 0.6, 0.7)
 const INVALID := Color(1.0, 0.4, 0.4, 0.7)
+const CANNOT_BUILD_SOUND := 80  # "not_buildable" in the sound table
 
 var player: Player
 var selection: SelectionController
@@ -97,7 +99,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _place(at: Vector2, keep_placing: bool) -> void:
 	var unpacker := _unpacker
 	if not can_place(at) or (unpacker == null and not player.spend(_cost())):
-		Sound.play_sound(_cannot_build_sound())
+		Sound.play_sound(CANNOT_BUILD_SOUND)
 		return
 	if unpacker != null and not is_instance_valid(unpacker):
 		cancel()
@@ -113,8 +115,8 @@ func _place(at: Vector2, keep_placing: bool) -> void:
 		NavGrid.current.block_footprint(placing_type, at)
 	# Units now standing inside the footprint step out to the nearest free cell.
 	for unit in Unit.all_units:
-		if not is_field and site.footprint_rect().has_point(unit.position):
-			var cell := NavGrid.current.nearest_walkable(NavGrid.current.cell_of(unit.position))
+		if not is_field and site.footprint_rect().has_point(unit.position) and not unit.inside:
+			var cell := NavGrid.current.nearest_walkable(NavGrid.current.cell_of(unit.position), 24, unit.water.nav_layer())
 			unit.position = (Vector2(cell) + Vector2(0.5, 0.5)) * NavGrid.CELL
 	if unpacker:
 		unpacker.unpack(site)
@@ -125,6 +127,8 @@ func _place(at: Vector2, keep_placing: bool) -> void:
 		if is_instance_valid(unit) and unit.is_alive():
 			if is_field:
 				unit.gather(site)
+			elif keep_placing:
+				unit.work.queue_build(site)
 			else:
 				unit.build(site)
 	placed.emit(site)
@@ -133,7 +137,3 @@ func _place(at: Vector2, keep_placing: bool) -> void:
 	if keep_placing:
 		start(type_id)
 
-
-## "not_buildable" in the sound table.
-func _cannot_build_sound() -> int:
-	return 80

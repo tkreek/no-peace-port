@@ -77,6 +77,23 @@ func _scenario_boats() -> void:
 		get_tree().quit()
 		return
 	print("boat launched at %s, on deep water %s" % [boat.position.round(), boat.water.on_water()])
+	# The player's way: click the boat's hull (well off its middle), then right-click open water.
+	main.selection._select([], false)
+	await _click(boat.position + Vector2(0, 30))
+	var open_water := Vector2.INF
+	for r in range(12, 40):
+		for k in 16:
+			var cell := nav.cell_of(boat.position) + Vector2i(Vector2(r, 0).rotated(k * TAU / 16.0).round())
+			if open_water == Vector2.INF and nav.is_deep_water(cell):
+				open_water = nav.center_of(cell)
+	var launched_at := boat.position
+	await _click(open_water, MOUSE_BUTTON_RIGHT)
+	for i in 20:
+		await get_tree().create_timer(1.0).timeout
+		if boat.state == Unit.State.IDLE:
+			break
+	print("clicked boat selected %s; sailed %d px, %d px short of the click" % [main.selection.selection == [boat],
+			boat.position.distance_to(launched_at), boat.position.distance_to(open_water)])
 	var army_guid: int = main.FACTIONS[faction].army
 	main._spawn_squad(army_guid, 1, spot + Vector2(0, 140), 4)
 	var soldiers := Unit.all_units.filter(func(u: Unit) -> bool: return u.unit_type.guid() == army_guid and u.team == 1)

@@ -39,3 +39,24 @@ func _nearest_mine(from: Vector2) -> MapObject:
 		if object.stock.resource == "gold" and (best == null or from.distance_to(object.position) < from.distance_to(best.position)):
 			best = object
 	return best
+
+
+## Click the mouse at a map point the way a player does: the camera centres on it and the
+## press and release go through the input system (selection, orders, the build ghost). The
+## interface is hidden meanwhile: headless, the window is too small to see past it.
+func _click(world: Vector2, button := MOUSE_BUTTON_LEFT, shift := false) -> void:
+	main.camera.position = world
+	main.hud.root.visible = false
+	for i in 3:
+		await get_tree().process_frame
+	for pressed in [true, false]:
+		var event := InputEventMouseButton.new()
+		event.button_index = button
+		event.pressed = pressed
+		event.shift_pressed = shift
+		event.position = main.get_viewport().get_canvas_transform() * world
+		event.global_position = event.position
+		Input.parse_input_event(event)
+		Input.flush_buffered_events()
+		await get_tree().process_frame
+	main.hud.root.visible = true

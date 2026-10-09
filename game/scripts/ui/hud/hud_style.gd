@@ -6,6 +6,13 @@ extends RefCounted
 const TEXT_COLOR := Color("#f3e3bd")
 const PARCHMENT := Color(0.93, 0.84, 0.64, 0.92)
 const INK := Color("#3a2410")
+## The status bar's small icons: 0 rifle, 1 gold, 2 wood, 4 food, 5 face (population),
+## 6 horseshoe, 8 heart (energy), 9 fist, 10 star (experience), 11 lightning (magic),
+## 12 laurel (morale), 13 eye (sight).
+const STATUS_ICONS := "interface/hud/resource_icons/resource_icons.anims.json"
+
+static var _status_sheet: RdSprite
+static var _status_material: Material
 
 
 static func flat(color: Color) -> StyleBoxFlat:
@@ -38,6 +45,23 @@ static func atlas(sheet: RdSprite, frame: int) -> AtlasTexture:
 ## A frame's size in original pixels (the upscaled sheets are larger).
 static func frame_size(sheet: RdSprite, frame: int) -> Vector2:
 	return Vector2(sheet.rects[frame].size) / sheet.scale
+
+
+## One of the status bar's small icons (palette-drawn, like the original).
+static func status_icon(frame: int, tip := "") -> TextureRect:
+	if _status_sheet == null:
+		var bob := GameData.load_bob(STATUS_ICONS)
+		_status_sheet = GameData.load_set_sheet(STATUS_ICONS, bob, 0)
+		_status_material = SpriteMaterials.body(_status_sheet, null)
+	var icon := TextureRect.new()
+	icon.texture = atlas(_status_sheet, frame)
+	icon.material = _status_material
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	icon.tooltip_text = tip
+	icon.set_instance_shader_parameter("palette_row", 0)
+	return icon
 
 
 static func clear_styles(button: BaseButton) -> void:

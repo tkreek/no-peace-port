@@ -102,11 +102,20 @@ func _scenario_hunt() -> void:
 		if n is Unit and n.team == 0 and n.position.distance_to(hq.position + Vector2(260, 260)) < 60:
 			buffalo = n
 	var hunters := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == hunter_guid)
-	for h: Unit in hunters:
-		h.hunt(buffalo)
+	main.selection._select(hunters, false)
+	main.selection.order_at(buffalo.position + Vector2(0, -12))  # a right click on it
+	print("hunt order marks the prey: %s, hunters on it %s" % [buffalo._flash_time > 0.0,
+			hunters.all(func(h: Unit) -> bool: return h.target == buffalo)])
 	var food: int = main.players[1].resources.food
+	buffalo.died.connect(func(_u: Unit) -> void:
+		print("buffalo dies: plays %s, drawn above the ground %s" % [buffalo._action, buffalo.z_index > main.terrain.z_index]))
+	var vanished_with_meat := false
 	for i in 18:
 		await get_tree().create_timer(5.0).timeout
+		if is_instance_valid(buffalo) and not buffalo.is_alive() and buffalo.animal.has_meat() and buffalo.modulate.a < 1.0:
+			vanished_with_meat = true
+		if i == 15:
+			print("carcass faded with meat left: %s" % vanished_with_meat)
 		print("t=%ds buffalo alive=%s meat_left=%d visible=%s food +%d hunters=%s" % [(i + 1) * 5, buffalo.is_alive() if is_instance_valid(buffalo) else false,
 				buffalo.animal.meat_left if is_instance_valid(buffalo) else -9, is_instance_valid(buffalo),
 				main.players[1].resources.food - food, hunters.map(func(h: Unit) -> String: return "%d/%s/%d" % [h.state, h._action, h.work.carried])])
@@ -338,4 +347,138 @@ func _scenario_abandoned() -> void:
 		await get_tree().create_timer(10.0).timeout
 		print("  t=%d wagon state %d phase %d carrying %s %d path %d at %s" % [(k + 1) * 10, wagon.state, wagon.work.phase, wagon.work.carrying, wagon.work.carried, wagon.path.size(), wagon.position.round()])
 	print("store left %d; %s %d -> %d" % [store.stock.loot, store.stock.loot_kind, before[store.stock.loot_kind], main.players[1].resources[store.stock.loot_kind]])
+	get_tree().quit()
+
+
+## Every people's structures in both landscapes: the last construction stage is the finished
+## picture, and a burnt and a destroyed one show their damage pictures.
+func _scenario_stages() -> void:
+	var total := 0
+	var finished_last := 0
+	var burnt := 0
+	var rubble := 0
+	var wrong := []
+	for guid in GameData.stats_guids():
+		if GameData.stats(guid).get("kind") != "structure" or guid in [MapObject.FIELD_GUID, MapObject.PITFALL_GUID]:
+			continue
+		for biome in ["steppe", "wiese"]:
+			var type := ObjectTypes.get_type(GameData.type_for_guid(guid, biome))
+			if type == null:
+				continue
+			total += 1
+			var b := MapObject.new()
+			b.setup(type, 1, 0, true)
+			b.build_progress = 0.99
+			b.refresh_sprites()
+			var last_stage := b._body.region_rect
+			b.complete = true
+			b.health = b.max_health
+			b.refresh_sprites()
+			if b._body.region_rect == last_stage:
+				finished_last += 1
+			else:
+				wrong.append("%d %s" % [guid, biome])
+			b.health = b.max_health * 0.2
+			b.refresh_sprites()
+			burnt += 1 if b._body_anim == MapObject.BURNT_ANIM else 0
+			b.health = 0.0
+			b.refresh_sprites()
+			rubble += 1 if b.shows_rubble() else 0
+			b.free()
+	print("structures %d: construction ends on the finished picture %d, burnt %d, rubble %d %s" % [total,
+			finished_last, burnt, rubble, wrong])
+	get_tree().quit()
+
+
+
+
+## The weapons factory's furnace glows only while it makes something.
+func _scenario_furnace() -> void:
+	var hq: MapObject = main.players[1].main_building()
+	var guid: int = 411 if main.players[1].faction == "usa" else 211
+	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
+	var factory := MapObject.new()
+	factory.position = AiBuilder.find_spot(type, hq.position)
+	factory.setup(type, 1)
+	main.units_root.add_child(factory)
+	main.camera.position = factory.position
+	main.players[1].resources.gold = 5000
+	main.players[1].resources.food = 5000
+	await get_tree().process_frame
+	var idle := factory._ambient != null
+	factory.production.enqueue(factory.production.researchable_upgrades()[0])
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var working := factory._ambient != null
+	factory.production.cancel(0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	print("furnace glows: idle %s, working %s, after cancelling %s" % [idle, working, factory._ambient != null])
+	get_tree().quit()
+
+
+
+## A damaged tower: a right click with workers and a soldier selected quarters the soldier
+## (the workers don't start repairing); the Repair button, then a click on it, sets the
+## workers to work.
+func _scenario_repair() -> void:
+	var hq: MapObject = main.players[1].main_building()
+	var guid: int = {"mex": 213, "usa": 413, "des": 313, "ind": 111}[main.players[1].faction]
+	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
+	var tower := MapObject.new()
+	tower.position = AiBuilder.find_spot(type, hq.position)
+	tower.setup(type, 1)
+	main.units_root.add_child(tower)
+	main.nav.block_footprint(type, tower.position)
+	tower.take_damage(tower.max_health * 0.5)
+	var army: int = main.FACTIONS[main.players[1].faction].army
+	main._spawn_squad(army, 1, tower.position + Vector2(0, 140), 1)
+	var soldier: Unit = Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 1 and u.unit_type.guid() == army)[0]
+	var builders := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 1 and u.unit_type.can_build())
+	main.selection._select(builders + [soldier], false)
+	main.selection.order_at(tower.work_rect().get_center())
+	await get_tree().create_timer(1.0).timeout
+	print("right click: soldier to quarters %s, workers repairing %s" % [soldier.quarters == tower,
+			builders.any(func(u: Unit) -> bool: return u.work.build_site == tower)])
+	main.selection._select(builders, false)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	for button in main.hud.commands.grid.get_children():
+		if String(button.get_meta("tooltip", "")).begins_with("Repair"):
+			button.pressed.emit()
+	await _click(tower.work_rect().get_center())
+	var before := tower.health
+	await get_tree().create_timer(20.0).timeout
+	print("repair command: repaired %s (energy %d -> %d)" % [tower.health > before, before, tower.health])
+	get_tree().quit()
+
+
+## Three houses placed with Shift held: the workers build them one after another.
+func _scenario_buildqueue() -> void:
+	var hq: MapObject = main.players[1].main_building()
+	main.players[1].resources.wood = 5000
+	main.players[1].resources.gold = 5000
+	var builders := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 1 and u.unit_type.can_build())
+	main.selection._select(builders, false)
+	var guid: int = {"mex": 201, "usa": 401, "des": 301, "ind": 101}[main.players[1].faction]
+	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
+	main.build_controller.start(type.id)
+	var sites: Array[MapObject] = []
+	for radius in range(260, 900, 48):
+		for k in 16:
+			var spot := (hq.position + Vector2(radius, 0).rotated(k * TAU / 16.0)).snapped(Vector2(16, 16))
+			if sites.size() < 3 and main.build_controller.is_placing() and main.build_controller.can_place(spot):
+				main.build_controller._place(spot, true)
+				sites.append(MapObject.structures[-1])
+	main.build_controller.cancel()
+	var order := []
+	for i in 90:
+		await get_tree().create_timer(2.0).timeout
+		for s in sites:
+			if s.complete and s not in order:
+				order.append(s)
+		if order.size() == sites.size():
+			break
+	print("sites placed %d, built in order %s, queued left %d" % [sites.size(), order == Array(sites),
+			builders.map(func(u: Unit) -> int: return u.work.build_queue.size()).reduce(func(a: int, b: int) -> int: return a + b, 0)])
 	get_tree().quit()

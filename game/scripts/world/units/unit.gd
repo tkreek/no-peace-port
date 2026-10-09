@@ -86,6 +86,7 @@ func setup(type: UnitType, team_index: int) -> void:
 	stealth = UnitStealth.new(self)
 	water = UnitWater.new(self)
 	tepees = UnitTepees.new(self)
+	ring_on_top = water.is_boat()
 	_parts = [riding, animal, magic, work, tepees, water, stealth]
 	all_units.append(self)
 	play("idle")
@@ -448,11 +449,12 @@ func ready_to_fire() -> bool:
 	return _cooldown <= 0.0
 
 
-## A shot from inside quarters or a boat: no animation (the unit is out of sight), just the report.
-func fire_from_quarters(enemy: Node2D, from: Vector2) -> void:
+## A shot from inside quarters or a boat: no animation (the unit is out of sight), just the
+## report. `reach` is how far it carries from `from` (quarters reach further than the open).
+func fire_from_quarters(enemy: Node2D, from: Vector2, reach: float) -> void:
 	_cooldown = unit_type.reload_ms / 1000.0
 	Sound.play_event(unit_type.guid(), Sound.Event.SHOOT, from, 60)
-	var accuracy := clampf(1.1 - from.distance_to(enemy.position) / ((attack_range() + 60.0) * 1.6), 0.4, 0.95)
+	var accuracy := clampf(1.1 - from.distance_to(enemy.position) / (reach * 1.6), 0.4, 0.95)
 	if randf() <= accuracy:
 		enemy.take_damage(attack_damage(), self)
 
@@ -508,7 +510,7 @@ func _process(delta: float) -> void:
 	if state == State.QUARTERED:
 		return
 	if quarters != null and (state == State.MOVING or state == State.IDLE) and is_instance_valid(quarters) \
-			and quarters.work_rect().grow(REACH * 2.0).has_point(position):
+			and quarters.near_walls(position, REACH * 2.0):
 		if not quarters.defence.enter(self):
 			quarters = null
 			stop()
@@ -698,11 +700,10 @@ func _strike() -> void:
 		deal_damage(target, damage)
 
 
-## Closest point of a target: a unit's feet, or the nearest edge of a building's footprint.
+## Closest point of a target: a unit's feet, or the nearest point of a building's walls.
 func aim_point(node: Node2D) -> Vector2:
 	if node is MapObject:
-		var rect: Rect2 = node.work_rect()
-		return Vector2(clampf(position.x, rect.position.x, rect.end.x), clampf(position.y, rect.position.y, rect.end.y))
+		return node.wall_point(position)
 	return node.position
 
 
@@ -716,6 +717,9 @@ func nearest_target(radius: float) -> Node2D:
 	for object in MapObject.structures:
 		if object.is_building() and object.owner_index > 0 and object.owner_index != team and object.is_alive() \
 				and not (object.is_trap() and not UnitStealth.detected(object.position, team)):
+			var bounds := object.work_rect()
+			if position.distance_to(position.clamp(bounds.position, bounds.end)) >= best_distance:
+				continue  # the walls are no nearer than their bounding rectangle
 			var distance := position.distance_to(aim_point(object))
 			if distance < best_distance:
 				best = object
@@ -760,8 +764,8 @@ func follow_path(delta: float) -> void:
 func _separate(delta: float) -> void:
 	var push := Vector2.ZERO
 	for other: Unit in UnitGrid.near(position, SEPARATION_RADIUS):
-		if other == self or not other.is_alive():
-			continue
+		if other == self or not other.is_alive() or other.inside:
+			continue  # those aboard a boat or inside a fort don't jostle it
 		var offset := position - other.position
 		var distance := offset.length()
 		if distance < SEPARATION_RADIUS and distance > 0.01:
@@ -782,6 +786,8 @@ func _draw_overlay(canvas: Node2D) -> void:
 		canvas.draw_polyline(points, Color(1, 0.9, 0.2, 0.8), 2.0)
 	if not is_alive() or inside:
 		return
+	if selected and ring_on_top:
+		_draw_ring(canvas, 52.0)
 	if selected or health < max_health:
 		var bar := Rect2(-12, -58, 24, 3)
 		var ratio := health / max_health

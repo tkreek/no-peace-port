@@ -11,6 +11,7 @@ const FORMATION_SPACING := 26.0
 
 var units_root: Node2D
 var selection: Array[Unit] = []
+var selected_building: MapObject
 var groups := {}
 var _drag_start := Vector2.ZERO
 var _dragging := false
@@ -30,6 +31,11 @@ func _unhandled_input(event: InputEvent) -> void:
 					_select(_units_in(Rect2(_drag_start, world - _drag_start).abs()), event.shift_pressed)
 				else:
 					var unit := _unit_at(world)
+					if unit == null and not event.shift_pressed:
+						var building := _building_at(world)
+						if building:
+							select_building(building)
+							return
 					_select([unit] if unit else [], event.shift_pressed)
 				_dragging = false
 				queue_redraw()
@@ -118,7 +124,24 @@ func _unit_at(point: Vector2, own := true) -> Unit:
 	return best
 
 
+func _building_at(point: Vector2) -> MapObject:
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == player_team and object.footprint_rect().has_point(point):
+			return object
+	return null
+
+
+func select_building(building: MapObject) -> void:
+	_select([], false)
+	selected_building = building
+	building.selected = true
+	Sound.play_event(building.guid, Sound.Event.SELECT)
+
+
 func _select(units: Array, add: bool) -> void:
+	if is_instance_valid(selected_building):
+		selected_building.selected = false
+	selected_building = null
 	if not add:
 		for unit in selection:
 			if is_instance_valid(unit):

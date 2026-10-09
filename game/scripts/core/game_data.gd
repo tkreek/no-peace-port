@@ -187,6 +187,26 @@ func stats(guid: int) -> Dictionary:
 	return _stats.get(guid, {})
 
 
+func stats_guids() -> Array:
+	return _stats.keys()
+
+
+## Object type id for a GUID in a biome (buildings and scenery differ per biome; units don't).
+func type_for_guid(guid: int, biome: String = "steppe") -> int:
+	var meadow := biome == "wiese"
+	var fallback := -1
+	for type_id in _guids:
+		if _guids[type_id] != guid:
+			continue
+		var type := ObjectTypes.get_type(type_id)
+		if type == null or type.bob_path.is_empty():
+			continue
+		if type.is_meadow() == meadow:
+			return type_id
+		fallback = type_id
+	return fallback
+
+
 func def_value(key: String, fallback := 0) -> int:
 	return str(_defs.get(key, fallback)).to_int()
 

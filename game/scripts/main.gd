@@ -18,6 +18,7 @@ var camera := RtsCamera.new()
 var selection := SelectionController.new()
 var nav := NavGrid.new()
 var hud := Hud.new()
+var build_controller := BuildController.new()
 var players := {}
 var start_positions := {}  # player -> Vector2, from the map's Editor_Start markers
 
@@ -69,6 +70,8 @@ func _ready() -> void:
 				var source := unit._nearest_source(resource) if resource == "wood" else _nearest_mine(unit.position)
 				unit.gather(source)
 				i += 1
+	if GameData.cmdline_option("scenario") == "build":
+		_scenario_build.call_deferred()
 	var report := GameData.cmdline_option("report-after")
 	if report != "":
 		_report_after(report.to_int())
@@ -78,6 +81,16 @@ func _ready() -> void:
 		_spawn_squad(FACTION_STARTS[1].army, 1, centre + Vector2(-60, 120), 9)
 		_spawn_squad(FACTION_STARTS[2].army, 2, centre + Vector2(60, -160), 9)
 	camera.set_zoom_level(GameData.cmdline_option("zoom", "1").to_float())
+	build_controller.player = players[1]
+	build_controller.selection = selection
+	build_controller.objects_root = units_root
+	add_child(build_controller)  # after the selection controller, so it sees clicks first
+	build_controller.placed.connect(_on_building_placed)
+	for object in MapObject.all_objects:
+		if object.is_building():
+			object.unit_trained.connect(_on_unit_trained)
+	hud.build_controller = build_controller
+	hud.biome = terrain.biome
 	add_child(hud)
 	hud.setup(map, terrain.overview_image(), camera, units_root, players[1], selection)
 	hud.minimap.move_ordered.connect(selection._order_move)
@@ -116,6 +129,29 @@ func _spawn_placements(map: AlfMap) -> void:
 	print("Placed %d/%d map objects in %d ms" % [spawned, map.placements.size(), Time.get_ticks_msec() - started])
 
 
+func _on_building_placed(site: MapObject) -> void:
+	site.unit_trained.connect(_on_unit_trained)
+
+
+## A building finished training a unit: it steps out in front (below) of the footprint.
+func _on_unit_trained(building: MapObject, unit_guid: int) -> void:
+	var type_id := GameData.type_for_guid(unit_guid, terrain.biome)
+	var type := ObjectTypes.get_type(type_id)
+	if type == null:
+		return
+	var unit_type := UnitType.load_type(type.directory())
+	if unit_type == null:
+		return
+	var rect := building.footprint_rect()
+	var exit := Vector2(rect.get_center().x, rect.end.y + 12)
+	var cell := nav.nearest_walkable(nav.cell_of(exit))
+	var unit := Unit.new()
+	unit.position = (Vector2(cell) + Vector2(0.5, 0.5)) * NavGrid.CELL
+	units_root.add_child(unit)
+	unit.setup(unit_type, building.owner_index)
+	unit.move_to(unit.position + Vector2(randf_range(-40, 40), 50))
+
+
 func _setup_player(player: int, start: Vector2) -> void:
 	var setup: Dictionary = FACTION_STARTS[player]
 	var hq := MapObject.new()
@@ -145,6 +181,27 @@ func _spawn_squad(directory: String, team: int, centre: Vector2, count: int) -> 
 		unit.direction = 5 if team == 1 else 1
 
 
+## Workers build a house next to the HQ while the HQ trains two more workers.
+func _scenario_build() -> void:
+	var workers := units_root.get_children().filter(func(n: Node) -> bool:
+		return n is Unit and n.team == 1 and n.unit_type.anim_index("build") >= 0)
+	selection._select(workers, false)
+	var house := GameData.type_for_guid(201, terrain.biome)
+	build_controller.start(house)
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	for radius in range(200, 600, 32):
+		var spot := hq.position + Vector2(radius, 0).rotated(radius * 0.7)
+		spot = (spot / NavGrid.CELL).round() * NavGrid.CELL
+		if build_controller.can_place(spot):
+			build_controller._place(spot, false)
+			print("house site at ", spot)
+			break
+	print("queued: ", hq.enqueue(252), hq.enqueue(252))
+
+
 func _nearest_mine(from: Vector2) -> MapObject:
 	var best: MapObject = null
 	for object in MapObject.all_objects:
@@ -167,6 +224,9 @@ func _print_report(frame: int) -> void:
 	for node in units_root.get_children():
 		if node is Unit and node.is_alive():
 			alive[node.team] = alive.get(node.team, 0) + 1
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			print("  %s complete=%s progress=%.2f queue=%s" % [object.display_name(), object.complete, object.build_progress, object.queue])
 	for index in players:
 		print("frame %d player %d: %s units=%d" % [frame, index, players[index].resources, alive.get(index, 0)])
 

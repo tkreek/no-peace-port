@@ -48,11 +48,11 @@ func spend(cost: Dictionary) -> bool:
 	if not can_afford(cost):
 		return false
 	for key in cost:
-		resources[key] -= cost[key]
+		resources[key] = int(resources.get(key, 0)) - int(cost[key])
 	resources_changed.emit()
 	return true
 
 
 func add(key: String, amount: int) -> void:
-	resources[key] = resources.get(key, 0) + amount
+	resources[key] = int(resources.get(key, 0)) + amount
 	resources_changed.emit()

@@ -6,7 +6,7 @@ extends Node2D
 
 signal died(unit: Unit)
 
-enum State { IDLE, MOVING, ATTACKING, GATHERING, DEAD }
+enum State { IDLE, MOVING, ATTACKING, GATHERING, BUILDING, DEAD }
 enum Gather { TO_SOURCE, WORKING, TO_DROP_OFF }
 
 const ARRIVE_DISTANCE := 3.0
@@ -26,6 +26,8 @@ var selected := false:
 	set(value):
 		selected = value
 		queue_redraw()
+		if is_instance_valid(_overlay):
+			_overlay.queue_redraw()
 var direction := 1  # sprite direction row: 0 = SE, then clockwise (1 = S ... 7 = E)
 var max_health := 100.0
 var health := 100.0
@@ -39,7 +41,9 @@ var gather_source: MapObject
 var _gather_phase := Gather.TO_SOURCE
 var _work_timer := 0.0
 var _drop_off: MapObject
+var build_site: MapObject
 
+var _overlay := DrawOverlay.new()
 var _body := Sprite2D.new()
 var _shadow := Sprite2D.new()
 var _action := ""
@@ -67,6 +71,7 @@ func setup(type: UnitType, team_index: int) -> void:
 	SpriteMaterials.make_shadow(_shadow)
 	add_child(_shadow)
 	add_child(_body)
+	add_child(_overlay)
 	_body.set_instance_shader_parameter("palette_row", clampi(team, 0, type.bob.palettes.size() - 1))
 	all_units.append(self)
 	play("idle")
@@ -112,6 +117,18 @@ func attack(enemy: Unit) -> void:
 	path.clear()
 
 
+## Walk to a construction site and work on it until it is finished.
+func build(site: MapObject) -> void:
+	if not is_alive() or site == null or site.complete or unit_type.anim_index("build") < 0:
+		return
+	build_site = site
+	target = null
+	gather_source = null
+	visible = true
+	state = State.BUILDING
+	path = _find_path(site.position)
+
+
 ## Harvest `source` repeatedly, carrying loads to the nearest drop-off.
 func gather(source: MapObject) -> void:
 	if not is_alive() or source == null or not unit_type.can_gather(source.resource):
@@ -130,6 +147,7 @@ func stop() -> void:
 	path.clear()
 	target = null
 	gather_source = null
+	build_site = null
 	visible = true
 	_attack_step = -1
 	guard_position = position
@@ -141,7 +159,7 @@ func take_damage(amount: float, attacker: Unit = null) -> void:
 	if not is_alive():
 		return
 	health = maxf(0.0, health - amount)
-	queue_redraw()
+	_overlay.queue_redraw()
 	if health <= 0.0:
 		_die()
 	elif state == State.IDLE and attacker and attacker.is_alive():
@@ -168,6 +186,8 @@ func _process(delta: float) -> void:
 			play(_walk_action() if state == State.MOVING else _idle_action())
 		State.GATHERING:
 			_update_gather(delta)
+		State.BUILDING:
+			_update_build(delta)
 		State.ATTACKING:
 			_update_attack(delta)
 		State.DEAD:
@@ -179,7 +199,7 @@ func _process(delta: float) -> void:
 	if state != State.DEAD and visible:
 		_separate(delta)
 	if debug_paths:
-		queue_redraw()
+		_overlay.queue_redraw()
 	_advance(delta)
 
 
@@ -313,6 +333,25 @@ func _update_gather(delta: float) -> void:
 				carried = 0
 				_gather_phase = Gather.TO_SOURCE
 				_route_gather()
+
+
+func _update_build(delta: float) -> void:
+	if build_site == null or not is_instance_valid(build_site) or build_site.complete:
+		build_site = null
+		state = State.IDLE
+		return
+	if not build_site.footprint_rect().grow(REACH).has_point(position):
+		if path.is_empty():
+			path = _find_path(build_site.position)
+		_follow_path(delta)
+		play(_walk_action())
+		if not path.is_empty():
+			return
+	path.clear()
+	face(build_site.footprint_rect().get_center() - position)
+	play("build")
+	Sound.play_event(build_site.guid, Sound.Event.BUILD, build_site.position, 2500)
+	build_site.add_build_work(delta)
 
 
 func _route_gather() -> void:
@@ -477,20 +516,24 @@ func _set_frame(sprite: Sprite2D, anim_index: int) -> void:
 
 
 func _draw() -> void:
+	# The selection ring belongs on the ground, under the unit's own sprite.
+	if selected and is_alive():
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.55))
+		draw_arc(Vector2.ZERO, 16.0, 0.0, TAU, 32, Color(1, 1, 1, 0.85), 1.5, true)
+		draw_set_transform(Vector2.ZERO)
+
+
+func _draw_overlay(canvas: Node2D) -> void:
 	if debug_paths and not path.is_empty():
 		var points := PackedVector2Array([Vector2.ZERO])
 		for p in path:
 			points.append(p - position)
-		draw_polyline(points, Color(1, 0.9, 0.2, 0.8), 2.0)
-	if not is_alive():
+		canvas.draw_polyline(points, Color(1, 0.9, 0.2, 0.8), 2.0)
+	if not is_alive() or not visible:
 		return
-	if selected:
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.55))
-		draw_arc(Vector2.ZERO, 16.0, 0.0, TAU, 32, Color(1, 1, 1, 0.85), 1.5, true)
-		draw_set_transform(Vector2.ZERO)
 	if selected or health < max_health:
 		var bar := Rect2(-12, -58, 24, 3)
 		var ratio := health / max_health
-		draw_rect(bar, Color(0.1, 0.1, 0.1, 0.8))
-		draw_rect(Rect2(bar.position, Vector2(bar.size.x * ratio, bar.size.y)),
+		canvas.draw_rect(bar, Color(0.1, 0.1, 0.1, 0.8))
+		canvas.draw_rect(Rect2(bar.position, Vector2(bar.size.x * ratio, bar.size.y)),
 				Color(0.85, 0.2, 0.1).lerp(Color(0.3, 0.9, 0.2), ratio))

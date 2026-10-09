@@ -26,6 +26,10 @@ var _resource_labels := {}
 var _selection_title := Label.new()
 var _selection_detail := Label.new()
 var _health_bar := ProgressBar.new()
+var build_controller: BuildController
+var biome := "steppe"
+var _commands := GridContainer.new()
+var _command_signature := ""
 var _status_sheet: RdSprite
 var _icon_sheet: RdSprite
 var _icon_material: Material
@@ -77,6 +81,7 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	for label in [_selection_title, _selection_detail]:
 		_style_label(label, 22 if label == _selection_title else 16)
 		_left.add_child(label)
+	_root.add_child(_commands)
 	_health_bar.show_percentage = false
 	_health_bar.add_theme_stylebox_override("background", _flat(Color(0.12, 0.08, 0.05, 0.85)))
 	_health_bar.add_theme_stylebox_override("fill", _flat(Color(0.35, 0.75, 0.2)))
@@ -90,6 +95,7 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 
 func _process(_delta: float) -> void:
 	_refresh_selection()
+	_refresh_commands()
 
 
 ## Screen area not covered by the HUD (for camera bounds and clicks).
@@ -132,6 +138,15 @@ func _layout() -> void:
 			child.add_theme_font_size_override("font_size", int(18 * ui_scale))
 			child.custom_minimum_size.x = 64 * ui_scale
 
+	# Command buttons fill the plank area between the selection panel and the minimap.
+	var button_size := 50.0 * ui_scale
+	var spacing := 4.0 * ui_scale
+	_commands.position = _middle.position + Vector2(10, 14) * ui_scale
+	_commands.columns = maxi(1, int((_middle.size.x - 20 * ui_scale + spacing) / (button_size + spacing)))
+	_commands.add_theme_constant_override("h_separation", int(4 * ui_scale))
+	_commands.add_theme_constant_override("v_separation", int(4 * ui_scale))
+	for button in _commands.get_children():
+		button.custom_minimum_size = Vector2(50, 50) * ui_scale
 	var pad := Vector2(28, 22) * ui_scale
 	_selection_title.position = pad
 	_selection_title.add_theme_font_size_override("font_size", int(22 * ui_scale))
@@ -148,6 +163,20 @@ func _refresh_resources() -> void:
 
 func _refresh_selection() -> void:
 	var units := selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+	var building := selection.selected_building
+	if units.is_empty() and is_instance_valid(building):
+		_health_bar.visible = true
+		_selection_title.text = building.display_name()
+		_health_bar.max_value = building.max_health
+		_health_bar.value = building.health
+		if not building.complete:
+			_selection_detail.text = "Under construction %d%%" % int(building.build_progress * 100)
+		elif not building.queue.is_empty():
+			_selection_detail.text = "Training %s (%d queued)" % [
+				GameData.stats(building.queue[0]).get("name", "?"), building.queue.size()]
+		else:
+			_selection_detail.text = "Energy %d / %d" % [building.health, building.max_health]
+		return
 	_health_bar.visible = not units.is_empty()
 	if units.is_empty():
 		_selection_title.text = ""
@@ -219,3 +248,75 @@ func _flat(color: Color) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = color
 	return box
+
+
+## Rebuild the command buttons when what they depend on changes.
+func _refresh_commands() -> void:
+	var units := selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+	var building := selection.selected_building if is_instance_valid(selection.selected_building) else null
+	var builders := units.filter(func(u: Unit) -> bool: return u.unit_type.anim_index("build") >= 0)
+	var signature := "%s|%s|%s" % [builders.size() > 0, building.get_instance_id() if building else 0,
+			building.complete if building else false]
+	if signature == _command_signature:
+		_update_affordability()
+		return
+	_command_signature = signature
+	for child in _commands.get_children():
+		child.queue_free()
+	if not builders.is_empty():
+		for guid in _faction_guids("structure"):
+			var type_id := GameData.type_for_guid(guid, biome)
+			if type_id >= 0:
+				_add_command(type_id, guid, func() -> void: build_controller.start(type_id))
+	elif building and building.complete and building.owner_index == player.index:
+		for guid in building.trainable_units():
+			var type_id := GameData.type_for_guid(guid, biome)
+			if type_id >= 0:
+				_add_command(type_id, guid, func() -> void: building.enqueue(guid))
+	_layout()
+
+
+func _faction_guids(kind: String) -> Array:
+	var out := []
+	for guid in GameData.stats_guids():
+		var stats := GameData.stats(guid)
+		if stats.get("faction") == player.faction and stats.get("kind") == kind:
+			out.append(guid)
+	out.sort()
+	return out
+
+
+func _add_command(type_id: int, guid: int, action: Callable) -> void:
+	var button := Button.new()
+	button.flat = false
+	button.focus_mode = Control.FOCUS_NONE
+	button.add_theme_stylebox_override("normal", _flat(Color(0.93, 0.84, 0.64, 0.92)))
+	button.add_theme_stylebox_override("hover", _flat(Color(1.0, 0.94, 0.78, 0.98)))
+	button.add_theme_stylebox_override("pressed", _flat(Color(0.8, 0.7, 0.5, 0.98)))
+	button.add_theme_stylebox_override("disabled", _flat(Color(0.45, 0.4, 0.35, 0.8)))
+	var stats := GameData.stats(guid)
+	var cost := PackedStringArray()
+	for key in stats.get("cost", {}):
+		if key != "population":
+			cost.append("%d %s" % [stats.cost[key], key])
+	button.tooltip_text = "%s\n%s" % [stats.get("name", "?"), ", ".join(cost)]
+	button.set_meta("guid", guid)
+	button.pressed.connect(action)
+	var thumb := Thumbnail.for_type(type_id, player.index)
+	if thumb:
+		thumb.set_anchors_preset(Control.PRESET_FULL_RECT)
+		thumb.offset_left = 3
+		thumb.offset_top = 3
+		thumb.offset_right = -3
+		thumb.offset_bottom = -3
+		button.add_child(thumb)
+	_commands.add_child(button)
+
+
+func _update_affordability() -> void:
+	for button: Button in _commands.get_children():
+		var cost: Dictionary = GameData.stats(button.get_meta("guid")).get("cost", {}).duplicate()
+		cost.erase("population")
+		cost.erase("horses")
+		button.disabled = not player.can_afford(cost)
+		button.modulate = Color(1, 1, 1, 0.55) if button.disabled else Color.WHITE

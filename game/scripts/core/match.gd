@@ -27,6 +27,8 @@ const POPULATION_LIMITS := [75, 100, 150, 200]
 const SPEEDS := [0.75, 1.0, 1.25, 1.5]
 const SPEED_NAMES := ["Slow", "Normal", "Fast", "Very fast"]
 
+## A saved game to continue (SaveGame.read), or empty for a new match.
+var load_data := {}
 var configured := false
 var game_type := GameType.EVERYBODY
 var population_limit := 100

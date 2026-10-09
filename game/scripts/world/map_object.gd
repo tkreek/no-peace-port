@@ -493,6 +493,40 @@ func harvest(wanted: int) -> int:
 	return taken
 
 
+## Saved games: what is left of a tree or mine.
+func restore_resource(left: int, state: int, work: float) -> void:
+	amount = left
+	mine_work = work
+	if is_tree():
+		tree_state = state as TreeState
+		if tree_state == TreeState.STUMP:
+			resource = ""
+			if NavGrid.current:
+				NavGrid.current.unblock_footprint(object_type, position)
+	_refresh_sprites()
+
+
+## Saved games: a building's or field's state.
+func restore_state(entry: Dictionary) -> void:
+	complete = bool(entry.complete)
+	build_progress = float(entry.progress)
+	health = float(entry.health)
+	queue = PackedInt32Array(entry.queue.map(func(v) -> int: return int(v)))
+	train_progress = float(entry.train)
+	rally_point = Vector2(entry.rally[0], entry.rally[1]) if entry.rally != null else Vector2.INF
+	stored_gold = int(entry.stored_gold)
+	trap_kills = int(entry.trap_kills)
+	if is_field():
+		field_state = int(entry.field_state) as Field
+		field_progress = float(entry.field_progress)
+		amount = int(entry.amount)
+	if complete and is_building():
+		accepts = _drop_off_for(guid)
+	_refresh_sprites()
+	_update_fires()
+	_overlay.queue_redraw()
+
+
 func is_tree() -> bool:
 	return object_type != null and object_type.name.begins_with("Baum") and _bob != null \
 			and _bob.anims.size() > TREE_STUMP_ANIM + 1

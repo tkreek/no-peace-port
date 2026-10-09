@@ -723,7 +723,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if event.ctrl_pressed or event.alt_pressed:
 		return
 	var handled := true
-	if key == KEY_X:
+	if key == KEY_F2:
+		quick_save()
+	elif key == KEY_X:
 		stop_selection()
 	elif key == KEY_Z or key == KEY_C:
 		if not selection.selection.is_empty():
@@ -951,12 +953,35 @@ func toggle_menu() -> void:
 	get_tree().paused = true
 	_menu = _menu_panel(GameData.menu_text(50, "Settings"), [
 		[GameData.menu_text(57, "Continue"), toggle_menu],
+		["Save game (F2)", func() -> void:
+			toggle_menu()
+			quick_save()],
+		["Load game", func() -> void:
+			toggle_menu()
+			quick_load()],
 		["Options", _show_options],
 		[GameData.menu_text(54, "Restart"), func() -> void:
 			get_tree().paused = false
 			get_tree().reload_current_scene()],
 		["Main menu", _to_main_menu],
 	])
+
+
+func quick_save() -> void:
+	if SaveGame.save(get_parent()):
+		notify("Game saved")
+	else:
+		notify("Could not save the game")
+
+
+func quick_load() -> void:
+	var data := SaveGame.read()
+	if data.is_empty():
+		notify("No saved game")
+		return
+	Match.load_data = data
+	get_tree().paused = false
+	get_tree().reload_current_scene()
 
 
 ## Music, sound and scroll speed (the original's in-game settings), kept between sessions.

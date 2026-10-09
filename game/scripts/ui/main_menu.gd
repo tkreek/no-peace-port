@@ -142,6 +142,16 @@ func _build_main() -> Control:
 	column.add_theme_constant_override("separation", 14)
 	screen.add_child(column)
 	column.add_child(_glow_button("Skirmish", func() -> void: _show("setup")))
+	if FileAccess.file_exists(SaveGame.QUICK):
+		column.add_child(_glow_button("Load game", func() -> void:
+			var data := SaveGame.read()
+			if data.is_empty():
+				return
+			Match.load_data = data
+			_show_loading()
+			await get_tree().process_frame
+			await get_tree().process_frame
+			get_tree().change_scene_to_file("res://scenes/main.tscn")))
 	column.add_child(_glow_button(GameData.menu_text(14, "Exit game"), func() -> void: get_tree().quit()))
 	var version := MenuStyle.label("America Remastered — original data%s" %
 			(" + expansion pack" if GameData.has_expansion else ""), 11, MenuStyle.TEXT_DIM)

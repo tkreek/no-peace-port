@@ -29,6 +29,8 @@ var ais: Array[AiPlayer] = []
 var _game_over := false
 var players := {}
 var start_positions := {}  # player -> Vector2, from the map's Editor_Start markers
+var map_path := ""
+var loaded_game := false
 
 ## Main building and a representative soldier per people (for --scenario=battle).
 const FACTIONS := {
@@ -49,8 +51,12 @@ func _ready() -> void:
 		_selftest()
 		return
 	var map_arg := GameData.cmdline_option("map", DEFAULT_MAP)
-	var map_path := map_arg
-	if Match.configured:
+	map_path = map_arg
+	var loading: Dictionary = Match.load_data
+	Match.load_data = {}
+	if not loading.is_empty():
+		map_path = loading.map
+	elif Match.configured:
 		map_path = Match.map_path
 	elif not map_arg.is_absolute_path():
 		map_path = GameData.maps_dir().path_join(map_arg)
@@ -63,7 +69,7 @@ func _ready() -> void:
 		return
 
 	add_child(terrain)
-	terrain.setup(map, GameData.cmdline_option("biome", map.guess_biome()))
+	terrain.setup(map, loading.get("biome", GameData.cmdline_option("biome", map.guess_biome())))
 	units_root.y_sort_enabled = true
 	add_child(units_root)
 	nav.setup(map)
@@ -78,7 +84,16 @@ func _ready() -> void:
 	var size := Vector2(map.pixel_size())
 	Player.by_index.clear()
 	var computer := {}  # player index -> true when AI controlled
-	if Match.configured:
+	if not loading.is_empty():
+		var settings: Dictionary = loading.match
+		Match.game_type = int(settings.game_type) as Match.GameType
+		Match.population_limit = int(settings.population_limit)
+		Match.speed = float(settings.speed)
+		Match.configured = true
+		for entry in loading.players:
+			players[int(entry.index)] = Player.new(int(entry.index), entry.faction)
+			computer[int(entry.index)] = not entry.ai.is_empty()
+	elif Match.configured:
 		for i in Match.players.size():
 			players[i + 1] = Player.new(i + 1, Match.players[i].faction)
 			computer[i + 1] = Match.players[i].ai
@@ -89,7 +104,8 @@ func _ready() -> void:
 		computer[1] = GameData.cmdline_option("ai-vs-ai") != ""
 	for player in players:
 		players[player].set_start_resources(Match.start_resources(map.start_resources))
-		_setup_player(player, start_positions.get(player, _fallback_start(player, size)))
+		if loading.is_empty():
+			_setup_player(player, start_positions.get(player, _fallback_start(player, size)))
 	camera.position = _vector_option("camera", start_positions.get(1, size / 2.0))
 	if GameData.cmdline_option("scenario") == "economy":
 		var i := 0
@@ -148,6 +164,8 @@ func _ready() -> void:
 		(func() -> void:
 			hud.toggle_menu()
 			hud._show_options()).call_deferred()
+	if GameData.cmdline_option("scenario") == "saveload":
+		_scenario_saveload.call_deferred()
 	if GameData.cmdline_option("scenario") == "orders":
 		_scenario_orders.call_deferred()
 	# --time-scale=N runs the simulation N times faster (long AI tests).
@@ -193,6 +211,9 @@ func _ready() -> void:
 	check.autostart = true
 	check.timeout.connect(_check_victory)
 	add_child(check)
+	if not loading.is_empty():
+		SaveGame.restore(self, loading)
+		loaded_game = true
 	Sound.play_music(players[1].faction)
 	DisplayServer.window_set_title("America — %s" % map.title)
 	_setup_screenshot()
@@ -933,6 +954,31 @@ func _scenario_surrender() -> void:
 	print("player 2 surrendered: %s; game over: %s; rebuilding: %s" % [players[2].surrendered, _game_over,
 			MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.owner_index == 2 and o.guid in MapObject.MAIN_BUILDINGS and o.is_alive()).map(func(o: MapObject) -> String: return "%d%%" % int(o.build_progress * 100))])
 	get_tree().quit()
+
+
+## Play a little, save, load the save in a fresh scene and compare.
+func _scenario_saveload() -> void:
+	if not loaded_game:
+		await get_tree().create_timer(30.0).timeout
+		print("before: %s" % _snapshot())
+		SaveGame.save(self)
+		Match.load_data = SaveGame.read()
+		get_tree().reload_current_scene()
+		return
+	await get_tree().create_timer(1.0).timeout
+	print("after:  %s" % _snapshot())
+	await get_tree().create_timer(30.0).timeout
+	print("later:  %s" % _snapshot())
+	get_tree().quit()
+
+
+func _snapshot() -> String:
+	var units := Unit.all_units.filter(func(u: Unit) -> bool: return u.is_alive() and u.team > 0)
+	var buildings := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.is_building())
+	var stumps := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.is_tree() and o.tree_state != MapObject.TreeState.STANDING)
+	return "units %d, buildings %d (%s), felled/stumps %d, p1 %s, time %d" % [units.size(), buildings.size(),
+			", ".join(buildings.map(func(b: MapObject) -> String: return "%s %d%%" % [b.display_name(), int(b.build_progress * 100)])),
+			stumps.size(), players[1].resources, game_time]
 
 
 ## Formations, patrol, follow and a rally point, with positions printed as they play out.

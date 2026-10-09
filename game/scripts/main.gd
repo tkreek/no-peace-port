@@ -130,6 +130,8 @@ func _ready() -> void:
 		_scenario_gold.call_deferred()
 	if GameData.cmdline_option("scenario") == "woodcut":
 		_scenario_woodcut.call_deferred()
+	if GameData.cmdline_option("scenario") == "trade":
+		_scenario_trade.call_deferred()
 	if GameData.cmdline_option("scenario") == "orders":
 		_scenario_orders.call_deferred()
 	# --time-scale=N runs the simulation N times faster (long AI tests).
@@ -726,6 +728,30 @@ func _scenario_woodcut() -> void:
 		print("t=%2d phase=%d action=%-14s pos=%s path=%d carried=%d tree=%s d_tree=%d wood+%d" % [i + 1, worker._gather_phase, worker._action,
 				worker.position.round(), worker.path.size(), worker.carried, worker.gather_source.position if is_instance_valid(worker.gather_source) else null,
 				worker.position.distance_to(worker.gather_source.position) if is_instance_valid(worker.gather_source) else -1, players[1].resources.wood - wood])
+	get_tree().quit()
+
+
+## A finished trading building buys guns twice and sells wood; prices and stock printed.
+func _scenario_trade() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	var guid: int = {"mex": 210, "usa": 410, "ind": 106, "des": 310}[players[1].faction]
+	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, terrain.biome))
+	var ai := AiPlayer.new()
+	var post := MapObject.new()
+	post.position = ai._find_spot(type, hq.position)
+	ai.free()
+	post.setup(type, 1)
+	units_root.add_child(post)
+	var p: Player = players[1]
+	print("trades offered: ", Array(post.trainable_units()).map(func(g: int) -> String: return GameData.stats(g).name))
+	print("before: %s  gun price %d, wood sells for %d" % [p.resources, p.buy_price("guns"), p.sell_price("wood")])
+	print("queued: ", post.enqueue(MapObject.TRADE_GUID + 4), post.enqueue(MapObject.TRADE_GUID + 4), post.enqueue(MapObject.TRADE_GUID + 3))
+	print("paid:   %s" % p.resources)
+	await get_tree().create_timer(20.0).timeout
+	print("after:  %s  gun price %d, wood sells for %d" % [p.resources, p.buy_price("guns"), p.sell_price("wood")])
 	get_tree().quit()
 
 

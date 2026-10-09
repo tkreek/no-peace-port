@@ -28,6 +28,16 @@ const FIELD_GUID := 149
 ## Horses are raised at the corral (Native, outlaw), hacienda and ranch, which shelter five
 ## each ("zero of five possible horses"); mounted units cost one.
 const HORSE_GUID := 9001
+## The trading buildings (Native and Mexican trading post, outlaw drugstore, American
+## general store) and their six trades.
+const TRADE_BUILDINGS := [106, 210, 310, 410]
+const TRADE_GUID := 9101
+const TRADES := [
+	{"good": "food", "buy": true, "icon": 50}, {"good": "food", "buy": false, "icon": 42},
+	{"good": "wood", "buy": true, "icon": 46}, {"good": "wood", "buy": false, "icon": 38},
+	{"good": "guns", "buy": true, "icon": 52}, {"good": "guns", "buy": false, "icon": 44},
+]
+const TRADE_QUEUE_LIMIT := 10
 const HORSE_BUILDINGS := [105, 205, 305, 405]
 const HORSES_PER_BUILDING := 5
 const GOLD_MINE_GUID := 700  # selection sound "sound goldmine"
@@ -577,6 +587,9 @@ func trainable_units() -> PackedInt32Array:
 		return out
 	if guid in HORSE_BUILDINGS:
 		out.append(HORSE_GUID)
+	if guid in TRADE_BUILDINGS:
+		for i in TRADES.size():
+			out.append(TRADE_GUID + i)
 	for unit_guid in GameData.stats_guids():
 		var stats := GameData.stats(unit_guid)
 		if stats.get("kind") == "unit" and int(stats.get("produced_at", -1)) == guid:
@@ -584,11 +597,33 @@ func trainable_units() -> PackedInt32Array:
 	return out
 
 
+static func is_trade(item: int) -> bool:
+	return item >= TRADE_GUID and item < TRADE_GUID + TRADES.size()
+
+
+var _trade_terms: Array[Dictionary] = []  # what each queued trade was paid with, in order
+
+
 ## Take entry `index` off the production queue and refund what it cost.
 func cancel_queued(index: int) -> void:
 	if index < 0 or index >= queue.size():
 		return
 	var item := queue[index]
+	if is_trade(item):
+		var position_in_trades := 0
+		for k in index:
+			if is_trade(queue[k]):
+				position_in_trades += 1
+		var paid: Dictionary = _trade_terms[position_in_trades]
+		_trade_terms.remove_at(position_in_trades)
+		queue.remove_at(index)
+		if index == 0:
+			train_progress = 0.0
+		var refund_to: Player = Player.by_index.get(owner_index)
+		if refund_to:
+			for key in paid:
+				refund_to.add(key, int(paid[key]))
+		return
 	queue.remove_at(index)
 	if index == 0:
 		train_progress = 0.0
@@ -609,6 +644,18 @@ func enqueue(unit_guid: int) -> bool:
 		var upgrade_cost: Dictionary = GameData.stats(unit_guid).get("cost", {})
 		if not player.can_research(unit_guid) or not player.spend(upgrade_cost):
 			return false
+		queue.append(unit_guid)
+		return true
+	if is_trade(unit_guid):
+		# Buying pays the gold now; selling hands over the goods now; the other side of the
+		# deal arrives when the trade completes.
+		if queue.size() >= TRADE_QUEUE_LIMIT:
+			return false
+		var trade: Dictionary = TRADES[unit_guid - TRADE_GUID]
+		var paid := {"gold": player.buy_price(trade.good)} if trade.buy else {trade.good: Player.TRADE_PACKAGE[trade.good]}
+		if not player.spend(paid):
+			return false
+		_trade_terms.append(paid)
 		queue.append(unit_guid)
 		return true
 	if unit_guid == HORSE_GUID:
@@ -651,6 +698,10 @@ func _process(delta: float) -> void:
 		_distill(delta)
 	if guid in INCOME_BUILDINGS and complete and health > 0.0:
 		_earn(delta)
+	if guid in TRADE_BUILDINGS and complete:
+		var market: Player = Player.by_index.get(owner_index)
+		if market:
+			market.settle_prices(delta)
 	if queue.is_empty() or not complete:
 		return
 	var unit_guid := queue[0]
@@ -671,6 +722,17 @@ func _process(delta: float) -> void:
 			var player: Player = Player.by_index.get(owner_index)
 			if player:
 				player.complete_research(unit_guid)
+			return
+		if is_trade(unit_guid):
+			var trader: Player = Player.by_index.get(owner_index)
+			var trade: Dictionary = TRADES[unit_guid - TRADE_GUID]
+			_trade_terms.pop_front()
+			if trader:
+				if trade.buy:
+					trader.add(trade.good, Player.TRADE_PACKAGE[trade.good])
+				else:
+					trader.add("gold", trader.sell_price(trade.good))
+				trader.move_price(trade.good, trade.buy)
 			return
 		if unit_guid == HORSE_GUID:
 			var owner_player: Player = Player.by_index.get(owner_index)

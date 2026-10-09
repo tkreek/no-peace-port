@@ -45,6 +45,31 @@ func warehoused_gold() -> int:
 	return total
 
 
+## Trading (manual 3.8): packages of 100 food or wood, or 2 guns, bought and sold for gold
+## at the trading post. Buying drives a price up, selling down; prices drift back.
+const TRADE_PACKAGE := {"food": 100, "wood": 100, "guns": 2}
+const TRADE_BASE_PRICE := {"food": 60, "wood": 60, "guns": 100}  # gold per package
+const SELL_SHARE := 0.7  # selling fetches this share of the buying price
+var trade_prices := TRADE_BASE_PRICE.duplicate()
+
+
+func buy_price(good: String) -> int:
+	return roundi(trade_prices[good])
+
+
+func sell_price(good: String) -> int:
+	return roundi(trade_prices[good] * SELL_SHARE)
+
+
+func move_price(good: String, up: bool) -> void:
+	trade_prices[good] = clampf(trade_prices[good] * (1.1 if up else 0.9), TRADE_BASE_PRICE[good] * 0.4, TRADE_BASE_PRICE[good] * 3.0)
+
+
+func settle_prices(delta: float) -> void:
+	for good in trade_prices:
+		trade_prices[good] = lerpf(trade_prices[good], TRADE_BASE_PRICE[good], minf(1.0, delta * 0.01))
+
+
 func set_start_resources(amounts: Dictionary) -> void:
 	for key in RESOURCES:
 		resources[key] = int(amounts.get(key, 0))

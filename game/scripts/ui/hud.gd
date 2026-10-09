@@ -344,7 +344,8 @@ func _object_detail(object: MapObject) -> String:
 				object.max_health, owner_note]
 	if not object.queue.is_empty():
 		var current := GameData.stats(object.queue[0])
-		return "%s %s — %d%%" % ["Researching" if current.get("kind") == "upgrade" else "Training",
+		var doing: String = {"upgrade": "Researching", "trade": "Trading", "horse": "Raising"}.get(current.get("kind"), "Training")
+		return "%s %s — %d%%" % [doing,
 				current.get("name", "?"), int(object.train_progress * 100)]
 	var housing := int(GameData.stats(object.guid).get("housing", 0))
 	var quartered := "\nQuartered %d / %d" % [object.garrison.size(), object.capacity()] if object.capacity() > 0 else ""
@@ -635,7 +636,15 @@ func _refresh_commands() -> void:
 	elif building and building.complete and building.owner_index == player.index:
 		for guid in building.trainable_units():
 			var type_id := GameData.type_for_guid(guid, biome)
-			if guid == MapObject.HORSE_GUID:
+			if MapObject.is_trade(guid):
+				var trade: Dictionary = MapObject.TRADES[guid - MapObject.TRADE_GUID]
+				_add_icon_command(_command_icons, trade.icon, "", func() -> void:
+					if not building.enqueue(guid):
+						Sound.play_sound(80))
+				var button: Button = _commands.get_child(_commands.get_child_count() - 1)
+				button.set_meta("guid", guid)
+				button.set_meta("trade", trade)
+			elif guid == MapObject.HORSE_GUID:
 				_add_command(-1, guid, func() -> void:
 					if not building.enqueue(guid):
 						Sound.play_sound(80))
@@ -832,8 +841,28 @@ func _add_command(type_id: int, guid: int, action: Callable) -> void:
 	_commands.add_child(button)
 
 
+## Trade buttons show the current price and whether it can be paid.
+func _update_trade_button(button: Button) -> void:
+	var trade: Dictionary = button.get_meta("trade")
+	var amount: int = Player.TRADE_PACKAGE[trade.good]
+	var text := ""
+	var can := false
+	if trade.buy:
+		text = "Buy %d %s for %d gold" % [amount, trade.good, player.buy_price(trade.good)]
+		can = int(player.resources.get("gold", 0)) >= player.buy_price(trade.good)
+	else:
+		text = "Sell %d %s for %d gold" % [amount, trade.good, player.sell_price(trade.good)]
+		can = int(player.resources.get(trade.good, 0)) >= amount
+	button.tooltip_text = text + ("" if can else "\nNot enough " + ("gold" if trade.buy else trade.good))
+	button.disabled = not can
+	button.modulate = Color.WHITE if can else Color(1, 1, 1, 0.55)
+
+
 func _update_affordability() -> void:
 	for button: Button in _commands.get_children():
+		if button.has_meta("trade"):
+			_update_trade_button(button)
+			continue
 		if int(button.get_meta("guid", -1)) < 0:
 			continue
 		var cost: Dictionary = GameData.stats(button.get_meta("guid")).get("cost", {}).duplicate()

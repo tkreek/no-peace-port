@@ -246,6 +246,11 @@ func _load_tables() -> void:
 			var foot: int = by_name.get("%s|%s" % [st.get("faction"), name.substr(8).to_lower()], -1)
 			if foot >= 0 and _stats[foot].has("produced_at"):
 				st.produced_at = _stats[foot].produced_at
+	# Trades at the trading post (buy: green arrow, sell: red arrow icons in SonstigeIcons).
+	for i in MapObject.TRADES.size():
+		var trade: Dictionary = MapObject.TRADES[i]
+		_stats[MapObject.TRADE_GUID + i] = {"kind": "trade", "name": "%s %s" % ["Buy" if trade.buy else "Sell", trade.good],
+				"faction": "", "build_time": 6, "cost": {}, "icon_frame": trade.icon}
 	# Raising a horse (manual: corral, hacienda, ranch; "costs food"; no editor entry).
 	_stats[MapObject.HORSE_GUID] = {"kind": "horse", "name": "Horse", "faction": "", "build_time": 20,
 			"cost": {"food": 50}, "icon": "Potraits/Sonstige_icons/z02_pferd.bmp",

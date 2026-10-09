@@ -28,7 +28,7 @@ CHECKS = {
     "cattle": (["--faction=usa"], 0, [r"cow team 1", r"sold: cow gone true"]),
     "camouflage": (["--faction=ind"], 0, [r"after the trapper: energy"]),
     "pitfall": (["--faction=ind"], 0, [r"pit spent"]),
-    "quarters": ([], 0, [r"capacity \d, quartered \d", r"after release: quartered 0"]),
+    "quarters": ([], 0, [r"capacity \d, quartered \d", r"hit beyond the open range: true", r"after release: quartered 0"]),
     "research": ([], 2100, [r"researched: \[925\] rifle 2 now:true"]),
     "trade": ([], 0, [r"queued: truetruetrue", r"\"guns\": 24"]),
     "orders": ([], 0, [r"queued Field worker: true", r"rally flag: true"]),

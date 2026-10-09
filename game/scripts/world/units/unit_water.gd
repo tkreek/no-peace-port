@@ -215,7 +215,7 @@ func _update_boat(delta: float) -> void:
 					best = other
 					best_distance = d
 		if best:
-			passenger.fire_from_quarters(best, unit.position)
+			passenger.fire_from_quarters(best, unit.position, passenger.attack_range())
 
 
 ## The boat goes down: swimmers make for the shore, the rest drown.

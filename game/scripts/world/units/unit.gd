@@ -448,11 +448,12 @@ func ready_to_fire() -> bool:
 	return _cooldown <= 0.0
 
 
-## A shot from inside quarters or a boat: no animation (the unit is out of sight), just the report.
-func fire_from_quarters(enemy: Node2D, from: Vector2) -> void:
+## A shot from inside quarters or a boat: no animation (the unit is out of sight), just the
+## report. `reach` is how far it carries from `from` (quarters reach further than the open).
+func fire_from_quarters(enemy: Node2D, from: Vector2, reach: float) -> void:
 	_cooldown = unit_type.reload_ms / 1000.0
 	Sound.play_event(unit_type.guid(), Sound.Event.SHOOT, from, 60)
-	var accuracy := clampf(1.1 - from.distance_to(enemy.position) / ((attack_range() + 60.0) * 1.6), 0.4, 0.95)
+	var accuracy := clampf(1.1 - from.distance_to(enemy.position) / (reach * 1.6), 0.4, 0.95)
 	if randf() <= accuracy:
 		enemy.take_damage(attack_damage(), self)
 

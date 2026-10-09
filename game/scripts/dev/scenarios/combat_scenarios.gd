@@ -32,12 +32,22 @@ func _scenario_quarters() -> void:
 	await get_tree().create_timer(8.0).timeout
 	print("capacity %d, quartered %d, outside %d" % [tower.defence.capacity(), tower.defence.garrison.size(),
 			squad.filter(func(u: Unit) -> bool: return not u.inside).size()])
-	main._spawn_squad(main.FACTIONS[main.players[2].faction].army, 2, tower.position + Vector2(260, 0), 3)
+	# Beyond the soldiers' range in the open, within it from the walls.
+	for u: Unit in Unit.all_units:
+		if u.team == 1 and not u.inside:
+			u.stance = Unit.Stance.PASSIVE  # only those inside fight
+	var walls := tower.work_rect()
+	var reach := BuildingDefence.garrison_range(squad[0])
+	var spot := Vector2(walls.end.x + squad[0].attack_range() * 1.1, walls.get_center().y)
+	main._spawn_squad(main.FACTIONS[main.players[2].faction].army, 2, spot, 3)
 	var enemies := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 \
-			and n.position.distance_to(tower.position) < 400)
+			and n.position.distance_to(spot) < 120)
+	print("enemies %s px from the walls; range in the open %d, from the walls %d" % [enemies.map(func(u: Unit) -> int:
+			return int(u.position.distance_to(u.position.clamp(walls.position, walls.end)))), squad[0].attack_range(), reach])
 	for e: Unit in enemies:
 		e.stance = Unit.Stance.PASSIVE
 	await get_tree().create_timer(30.0).timeout
+	print("hit beyond the open range: %s" % enemies.any(func(u: Unit) -> bool: return not is_instance_valid(u) or u.health < u.max_health))
 	print("enemy energy after 30 s: ", enemies.map(func(u: Unit) -> int: return int(u.health) if is_instance_valid(u) else -1),
 			" quartered energy: ", tower.defence.garrison.map(func(u: Unit) -> int: return int(u.health)))
 	main.selection.select_building(tower)

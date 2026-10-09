@@ -13,6 +13,13 @@ var terrain := Terrain.new()
 var units_root := Node2D.new()
 var camera := RtsCamera.new()
 var selection := SelectionController.new()
+var start_positions := {}  # player -> Vector2, from the map's Editor_Start markers
+
+## Starting setup per player for this test scene: HQ object type and worker unit folder.
+const FACTION_STARTS := {
+	1: {"hq": 3, "workers": "global/gfx/mex/landarbeiter", "army": "global/gfx/mex/infanterist"},
+	2: {"hq": 2, "workers": "global/gfx/usa/siedler", "army": "global/gfx/usa/infanterist"},
+}
 
 
 func _ready() -> void:
@@ -27,9 +34,10 @@ func _ready() -> void:
 		return
 
 	add_child(terrain)
-	terrain.setup(map, GameData.cmdline_option("biome", "steppe"))
+	terrain.setup(map, GameData.cmdline_option("biome", map.guess_biome()))
 	units_root.y_sort_enabled = true
 	add_child(units_root)
+	_spawn_placements(map)
 	selection.units_root = units_root
 	add_child(selection)
 	camera.bounds = Rect2(Vector2.ZERO, map.pixel_size())
@@ -37,12 +45,56 @@ func _ready() -> void:
 	camera.make_current()
 
 	var size := Vector2(map.pixel_size())
-	_spawn_squad("global/gfx/mex/infanterist", 1, size * Vector2(0.5, 0.86), 12)
-	_spawn_squad("global/gfx/usa/infanterist", 2, size * Vector2(0.5, 0.14), 8)
-	camera.position = _vector_option("camera", size * Vector2(0.5, 0.84))
+	for player in FACTION_STARTS:
+		_setup_player(player, start_positions.get(player, size * Vector2(0.5, 0.15 if player == 2 else 0.85)))
+	camera.position = _vector_option("camera", start_positions.get(1, size / 2.0))
 	camera.set_zoom_level(GameData.cmdline_option("zoom", "1").to_float())
 	DisplayServer.window_set_title("America — %s" % map.title)
 	_setup_screenshot()
+
+
+func _spawn_placements(map: AlfMap) -> void:
+	var started := Time.get_ticks_msec()
+	var spawned := 0
+	for placement in map.placements:
+		var type := ObjectTypes.get_type(placement.type_id)
+		if type and type.name == "Editor_Start":
+			start_positions[placement.owner] = placement.position
+			continue
+		if type == null or type.bob_path.is_empty() or type.bob_path.begins_with("editor"):
+			continue
+		if type.kind == ObjectTypes.Kind.UNIT:
+			var unit_type := UnitType.load_type(type.directory())
+			if unit_type == null:
+				continue
+			var unit := Unit.new()
+			unit.position = placement.position
+			units_root.add_child(unit)
+			unit.setup(unit_type, placement.owner)
+		else:
+			var object := MapObject.new()
+			object.position = placement.position
+			object.amount = placement.amount
+			if not object.setup(type, placement.owner):
+				object.free()
+				continue
+			units_root.add_child(object)
+		spawned += 1
+	print("Placed %d/%d map objects in %d ms" % [spawned, map.placements.size(), Time.get_ticks_msec() - started])
+
+
+func _setup_player(player: int, start: Vector2) -> void:
+	var setup: Dictionary = FACTION_STARTS[player]
+	var hq := MapObject.new()
+	hq.position = start
+	if hq.setup(ObjectTypes.get_type(setup.hq), player):
+		units_root.add_child(hq)
+	else:
+		hq.free()
+	# Workers gather in front of the HQ, the army a little further out towards the map centre.
+	var toward_centre := (Vector2(terrain.map.pixel_size()) / 2.0 - start).normalized()
+	_spawn_squad(setup.workers, player, start + toward_centre * 220.0, 5)
+	_spawn_squad(setup.army, player, start + toward_centre * 380.0, 9)
 
 
 func _spawn_squad(directory: String, team: int, centre: Vector2, count: int) -> void:
@@ -72,7 +124,7 @@ func _setup_screenshot() -> void:
 		return
 	camera.input_enabled = false
 	# Exercise the move order so walking animations show up in the capture.
-	selection._select(units_root.get_children().filter(func(u: Unit) -> bool: return u.team == 1), false)
+	selection._select(units_root.get_children().filter(func(u: Node) -> bool: return u is Unit and u.team == 1), false)
 	selection._order_move(camera.position + Vector2(-200, -120))
 	for i in GameData.cmdline_option("frames", "90").to_int():
 		await get_tree().process_frame

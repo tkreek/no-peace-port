@@ -9,11 +9,16 @@ extends RefCounted
 ##
 ## Frames are packed into one LA8 atlas: L = palette index (0 for shadows), A = coverage.
 ## A frame is drawn with its hotspot on the object's ground anchor.
+##
+## .spr ("RDDX") is a true-colour atlas: u32 width, height, 0, "P16B", RGB555 pixels
+## (0 = transparent), then optionally "STAB", u32 count,
+## count x { u32 index, x, y, width, height, hotspot_x, hotspot_y }.
 
 const ATLAS_WIDTH := 2048
 const PADDING := 1
 
 var is_shadow := false
+var is_true_color := false
 var texture: ImageTexture
 var rects: Array[Rect2i] = []
 var hotspots := PackedVector2Array()
@@ -21,6 +26,8 @@ var hotspots := PackedVector2Array()
 
 static func load_bytes(bytes: PackedByteArray) -> RdSprite:
 	var magic := bytes.slice(0, 4).get_string_from_ascii()
+	if magic == "RDDX":
+		return _load_rddx(bytes)
 	if magic != "RDSX" and magic != "RDSW":
 		push_error("Unknown sprite magic %s" % magic)
 		return null
@@ -86,3 +93,36 @@ static func load_bytes(bytes: PackedByteArray) -> RdSprite:
 
 func frame_count() -> int:
 	return rects.size()
+
+
+static func _load_rddx(bytes: PackedByteArray) -> RdSprite:
+	var sprite := RdSprite.new()
+	sprite.is_true_color = true
+	var width := bytes.decode_u32(4)
+	var height := bytes.decode_u32(8)
+	var rgba := PackedByteArray()
+	rgba.resize(width * height * 4)
+	for i in width * height:
+		var value := bytes.decode_u16(20 + i * 2)
+		if value == 0:
+			continue
+		var r := (value >> 10) & 31
+		var g := (value >> 5) & 31
+		var b := value & 31
+		rgba[i * 4] = (r << 3) | (r >> 2)
+		rgba[i * 4 + 1] = (g << 3) | (g >> 2)
+		rgba[i * 4 + 2] = (b << 3) | (b >> 2)
+		rgba[i * 4 + 3] = 255
+	var table := 20 + width * height * 2
+	if table + 8 <= bytes.size() and bytes.slice(table, table + 4).get_string_from_ascii() == "STAB":
+		for i in bytes.decode_u32(table + 4):
+			var o := table + 8 + i * 28
+			sprite.rects.append(Rect2i(bytes.decode_u32(o + 4), bytes.decode_u32(o + 8),
+					bytes.decode_u32(o + 12), bytes.decode_u32(o + 16)))
+			sprite.hotspots.append(Vector2(bytes.decode_s32(o + 20), bytes.decode_s32(o + 24)))
+	else:
+		sprite.rects.append(Rect2i(0, 0, width, height))
+		sprite.hotspots.append(Vector2.ZERO)
+	var image := Image.create_from_data(width, height, false, Image.FORMAT_RGBA8, rgba)
+	sprite.texture = ImageTexture.create_from_image(image)
+	return sprite

@@ -53,6 +53,10 @@ func play(action: String) -> void:
 		return
 	var index := unit_type.anim_index(action)
 	if index < 0:
+		if _anim >= 0:
+			return
+		index = 0  # e.g. animals without walk/idle sheets: show their first animation
+	if unit_type.bob.sub_sprite_is_shadow[unit_type.bob.anims[index].sub_sprite]:
 		return
 	_action = action
 	_anim = index

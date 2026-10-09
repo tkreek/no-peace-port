@@ -18,6 +18,15 @@ var columns := 0
 var rows := 0
 var chunks := {}  # name -> PackedByteArray (first occurrence)
 var tile_ids := PackedInt32Array()
+var placements: Array[Placement] = []
+
+
+## An object placed in the editor (BOBLISTE record: x, y, type, owner, amount, ?).
+class Placement:
+	var position := Vector2.ZERO
+	var type_id := 0
+	var owner := 0  # 0 = neutral, 1..8 = player
+	var amount := 0  # e.g. gold in a mine
 
 
 static func load_from_file(file_path: String) -> AlfMap:
@@ -59,10 +68,32 @@ func _parse() -> void:
 		title = info.slice(0, end if end >= 0 else 64).get_string_from_ascii()
 		columns = info.decode_u32(0x114)
 		rows = info.decode_u32(0x118)
+	var objects: PackedByteArray = chunks.get("BOBLISTE", PackedByteArray())
+	if objects.size() >= 4:
+		for i in objects.decode_u32(0):
+			var o := 4 + i * 24
+			if o + 24 > objects.size():
+				break
+			var p := Placement.new()
+			p.position = Vector2(objects.decode_u32(o), objects.decode_u32(o + 4))
+			p.type_id = objects.decode_u32(o + 8)
+			p.owner = objects.decode_u32(o + 12)
+			var amount := objects.decode_u32(o + 16)
+			p.amount = amount if amount != 0xCDCDCDCD else 0
+			placements.append(p)
 	var matrix: PackedByteArray = chunks.get("LVMATRIX", PackedByteArray())
 	tile_ids.resize(columns * rows)
 	for i in mini(tile_ids.size(), matrix.size() / 4):
 		tile_ids[i] = matrix.decode_u16(i * 4)
+
+
+## "wiese" if the map uses meadow object variants, otherwise "steppe".
+func guess_biome() -> String:
+	for p in placements:
+		var t := ObjectTypes.get_type(p.type_id)
+		if t and t.is_meadow():
+			return "wiese"
+	return "steppe"
 
 
 func pixel_size() -> Vector2i:

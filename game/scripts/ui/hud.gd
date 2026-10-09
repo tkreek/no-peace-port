@@ -590,11 +590,18 @@ func _flat(color: Color) -> StyleBoxFlat:
 func _refresh_commands() -> void:
 	var units := selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
 	var building := selection.selected_building if is_instance_valid(selection.selected_building) else null
+	# Mixed groups get only the commands every member can carry out (manual 3.2).
 	var builders := units.filter(func(u: Unit) -> bool: return u.unit_type.can_build())
-	var full_builders := builders.any(func(u: Unit) -> bool: return u.unit_type.anim_index("build") >= 0)
+	if builders.size() < units.size():
+		builders = []
+	var full_builders := not builders.is_empty() and builders.all(func(u: Unit) -> bool: return u.unit_type.anim_index("build") >= 0)
 	var farmers := units.filter(func(u: Unit) -> bool: return u.unit_type.is_farmer())
+	if farmers.size() < units.size():
+		farmers = []
 	var fighters := units.filter(func(u: Unit) -> bool: return not u.unit_type.attack_anims.is_empty() \
 			and not u.unit_type.can_build() and u.team == player.index)
+	if fighters.size() < units.size():
+		fighters = []
 	var stances := {}
 	var formations := {}
 	for u: Unit in fighters:
@@ -653,29 +660,30 @@ func _refresh_commands() -> void:
 					_add_icon_command(_formation_icons, FORMATION_ICONS[formation], FORMATION_NAMES[formation],
 							func() -> void: set_formation(formation), formations.size() == 1 and formations.has(formation))
 		var spells := {}
-		for u: Unit in units:
-			for spell in u.known_spells():
+		for spell in (units[0] as Unit).known_spells():
+			if units.all(func(u: Unit) -> bool: return spell in u.known_spells()):
 				spells[spell] = true
 		for spell in spells:
 			var info: Dictionary = Unit.SPELLS[spell]
 			_add_spell_command(spell, "%s (%d magic)\n%s\nThen click the %s" % [info.name, info.cost, info.text,
 					{"point": "spot", "unit": "unit to protect", "enemy": "enemy to convert"}[info.target]])
 		var riders := units.filter(func(u: Unit) -> bool: return GameData.foot_of(u.unit_type.guid()) >= 0)
-		if not riders.is_empty():
+		if riders.size() == units.size():
 			_add_icon_command(_command_icons, ICON_DISMOUNT, "Dismount: the horse can be led into a corral, hacienda or ranch",
 					func() -> void:
 						for u: Unit in riders:
 							if is_instance_valid(u):
 								u.dismount())
 		var hiders := units.filter(func(u: Unit) -> bool: return u.can_hide())
-		if not hiders.is_empty():
+		if hiders.size() == units.size():
 			var assassin := hiders.any(func(u: Unit) -> bool: return u.unit_type.guid() == 362)
 			_add_icon_command(_extra_icons, ICON_HIDE, "Dig in: wait hidden and stab passers-by" if assassin \
 					else "Camouflage: blend into the landscape until given another order", func() -> void:
 				for u: Unit in hiders:
 					u.conceal())
-		_add_icon_command(_extra_icons, ICON_ENTER, "Move into quarters (G): click a fort or tower",
-				func() -> void: selection.begin_targeting("quarters"), selection.pending == "quarters")
+		if units.all(selection._can_quarter):
+			_add_icon_command(_extra_icons, ICON_ENTER, "Move into quarters (G): click a fort or tower",
+					func() -> void: selection.begin_targeting("quarters"), selection.pending == "quarters")
 		_add_icon_command(_command_icons, ICON_STOP, "Stop (X)", stop_selection)
 	elif building and building.complete and building.owner_index == player.index:
 		for guid in building.trainable_units():
@@ -776,10 +784,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	elif STANCE_KEYS.has(key):
 		set_stance(STANCE_KEYS[key])
 	elif key == KEY_B or key == KEY_V:
-		_open_build_menu("basic" if key == KEY_B else "expanded")
+		var units := selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+		if not units.is_empty() and units.all(func(u: Unit) -> bool: return u.unit_type.can_build()):
+			_open_build_menu("basic" if key == KEY_B else "expanded")
 	elif key == KEY_F:
 		var field_type := GameData.type_for_guid(MapObject.FIELD_GUID, biome)
-		if field_type >= 0 and selection.selection.any(func(u: Unit) -> bool:
+		if field_type >= 0 and not selection.selection.is_empty() and selection.selection.all(func(u: Unit) -> bool:
 				return is_instance_valid(u) and u.unit_type.is_farmer()):
 			build_controller.start(field_type)
 	else:

@@ -132,7 +132,7 @@ func is_alive() -> bool:
 	return not is_building() or health > 0.0
 
 
-func take_damage(amount: float, attacker: Node2D = null) -> void:
+func take_damage(amount: float, attacker: Node2D = null, _splash := false) -> void:
 	if not is_building() or health <= 0.0:
 		return
 	health = maxf(0.0, health - amount)
@@ -231,12 +231,13 @@ func take_gold(wanted: int) -> int:
 
 
 func needs_repair() -> bool:
-	return is_building() and complete and health > 0.0 and health < max_health
+	return is_building() and complete and health > 0.0 and (health < max_health or burning > 0.0)
 
 
 ## Repairing (manual 3.5): a builder restores energy at the construction pace, paying the
 ## share of the building's cost that the restored energy represents.
 func add_repair_work(seconds: float) -> bool:
+	extinguish()
 	var total := maxf(5.0, float(GameData.stats(guid).get("build_time", max_health * BUILD_WORK_PER_HEALTH)))
 	var restore := minf(max_health - health, max_health * seconds / total)
 	var cost: Dictionary = GameData.stats(guid).get("cost", {})
@@ -284,7 +285,7 @@ func _spring_trap(delta: float) -> void:
 	for unit in Unit.all_units:
 		if unit.is_alive() and unit.team > 0 and unit.team != owner_index and not unit.inside \
 				and not unit.unit_type.is_transport() and unit.position.distance_to(pit) < 30.0:
-			unit.take_damage(unit.max_health * 10.0, self)
+			unit.take_damage(unit.max_health * 10.0, self, true)
 			trap_kills += 1
 			if trap_kills >= PITFALL_KILLS:
 				health = 0.0
@@ -344,6 +345,7 @@ func demolish() -> void:
 
 func _destroy() -> void:
 	release()  # the quartered units escape the ruins
+	extinguish()
 	Sound.play_event(guid, Sound.Event.RUBBLE, position, 0)
 	queue.clear()
 	accepts = PackedStringArray()
@@ -562,6 +564,8 @@ func restore_state(entry: Dictionary) -> void:
 	trap_kills = int(entry.trap_kills)
 	loot_kind = entry.get("loot_kind", "")
 	loot = int(entry.get("loot", 0))
+	if float(entry.get("burning", 0.0)) > 0.0:
+		ignite.call_deferred(float(entry.burning))
 	if is_field():
 		field_state = int(entry.field_state) as Field
 		field_progress = float(entry.field_progress)
@@ -849,6 +853,8 @@ func _process(delta: float) -> void:
 		_earn(delta)
 	if is_trap() and complete and health > 0.0:
 		_spring_trap(delta)
+	if burning > 0.0:
+		_burn(delta)
 	if guid in TRADE_BUILDINGS and complete:
 		var market: Player = Player.by_index.get(owner_index)
 		if market:
@@ -1010,20 +1016,68 @@ func _update_fires() -> void:
 		if is_instance_valid(fire):
 			fire.queue_free()
 	_fires.clear()
-	var walls := work_rect()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = get_instance_id()
-	var picture := visual_rect()
 	for anim in FIRE_STAGES[stage]:
-		# Somewhere on the building itself: a solid pixel in the upper part of its picture.
-		var spot := walls.get_center()
-		for attempt in 16:
-			var candidate := Vector2(rng.randf_range(picture.position.x + picture.size.x * 0.2, picture.end.x - picture.size.x * 0.2),
-					rng.randf_range(picture.position.y + picture.size.y * 0.25, picture.position.y + picture.size.y * 0.7))
-			if _body.is_pixel_opaque(_body.to_local(candidate)):
-				spot = candidate
-				break
-		_fires.append(OrderMarker.effect_loop(self, spot - position, FIRE_BOB, anim))
+		_fires.append(OrderMarker.effect_loop(self, _fire_spot(rng) - position, FIRE_BOB, anim))
+
+
+## Somewhere on the building itself: a solid pixel in the upper part of its picture.
+func _fire_spot(rng: RandomNumberGenerator) -> Vector2:
+	var picture := visual_rect()
+	for attempt in 16:
+		var candidate := Vector2(rng.randf_range(picture.position.x + picture.size.x * 0.2, picture.end.x - picture.size.x * 0.2),
+				rng.randf_range(picture.position.y + picture.size.y * 0.25, picture.position.y + picture.size.y * 0.7))
+		if _body.is_pixel_opaque(_body.to_local(candidate)):
+			return candidate
+	return work_rect().get_center()
+
+
+## Flaming arrows "set fortifications and houses on fire" (manual 5.1): a hit sets the
+## building alight for a while; the fire eats its energy and can leap to the buildings next
+## to it. A builder at work on it puts the fire out.
+const FIRE_STARTERS := [154, 158, 159, 276, 277]  # canoe, flaming arrow shooters, Gall
+const BURN_SECONDS := 20.0
+const BURN_DAMAGE := 3.0  # energy per second
+const SPREAD_REACH := 48.0  # between the walls of neighbouring buildings (their margins keep 32 apart)
+const SPREAD_CHANCE := 0.06  # per second, for each neighbour
+var burning := 0.0  # seconds the fire still burns
+var _burn_tick := 0.0
+var _flame: OrderMarker
+
+
+func ignite(seconds := BURN_SECONDS) -> void:
+	if not is_building() or is_trap() or health <= 0.0:
+		return
+	burning = maxf(burning, seconds)
+	set_process(true)
+	if not is_instance_valid(_flame):
+		var rng := RandomNumberGenerator.new()
+		rng.seed = get_instance_id() + 7
+		_flame = OrderMarker.effect_loop(self, _fire_spot(rng) - position, FIRE_BOB, 1)
+		Sound.play_event(guid, Sound.Event.BURNING, position, 0, get_instance_id(), Sound.WORK_RANGE)
+
+
+func extinguish() -> void:
+	burning = 0.0
+	if is_instance_valid(_flame):
+		_flame.queue_free()
+	_flame = null
+
+
+func _burn(delta: float) -> void:
+	burning -= delta
+	_burn_tick += delta
+	if _burn_tick >= 1.0:
+		_burn_tick -= 1.0
+		take_damage(BURN_DAMAGE)
+		var walls := work_rect().grow(SPREAD_REACH)
+		for other in all_objects:
+			if other != self and other.burning <= 0.0 and other.is_building() and other.is_alive() \
+					and walls.intersects(other.work_rect()) and randf() < SPREAD_CHANCE:
+				other.ignite()
+	if burning <= 0.0 or health <= 0.0:
+		extinguish()
 
 
 ## Buildings with a moving part (the farm's windmill...) run it once they are finished.

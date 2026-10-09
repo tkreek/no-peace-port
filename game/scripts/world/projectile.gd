@@ -100,7 +100,12 @@ func _apply(heading: Vector2) -> void:
 func _land() -> void:
 	var explodes := _kind == "kugel" or _kind == "dynamit"
 	if _hit and is_instance_valid(_target) and _target.is_alive():
-		_target.take_damage(_damage, _attacker if is_instance_valid(_attacker) else null)
+		if is_instance_valid(_attacker):
+			_attacker.deal_damage(_target, _damage, explodes)
+			if _target is MapObject and _attacker.unit_type.guid() in MapObject.FIRE_STARTERS:
+				_target.ignite()
+		else:
+			_target.take_damage(_damage, null, explodes)
 	if explodes:
 		Sound.play_event(IMPACT_SOUND[_kind], Sound.Event.SHOOT, _to, 0)
 		OrderMarker.effect(get_parent(), _to, EXPLOSION_BOB, 0)
@@ -108,5 +113,5 @@ func _land() -> void:
 		for unit in Unit.all_units:
 			if unit != _target and unit.is_alive() and unit.team > 0 and unit.team != team \
 					and unit.position.distance_to(_to) < SPLASH_RADIUS:
-				unit.take_damage(_damage * 0.5, _attacker if is_instance_valid(_attacker) else null)
+				unit.take_damage(_damage * 0.5, _attacker if is_instance_valid(_attacker) else null, true)
 	queue_free()

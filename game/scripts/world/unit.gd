@@ -624,11 +624,7 @@ func dismount() -> void:
 	var parent := get_parent()
 	var walker := _become(foot)
 	if walker:
-		var horse := Unit.new()
-		horse.position = at + Vector2(24, 8)
-		parent.add_child(horse)
-		horse.setup(UnitType.load_type(HORSE_DIR), owner)
-		horse._wild_timer = OWNED_HORSE_SECONDS
+		loose_horse(parent, at + Vector2(24, 8), owner)._wild_timer = OWNED_HORSE_SECONDS
 
 
 ## Lead an owned horse into a horse building, where it joins the people's horses.
@@ -655,6 +651,57 @@ func _update_horse(delta: float) -> void:
 		change_team(0)  # runs wild again
 
 
+## Stealing horses (manual 3.10): soldiers shoot the rider, not the horse, so a rider who
+## falls leaves a riderless horse anyone can take as though it were wild. Told to (Ctrl +
+## right click), they shoot the horse instead, and the rider fights on on foot.
+const HORSE_HEALTH := 80.0
+var aim_at_horse := false  ## this attacker was told to shoot the mount
+var horse_health := HORSE_HEALTH
+
+
+## The rider falls and the horse runs free. False when this unit is not on horseback.
+func _shot_from_saddle() -> bool:
+	var foot := GameData.foot_of(unit_type.guid())
+	if not unit_type.mounted or foot < 0 or team <= 0:
+		return false
+	var at := position
+	var parent := get_parent()
+	var rider := _become(foot)
+	if rider == null:
+		return false
+	rider.health = 0.0
+	rider._die()
+	loose_horse(parent, at + Vector2(22, 6), 0)
+	return true
+
+
+## A shot at the mount; when the horse falls it leaves a carcass and the rider walks on.
+func hit_horse(amount: float, attacker: Node2D) -> void:
+	if not is_alive():
+		return
+	if shield_time > 0.0:
+		amount *= 0.5
+	horse_health -= amount
+	if horse_health > 0.0:
+		return
+	var at := position
+	var parent := get_parent()
+	if _become(GameData.foot_of(unit_type.guid())) == null:
+		take_damage(amount, attacker, true)
+		return
+	var horse := loose_horse(parent, at + Vector2(22, 6), 0)
+	horse.health = 0.0
+	horse._die()  # meat for the hunters
+
+
+static func loose_horse(parent: Node, at: Vector2, owner: int) -> Unit:
+	var horse := Unit.new()
+	horse.position = at
+	parent.add_child(horse)
+	horse.setup(UnitType.load_type(HORSE_DIR), owner)
+	return horse
+
+
 ## Replace this unit by another kind (mounting, dismounting), keeping its condition.
 func _become(guid: int) -> Unit:
 	var new_type := UnitType.for_guid(guid)
@@ -669,6 +716,8 @@ func _become(guid: int) -> Unit:
 	other.stance = stance
 	other.direction = direction
 	all_units.erase(self)
+	state = State.DEAD  # gone: shots already in flight find nothing here
+	visible = false
 	queue_free()
 	return other
 
@@ -887,6 +936,7 @@ func attack(enemy: Node2D, ordered := false) -> void:
 	if ordered:
 		_clear_orders()
 	hunting = false
+	aim_at_horse = false
 	target = enemy
 	gather_source = null
 	inside = false
@@ -895,8 +945,12 @@ func attack(enemy: Node2D, ordered := false) -> void:
 
 
 ## Kill an animal and carry its meat to a butcher or the main building, then hunt again.
+## Horses are hunted only when ordered, and never by Native Americans, for whom they are
+## too valuable as mounts (manual 3.10).
 func hunt(animal: Unit) -> void:
 	if not unit_type.is_hunter() or animal == null or animal.team != 0 or not animal.has_meat():
+		return
+	if animal.is_horse() and animal.is_alive() and not may_hunt_horses():
 		return
 	_clear_orders()
 	if animal.is_alive():
@@ -969,7 +1023,8 @@ func stop() -> void:
 		state = State.IDLE
 
 
-func take_damage(amount: float, attacker: Node2D = null) -> void:
+## `horse_too`: the blow takes the horse with the rider (cannon fire, dynamite, pitfalls).
+func take_damage(amount: float, attacker: Node2D = null, horse_too := false) -> void:
 	if not is_alive() or state == State.QUARTERED:
 		return
 	if shield_time > 0.0:
@@ -982,6 +1037,8 @@ func take_damage(amount: float, attacker: Node2D = null) -> void:
 			var victor: Player = Player.by_index.get(attacker.team)
 			if victor:
 				victor.stats.kills += 1
+		if not horse_too and _shot_from_saddle():
+			return
 		_die()
 	elif state == State.IDLE and attacker and attacker.is_alive() and _may_engage(attacker):
 		attack(attacker)  # fight back
@@ -1246,7 +1303,15 @@ func _strike() -> void:
 	if unit_type.ranged and unit_type.projectile_anim >= 0:
 		Projectile.launch(self, target, damage, hit)  # damage lands with it
 	elif hit:
-		target.take_damage(damage, self)
+		deal_damage(target, damage)
+
+
+## Damage this unit's blow or shot does on arrival: to the mount when told to shoot horses.
+func deal_damage(victim: Node2D, damage: float, horse_too := false) -> void:
+	if aim_at_horse and victim is Unit and victim.unit_type.mounted and not horse_too:
+		victim.hit_horse(damage, self)
+	else:
+		victim.take_damage(damage, self, horse_too)
 
 
 func _die() -> void:
@@ -1510,11 +1575,16 @@ func _carry_meat(animal: Unit) -> void:
 	_route_gather()
 
 
+func may_hunt_horses() -> bool:
+	var player: Player = Player.by_index.get(team)
+	return unit_type.is_hunter() and (player == null or player.faction != "ind")
+
+
 func _nearest_animal() -> Unit:
 	var best: Unit = null
 	var best_distance := HUNT_RANGE
 	for other in all_units:
-		if other.has_meat():
+		if other.has_meat() and not (other.is_horse() and other.is_alive()):
 			var distance := position.distance_to(other.position)
 			if distance < best_distance:
 				best = other

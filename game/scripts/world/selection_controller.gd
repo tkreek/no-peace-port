@@ -176,6 +176,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				order_haul(_abandoned_at(world))
 			elif site and site.capacity() > 0 and selection.any(_can_quarter):
 				order_quarters(site)
+			elif animal and animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.may_hunt_horses()):
+				# Hunters (but not the Native Americans') shoot the horse for its meat.
+				for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.may_hunt_horses()):
+					unit.hunt(animal)
+				animal.flash(Color(1.0, 0.35, 0.3))
+				Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 			elif animal and animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.can_mount()):
 				# Mount the wild horse: the nearest unit that can ride takes it.
 				var riders := selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.can_mount())
@@ -204,7 +210,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				enemy.flash(Color(1.0, 0.9, 0.4))
 				Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 			elif enemy:
-				order_attack(enemy)
+				# Ctrl: shoot the horse rather than its rider.
+				order_attack(enemy, event.ctrl_pressed and enemy is Unit and enemy.unit_type.mounted)
 			elif source and selection.any(func(u: Unit) -> bool: return u.unit_type.can_gather(source.resource)):
 				order_gather(source)
 			else:
@@ -359,7 +366,7 @@ func _enemy_building_at(point: Vector2) -> MapObject:
 		return o.is_building() and o.owner_index > 0 and o.owner_index != player_team and o.is_alive())
 
 
-func order_attack(enemy: Node2D) -> void:
+func order_attack(enemy: Node2D, at_horse := false) -> void:
 	selection = selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
 	if selection.is_empty():
 		return
@@ -367,6 +374,7 @@ func order_attack(enemy: Node2D) -> void:
 	Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	for unit in selection:
 		unit.attack(enemy, true)
+		unit.aim_at_horse = at_horse
 
 
 func _units_in(rect: Rect2) -> Array[Unit]:

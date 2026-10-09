@@ -826,3 +826,81 @@ func _scenario_abandoned() -> void:
 		print("  t=%d wagon state %d phase %d carrying %s %d path %d at %s" % [(k + 1) * 10, wagon.state, wagon._gather_phase, wagon.carrying, wagon.carried, wagon.path.size(), wagon.position.round()])
 	print("store left %d; %s %d -> %d" % [store.loot, store.loot_kind, before[store.loot_kind], main.players[1].resources[store.loot_kind]])
 	get_tree().quit()
+
+
+## Riders shot from the saddle leave a wild horse; ordered to, soldiers shoot the horse and
+## the rider fights on on foot; a hunter shoots a wild horse for food.
+func _scenario_unhorse() -> void:
+	var hq: MapObject = main.players[1].main_building()
+	var at := hq.position + Vector2(0, 320)
+	var shooter_guid: int = {"mex": 258, "usa": 458, "ind": 160, "des": 356}[main.players[1].faction]
+	main._spawn_squad(shooter_guid, 1, at, 4)
+	main._spawn_squad(264, 2, at + Vector2(0, 120), 1)  # mounted gaucho
+	main._spawn_squad(264, 2, at + Vector2(140, 120), 1)
+	var riders := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 and n.unit_type.guid() == 264)
+	for r: Unit in riders:
+		r.stance = Unit.Stance.PASSIVE
+	var shooters := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == shooter_guid)
+	main.selection._select(shooters.slice(0, 2), false)
+	main.selection.order_attack(riders[0])
+	main.selection._select(shooters.slice(2, 4), false)
+	main.selection.order_attack(riders[1], true)
+	for i in 8:
+		await get_tree().create_timer(4.0).timeout
+		var foot := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 and n.unit_type.guid() == 263)
+		var horses := Unit.all_units.filter(func(u: Unit) -> bool: return u.is_horse())
+		print("t=%ds riders %s | gauchos on foot alive %d dead %d | horses alive %d carcasses %d" % [(i + 1) * 4,
+				riders.map(func(r) -> String: return "%d" % r.health if is_instance_valid(r) else "gone"),
+				foot.filter(func(u: Unit) -> bool: return u.is_alive()).size(), foot.filter(func(u: Unit) -> bool: return not u.is_alive()).size(),
+				horses.filter(func(u: Unit) -> bool: return u.is_alive()).size(), horses.filter(func(u: Unit) -> bool: return not u.is_alive()).size()])
+	# A hunter (not Native) shoots the riderless horse for meat.
+	var hunter_guid: int = {"mex": 261, "usa": 461, "ind": 156, "des": 358}[main.players[1].faction]
+	main._spawn_squad(hunter_guid, 1, at + Vector2(60, 60), 1)
+	var hunter: Unit = Unit.all_units.filter(func(u: Unit) -> bool: return u.unit_type.guid() == hunter_guid)[0]
+	var horse: Unit = null
+	for u in Unit.all_units:
+		if u.is_horse() and u.is_alive():
+			horse = u
+	if horse:
+		hunter.hunt(horse)
+	var food: int = main.players[1].resources.food
+	for i in 6:
+		await get_tree().create_timer(5.0).timeout
+		print("  hunter state %d target==horse %s hunting %s carrying %d step %d cd %.1f action %s horse hp %.1f" % [hunter.state, hunter.target == horse, hunter.hunting, hunter.carried, hunter._attack_step, hunter._cooldown, hunter._action, horse.health if is_instance_valid(horse) else -1.0])
+	print("hunter may hunt horses %s; horse alive %s; food +%d" % [hunter.may_hunt_horses(),
+			is_instance_valid(horse) and horse.is_alive(), main.players[1].resources.food - food])
+	get_tree().quit()
+
+
+## Flaming arrow shooters set an enemy building alight; the fire spreads to its neighbour
+## and a builder puts it out.
+func _scenario_fire() -> void:
+	var hq: MapObject = main.players[1].main_building()
+	var guid: int = {"mex": 201, "usa": 401, "ind": 101, "des": 301}[main.players[2].faction]
+	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
+	var houses: Array[MapObject] = []
+	var spot := hq.position + Vector2(-520, 260)
+	for i in 3:
+		var b := MapObject.new()
+		var rect := MapObject.footprint_rect_for(type, Vector2.ZERO)
+		b.position = spot + Vector2(i * (rect.size.x + 8), 0)
+		b.setup(type, 2)
+		main.units_root.add_child(b)
+		main.nav.block_footprint(type, b.position)
+		houses.append(b)
+	main.camera.position = houses[1].position
+	print("wall gap %d px" % (houses[1].work_rect().position.x - houses[0].work_rect().end.x))
+	var archer_guid := 158
+	main._spawn_squad(archer_guid, 1, spot + Vector2(0, 260), 2)
+	var archers := Unit.all_units.filter(func(u: Unit) -> bool: return u.unit_type.guid() == archer_guid)
+	for a: Unit in archers:
+		a.attack(houses[0], true)
+	for i in 10:
+		await get_tree().create_timer(3.0).timeout
+		if i == 3:
+			for a: Unit in archers:
+				a.stop()
+				a.stance = Unit.Stance.PASSIVE
+		print("t=%ds %s" % [(i + 1) * 3, houses.map(func(b: MapObject) -> String:
+				return "%d%%%s" % [int(100 * b.health / b.max_health), " burning" if b.burning > 0.0 else ""] if is_instance_valid(b) else "gone")])
+	get_tree().quit()

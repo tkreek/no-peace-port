@@ -182,6 +182,8 @@ func _spawn_placements(map: AlfMap) -> void:
 			if not object.setup(type, placement.owner, placement.amount):
 				object.free()
 				continue
+			if object.is_abandoned_store():
+				object.stock_abandoned_store(placement.content, placement.amount)
 			units_root.add_child(object)
 		spawned += 1
 	print("Placed %d/%d map objects in %d ms" % [spawned, map.placements.size(), Time.get_ticks_msec() - started])

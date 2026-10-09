@@ -368,6 +368,9 @@ func _object_detail(object: MapObject) -> String:
 				current.get("name", "?"), int(object.train_progress * 100)]
 	var housing := int(GameData.stats(object.guid).get("housing", 0))
 	var quartered := "\nQuartered %d / %d" % [object.garrison.size(), object.capacity()] if object.capacity() > 0 else ""
+	if object.is_abandoned_store():
+		return "Abandoned warehouse: %d %s\nSend a wagon to haul it home" % [object.loot, object.loot_kind] if object.loot > 0 \
+				else "Abandoned warehouse (empty)"
 	if object.is_gold_warehouse() and object.complete:
 		quartered += "\nGold stored: %d (send a wagon to haul it)" % object.stored_gold
 	return "Energy %d / %d%s%s%s" % [object.health, object.max_health,

@@ -41,6 +41,7 @@ static func save(main: Node, path := QUICK) -> bool:
 					"health": object.health, "queue": Array(object.queue), "train": object.train_progress,
 					"rally": [object.rally_point.x, object.rally_point.y] if object.rally_point != Vector2.INF else null,
 					"stored_gold": object.stored_gold, "trap_kills": object.trap_kills,
+					"loot_kind": object.loot_kind, "loot": object.loot,
 					"field_state": object.field_state, "field_progress": object.field_progress, "amount": object.amount,
 					"garrison": object.garrison.filter(func(u: Unit) -> bool: return unit_ids.has(u)).map(func(u: Unit) -> int: return unit_ids[u])})
 		elif object.resource != "" or object.is_tree():

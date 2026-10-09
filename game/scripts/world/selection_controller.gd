@@ -166,6 +166,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				site.flash()
 			elif site and site.is_gold_warehouse() and site.complete and selection.any(_is_transport):
 				order_haul(site)
+			elif _abandoned_at(world) and selection.any(_is_transport):
+				order_haul(_abandoned_at(world))
 			elif site and site.capacity() > 0 and selection.any(_can_quarter):
 				order_quarters(site)
 			elif animal and animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.can_mount()):
@@ -279,6 +281,10 @@ func _resource_at(point: Vector2) -> MapObject:
 
 func _is_builder(u: Unit, guid := -1) -> bool:
 	return is_instance_valid(u) and u.is_alive() and u.unit_type.can_build(guid)
+
+
+func _abandoned_at(point: Vector2) -> MapObject:
+	return _front_most(point, func(o: MapObject) -> bool: return o.is_abandoned_store() and o.haul_available() > 0)
 
 
 func _is_transport(u: Unit) -> bool:

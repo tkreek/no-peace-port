@@ -33,6 +33,7 @@ class Placement:
 	var type_id := 0
 	var owner := 0  # 0 = neutral, 1..8 = player
 	var amount := 0  # e.g. gold in a mine
+	var content := 0  # what `amount` is for an abandoned warehouse: 0x130 gold, 0x131 guns
 
 
 static func load_from_file(file_path: String) -> AlfMap:
@@ -91,6 +92,7 @@ func _parse() -> void:
 			p.owner = objects.decode_u32(o + 12)
 			var amount := objects.decode_u32(o + 16)
 			p.amount = amount if amount != 0xCDCDCDCD else 0
+			p.content = objects.decode_u32(o + 20)
 			placements.append(p)
 	var bits: PackedByteArray = chunks.get("BITARRAY", PackedByteArray())
 	if bits.size() >= 32 and bits.slice(0, 4).get_string_from_ascii() == "BARY":

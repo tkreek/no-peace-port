@@ -285,6 +285,39 @@ func _spring_trap(delta: float) -> void:
 				return
 
 
+## Abandoned warehouses (manual 4.3): neutral stores of guns or gold scattered over the
+## map; transports empty them into their people's main building.
+const ABANDONED_STORES := [26, 56, 299, 300]  # object types: USA_Lager, MEX_Magazin
+var loot_kind := ""
+var loot := 0
+
+
+func is_abandoned_store() -> bool:
+	return object_type != null and object_type.id in ABANDONED_STORES
+
+
+func stock_abandoned_store(content: int, how_much: int) -> void:
+	loot_kind = "gold" if content == 0x130 else "guns"
+	loot = how_much
+
+
+## What a transport can haul from here: a gold warehouse's gold or an abandoned store's goods.
+func haul_kind() -> String:
+	return loot_kind if is_abandoned_store() else "gold"
+
+
+func haul_available() -> int:
+	return loot if is_abandoned_store() else stored_gold
+
+
+func take_haul(wanted: int) -> int:
+	if is_abandoned_store():
+		var taken := mini(wanted, loot)
+		loot -= taken
+		return taken
+	return take_gold(wanted)
+
+
 ## Tear the building down (Del). Queued orders are refunded, and so is the part of the
 ## construction cost not yet built into an unfinished site.
 func demolish() -> void:
@@ -520,6 +553,8 @@ func restore_state(entry: Dictionary) -> void:
 	rally_point = Vector2(entry.rally[0], entry.rally[1]) if entry.rally != null else Vector2.INF
 	stored_gold = int(entry.stored_gold)
 	trap_kills = int(entry.trap_kills)
+	loot_kind = entry.get("loot_kind", "")
+	loot = int(entry.get("loot", 0))
 	if is_field():
 		field_state = int(entry.field_state) as Field
 		field_progress = float(entry.field_progress)

@@ -807,3 +807,22 @@ func _scenario_horses() -> void:
 	print("horses %d / %d, cowboy on foot again %s" % [main.players[1].resources.horses, main.players[1].horse_capacity(),
 			main.units_root.get_children().any(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == 463)])
 	get_tree().quit()
+
+
+## A wagon empties the nearest abandoned warehouse into the main building.
+func _scenario_abandoned() -> void:
+	var hq: MapObject = main.players[1].main_building()
+	var stores := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.is_abandoned_store() and o.loot > 0)
+	stores.sort_custom(func(a: MapObject, b: MapObject) -> bool: return a.position.distance_to(hq.position) < b.position.distance_to(hq.position))
+	var store: MapObject = stores[0]
+	print("%d abandoned warehouses; nearest holds %d %s, %d px away" % [stores.size(), store.loot, store.loot_kind, store.position.distance_to(hq.position)])
+	var wagon_guid: int = {"mex": 255, "usa": 455, "ind": 155, "des": 355}[main.players[1].faction]
+	main._spawn_squad(wagon_guid, 1, store.position + Vector2(0, 160), 1)
+	var wagon: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == wagon_guid)[0]
+	var before: Dictionary = main.players[1].resources.duplicate()
+	wagon.haul(store)
+	for k in 12:
+		await get_tree().create_timer(10.0).timeout
+		print("  t=%d wagon state %d phase %d carrying %s %d path %d at %s" % [(k + 1) * 10, wagon.state, wagon._gather_phase, wagon.carrying, wagon.carried, wagon.path.size(), wagon.position.round()])
+	print("store left %d; %s %d -> %d" % [store.loot, store.loot_kind, before[store.loot_kind], main.players[1].resources[store.loot_kind]])
+	get_tree().quit()

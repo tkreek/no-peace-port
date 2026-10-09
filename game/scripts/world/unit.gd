@@ -1360,7 +1360,8 @@ func _update_gather(delta: float) -> void:
 ## Shuttle gold from a gold warehouse to the main building for as long as it holds any;
 ## an empty warehouse is waited at, since the miners keep filling it.
 func haul(warehouse: MapObject) -> void:
-	if not is_alive() or warehouse == null or not unit_type.is_transport():
+	if not is_alive() or warehouse == null or not unit_type.is_transport() \
+			or (warehouse.owner_index != team and not warehouse.is_abandoned_store()):
 		return
 	_clear_orders()
 	gather_source = warehouse
@@ -1393,14 +1394,18 @@ func _update_haul(delta: float) -> void:
 			_work_timer -= delta
 			_haul_wait += delta
 			# Leave with a full load, or whatever there is after a while.
-			if _work_timer > 0.0 or (gather_source.stored_gold < unit_type.carry and _haul_wait < 8.0):
+			if _work_timer > 0.0 or (gather_source.haul_available() < unit_type.carry and _haul_wait < 8.0 \
+					and not gather_source.is_abandoned_store()):
 				return
-			carried = gather_source.take_gold(unit_type.carry)
+			carried = gather_source.take_haul(unit_type.carry)
+			if carried <= 0 and gather_source.is_abandoned_store():
+				stop()  # emptied
+				return
 			if carried <= 0:
 				_work_timer = 2.0  # wait for the miners
 				return
 			_haul_wait = 0.0
-			carrying = "gold"
+			carrying = gather_source.haul_kind()
 			_gather_phase = Gather.TO_DROP_OFF
 			_drop_off = _main_building()
 			path = _find_path(_drop_off.position) if _drop_off else PackedVector2Array()
@@ -1417,7 +1422,7 @@ func _update_haul(delta: float) -> void:
 				path.clear()
 				var player: Player = Player.by_index.get(team)
 				if player and carried > 0:
-					player.add("gold", carried)
+					player.add(carrying, carried)
 				carried = 0
 				carrying = ""
 				if gather_source and is_instance_valid(gather_source):

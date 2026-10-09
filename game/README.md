@@ -53,7 +53,9 @@ Any of `--map`, `--scenario`, `--screenshot`, `--report-after` skips the menu an
 - `--camera=x,y`, `--zoom=z`.
 - `--screenshot=<png> --frames=<n>`: render, save a frame and quit (used for automated checks).
 - `--scenario=battle|economy|build`, `--ai-vs-ai=1`, `--report-after=<frames>` (with `--fixed-fps 30`):
-  scripted test setups and headless stockpile reports.
+  scripted test setups and headless stockpile reports (every 1800 frames also each side's
+  units and buildings). `--trace-ai=1` logs the AI's building and attacks; `--ai-ferry=1`
+  makes it ferry its waves by boat as if the enemy were across the water.
 - `--selftest=1`: decode every sound and map and report.
 
 ## Controls

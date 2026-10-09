@@ -431,26 +431,39 @@ func _build(workers: Array, hq: MapObject) -> void:
 		return
 	if production == 0 and workers.size() < _level().workers / 3:
 		return
+	# Structures that train soldiers: each new kind (with whatever it requires first, such as
+	# the sawmill and fort before barracks), then, when rich, a second of a kind.
 	var options := []
 	for guid in GameData.stats_guids():
 		var stats := GameData.stats(guid)
-		if stats.get("faction") != player.faction or stats.get("kind") != "structure":
+		if stats.get("faction") != player.faction or stats.get("kind") != "structure" or not _produces_army(guid):
 			continue
-		# A second of a kind only when rich, and only of what trains soldiers.
-		if (owned.has(guid) and (not _rich() or not _produces_army(guid))) or not player.meets_prerequisites(guid):
+		if owned.has(guid) and (not _rich() or not player.meets_prerequisites(guid)):
 			continue
-		if guid in MapObject.SHIPYARDS or guid == MapObject.PITFALL_GUID:
-			continue  # see _build_extras
-		# Structures that train soldiers, and those that unlock one (the fort before barracks).
-		if _produces_army(guid) or _unlocks_army(guid, owned):
-			options.append(guid)
+		options.append(guid)
 	options.sort_custom(func(a: int, b: int) -> bool:
 		if owned.has(a) != owned.has(b):
 			return not owned.has(a)  # new kinds first
-		return _total_cost(a) < _total_cost(b))
+		return _chain_cost(a) < _chain_cost(b))
 	for guid in options:
+		if not owned.has(guid):
+			if _my_buildings().any(func(b: MapObject) -> bool: return not b.complete):
+				return  # one step of a chain at a time
+			if _build_with_prerequisites(guid, hq.position, workers) or _worth_trying(guid):
+				return  # built a step, or saving up for it rather than buying another cheap one
+			continue
 		if _affordable(guid) and _place(guid, hq.position, workers):
 			return
+
+
+## What a structure costs with the structures it still requires.
+func _chain_cost(guid: int, depth := 0) -> int:
+	var total := _total_cost(guid)
+	if depth < 3:
+		for required in GameData.prerequisites(guid):
+			if not player.has_building(required):
+				total += _chain_cost(required, depth + 1)
+	return total
 
 
 ## More production when stock piles up (one more when rich, two when very rich).
@@ -466,15 +479,6 @@ func _production_limit() -> int:
 func _rich() -> bool:
 	return int(player.resources.get("wood", 0)) >= RICH_WOOD \
 			and int(player.resources.get("gold", 0)) + int(player.resources.get("food", 0)) >= RICH_OTHER
-
-
-func _unlocks_army(structure: int, owned: Dictionary) -> bool:
-	for guid in GameData.stats_guids():
-		var stats := GameData.stats(guid)
-		if stats.get("faction") == player.faction and stats.get("kind") == "structure" and not owned.has(guid) \
-				and _produces_army(guid) and structure in GameData.prerequisites(guid):
-			return true
-	return false
 
 
 func _workers_ready(units: Array) -> bool:

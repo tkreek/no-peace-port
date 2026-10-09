@@ -107,6 +107,8 @@ func _scenario_hunt() -> void:
 	print("hunt order marks the prey: %s, hunters on it %s" % [buffalo._flash_time > 0.0,
 			hunters.all(func(h: Unit) -> bool: return h.target == buffalo)])
 	var food: int = main.players[1].resources.food
+	buffalo.died.connect(func(_u: Unit) -> void:
+		print("buffalo dies: plays %s, drawn above the ground %s" % [buffalo._action, buffalo.z_index > main.terrain.z_index]))
 	for i in 18:
 		await get_tree().create_timer(5.0).timeout
 		print("t=%ds buffalo alive=%s meat_left=%d visible=%s food +%d hunters=%s" % [(i + 1) * 5, buffalo.is_alive() if is_instance_valid(buffalo) else false,
@@ -408,3 +410,4 @@ func _scenario_furnace() -> void:
 	await get_tree().process_frame
 	print("furnace glows: idle %s, working %s, after cancelling %s" % [idle, working, factory._ambient != null])
 	get_tree().quit()
+

@@ -5,6 +5,9 @@ extends Node2D
 const GROUND_LAYERS := 40
 const GROUND_SIZE := 512
 const TerrainShader := preload("res://shaders/terrain.gdshader")
+## The ground is drawn beneath everything on it, including what lies flat at z -1 (shadows,
+## corpses), which would otherwise be hidden under it.
+const GROUND_Z := -10
 
 var map: AlfMap
 var biome := "steppe"
@@ -15,6 +18,7 @@ var _atlas: Dictionary
 
 func setup(alf_map: AlfMap, biome_name: String) -> void:
 	map = alf_map
+	z_index = GROUND_Z
 	biome = biome_name
 	var directory := "%s/gfx/landschaft" % biome
 	var atlas := RdImage.read_indexed_pic(GameData.read(directory.path_join("steppe.pic")))

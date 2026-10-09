@@ -7,6 +7,7 @@ extends Node2D
 ##   --screenshot=<png path>  save a frame after --frames=<n> (default 90) and quit
 ##   --scenario=battle  two infantry squads fighting in front of the camera
 ##   --scenario=economy player 1's workers gather the nearest wood and gold
+##   --fog=off  disable the fog of war
 ##   --ai-vs-ai=1  computer controls player 1 as well
 ##   --report-after=<frames>  print stockpiles every 300 frames, then quit (use --fixed-fps)
 ##   --camera=x,y  --zoom=z  --order=x,y (screenshot move target)  --debug-paths=1
@@ -18,6 +19,7 @@ var units_root := Node2D.new()
 var camera := RtsCamera.new()
 var selection := SelectionController.new()
 var nav := NavGrid.new()
+var fog := FogOfWar.new()
 var hud := Hud.new()
 var build_controller := BuildController.new()
 var ais: Array[AiPlayer] = []
@@ -84,6 +86,9 @@ func _ready() -> void:
 		_spawn_squad(FACTION_STARTS[1].army, 1, centre + Vector2(-60, 120), 9)
 		_spawn_squad(FACTION_STARTS[2].army, 2, centre + Vector2(60, -160), 9)
 	camera.set_zoom_level(GameData.cmdline_option("zoom", "1").to_float())
+	fog.enabled = GameData.cmdline_option("fog", "on") != "off"
+	add_child(fog)
+	fog.setup(map, 1)
 	build_controller.player = players[1]
 	build_controller.selection = selection
 	build_controller.objects_root = units_root
@@ -251,13 +256,17 @@ func _nearest_mine(from: Vector2) -> MapObject:
 func _report_after(frames: int) -> void:
 	for i in frames:
 		await get_tree().process_frame
-		if i % 300 == 0:
+		if i % (60 if GameData.cmdline_option("trace-workers") != "" else 300) == 0:
 			_print_report(i)
 	_print_report(frames)
 	get_tree().quit()
 
 
 func _print_report(frame: int) -> void:
+	if GameData.cmdline_option("trace-workers") != "":
+		for node in units_root.get_children():
+			if node is Unit and node.team == 1 and node.state == Unit.State.GATHERING:
+				print("  worker phase=%d action=%s carrying='%s' inside=%s" % [node._gather_phase, node._action, node.carrying, node.inside])
 	var alive := {}
 	for node in units_root.get_children():
 		if node is Unit and node.is_alive():
@@ -296,6 +305,16 @@ func _setup_screenshot() -> void:
 
 ## --selftest=1: decode all sounds and maps, print a summary and quit.
 func _selftest() -> void:
+	if GameData.cmdline_option("selftest") == "audio":
+		Sound.play_music("mex")
+		Sound.play_sound(198)  # "landarbeiter anklicken"
+		for i in 90:
+			await get_tree().process_frame
+			if i % 15 == 0:
+				print("music playing=%s stream=%s peak L=%.1f dB" % [Sound._music.playing, Sound._music.stream,
+						AudioServer.get_bus_peak_volume_left_db(0, 0)])
+		get_tree().quit()
+		return
 	var result := Sound.verify_all()
 	print("sounds: %d ok, %d failed %s" % [result[0], result[1].size(), result[1]])
 	var maps := 0

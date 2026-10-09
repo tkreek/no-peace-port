@@ -36,7 +36,17 @@ var state := State.IDLE
 var target: Node2D  ## Unit or MapObject building
 var attack_moving := false  ## moving, but engage enemies met on the way
 var guard_position := Vector2.ZERO  # where an idle unit returns after chasing
-var carrying := ""  # resource in hand
+## Hidden by the fog of war (enemy out of sight) / inside a building such as a gold mine.
+var fogged := false:
+	set(value):
+		fogged = value
+		visible = not fogged and not inside
+var inside := false:
+	set(value):
+		inside = value
+		visible = not fogged and not inside
+var carrying := ""  # resource in hand ("" when empty-handed)
+var gather_resource := ""  # what this worker is assigned to collect
 var carried := 0
 var gather_source: MapObject
 var _gather_phase := Gather.TO_SOURCE
@@ -108,7 +118,7 @@ func move_to(destination: Vector2) -> void:
 	attack_moving = false
 	target = null
 	gather_source = null
-	visible = true
+	inside = false
 	_attack_step = -1
 	guard_position = destination
 	path = _find_path(destination)
@@ -120,7 +130,7 @@ func attack(enemy: Node2D) -> void:
 		return
 	target = enemy
 	gather_source = null
-	visible = true
+	inside = false
 	state = State.ATTACKING
 	path.clear()
 
@@ -132,7 +142,7 @@ func build(site: MapObject) -> void:
 	build_site = site
 	target = null
 	gather_source = null
-	visible = true
+	inside = false
 	state = State.BUILDING
 	path = _find_path(site.position)
 
@@ -145,6 +155,7 @@ func gather(source: MapObject) -> void:
 		carrying = ""
 		carried = 0
 	gather_source = source
+	gather_resource = source.resource
 	target = null
 	state = State.GATHERING
 	_gather_phase = Gather.TO_DROP_OFF if carried >= UnitType.CARRY_AMOUNT else Gather.TO_SOURCE
@@ -156,7 +167,7 @@ func stop() -> void:
 	target = null
 	gather_source = null
 	build_site = null
-	visible = true
+	inside = false
 	_attack_step = -1
 	guard_position = position
 	if is_alive():
@@ -215,7 +226,7 @@ func _process(delta: float) -> void:
 				modulate.a = maxf(0.0, 1.0 - (_corpse_timer - CORPSE_SECONDS) / 3.0)
 				if modulate.a <= 0.0:
 					queue_free()
-	if state != State.DEAD and visible:
+	if state != State.DEAD and not inside:
 		_separate(delta)
 	if debug_paths:
 		_overlay.queue_redraw()
@@ -309,7 +320,7 @@ func _update_gather(delta: float) -> void:
 	match _gather_phase:
 		Gather.TO_SOURCE:
 			if not _source_valid():
-				gather_source = _nearest_source(carrying if carrying != "" else _last_resource(), 1200.0)
+				gather_source = _nearest_source(_last_resource(), 1200.0)
 				if gather_source == null:
 					state = State.IDLE
 					return
@@ -322,7 +333,7 @@ func _update_gather(delta: float) -> void:
 				_work_timer = WORK_SECONDS.get(gather_source.resource, 4.0)
 				face(gather_source.position - position)
 				if gather_source.resource == "gold":
-					visible = false  # workers go inside the mine
+					inside = true  # workers go inside the mine
 		Gather.WORKING:
 			_work_timer -= delta
 			if gather_source.resource == "wood":
@@ -333,7 +344,7 @@ func _update_gather(delta: float) -> void:
 				return
 			var resource := gather_source.resource if _source_valid() else _last_resource()
 			var got := gather_source.harvest(UnitType.CARRY_AMOUNT) if _source_valid() else 0
-			visible = true
+			inside = false
 			if got > 0:
 				carrying = resource
 				carried = got
@@ -353,6 +364,7 @@ func _update_gather(delta: float) -> void:
 				if player and carried > 0:
 					player.add(carrying, carried)
 				carried = 0
+				carrying = ""  # walk back empty-handed
 				_gather_phase = Gather.TO_SOURCE
 				_route_gather()
 
@@ -390,6 +402,8 @@ func _source_valid() -> bool:
 
 
 func _last_resource() -> String:
+	if gather_resource != "":
+		return gather_resource
 	return "wood" if unit_type.can_gather("wood") else "gold"
 
 
@@ -575,7 +589,7 @@ func _draw_overlay(canvas: Node2D) -> void:
 		for p in path:
 			points.append(p - position)
 		canvas.draw_polyline(points, Color(1, 0.9, 0.2, 0.8), 2.0)
-	if not is_alive() or not visible:
+	if not is_alive() or inside:
 		return
 	if selected or health < max_health:
 		var bar := Rect2(-12, -58, 24, 3)

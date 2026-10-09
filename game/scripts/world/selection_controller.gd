@@ -79,7 +79,8 @@ func _own_units() -> Array[Unit]:
 func _units(own: bool) -> Array[Unit]:
 	var out: Array[Unit] = []
 	for child in units_root.get_children():
-		if child is Unit and child.is_alive() and (child.team == player_team) == own and child.team > 0:
+		if child is Unit and child.is_alive() and (child.team == player_team) == own and child.team > 0 \
+				and not child.fogged:
 			out.append(child)
 	return out
 
@@ -104,7 +105,7 @@ func order_gather(source: MapObject) -> void:
 func _enemy_building_at(point: Vector2) -> MapObject:
 	for object in MapObject.all_objects:
 		if object.is_building() and object.owner_index > 0 and object.owner_index != player_team \
-				and object.is_alive() and object.footprint_rect().has_point(point):
+				and object.is_alive() and object.visible and object.footprint_rect().has_point(point):
 			return object
 	return null
 

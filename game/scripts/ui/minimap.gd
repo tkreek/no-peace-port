@@ -30,12 +30,16 @@ func _draw() -> void:
 	draw_texture_rect(_texture, Rect2(Vector2.ZERO, size), false)
 	var to_mini := size / Vector2(map.pixel_size())
 	for node in objects_root.get_children():
+		if not node.visible:
+			continue  # hidden by the fog of war
 		if node is Unit:
 			var u: Unit = node
 			draw_rect(Rect2(u.position * to_mini - Vector2.ONE, Vector2(2, 2)), Player.TEAM_COLORS[u.team])
 		elif node is MapObject and node.owner_index > 0:
 			var o: MapObject = node
 			draw_rect(Rect2(o.position * to_mini - Vector2(2, 2), Vector2(4, 4)), Player.TEAM_COLORS[o.owner_index])
+	if FogOfWar.current and FogOfWar.current.enabled:
+		draw_texture_rect(FogOfWar.current.overview_texture(), Rect2(Vector2.ZERO, size), false)
 	var view := camera.get_viewport_rect().size / camera.zoom
 	draw_rect(Rect2((camera.position - view / 2.0) * to_mini, view * to_mini), Color(1, 1, 1, 0.9), false, 1.0)
 

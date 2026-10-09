@@ -17,6 +17,11 @@ static func font() -> Font:
 		system.font_names = PackedStringArray(["Georgia", "Palatino Linotype", "Book Antiqua",
 				"DejaVu Serif", "Liberation Serif", "Noto Serif", "serif"])
 		system.font_weight = 600
+		# The menus are an 800x600 layout scaled to the window: render the glyphs as distance
+		# fields so they stay sharp at any scale instead of being magnified bitmaps.
+		system.multichannel_signed_distance_field = true
+		system.msdf_pixel_range = 16
+		system.msdf_size = 64
 		_font = system
 	return _font
 

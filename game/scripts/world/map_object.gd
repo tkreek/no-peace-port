@@ -25,6 +25,7 @@ const DROP_OFFS := {
 }
 const FOOD_STORES := [108, 208, 408]
 const FIELD_GUID := 149
+const GOLD_MINE_GUID := 700  # selection sound "sound goldmine"
 const FIELDS_PER_STORE := 5
 const DISTILLERY_GUID := 308
 
@@ -114,6 +115,23 @@ func take_damage(amount: float, _attacker: Node2D = null) -> void:
 		_destroy()
 
 
+## Tear the building down (Del). Queued orders are refunded, and so is the part of the
+## construction cost not yet built into an unfinished site.
+func demolish() -> void:
+	if not is_building() or health <= 0.0:
+		return
+	while not queue.is_empty():
+		cancel_queued(queue.size() - 1)
+	var player: Player = Player.by_index.get(owner_index)
+	if player and not complete:
+		var cost: Dictionary = GameData.stats(guid).get("cost", {})
+		for key in cost:
+			if Player.RESOURCES.has(key):
+				player.add(key, int(int(cost[key]) * (1.0 - build_progress)))
+	health = 0.0
+	_destroy()
+
+
 func _destroy() -> void:
 	Sound.play_event(guid, Sound.Event.RUBBLE, position, 0)
 	queue.clear()
@@ -169,6 +187,8 @@ func sow(seconds: float) -> bool:
 
 
 func display_name() -> String:
+	if is_tree():
+		return "Tree"
 	return GameData.type_name(object_type.id) if object_type else "?"
 
 
@@ -344,7 +364,7 @@ func researchable_upgrades() -> PackedInt32Array:
 	for upgrade in ids:
 		var stats := GameData.stats(upgrade)
 		if stats.get("kind") == "upgrade" and int(stats.get("produced_at", -1)) == guid \
-				and player.can_research(upgrade):
+				and (player.can_research(upgrade) or upgrade in queue):
 			out.append(upgrade)
 	return out
 
@@ -531,13 +551,19 @@ func _draw_overlay(canvas: Node2D) -> void:
 	if Unit.debug_paths and object_type:
 		canvas.draw_rect(rect, Color(0, 1, 1, 0.8), false, 1.5)
 		canvas.draw_circle(Vector2.ZERO, 3, Color.RED)
+	var walls := work_rect()
+	walls.position -= position
+	if selected:
+		# Ring the walls (the solid cells), not the whole footprint grid, which is lopsided
+		# for buildings such as the finca; a tree is ringed round its trunk.
+		var radius := 16.0 if is_tree() else walls.size.x * 0.68
+		canvas.draw_set_transform(walls.get_center() + Vector2(0, walls.size.y * 0.1), 0.0, Vector2(1.0, 0.55))
+		canvas.draw_arc(Vector2.ZERO, radius, 0.0, TAU, 48, Color(1, 1, 1, 0.8), 2.0, true)
+		canvas.draw_set_transform(Vector2.ZERO)
 	if not is_building() or not (selected or not complete):
 		return
-	if selected:
-		canvas.draw_set_transform(rect.get_center() + Vector2(0, rect.size.y * 0.15), 0.0, Vector2(1.0, 0.55))
-		canvas.draw_arc(Vector2.ZERO, rect.size.x * 0.6, 0.0, TAU, 48, Color(1, 1, 1, 0.8), 2.0, true)
-		canvas.draw_set_transform(Vector2.ZERO)
-	var bar := Rect2(rect.position.x + rect.size.x * 0.2, rect.position.y - 16, rect.size.x * 0.6, 4)
+	var width := maxf(walls.size.x, 48.0)
+	var bar := Rect2(walls.get_center().x - width * 0.4, rect.position.y - 16, width * 0.8, 4)
 	canvas.draw_rect(bar, Color(0.1, 0.1, 0.1, 0.8))
 	if not complete:
 		canvas.draw_rect(Rect2(bar.position, Vector2(bar.size.x * build_progress, bar.size.y)), Color(0.95, 0.75, 0.2))

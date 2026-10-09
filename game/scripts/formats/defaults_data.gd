@@ -17,6 +17,8 @@ extends RefCounted
 
 const PATH := "Defaults.dat"
 const FACTION_GROUPS := {"1910": "ind", "1911": "mex", "1912": "des", "1913": "usa"}
+## Editor entries filed under the wrong GUID ("Rifle 2" reuses the Native Americans' "Steal").
+const GUID_FIXES := {"Gewehr 2|923": 926}
 const KIND_GROUPS := {"2182": "structure", "2183": "unit", "2184": "upgrade", "2185": "hero"}
 
 
@@ -59,6 +61,8 @@ static func load() -> Dictionary:
 			continue
 		if line.begins_with("UNIT"):
 			var guid := _label_id(line).to_int()
+			if GUID_FIXES.has(line.get_slice("\"", 1)):
+				guid = GUID_FIXES[line.get_slice("\"", 1)]
 			var name := line.get_slice("\"", 1).get_slice("|", 0)
 			name = name.substr(name.find(" ") + 1) if name.contains(". ") else name
 			var fields := line.get_slice("\"", 2).strip_edges().split(" ", false)

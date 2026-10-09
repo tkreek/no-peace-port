@@ -101,6 +101,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					var unit := _unit_at(world)
 					if unit == null and not event.shift_pressed:
 						var building := _building_at(world)
+						if building == null:
+							building = _object_at(world)  # enemy buildings, mines, trees, fields
 						if building:
 							select_building(building)
 							return
@@ -276,7 +278,21 @@ func select_building(building: MapObject) -> void:
 	_select([], false)
 	selected_building = building
 	building.selected = true
-	Sound.play_event(building.guid, Sound.Event.SELECT)
+	if building.is_tree():
+		Sound.play_named("holz hacken")  # trees have no selection sound of their own
+	elif building.is_mine():
+		Sound.play_event(MapObject.GOLD_MINE_GUID, Sound.Event.SELECT)
+	else:
+		Sound.play_event(building.guid, Sound.Event.SELECT)
+
+
+## Something to look at that isn't ours: an enemy building in sight or a resource.
+func _object_at(point: Vector2) -> MapObject:
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index != player_team and object.visible \
+				and object.is_alive() and _click_rect(object).has_point(point):
+			return object
+	return _resource_at(point)
 
 
 ## Select exactly these units (e.g. from the HUD's group portraits).

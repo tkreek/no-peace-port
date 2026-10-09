@@ -34,6 +34,7 @@ const FORMATION_NAMES := {Unit.Formation.COLUMN: "Column", Unit.Formation.DOUBLE
 const ICON_FOLLOW := 2  # two men walking one behind the other
 const ICON_PATROL := 4  # two men with an arrow
 const ICON_RALLY := 12  # Iconserstereihe: signpost
+const ICON_DEMOLISH := 8  # Iconserstereihe: gravestone
 const ICON_BACK := 0  # Iconserstereihe: arrow out of a doorway
 ## "Build expanded structure" (V) per the manual's keyboard table; every other structure is
 ## a basic one (B).
@@ -41,6 +42,9 @@ const EXPANDED_STRUCTURES := [110, 111, 112, 114, 115,  # campfire, totem, camou
 		210, 211, 212, 213, 215, 216, 217, 218,  # Mexican trading post, weapons, wall, tower, church, mission, fort, wharf
 		307, 310, 311, 312, 313, 314, 315,  # hotel, drugstore, cellar, barricade, lookout, explosives, boathouse
 		407, 411, 412, 413, 415, 416, 417, 418]  # sheriff, weapons, stockade, tower, church, bank, fort, wharf
+const TREE_PORTRAIT := "Potraits/Sonstige_icons/z04_baum.bmp"
+const MINE_PORTRAIT := "Potraits/Sonstige_icons/z05_goldmine.bmp"
+const PORTRAIT_SIZE := 72.0
 const CARD_SIZE := 44.0
 const CARD_STEP := 15.0  # queued units overlap like a hand of cards
 const GROUP_ICON := 34.0
@@ -76,6 +80,8 @@ var _queue_box := Control.new()
 var _queue_signature := ""
 var _group_box := Control.new()
 var _group_signature := ""
+var _portrait := TextureRect.new()
+var _portrait_key := ""
 
 
 func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D, local_player: Player,
@@ -133,6 +139,11 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	_health_bar.add_theme_stylebox_override("background", _flat(Color(0.12, 0.08, 0.05, 0.85)))
 	_health_bar.add_theme_stylebox_override("fill", _flat(Color(0.35, 0.75, 0.2)))
 	_left.add_child(_health_bar)
+	_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_portrait.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_left.add_child(_portrait)
 	for box: Control in [_queue_box, _group_box]:
 		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_left.add_child(box)
@@ -169,7 +180,7 @@ func blocks_point(screen_point: Vector2) -> bool:
 
 func _layout() -> void:
 	var view := get_viewport().get_visible_rect().size
-	ui_scale = clampf(minf(view.y / 720.0, view.x / 1280.0), 1.0, 3.0)
+	ui_scale = clampf(minf(view.y / 1080.0, view.x / 1920.0) * 1.15, 0.8, 2.5)
 	var bar_h := BAR_HEIGHT * ui_scale
 	var left_size := _frame_size(_status_sheet, 0) * ui_scale
 	_left.texture = _status_frame(0, 1.0)
@@ -209,13 +220,12 @@ func _layout() -> void:
 	for button in _commands.get_children():
 		button.custom_minimum_size = Vector2(50, 50) * ui_scale
 	var pad := Vector2(28, 22) * ui_scale
-	_selection_title.position = pad
+	_portrait.position = pad + Vector2(0, 4) * ui_scale
+	_portrait.size = Vector2(PORTRAIT_SIZE, PORTRAIT_SIZE) * ui_scale
+	_layout_selection(_portrait.texture != null)
 	_selection_title.add_theme_font_size_override("font_size", int(22 * ui_scale))
-	_health_bar.position = pad + Vector2(0, 36) * ui_scale
-	_health_bar.size = Vector2(220, 10) * ui_scale
-	_selection_detail.position = pad + Vector2(0, 54) * ui_scale
-	_selection_detail.add_theme_font_size_override("font_size", int(16 * ui_scale))
-	_queue_box.position = pad + Vector2(0, 80) * ui_scale
+	_selection_detail.add_theme_font_size_override("font_size", int(13 * ui_scale))
+	_selection_detail.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_group_box.position = pad + Vector2(0, 2) * ui_scale
 	_queue_signature = ""
 	_group_signature = ""
@@ -228,21 +238,16 @@ func _refresh_resources() -> void:
 
 func _refresh_selection() -> void:
 	var units := selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
-	var building := selection.selected_building
-	if units.is_empty() and is_instance_valid(building):
-		_health_bar.visible = true
+	var building := selection.selected_building if is_instance_valid(selection.selected_building) else null
+	if units.is_empty() and building:
+		_set_portrait(building.guid, building)
+		_selection_title.visible = true
+		_selection_detail.visible = true
 		_selection_title.text = building.display_name()
+		_health_bar.visible = building.is_building()
 		_health_bar.max_value = building.max_health
 		_health_bar.value = building.health
-		if not building.complete:
-			_selection_detail.text = "Under construction %d%%" % int(building.build_progress * 100)
-		elif not building.queue.is_empty():
-			var current := GameData.stats(building.queue[0])
-			_selection_detail.text = "%s %s — %d%%" % [
-				"Researching" if current.get("kind") == "upgrade" else "Training", current.get("name", "?"),
-				int(building.train_progress * 100)]
-		else:
-			_selection_detail.text = "Energy %d / %d" % [building.health, building.max_health]
+		_selection_detail.text = _object_detail(building)
 		_refresh_queue(building)
 		_refresh_group([])
 		return
@@ -251,22 +256,87 @@ func _refresh_selection() -> void:
 	_health_bar.visible = units.size() == 1
 	_selection_title.visible = units.size() <= 1
 	_selection_detail.visible = units.size() <= 1
-	if units.is_empty():
+	if units.size() != 1:
+		_set_portrait(-1, null)
 		_selection_title.text = ""
 		_selection_detail.text = ""
 		return
-	var first: Unit = units[0]
-	var same := units.all(func(u: Unit) -> bool: return u.unit_type == first.unit_type)
-	_selection_title.text = first.display_name() if same else "%d units" % units.size()
-	var health := 0.0
-	var max_health := 0.0
-	for u: Unit in units:
-		health += u.health
-		max_health += u.max_health
-	_health_bar.max_value = max_health
-	_health_bar.value = health
-	_selection_detail.text = ("%d selected" % units.size()) if units.size() > 1 else \
-			"Health %d / %d" % [first.health, first.max_health]
+	var unit: Unit = units[0]
+	_set_portrait(unit.unit_type.guid(), unit)
+	_selection_title.text = unit.display_name()
+	_health_bar.max_value = unit.max_health
+	_health_bar.value = unit.health
+	_selection_detail.text = _unit_detail(unit)
+
+
+## Everything worth knowing about one unit: energy, weapon, range, reload, sight, speed.
+func _unit_detail(unit: Unit) -> String:
+	var lines := PackedStringArray(["Energy %d / %d" % [unit.health, unit.max_health]])
+	if not unit.unit_type.attack_anims.is_empty():
+		var weapon := "Range %d" % unit.attack_range() if unit.unit_type.ranged else "Melee"
+		lines.append("Damage %d   %s" % [unit.attack_damage(), weapon])
+		lines.append("Reload %.1f s   Sight %d" % [unit.unit_type.reload_ms / 1000.0, unit.sight()])
+		lines.append("Speed %d   %s" % [unit.move_speed(), STANCE_NAMES[unit.stance]])
+	else:
+		lines.append("Sight %d   Speed %d" % [unit.sight(), unit.move_speed()])
+	if unit.carried > 0:
+		lines.append("Carrying %d %s" % [unit.carried, unit.carrying])
+	return "\n".join(lines)
+
+
+func _object_detail(object: MapObject) -> String:
+	if object.is_tree():
+		return "Wood left: %d" % object.amount
+	if object.is_mine():
+		return "Gold left: %d" % object.amount if object.amount > 0 else "Exhausted"
+	if object.is_field():
+		match object.field_state:
+			MapObject.Field.FALLOW:
+				return "Fallow — needs sowing"
+			MapObject.Field.GROWING:
+				return "Growing %d%%" % int(object.field_progress * 100)
+		return "Ripe: %d food" % object.amount
+	var owner_note := ""
+	if object.owner_index != player.index and Player.by_index.has(object.owner_index):
+		owner_note = "\n" + Match.faction_name(Player.by_index[object.owner_index].faction)
+	if not object.complete:
+		return "Under construction %d%%\nEnergy %d / %d%s" % [int(object.build_progress * 100), object.health,
+				object.max_health, owner_note]
+	if not object.queue.is_empty():
+		var current := GameData.stats(object.queue[0])
+		return "%s %s — %d%%" % ["Researching" if current.get("kind") == "upgrade" else "Training",
+				current.get("name", "?"), int(object.train_progress * 100)]
+	var housing := int(GameData.stats(object.guid).get("housing", 0))
+	return "Energy %d / %d%s%s" % [object.health, object.max_health,
+			"\nHouses %d" % housing if housing > 0 else "", owner_note]
+
+
+## The portrait of the selected unit or object at the left of the panel.
+func _set_portrait(guid: int, thing: Object) -> void:
+	var key := "%d:%s" % [guid, thing.get_instance_id() if thing else 0]
+	if key == _portrait_key:
+		return
+	_portrait_key = key
+	_portrait.texture = null
+	if thing == null:
+		_layout_selection(false)
+		return
+	var thumb: Thumbnail = null
+	if thing is MapObject and thing.is_tree():
+		thumb = Thumbnail.from_bmp(TREE_PORTRAIT)
+	elif thing is MapObject and thing.is_mine():
+		thumb = Thumbnail.from_bmp(MINE_PORTRAIT)
+	elif guid >= 0:
+		thumb = Thumbnail.portrait(guid)
+	if thumb == null and thing is MapObject and thing.object_type:
+		thumb = Thumbnail.for_type(thing.object_type.id, thing.owner_index)
+	elif thumb == null and thing is Unit:
+		thumb = Thumbnail.for_type(thing.unit_type.type_id, thing.team)
+	if thumb:
+		_portrait.texture = thumb.texture
+		_portrait.material = thumb.material
+		thumb.free()
+	_layout_selection(_portrait.texture != null)
 
 
 ## The production queue as a hand of overlapping cards; the first one shows its progress.
@@ -376,6 +446,18 @@ func _card(guid: int, size: float, type_id := -1) -> Button:
 
 ## A status-bar plank as its own texture, resized so 1 original pixel = `pixel_scale` screen px
 ## (tiling needs a standalone texture; the left panel is stretched instead, so 1.0 there).
+## Title, energy bar and details sit beside the portrait when there is one.
+func _layout_selection(with_portrait: bool) -> void:
+	var pad := Vector2(28, 22) * ui_scale
+	var x := (PORTRAIT_SIZE + 10) * ui_scale if with_portrait else 0.0
+	_portrait.visible = with_portrait
+	_selection_title.position = pad + Vector2(x, 0)
+	_health_bar.position = pad + Vector2(x, 34 * ui_scale)
+	_health_bar.size = Vector2(maxf(80 * ui_scale, _left.size.x - pad.x * 2 - x - 20 * ui_scale), 8 * ui_scale)
+	_selection_detail.position = pad + Vector2(x, 44 * ui_scale)
+	_queue_box.position = pad + Vector2(0, 86) * ui_scale
+
+
 func _status_frame(frame: int, pixel_scale: float) -> Texture2D:
 	var image := _status_sheet.texture.get_image().get_region(_status_sheet.rects[frame])
 	if image.is_compressed():
@@ -508,6 +590,9 @@ func _refresh_commands() -> void:
 			_add_command(-1, upgrade, func() -> void:
 				if not building.enqueue(upgrade):
 					Sound.play_sound(80))
+	if building and building.is_building() and building.owner_index == player.index:
+		_add_icon_command(_extra_icons, ICON_DEMOLISH, "Demolish (Del)" if building.complete \
+				else "Demolish (Del) — refunds the unbuilt part", func() -> void: building.demolish())
 	_layout()
 
 
@@ -550,6 +635,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	elif key == KEY_Z or key == KEY_C:
 		if not selection.selection.is_empty():
 			selection.begin_targeting("patrol" if key == KEY_Z else "follow")
+	elif key == KEY_DELETE:
+		var building := selection.selected_building
+		if is_instance_valid(building) and building.owner_index == player.index:
+			building.demolish()
 	elif key == KEY_I:
 		if is_instance_valid(selection.selected_building) and selection.selected_building.owner_index == player.index:
 			selection.begin_targeting("rally")
@@ -647,7 +736,9 @@ func _add_command(type_id: int, guid: int, action: Callable) -> void:
 			thumb = Thumbnail.for_type(type_id, player.index)
 			inset = 3
 	else:
-		# Upgrades: a parchment card with the upgrade's name.
+		thumb = Thumbnail.portrait(guid)  # the upgrade's own picture
+	if thumb == null and type_id < 0:
+		# Upgrades without a picture: a parchment card with the upgrade's name.
 		var label := MenuStyle.label(stats.get("name", "?"), int(10 * ui_scale), Color("#3a2410"))
 		label.add_theme_constant_override("outline_size", 0)
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -685,6 +776,30 @@ func _update_affordability() -> void:
 		button.disabled = not reason.is_empty()
 		button.tooltip_text = button.get_meta("tooltip") + ("\n" + reason if reason else "")
 		button.modulate = Color(1, 1, 1, 0.55) if button.disabled else Color.WHITE
+		# An upgrade being researched here shows its progress across the button.
+		var building := selection.selected_building
+		var researching: bool = GameData.stats(guid).get("kind") == "upgrade" and is_instance_valid(building) \
+				and guid in building.queue
+		var bar := button.get_node_or_null("Research") as ProgressBar
+		if researching:
+			if bar == null:
+				bar = ProgressBar.new()
+				bar.name = "Research"
+				bar.show_percentage = true
+				bar.max_value = 1.0
+				bar.step = 0.0
+				bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				bar.add_theme_stylebox_override("background", _flat(Color(0.1, 0.07, 0.04, 0.75)))
+				bar.add_theme_stylebox_override("fill", _flat(Color(0.4, 0.7, 1.0, 0.9)))
+				bar.add_theme_font_size_override("font_size", int(11 * ui_scale))
+				bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+				bar.offset_top = -14 * ui_scale
+				button.add_child(bar)
+			bar.value = building.train_progress if building.queue[0] == guid else 0.0
+			button.modulate = Color.WHITE
+			button.tooltip_text = "%s\nResearching: %d%%" % [button.get_meta("tooltip"), int(bar.value * 100)]
+		elif bar:
+			bar.queue_free()
 
 
 var _menu: Control
@@ -802,7 +917,8 @@ func _unavailable_reason(guid: int, cost: Dictionary) -> String:
 		if is_instance_valid(selected) and selected.queue.size() >= MapObject.QUEUE_LIMIT:
 			return "Queue full"
 	var missing := PackedStringArray()
-	for required in GameData.prerequisites(guid):
+	# Fields are shared by every people; their requirement is the grain store checked above.
+	for required in ([] if guid == MapObject.FIELD_GUID else GameData.prerequisites(guid)):
 		if not player.has_building(required):
 			missing.append(GameData.stats(required).get("name", "?"))
 	if not missing.is_empty():

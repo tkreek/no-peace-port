@@ -111,6 +111,8 @@ func _ready() -> void:
 		_scenario_help_build.call_deferred()
 	if GameData.cmdline_option("scenario") == "ui":
 		_scenario_ui.call_deferred()
+	if GameData.cmdline_option("scenario") == "select":
+		_scenario_select.call_deferred()
 	if GameData.cmdline_option("scenario") == "orders":
 		_scenario_orders.call_deferred()
 	var report := GameData.cmdline_option("report-after")
@@ -406,6 +408,49 @@ func _scenario_menus() -> void:
 				if not button.is_queued_for_deletion():
 					names.append("%s%s" % [button.tooltip_text.get_slice("\n", 0), " (off)" if button.disabled else ""])
 			print("%s %s %s (%d units): %s" % [players[1].faction, kind, menu, units.size(), ", ".join(names)])
+
+
+## --scenario=select --pick=unit|mine|tree|site|research: what the panel shows for each.
+func _scenario_select() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	var near := func(test: Callable) -> MapObject:
+		var best: MapObject = null
+		for object in MapObject.all_objects:
+			if test.call(object) and (best == null or object.position.distance_to(hq.position) < best.position.distance_to(hq.position)):
+				best = object
+		return best
+	match GameData.cmdline_option("pick", "unit"):
+		"unit":
+			var unit: Unit = units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 \
+					and not n.unit_type.attack_anims.is_empty() and not n.unit_type.can_build())[0]
+			selection._select([unit], false)
+		"mine":
+			selection.select_building(near.call(func(o: MapObject) -> bool: return o.is_mine()))
+		"tree":
+			selection.select_building(near.call(func(o: MapObject) -> bool: return o.is_tree()))
+		"site", "research":
+			var guid := 211 if GameData.cmdline_option("pick") == "research" else 201
+			for i in 5:
+				if guid == 211:
+					guid = [211, 411, 115, 314][["mex", "usa", "ind", "des"].find(players[1].faction)]
+			var type := ObjectTypes.get_type(GameData.type_for_guid(guid, terrain.biome))
+			var ai := AiPlayer.new()
+			var site := MapObject.new()
+			site.position = ai._find_spot(type, hq.position)
+			ai.free()
+			site.setup(type, 1, 0, GameData.cmdline_option("pick") == "site")
+			units_root.add_child(site)
+			if GameData.cmdline_option("pick") == "site":
+				site.add_build_work(20.0)
+			else:
+				players[1].resources.gold = 5000
+				players[1].resources.food = 5000
+				site.enqueue(site.researchable_upgrades()[0])
+				site.enqueue(site.researchable_upgrades()[1])
+			selection.select_building(site)
 
 
 ## Formations, patrol, follow and a rally point, with positions printed as they play out.

@@ -72,6 +72,14 @@ func play_event(guid: int, event: int, at = null, cooldown_ms := 250) -> void:
 	play_sound(options[randi() % options.size()], at)
 
 
+## Play the first sound whose file name contains `fragment` (lower case).
+func play_named(fragment: String, at = null) -> void:
+	for id in _sounds:
+		if String(_sounds[id].path).to_lower().contains(fragment):
+			play_sound(id, at)
+			return
+
+
 func play_sound(sound_id: int, at = null) -> void:
 	var info: Dictionary = _sounds.get(sound_id, {})
 	if info.is_empty():

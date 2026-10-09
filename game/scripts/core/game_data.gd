@@ -213,6 +213,8 @@ func _load_tables() -> void:
 			_stats[guid] = DefaultsData.to_stats(entry, _stats.get(guid, {}))
 			if _texts.has(guid):
 				_stats[guid].name = _texts[guid]
+		elif entry.kind == "upgrade" and _stats.has(guid) and entry.has("icon"):
+			_stats[guid].icon = entry.icon  # upgrade stats come from the manual; take the picture
 	for guid in EXPANSION_PRODUCTION:
 		if _stats.has(guid):
 			_stats[guid].produced_at = EXPANSION_PRODUCTION[guid]

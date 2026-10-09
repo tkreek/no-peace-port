@@ -5,7 +5,11 @@ extends TextureRect
 
 ## The original portrait (expansion Potraits/*.bmp) for a GUID, or null.
 static func portrait(guid: int) -> Thumbnail:
-	var path: String = GameData.stats(guid).get("icon", "")
+	return from_bmp(GameData.stats(guid).get("icon", ""))
+
+
+## One of the original portrait BMPs (Potraits/...), or null.
+static func from_bmp(path: String) -> Thumbnail:
 	if path.is_empty() or not GameData.exists(path):
 		return null
 	var bytes := GameData.read(path)

@@ -19,6 +19,15 @@ var palette: ImageTexture
 var ramps: Texture2D
 var speed := 60.0
 var type_id := -1  ## object type id (BobListe.blf), for names and stats
+var health := 50.0
+var damage := 5
+var ranged := false
+var attack_range := 40.0
+var sight := 320.0
+var reload_ms := 1500
+## Body animation indices played in order for one attack (e.g. aim, fire, reload).
+var attack_anims := PackedInt32Array()
+var fire_step := 0  ## index into attack_anims at which the shot/blow lands
 
 
 func guid() -> int:
@@ -50,8 +59,33 @@ static func load_type(dir: String) -> UnitType:
 		if t.kind == ObjectTypes.Kind.UNIT and t.bob_path == bob_path:
 			unit_type.type_id = id
 			break
+	unit_type._setup_combat()
 	_cache[dir] = unit_type
 	return unit_type
+
+
+func _setup_combat() -> void:
+	var stats := GameData.stats(guid())
+	health = stats.get("health", health)
+	damage = stats.get("damage", damage)
+	sight = GameData.def_value("Sichtweite1", 320)
+	# Ranged units have a firing sheet: its body blocks are aim, fire, reload (in file order).
+	var shoot := anim_index("shoot")
+	if shoot >= 0:
+		ranged = true
+		attack_range = GameData.def_value("ReichweiteFernwaffe2", 200)
+		reload_ms = 2500
+		var sheet := bob.anims[shoot].sub_sprite
+		for i in bob.anims.size():
+			if bob.anims[i].sub_sprite == sheet:
+				attack_anims.append(i)
+		fire_step = mini(1, attack_anims.size() - 1)
+	else:
+		var melee := anim_index("melee")
+		if melee >= 0:
+			attack_anims.append(melee)
+		attack_range = 36.0
+		reload_ms = 1500
 
 
 ## Animation index for an action name, or -1.

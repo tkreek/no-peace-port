@@ -19,6 +19,7 @@ var _palette_cache := {}
 var _texts := {}       # text id -> String (TEXTE.eng, text2.eng)
 var _guids := {}       # object type id -> GUID (GUIDS.INI steppe + Guids2.ini meadow)
 var _defs := {}        # DEFS.INI key -> value
+var _stats := {}       # GUID -> stats from res://data/stats.json (extracted from the manual)
 
 
 func _ready() -> void:
@@ -137,6 +138,10 @@ func load_ramps(bob_path: String) -> Texture2D:
 
 
 func _load_tables() -> void:
+	var stats_json = JSON.parse_string(FileAccess.get_file_as_string("res://data/stats.json"))
+	if stats_json is Dictionary:
+		for key in stats_json:
+			_stats[int(key)] = stats_json[key]
 	for file in ["global/guids/TEXTE.eng", "global/guids/text2.eng"]:
 		for line in read_latin1(file).split("\n"):
 			var id := line.get_slice("=", 0).strip_edges()
@@ -175,6 +180,11 @@ func guid_for_type(type_id: int) -> int:
 func type_name(type_id: int) -> String:
 	var type := ObjectTypes.get_type(type_id)
 	return text(guid_for_type(type_id), type.name if type else "?")
+
+
+## Stats for a GUID: {name, faction, kind, cost, health, damage, produced_at, ...} or {}.
+func stats(guid: int) -> Dictionary:
+	return _stats.get(guid, {})
 
 
 func def_value(key: String, fallback := 0) -> int:

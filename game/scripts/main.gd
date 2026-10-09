@@ -5,6 +5,7 @@ extends Node2D
 ##   --map=<file in Levels/ or absolute path>   default "[2 Players] - close combat.alf"
 ##   --biome=steppe|wiese
 ##   --screenshot=<png path>  save a frame after --frames=<n> (default 90) and quit
+##   --scenario=battle  two infantry squads fighting in front of the camera
 ##   --camera=x,y  --zoom=z  --order=x,y (screenshot move target)  --debug-paths=1
 
 const DEFAULT_MAP := "[2 Players] - close combat.alf"
@@ -57,6 +58,11 @@ func _ready() -> void:
 	for player in FACTION_STARTS:
 		_setup_player(player, start_positions.get(player, size * Vector2(0.5, 0.15 if player == 2 else 0.85)))
 	camera.position = _vector_option("camera", start_positions.get(1, size / 2.0))
+	if GameData.cmdline_option("scenario") == "battle":
+		# Two infantry lines facing each other in front of the camera.
+		var centre := camera.position
+		_spawn_squad(FACTION_STARTS[1].army, 1, centre + Vector2(-60, 120), 9)
+		_spawn_squad(FACTION_STARTS[2].army, 2, centre + Vector2(60, -160), 9)
 	camera.set_zoom_level(GameData.cmdline_option("zoom", "1").to_float())
 	add_child(hud)
 	hud.setup(map, terrain.overview_image(), camera, units_root, players[1], selection)
@@ -118,7 +124,8 @@ func _spawn_squad(directory: String, team: int, centre: Vector2, count: int) -> 
 	var columns := ceili(sqrt(count))
 	for i in count:
 		var unit := Unit.new()
-		unit.position = centre + Vector2((i % columns - columns / 2.0) * 30.0, (i / columns) * 28.0)
+		var spot := centre + Vector2((i % columns - columns / 2.0) * 30.0, (i / columns) * 28.0)
+		unit.position = (Vector2(nav.nearest_walkable(nav.cell_of(spot))) + Vector2(0.5, 0.5)) * NavGrid.CELL
 		units_root.add_child(unit)
 		unit.setup(unit_type, team)
 		unit.direction = 5 if team == 1 else 1
@@ -137,10 +144,11 @@ func _setup_screenshot() -> void:
 	if path.is_empty():
 		return
 	camera.input_enabled = false
-	# Exercise the move order so walking animations show up in the capture.
-	selection._select(units_root.get_children().filter(func(u: Node) -> bool: return u is Unit and u.team == 1), false)
 	Unit.debug_paths = GameData.cmdline_option("debug-paths") != ""
-	selection._order_move(_vector_option("order", camera.position + Vector2(-200, -120)))
+	if GameData.cmdline_option("scenario") != "battle":
+		# Exercise the move order so walking animations show up in the capture.
+		selection._select(units_root.get_children().filter(func(u: Node) -> bool: return u is Unit and u.team == 1), false)
+		selection._order_move(_vector_option("order", camera.position + Vector2(-200, -120)))
 	for i in GameData.cmdline_option("frames", "90").to_int():
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw

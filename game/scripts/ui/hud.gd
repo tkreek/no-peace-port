@@ -147,7 +147,7 @@ func _refresh_resources() -> void:
 
 
 func _refresh_selection() -> void:
-	var units := selection.selection.filter(is_instance_valid)
+	var units := selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
 	_health_bar.visible = not units.is_empty()
 	if units.is_empty():
 		_selection_title.text = ""

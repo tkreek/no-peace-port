@@ -34,7 +34,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				_dragging = false
 				queue_redraw()
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and not selection.is_empty():
-			_order_move(world)
+			var enemy := _unit_at(world, false)
+			if enemy:
+				order_attack(enemy)
+			else:
+				_order_move(world)
 	elif event is InputEventMouseMotion and _pressed:
 		_dragging = _dragging or get_global_mouse_position().distance_to(_drag_start) > DRAG_THRESHOLD / get_viewport().get_canvas_transform().get_scale().x
 		queue_redraw()
@@ -58,21 +62,34 @@ func _draw() -> void:
 
 
 func _own_units() -> Array[Unit]:
+	return _units(true)
+
+
+func _units(own: bool) -> Array[Unit]:
 	var out: Array[Unit] = []
 	for child in units_root.get_children():
-		if child is Unit and child.team == player_team:
+		if child is Unit and child.is_alive() and (child.team == player_team) == own and child.team > 0:
 			out.append(child)
 	return out
+
+
+func order_attack(enemy: Unit) -> void:
+	selection = selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+	if selection.is_empty():
+		return
+	Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
+	for unit in selection:
+		unit.attack(enemy)
 
 
 func _units_in(rect: Rect2) -> Array[Unit]:
 	return _own_units().filter(func(u: Unit) -> bool: return rect.has_point(u.position))
 
 
-func _unit_at(point: Vector2) -> Unit:
+func _unit_at(point: Vector2, own := true) -> Unit:
 	var best: Unit = null
 	var best_distance := CLICK_RADIUS
-	for unit in _own_units():
+	for unit in _units(own):
 		# Units are tall; test against the body centre rather than the feet.
 		var distance := point.distance_to(unit.position + Vector2(0, -20))
 		if distance < best_distance:
@@ -96,7 +113,7 @@ func _select(units: Array, add: bool) -> void:
 
 
 func _order_move(target: Vector2) -> void:
-	selection = selection.filter(is_instance_valid)
+	selection = selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
 	var count := selection.size()
 	if count == 0:
 		return

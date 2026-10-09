@@ -78,6 +78,10 @@ func update_now() -> void:
 		for object in MapObject.all_objects:
 			if object.is_building() and object.owner_index == player_team and object.is_alive():
 				_reveal(object.footprint_rect().get_center(), BUILDING_SIGHT)
+		var now := Time.get_ticks_msec()
+		_reveals = _reveals.filter(func(r: Dictionary) -> bool: return r.until > now)
+		for r in _reveals:
+			_reveal(r.at, r.radius)
 	var bytes := PackedByteArray()
 	bytes.resize(columns * rows)
 	var rgba := PackedByteArray()
@@ -91,6 +95,15 @@ func update_now() -> void:
 	_overview_image.set_data(columns, rows, false, Image.FORMAT_RGBA8, rgba)
 	_overview.update(_overview_image)
 	_apply_to_objects()
+
+
+## Eagle eye: a spot kept in sight for a while.
+var _reveals: Array[Dictionary] = []
+
+
+func reveal_for(point: Vector2, radius_px: float, seconds: float) -> void:
+	_reveals.append({"at": point, "radius": radius_px, "until": Time.get_ticks_msec() + seconds * 1000.0})
+	update_now()
 
 
 func is_visible_at(point: Vector2) -> bool:

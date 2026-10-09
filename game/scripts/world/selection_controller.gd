@@ -69,6 +69,17 @@ func _give_targeted(world: Vector2) -> void:
 	var command := pending
 	cancel_targeting()
 	var units := selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+	if command.begins_with("spell:"):
+		var spell := command.get_slice(":", 1).to_int()
+		var on_unit := _unit_at(world)
+		if on_unit == null:
+			on_unit = _unit_at(world, false)
+		for unit: Unit in units:
+			if spell in unit.known_spells():
+				unit.cast(spell, world, on_unit)
+				break  # one caster is enough
+		OrderMarker.spawn(units_root, world, player_team)
+		return
 	match command:
 		"patrol":
 			for unit: Unit in units:

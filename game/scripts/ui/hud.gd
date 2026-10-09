@@ -322,6 +322,10 @@ func _unit_detail(unit: Unit) -> String:
 		lines.append("Sight %d   Speed %d" % [unit.sight(), unit.move_speed()])
 	if unit.carried > 0:
 		lines.append("Carrying %d %s" % [unit.carried, unit.carrying])
+	if Unit.CASTERS.has(unit.unit_type.guid()):
+		lines.append("Magic %d / %d" % [unit.magic_energy, unit.magic_pool()])
+	if unit.shield_time > 0.0:
+		lines.append("Shielded %d s" % ceili(unit.shield_time))
 	return "\n".join(lines)
 
 
@@ -631,6 +635,14 @@ func _refresh_commands() -> void:
 				for formation in FORMATION_ICONS:
 					_add_icon_command(_formation_icons, FORMATION_ICONS[formation], FORMATION_NAMES[formation],
 							func() -> void: set_formation(formation), formations.size() == 1 and formations.has(formation))
+		var spells := {}
+		for u: Unit in units:
+			for spell in u.known_spells():
+				spells[spell] = true
+		for spell in spells:
+			var info: Dictionary = Unit.SPELLS[spell]
+			_add_spell_command(spell, "%s (%d magic)\n%s\nThen click the %s" % [info.name, info.cost, info.text,
+					{"point": "spot", "unit": "unit to protect", "enemy": "enemy to convert"}[info.target]])
 		var hiders := units.filter(func(u: Unit) -> bool: return u.can_hide())
 		if not hiders.is_empty():
 			var assassin := hiders.any(func(u: Unit) -> bool: return u.unit_type.guid() == 362)
@@ -771,6 +783,23 @@ func _add_icon_command(sheet: RdSprite, frame: int, tip: String, action: Callabl
 		button.add_child(icon)
 		button.mouse_entered.connect(func() -> void: icon.modulate = Color(1.2, 1.15, 1.0))
 		button.mouse_exited.connect(func() -> void: icon.modulate = Color.WHITE)
+	_commands.add_child(button)
+
+
+func _add_spell_command(spell: int, tip: String) -> void:
+	var button := Button.new()
+	button.focus_mode = Control.FOCUS_NONE
+	var none := StyleBoxEmpty.new()
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		button.add_theme_stylebox_override(state, none)
+	button.tooltip_text = tip
+	button.set_meta("tooltip", tip)
+	button.set_meta("guid", -1)
+	var thumb := Thumbnail.portrait(spell)  # the upgrade's own picture
+	if thumb:
+		thumb.set_anchors_preset(Control.PRESET_FULL_RECT)
+		button.add_child(thumb)
+	button.pressed.connect(func() -> void: selection.begin_targeting("spell:%d" % spell))
 	_commands.add_child(button)
 
 

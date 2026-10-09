@@ -368,6 +368,25 @@ func _mine_stage() -> int:
 
 
 ## Add sowing work; returns true once the field is sown and starts growing.
+## Hail (medicine man): the crop is lost and the field must be sown again.
+func ruin_crop() -> void:
+	field_state = Field.FALLOW
+	field_progress = 0.0
+	amount = 0
+	_refresh_sprites()
+
+
+## Rain (medicine man): a ripe field holds half as much again; a growing one will.
+var _rained := false
+
+
+func rain() -> void:
+	if field_state == Field.RIPE:
+		amount = int(amount * 1.5)
+	else:
+		_rained = true
+
+
 func sow(seconds: float) -> bool:
 	if field_state != Field.FALLOW:
 		return true
@@ -719,6 +738,9 @@ func _process(delta: float) -> void:
 			field_state = Field.RIPE
 			var owner_player: Player = Player.by_index.get(owner_index)
 			amount = FIELD_YIELD + (int(owner_player.bonus(-1, "field_yield")) if owner_player else 0)
+			if _rained:
+				amount = int(amount * 1.5)
+				_rained = false
 		_refresh_sprites()
 	if _ambient:
 		_advance_ambient(delta)

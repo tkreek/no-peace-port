@@ -380,6 +380,133 @@ func _update_hidden() -> void:
 				return
 
 
+## Magic (manual 3.8): the medicine man's dances and the priest's conversion, each paid
+## from a pool of magic energy that refills over time (+50% with the Magic energy upgrade).
+const SPELLS := {
+	918: {"name": "Eagle eye", "cost": 30, "target": "point", "range": 900.0,
+			"text": "Lifts the fog of war around a spot for a while"},
+	919: {"name": "Lightning dance", "cost": 60, "target": "point", "range": 450.0,
+			"text": "A thunderstorm that saps the life of enemies beneath it"},
+	920: {"name": "Hail dance", "cost": 40, "target": "point", "range": 450.0,
+			"text": "Hail ruins the crops on enemy fields"},
+	921: {"name": "Rain dance", "cost": 40, "target": "point", "range": 450.0,
+			"text": "Rain makes a field yield half as much again"},
+	922: {"name": "Protective dance", "cost": 50, "target": "unit", "range": 450.0,
+			"text": "A protective shield halves the harm done to a unit"},
+	948: {"name": "Conversion", "cost": 60, "target": "enemy", "range": 220.0,
+			"text": "Wins an enemy soldier over to your side"},
+}
+const CASTERS := {164: [918, 919, 920, 921, 922], 257: [948]}
+const MAGIC_UPGRADES := [917, 947]
+const MAGIC_POOL := 100.0
+const MAGIC_REGEN := 1.5  # per second
+const CAST_SECONDS := 2.0
+const SHIELD_SECONDS := 30.0
+var magic_energy := MAGIC_POOL
+var shield_time := 0.0
+var _spell := -1
+var _spell_point := Vector2.ZERO
+var _spell_unit: Unit
+var _cast_timer := 0.0
+
+
+func known_spells() -> Array:
+	var player: Player = Player.by_index.get(team)
+	if player == null:
+		return []
+	return CASTERS.get(unit_type.guid(), []).filter(func(spell: int) -> bool: return player.researched.has(spell))
+
+
+func magic_pool() -> float:
+	var player: Player = Player.by_index.get(team)
+	var boosted := player != null and MAGIC_UPGRADES.any(func(u: int) -> bool: return player.researched.has(u))
+	return MAGIC_POOL * (1.5 if boosted else 1.0)
+
+
+## Walk within range of the target and cast `spell` there (or on `on_unit`).
+func cast(spell: int, point: Vector2, on_unit: Unit = null) -> void:
+	if not is_alive() or spell not in known_spells() or magic_energy < SPELLS[spell].cost:
+		return
+	var kind: String = SPELLS[spell].target
+	if kind == "unit" and (on_unit == null or on_unit.team != team):
+		return
+	if kind == "enemy" and (on_unit == null or not _convertible(on_unit)):
+		return
+	_clear_orders()
+	_spell = spell
+	_spell_point = point
+	_spell_unit = on_unit
+	_cast_timer = 0.0
+	state = State.MOVING
+	path.clear()
+
+
+## Leaders, builders, gatherers, transports and boats cannot be converted (manual).
+func _convertible(other: Unit) -> bool:
+	return other.team > 0 and other.team != team and other.is_alive() and not other.inside \
+			and other.unit_type.guid() not in Player.COMMANDERS and not other.unit_type.can_gather("wood") \
+			and not other.unit_type.can_gather("gold") and not other.unit_type.is_farmer() \
+			and not other.unit_type.is_transport() and other.unit_type.anim_index("build") < 0
+
+
+func _update_spell(delta: float) -> void:
+	var spell: Dictionary = SPELLS[_spell]
+	var at := _spell_unit.position if is_instance_valid(_spell_unit) else _spell_point
+	if spell.target != "point" and (not is_instance_valid(_spell_unit) or not _spell_unit.is_alive()):
+		_spell = -1
+		state = State.IDLE
+		return
+	if position.distance_to(at) > spell.range:
+		var now := Time.get_ticks_msec()
+		if path.is_empty() or now - _last_repath > REPATH_MS:
+			_last_repath = now
+			path = _find_path(at)
+		state = State.MOVING
+		return
+	path.clear()
+	state = State.IDLE
+	face(at - position)
+	play_repeating("heal")  # the medicine man dances, the priest prays
+	_cast_timer += delta
+	if _cast_timer < CAST_SECONDS:
+		return
+	if magic_energy >= spell.cost:
+		magic_energy -= spell.cost
+		_apply_spell(_spell, at)
+	_spell = -1
+
+
+func _apply_spell(spell: int, at: Vector2) -> void:
+	var parent := get_parent()
+	match spell:
+		918:
+			if FogOfWar.current and FogOfWar.current.player_team == team:
+				FogOfWar.current.reveal_for(at, 450.0, 20.0)
+		919:
+			var caster_team := team
+			Weather.spawn(parent, at, Weather.LIGHTNING_BOB, 6.0, func(where: Vector2) -> void:
+				for other in all_units:
+					if other.is_alive() and other.team > 0 and other.team != caster_team and other.position.distance_to(where) < 140.0:
+						other.take_damage(8.0))
+		920:
+			Weather.spawn(parent, at, Weather.HAIL_BOB, 4.0)
+			for field in MapObject.all_objects:
+				if field.is_field() and field.owner_index != team and field.position.distance_to(at) < 200.0:
+					field.ruin_crop()
+		921:
+			Weather.spawn(parent, at, Weather.RAIN_BOB, 4.0)
+			for field in MapObject.all_objects:
+				if field.is_field() and field.owner_index == team and field.position.distance_to(at) < 200.0:
+					field.rain()
+		922:
+			if is_instance_valid(_spell_unit):
+				_spell_unit.shield_time = SHIELD_SECONDS
+				Weather.spawn(_spell_unit, Vector2(0, -20), Weather.SHIELD_BOB, SHIELD_SECONDS)
+		948:
+			if is_instance_valid(_spell_unit) and _convertible(_spell_unit):
+				_spell_unit.change_team(team)
+
+
 ## Native Americans heal over time with herb blends; outlaws once Self-healing is researched.
 const SELF_HEALING_UPGRADE := 957
 const SELF_HEAL_PER_SECOND := 0.6
@@ -514,6 +641,7 @@ func follow(leader: Unit) -> void:
 
 func _clear_orders() -> void:
 	uncover()
+	_spell = -1
 	_patrol.clear()
 	follow_target = null
 	heal_target = null
@@ -672,6 +800,8 @@ func stop() -> void:
 func take_damage(amount: float, attacker: Node2D = null) -> void:
 	if not is_alive() or state == State.QUARTERED:
 		return
+	if shield_time > 0.0:
+		amount *= 0.5  # the medicine man's protective shield
 	health = maxf(0.0, health - amount)
 	_overlay.queue_redraw()
 	if health <= 0.0:
@@ -696,6 +826,12 @@ func _process(delta: float) -> void:
 		_flash_time -= delta
 		if _flash_time <= 0.0:
 			_body.self_modulate = Color.WHITE
+	if shield_time > 0.0:
+		shield_time -= delta
+	if CASTERS.has(unit_type.guid()):
+		magic_energy = minf(magic_pool(), magic_energy + MAGIC_REGEN * delta)
+	if _spell >= 0 and (state == State.IDLE or state == State.MOVING):
+		_update_spell(delta)
 	if follow_target != null and (state == State.IDLE or state == State.MOVING):
 		_update_follow()
 	if _steal_target != null and (state == State.IDLE or state == State.MOVING):

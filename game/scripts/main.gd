@@ -138,6 +138,8 @@ func _ready() -> void:
 		_scenario_camouflage.call_deferred()
 	if GameData.cmdline_option("scenario") == "pitfall":
 		_scenario_pitfall.call_deferred()
+	if GameData.cmdline_option("scenario") == "magic":
+		_scenario_magic.call_deferred()
 	if GameData.cmdline_option("scenario") == "orders":
 		_scenario_orders.call_deferred()
 	# --time-scale=N runs the simulation N times faster (long AI tests).
@@ -833,6 +835,37 @@ func _scenario_pitfall() -> void:
 	var foes := units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 and n.position.distance_to(centre) < 400)
 	print("enemies alive %s; our warrior alive %s; pit %s" % [foes.map(func(f: Unit) -> bool: return f.is_alive()), friend.is_alive(),
 			"spent" if not is_instance_valid(pit) or not pit.is_alive() else "%d kills" % pit.trap_kills])
+	get_tree().quit()
+
+
+## A medicine man calls lightning on enemy infantry and shields a warrior; a priest converts.
+func _scenario_magic() -> void:
+	var centre := Vector2(terrain.map.pixel_size()) / 2.0
+	centre = (Vector2(nav.nearest_walkable(nav.cell_of(centre))) + Vector2(0.5, 0.5)) * NavGrid.CELL
+	for spell in [918, 919, 920, 921, 922, 948]:
+		players[1].researched[spell] = true
+	var caster_guid := 164 if players[1].faction == "ind" else 257
+	_spawn_squad(caster_guid, 1, centre, 1)
+	_spawn_squad(152 if players[1].faction == "ind" else 252, 1, centre + Vector2(40, 0), 1)
+	_spawn_squad(458, 2, centre + Vector2(0, -260), 4)
+	var caster: Unit = units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == caster_guid)[0]
+	var friend: Unit = units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.position.distance_to(centre + Vector2(40, 0)) < 40)[0]
+	var foes := units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 and n.position.distance_to(centre) < 400)
+	for f: Unit in foes:
+		f.stance = Unit.Stance.PASSIVE
+	caster.stance = Unit.Stance.PASSIVE
+	camera.position = centre + Vector2(0, -120)
+	if caster_guid == 164:
+		caster.cast(919, foes[0].position)
+		await get_tree().create_timer(10.0).timeout
+		caster.magic_energy = 100.0
+		caster.cast(922, friend.position, friend)
+		await get_tree().create_timer(4.0).timeout
+		print("lightning: enemy energy %s; warrior shielded %.0fs; magic left %d" % [foes.map(func(f: Unit) -> int: return int(f.health)), friend.shield_time, caster.magic_energy])
+	else:
+		caster.cast(948, foes[0].position, foes[0])
+		await get_tree().create_timer(8.0).timeout
+		print("conversion: target now team %d" % foes[0].team)
 	get_tree().quit()
 
 

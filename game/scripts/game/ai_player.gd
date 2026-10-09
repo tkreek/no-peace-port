@@ -134,7 +134,7 @@ func _think() -> void:
 	for unit: Unit in units:
 		if unit.state == Unit.State.IDLE and unit.unit_type.is_hunter() and not _is_soldier(unit) \
 				and int(player.resources.get("food", 0)) < 3000:
-			unit.hunt(unit._nearest_animal())
+			unit.hunt(unit.work.nearest_animal())
 	_train_civilians(hq, workers, units)
 	_haul_gold(transports)
 	_build(workers, hq)
@@ -152,9 +152,9 @@ func _think() -> void:
 
 func _is_soldier(u: Unit) -> bool:
 	return not u.inside and not u.unit_type.attack_anims.is_empty() and not u.unit_type.can_gather("wood") \
-			and u.unit_type.guid() != Unit.CANOE \
+			and u.unit_type.guid() != UnitWater.CANOE \
 			and not u.unit_type.can_gather("food") and not u.unit_type.is_transport() \
-			and not (u.unit_type.is_hunter() and u.hunting)
+			and not (u.unit_type.is_hunter() and u.work.hunting)
 
 
 ## Our living units and standing buildings, gathered once per think (sites placed during
@@ -206,7 +206,7 @@ func _faction_guid(candidates: Array) -> int:
 ## Idle workers build first, then gather: about WOOD_SHARE of them on wood.
 func _assign_workers(workers: Array) -> void:
 	var on_wood := workers.filter(func(u: Unit) -> bool:
-		return is_instance_valid(u.gather_source) and u.gather_source.resource == "wood").size()
+		return is_instance_valid(u.work.gather_source) and u.work.gather_source.resource == "wood").size()
 	var share := _wood_share()
 	# Every half minute, move workers over when the stock leans too far one way.
 	if _elapsed - _rebalanced > 30.0:
@@ -218,9 +218,9 @@ func _assign_workers(workers: Array) -> void:
 			for worker: Unit in workers:
 				if excess <= 0:
 					break
-				if worker.state == Unit.State.GATHERING and is_instance_valid(worker.gather_source) \
-						and worker.gather_source.resource == from and worker.carried == 0:
-					var source := _gold_source_for(worker, workers) if from == "wood" else worker._nearest_source("wood")
+				if worker.state == Unit.State.GATHERING and is_instance_valid(worker.work.gather_source) \
+						and worker.work.gather_source.resource == from and worker.work.carried == 0:
+					var source := _gold_source_for(worker, workers) if from == "wood" else worker.work.nearest_source("wood")
 					if source:
 						worker.gather(source)
 						on_wood += -1 if from == "wood" else 1
@@ -233,9 +233,9 @@ func _assign_workers(workers: Array) -> void:
 			worker.build(site)
 			continue
 		var want_wood := on_wood < ceili(workers.size() * share)
-		var source := worker._nearest_source("wood") if want_wood else _gold_source_for(worker, workers)
+		var source := worker.work.nearest_source("wood") if want_wood else _gold_source_for(worker, workers)
 		if source == null:
-			source = _gold_source_for(worker, workers) if want_wood else worker._nearest_source("wood")
+			source = _gold_source_for(worker, workers) if want_wood else worker.work.nearest_source("wood")
 		if source:
 			worker.gather(source)
 			if source.resource == "wood":
@@ -259,11 +259,11 @@ func _gold_source_for(worker: Unit, workers: Array) -> MapObject:
 	var served := MapObject.all_objects.filter(func(o: MapObject) -> bool:
 		return o.resource == "gold" and o.amount > 0 and not _no_drop_off_near("gold", o.position))
 	if served.is_empty():
-		return worker._nearest_source("gold")
+		return worker.work.nearest_source("gold")
 	var miners := {}
 	for other: Unit in workers:
-		if is_instance_valid(other.gather_source) and other.gather_source in served:
-			miners[other.gather_source] = miners.get(other.gather_source, 0) + 1
+		if is_instance_valid(other.work.gather_source) and other.work.gather_source in served:
+			miners[other.work.gather_source] = miners.get(other.work.gather_source, 0) + 1
 	served.sort_custom(func(a: MapObject, b: MapObject) -> bool:
 		if miners.get(a, 0) != miners.get(b, 0):
 			return miners.get(a, 0) < miners.get(b, 0)
@@ -301,16 +301,16 @@ func _haul_gold(transports: Array) -> void:
 		return
 	if warehouses.is_empty():
 		for wagon: Unit in transports:
-			if wagon.state == Unit.State.IDLE and wagon.packed_tepee.is_empty():
+			if wagon.state == Unit.State.IDLE and wagon.tepees.packed.is_empty():
 				abandoned.sort_custom(func(a: MapObject, b: MapObject) -> bool: return a.position.distance_to(wagon.position) < b.position.distance_to(wagon.position))
 				wagon.haul(abandoned[0])
 		if transports.is_empty():
 			_train_transport()
 		return
 	var on_abandoned := transports.filter(func(w: Unit) -> bool:
-		return is_instance_valid(w.gather_source) and w.gather_source.is_abandoned_store()).size()
+		return is_instance_valid(w.work.gather_source) and w.work.gather_source.is_abandoned_store()).size()
 	for wagon: Unit in transports:
-		if wagon.state != Unit.State.IDLE or not wagon.packed_tepee.is_empty():
+		if wagon.state != Unit.State.IDLE or not wagon.tepees.packed.is_empty():
 			continue
 		if not abandoned.is_empty() and on_abandoned == 0 and transports.size() > warehouses.size():
 			wagon.haul(abandoned[0])
@@ -373,8 +373,8 @@ func _farm(units: Array, hq: MapObject) -> void:
 			continue
 		var counts := {}
 		for other: Unit in units:
-			if is_instance_valid(other.gather_source) and other.gather_source in fields:
-				counts[other.gather_source] = counts.get(other.gather_source, 0) + 1
+			if is_instance_valid(other.work.gather_source) and other.work.gather_source in fields:
+				counts[other.work.gather_source] = counts.get(other.work.gather_source, 0) + 1
 		var least: MapObject = fields[0]
 		for field: MapObject in fields:
 			if counts.get(field, 0) < counts.get(least, 0):
@@ -595,7 +595,7 @@ func _worth_trying(guid: int) -> bool:
 
 func _produces_army(structure_guid: int) -> bool:
 	for guid in MapObject.units_trained_at(structure_guid):
-		if GameData.stats(guid).get("damage", 0) >= 5 and guid not in Player.COMMANDERS and guid != Unit.CANOE:
+		if GameData.stats(guid).get("damage", 0) >= 5 and guid not in Player.COMMANDERS and guid != UnitWater.CANOE:
 			return true
 	return false
 
@@ -743,9 +743,9 @@ func _train_specialists() -> void:
 				continue
 			var have := units.filter(func(u: Unit) -> bool: return u.unit_type.guid() == guid).size()
 			var wanted := 0
-			if guid in Unit.BOATS:
+			if guid in UnitWater.BOATS:
 				wanted = BOAT_TARGET if not _land_route else 0
-			elif Unit.CASTERS.has(guid):
+			elif UnitMagic.CASTERS.has(guid):
 				wanted = 1 if soldiers >= 6 else 0
 			elif unit_type.anim_index("heal") >= 0 and not unit_type.is_transport():
 				wanted = soldiers / 8
@@ -784,10 +784,10 @@ func _trade() -> void:
 ## Idle soldiers who can ride catch wild horses near them.
 func _use_horses(units: Array) -> void:
 	for unit: Unit in units:
-		if unit.state != Unit.State.IDLE or not unit.can_mount() or unit._mount_target != null:
+		if unit.state != Unit.State.IDLE or not unit.riding.can_mount() or unit.riding.busy:
 			continue
 		for other in Unit.all_units:
-			if other.is_horse() and other.is_alive() and (other.team == 0 or other.team == player.index) \
+			if other.animal.is_horse() and other.is_alive() and (other.team == 0 or other.team == player.index) \
 					and other.position.distance_to(unit.position) < 600.0:
 				unit.mount(other)
 				break
@@ -800,11 +800,11 @@ func _cattle(units: Array) -> void:
 	for building: MapObject in _my_buildings():
 		if building.guid in MapObject.ANIMAL_PROCESSING and building.complete:
 			processing = building
-	var cows := units.filter(func(u: Unit) -> bool: return u.is_cow())
+	var cows := units.filter(func(u: Unit) -> bool: return u.animal.is_cow())
 	if processing:
 		for cow: Unit in cows:
-			if cow.state == Unit.State.IDLE and cow.cattle_value >= COW_SELL_VALUE:
-				cow.deliver(processing)
+			if cow.state == Unit.State.IDLE and cow.animal.cattle_value >= COW_SELL_VALUE:
+				cow.animal.deliver(processing)
 	if cows.size() >= COW_TARGET or int(player.resources.get("food", 0)) < 600:
 		return
 	for building: MapObject in _my_buildings():
@@ -817,23 +817,23 @@ func _cattle(units: Array) -> void:
 ## rain on our fields); priests convert enemy soldiers who come close.
 func _magic(units: Array, army: Array) -> void:
 	for caster: Unit in units:
-		if caster.state != Unit.State.IDLE or caster._spell >= 0:
+		if caster.state != Unit.State.IDLE or caster.magic.spell >= 0:
 			continue
-		var spells := caster.known_spells()
+		var spells := caster.magic.known_spells()
 		if spells.is_empty():
 			continue
-		var enemy := caster._nearest_enemy(700.0)
-		if 919 in spells and enemy and caster.magic_energy >= Unit.SPELLS[919].cost:
+		var enemy := caster.nearest_enemy(700.0)
+		if 919 in spells and enemy and caster.magic.magic_energy >= UnitMagic.SPELLS[919].cost:
 			caster.cast(919, enemy.position)
-		elif 948 in spells and enemy and caster._convertible(enemy) and caster.magic_energy >= Unit.SPELLS[948].cost:
+		elif 948 in spells and enemy and caster.magic.convertible(enemy) and caster.magic.magic_energy >= UnitMagic.SPELLS[948].cost:
 			caster.cast(948, enemy.position, enemy)
-		elif 922 in spells and caster.magic_energy >= Unit.SPELLS[922].cost:
+		elif 922 in spells and caster.magic.magic_energy >= UnitMagic.SPELLS[922].cost:
 			for soldier: Unit in army:
 				if soldier.state == Unit.State.ATTACKING and soldier.health < soldier.max_health * 0.6 \
-						and soldier.shield_time <= 0.0 and soldier.position.distance_to(caster.position) < 600.0:
+						and soldier.magic.shield_time <= 0.0 and soldier.position.distance_to(caster.position) < 600.0:
 					caster.cast(922, soldier.position, soldier)
 					break
-		elif 921 in spells and caster.magic_energy >= caster.magic_pool() * 0.9:
+		elif 921 in spells and caster.magic.magic_energy >= caster.magic.magic_pool() * 0.9:
 			for field in MapObject.structures:
 				if field.is_field() and field.owner_index == player.index and field.field_state == MapObject.Field.GROWING \
 						and not field._rained:
@@ -856,11 +856,11 @@ func _train_army() -> void:
 		if building.guid in MapObject.GUN_FACTORIES and int(player.resources.get("guns", 0)) < 8 \
 				and int(player.resources.get("gold", 0)) > 250 and building.enqueue(MapObject.GUN_GUID):
 			continue
-		var canoes := _my_units().filter(func(u: Unit) -> bool: return u.unit_type.guid() == Unit.CANOE).size()
+		var canoes := _my_units().filter(func(u: Unit) -> bool: return u.unit_type.guid() == UnitWater.CANOE).size()
 		var want_canoes := NavGrid.current != null and NavGrid.current.has_water and canoes < CANOE_TARGET
 		var options := Array(building.trainable_units()).filter(func(guid: int) -> bool:
 			return GameData.stats(guid).get("damage", 0) >= 5 and guid not in Player.COMMANDERS \
-					and (guid != Unit.CANOE or want_canoes))
+					and (guid != UnitWater.CANOE or want_canoes))
 		options.shuffle()
 		for guid in options:
 			if building.enqueue(guid):
@@ -984,7 +984,7 @@ func _keep_guard(army: Array, hq: MapObject) -> void:
 		if unit.state == Unit.State.IDLE and unit.quarters == null:
 			if unit.position.distance_to(hq.position) > 500.0:
 				unit.move_to(hq.position + toward * 220.0 + Vector2(randf_range(-90, 90), randf_range(-60, 60)))
-			elif unit.can_hide() and not unit.concealed:
+			elif unit.stealth.can_hide() and not unit.stealth.concealed:
 				unit.conceal()
 
 
@@ -1008,7 +1008,7 @@ func _form_wave(army: Array, hq: MapObject) -> void:
 	_wave_state = "gathering"
 	for unit: Unit in _wave:
 		unit.set_stance(Unit.Stance.AGGRESSIVE)
-		unit.uncover()
+		unit.stealth.uncover()
 	_march(_gather_point, false)
 
 
@@ -1038,7 +1038,7 @@ func _gather_wave() -> void:
 func _can_cross_alone() -> bool:
 	if player.faction != "ind":
 		return false
-	var swimmers := _wave.filter(func(u: Unit) -> bool: return u.nav_layer() != NavGrid.Layer.GROUND)
+	var swimmers := _wave.filter(func(u: Unit) -> bool: return u.water.nav_layer() != NavGrid.Layer.GROUND)
 	if swimmers.size() < _level().wave / 2:
 		return false
 	_wave = swimmers
@@ -1046,28 +1046,28 @@ func _can_cross_alone() -> bool:
 
 
 func _ferry() -> void:
-	var boats := _my_units().filter(func(u: Unit) -> bool: return u.is_boat())
+	var boats := _my_units().filter(func(u: Unit) -> bool: return u.water.is_boat())
 	if boats.is_empty():
 		if _elapsed - _ferry_started > 240.0:
 			_wave_state = "home"  # no boats came: try again later
 		return
 	var aboard := 0
 	for boat: Unit in boats:
-		aboard += boat.passengers.size()
+		aboard += boat.water.passengers.size()
 	var waiting := _wave.filter(func(u: Unit) -> bool: return not u.inside)
 	for boat: Unit in boats:
-		if boat.state == Unit.State.IDLE and boat.passengers.size() < boat.boat_capacity() \
-				and boat.position.distance_to(_gather_point) > 200.0 and boat.passengers.is_empty():
+		if boat.state == Unit.State.IDLE and boat.water.passengers.size() < boat.water.capacity() \
+				and boat.position.distance_to(_gather_point) > 200.0 and boat.water.passengers.is_empty():
 			boat.move_to(_gather_point)
-		var room := boat.boat_capacity() - boat.passengers.size()
+		var room := boat.water.capacity() - boat.water.passengers.size()
 		for unit: Unit in waiting.duplicate():
 			if room <= 0:
 				break
-			if unit.vessel == null and unit.state == Unit.State.IDLE:
+			if unit.water.vessel == null and unit.state == Unit.State.IDLE:
 				unit.board(boat)
 				waiting.erase(unit)
 				room -= 1
-	var full := boats.all(func(b: Unit) -> bool: return b.passengers.size() >= b.boat_capacity())
+	var full := boats.all(func(b: Unit) -> bool: return b.water.passengers.size() >= b.water.capacity())
 	if aboard > 0 and (waiting.is_empty() or full or _elapsed - _ferry_started > 90.0):
 		_attack_wave += 1
 		_last_attack = _elapsed
@@ -1076,7 +1076,7 @@ func _ferry() -> void:
 			print("t=%ds AI %d ferries %d units (wave %d)" % [_elapsed, player.index, aboard, _attack_wave])
 		var landing := _shore_near(_wave_target)
 		for boat: Unit in boats:
-			if not boat.passengers.is_empty():
+			if not boat.water.passengers.is_empty():
 				boat.unload_at(landing)
 		_wave = _wave.filter(func(u: Unit) -> bool: return u.inside)
 		_wave_size = _wave.size()
@@ -1103,7 +1103,7 @@ func _press_attack() -> void:
 		if unit.state == Unit.State.IDLE and not unit.inside:
 			unit.attack_move(target + Vector2(randf_range(-60, 60), randf_range(-60, 60)))
 	# Boats that have put their troops ashore go back for more.
-	for boat: Unit in _my_units().filter(func(u: Unit) -> bool: return u.is_boat() and u.passengers.is_empty()):
+	for boat: Unit in _my_units().filter(func(u: Unit) -> bool: return u.water.is_boat() and u.water.passengers.is_empty()):
 		if boat.state == Unit.State.IDLE and boat.position.distance_to(_home) > 900.0:
 			boat.move_to(_shore_near(_home))
 
@@ -1145,16 +1145,16 @@ func _raid(army: Array) -> void:
 	for unit: Unit in army:
 		if unit.state != Unit.State.IDLE and unit.state != Unit.State.MOVING:
 			continue
-		if unit.can_steal():
+		if unit.work.can_steal():
 			for other in Unit.all_units:
 				if other.is_alive() and other.team > 0 and other.team != player.index and other.unit_type.is_transport() \
 						and other.position.distance_to(unit.position) < unit.sight():
 					unit.steal(other)
 					break
-		if unit.can_rob() and unit.state != Unit.State.GATHERING:
+		if unit.work.can_rob() and unit.state != Unit.State.GATHERING:
 			for object in MapObject.structures:
 				if object.is_building() and object.owner_index > 0 and object.owner_index != player.index \
-						and object.is_alive() and Unit.loot_of(object) > 0 and object.position.distance_to(unit.position) < 900.0:
+						and object.is_alive() and UnitWork.loot_of(object) > 0 and object.position.distance_to(unit.position) < 900.0:
 					unit.rob(object)
 					break
 

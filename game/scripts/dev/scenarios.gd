@@ -8,6 +8,7 @@ var main: Main
 
 
 static func start(main_node: Main, scenario: String) -> void:
+	seed(GameData.cmdline_option("seed", "1").to_int())  # repeatable runs (--seed=n for others)
 	var runner := Scenarios.new()
 	runner.main = main_node
 	main_node.add_child(runner)
@@ -25,7 +26,7 @@ func _scenario_economy() -> void:
 		if node is Unit and node.team == 1 and node.unit_type.can_gather("wood"):
 			var unit: Unit = node
 			var resource := "wood" if i % 2 == 0 else "gold"
-			var source := unit._nearest_source(resource) if resource == "wood" else _nearest_mine(unit.position)
+			var source := unit.work.nearest_source(resource) if resource == "wood" else _nearest_mine(unit.position)
 			unit.gather(source)
 			i += 1
 
@@ -276,7 +277,7 @@ func _scenario_fields() -> void:
 		await get_tree().create_timer(5.0).timeout
 		print("t=%ds field state=%d progress=%.2f amount=%d food=%d women=%s" % [(i + 1) * 5, field.field_state,
 				field.field_progress, field.amount, main.players[1].resources.food,
-				women.map(func(u: Unit) -> String: return "%d/%d/%s" % [u.state, u._gather_phase, u._action])])
+				women.map(func(u: Unit) -> String: return "%d/%d/%s" % [u.state, u.work.phase, u._action])])
 	get_tree().quit()
 
 
@@ -300,8 +301,8 @@ func _scenario_hunt() -> void:
 	for i in 18:
 		await get_tree().create_timer(5.0).timeout
 		print("t=%ds buffalo alive=%s meat_left=%d visible=%s food +%d hunters=%s" % [(i + 1) * 5, buffalo.is_alive() if is_instance_valid(buffalo) else false,
-				buffalo.meat_left if is_instance_valid(buffalo) else -9, is_instance_valid(buffalo),
-				main.players[1].resources.food - food, hunters.map(func(h: Unit) -> String: return "%d/%s/%d" % [h.state, h._action, h.carried])])
+				buffalo.animal.meat_left if is_instance_valid(buffalo) else -9, is_instance_valid(buffalo),
+				main.players[1].resources.food - food, hunters.map(func(h: Unit) -> String: return "%d/%s/%d" % [h.state, h._action, h.work.carried])])
 	get_tree().quit()
 
 
@@ -387,22 +388,22 @@ func _scenario_gold() -> void:
 		if i == 3:
 			wagon.haul(store)
 		print("t=%ds gold +%d warehoused %d wagon state %d carrying %d" % [(i + 1) * 10, main.players[1].resources.gold - start_gold,
-				main.players[1].warehoused_gold(), wagon.state, wagon.carried])
+				main.players[1].warehoused_gold(), wagon.state, wagon.work.carried])
 	get_tree().quit()
 
 
 ## One worker on the nearest tree: what each second of a wood round trip is spent on.
 func _scenario_woodcut() -> void:
 	var worker: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.can_gather("wood") and n.unit_type.anim_index("build") >= 0)[0]
-	var tree := worker._nearest_source("wood")
+	var tree := worker.work.nearest_source("wood")
 	print("tree %d px away, wood %d" % [worker.position.distance_to(tree.position), tree.amount])
 	worker.gather(tree)
 	var wood: int = main.players[1].resources.wood
 	for i in 60:
 		await get_tree().create_timer(1.0).timeout
-		print("t=%2d phase=%d action=%-14s pos=%s path=%d carried=%d tree=%s d_tree=%d wood+%d" % [i + 1, worker._gather_phase, worker._action,
-				worker.position.round(), worker.path.size(), worker.carried, worker.gather_source.position if is_instance_valid(worker.gather_source) else null,
-				worker.position.distance_to(worker.gather_source.position) if is_instance_valid(worker.gather_source) else -1, main.players[1].resources.wood - wood])
+		print("t=%2d phase=%d action=%-14s pos=%s path=%d carried=%d tree=%s d_tree=%d wood+%d" % [i + 1, worker.work.phase, worker._action,
+				worker.position.round(), worker.path.size(), worker.work.carried, worker.work.gather_source.position if is_instance_valid(worker.work.gather_source) else null,
+				worker.position.distance_to(worker.work.gather_source.position) if is_instance_valid(worker.work.gather_source) else -1, main.players[1].resources.wood - wood])
 	get_tree().quit()
 
 
@@ -451,14 +452,14 @@ func _scenario_rob() -> void:
 	var robber: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.guid() == 352)[0]
 	var barber: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == 353)[0]
 	var wagon: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 and n.unit_type.is_transport())[0]
-	print("robber can rob %s, barber can steal %s" % [robber.can_rob(), barber.can_steal()])
+	print("robber can rob %s, barber can steal %s" % [robber.work.can_rob(), barber.work.can_steal()])
 	robber.rob(store)
 	barber.steal(wagon)
 	var gold: int = main.players[1].resources.gold
 	for i in 8:
 		await get_tree().create_timer(5.0).timeout
 		print("t=%ds store %d, our gold +%d, robber phase %d carrying %d inside %s; wagon team %d" % [(i + 1) * 5, store.stored_gold,
-				main.players[1].resources.gold - gold, robber._gather_phase, robber.carried, robber.inside, wagon.team])
+				main.players[1].resources.gold - gold, robber.work.phase, robber.work.carried, robber.inside, wagon.team])
 	get_tree().quit()
 
 
@@ -474,7 +475,7 @@ func _scenario_camouflage() -> void:
 		h.conceal()
 	main._spawn_squad(458, 2, centre + Vector2(150, 0), 3)
 	await get_tree().create_timer(10.0).timeout
-	print("unseen: concealed %s, energy %s, fogged to player 2's eyes n/a" % [hiders.map(func(h: Unit) -> bool: return h.concealed), hiders.map(func(h: Unit) -> int: return int(h.health))])
+	print("unseen: concealed %s, energy %s, fogged to player 2's eyes n/a" % [hiders.map(func(h: Unit) -> bool: return h.stealth.concealed), hiders.map(func(h: Unit) -> int: return int(h.health))])
 	main._spawn_squad(461, 2, centre + Vector2(220, 40), 1)
 	await get_tree().create_timer(12.0).timeout
 	print("after the trapper: energy %s" % [hiders.map(func(h: Unit) -> int: return int(h.health))])
@@ -525,10 +526,10 @@ func _scenario_magic() -> void:
 	if caster_guid == 164:
 		caster.cast(919, foes[0].position)
 		await get_tree().create_timer(10.0).timeout
-		caster.magic_energy = 100.0
+		caster.magic.magic_energy = 100.0
 		caster.cast(922, friend.position, friend)
 		await get_tree().create_timer(4.0).timeout
-		print("lightning: enemy energy %s; warrior shielded %.0fs; magic left %d" % [foes.map(func(f: Unit) -> int: return int(f.health)), friend.shield_time, caster.magic_energy])
+		print("lightning: enemy energy %s; warrior shielded %.0fs; magic left %d" % [foes.map(func(f: Unit) -> int: return int(f.health)), friend.magic.shield_time, caster.magic.magic_energy])
 	else:
 		caster.cast(948, foes[0].position, foes[0])
 		await get_tree().create_timer(8.0).timeout
@@ -550,17 +551,17 @@ func _scenario_cattle() -> void:
 	yard.setup(type, 1)
 	main.units_root.add_child(yard)
 	main.nav.block_footprint(type, yard.position)
-	main._spawn_squad(Unit.COW_DIR, 0, hq.position + Vector2(-260, 240), 1)
+	main._spawn_squad(UnitAnimal.COW_DIR, 0, hq.position + Vector2(-260, 240), 1)
 	main._spawn_squad(463, 1, hq.position + Vector2(0, 240), 1)
-	var cow: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.is_cow() and n.position.distance_to(hq.position + Vector2(-260, 240)) < 60)[0]
+	var cow: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.animal.is_cow() and n.position.distance_to(hq.position + Vector2(-260, 240)) < 60)[0]
 	var cowboy: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == 463)[0]
 	cowboy.move_to(cow.position + Vector2(20, 0))
 	await get_tree().create_timer(8.0).timeout
 	print("cow team %d after the cowboy came by" % cow.team)
 	await get_tree().create_timer(40.0).timeout
 	var gold: int = main.players[1].resources.gold
-	print("cow worth %.1f gold after grazing" % cow.cattle_value)
-	cow.deliver(yard)
+	print("cow worth %.1f gold after grazing" % cow.animal.cattle_value)
+	cow.animal.deliver(yard)
 	await get_tree().create_timer(15.0).timeout
 	print("sold: cow gone %s, gold +%d; stockyard trains: %s" % [not is_instance_valid(cow), main.players[1].resources.gold - gold,
 			Array(MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.guid == 405).map(func(o: MapObject) -> Array: return Array(o.trainable_units())))])
@@ -705,7 +706,7 @@ func _scenario_help_build() -> void:
 	main.selection._select(workers.slice(1), false)
 	main.selection.order_build(site)
 	OrderMarker.spawn(main.units_root, site.position + Vector2(-160, 60), 1)
-	var helpers := workers.filter(func(u: Unit) -> bool: return u.build_site == site).size()
+	var helpers := workers.filter(func(u: Unit) -> bool: return u.work.build_site == site).size()
 	print("help-build: %d of %d workers now building" % [helpers, workers.size()])
 
 
@@ -768,7 +769,7 @@ func _scenario_food() -> void:
 				node.gather(fields[i % 2])
 				i += 1
 			elif node.unit_type.is_hunter():
-				node.hunt(node._nearest_animal())
+				node.hunt(node.work.nearest_animal())
 	print("food scenario: finca at %s, %d women farming" % [finca.position, i])
 
 
@@ -791,9 +792,9 @@ func _scenario_horses() -> void:
 	ranch.setup(type, 1)
 	main.units_root.add_child(ranch)
 	main.nav.block_footprint(type, ranch.position)
-	main._spawn_squad(Unit.HORSE_DIR, 0, hq.position + Vector2(-240, 240), 1)
+	main._spawn_squad(UnitAnimal.HORSE_DIR, 0, hq.position + Vector2(-240, 240), 1)
 	main._spawn_squad(463, 1, hq.position + Vector2(0, 240), 1)
-	var horse: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.is_horse())[0]
+	var horse: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.animal.is_horse())[0]
 	var cowboy: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == 463)[0]
 	cowboy.mount(horse)
 	await get_tree().create_timer(8.0).timeout
@@ -801,8 +802,8 @@ func _scenario_horses() -> void:
 	print("mounted: %s (horse gone %s)" % [rider != null, not is_instance_valid(horse)])
 	rider.dismount()
 	await get_tree().process_frame
-	var led: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.is_horse() and n.team == 1)[0]
-	led.stable(ranch)
+	var led: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.animal.is_horse() and n.team == 1)[0]
+	led.animal.stable(ranch)
 	await get_tree().create_timer(12.0).timeout
 	print("horses %d / %d, cowboy on foot again %s" % [main.players[1].resources.horses, main.players[1].horse_capacity(),
 			main.units_root.get_children().any(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == 463)])
@@ -823,7 +824,7 @@ func _scenario_abandoned() -> void:
 	wagon.haul(store)
 	for k in 12:
 		await get_tree().create_timer(10.0).timeout
-		print("  t=%d wagon state %d phase %d carrying %s %d path %d at %s" % [(k + 1) * 10, wagon.state, wagon._gather_phase, wagon.carrying, wagon.carried, wagon.path.size(), wagon.position.round()])
+		print("  t=%d wagon state %d phase %d carrying %s %d path %d at %s" % [(k + 1) * 10, wagon.state, wagon.work.phase, wagon.work.carrying, wagon.work.carried, wagon.path.size(), wagon.position.round()])
 	print("store left %d; %s %d -> %d" % [store.loot, store.loot_kind, before[store.loot_kind], main.players[1].resources[store.loot_kind]])
 	get_tree().quit()
 
@@ -848,7 +849,7 @@ func _scenario_unhorse() -> void:
 	for i in 8:
 		await get_tree().create_timer(4.0).timeout
 		var foot := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 and n.unit_type.guid() == 263)
-		var horses := Unit.all_units.filter(func(u: Unit) -> bool: return u.is_horse())
+		var horses := Unit.all_units.filter(func(u: Unit) -> bool: return u.animal.is_horse())
 		print("t=%ds riders %s | gauchos on foot alive %d dead %d | horses alive %d carcasses %d" % [(i + 1) * 4,
 				riders.map(func(r) -> String: return "%d" % r.health if is_instance_valid(r) else "gone"),
 				foot.filter(func(u: Unit) -> bool: return u.is_alive()).size(), foot.filter(func(u: Unit) -> bool: return not u.is_alive()).size(),
@@ -859,15 +860,15 @@ func _scenario_unhorse() -> void:
 	var hunter: Unit = Unit.all_units.filter(func(u: Unit) -> bool: return u.unit_type.guid() == hunter_guid)[0]
 	var horse: Unit = null
 	for u in Unit.all_units:
-		if u.is_horse() and u.is_alive():
+		if u.animal.is_horse() and u.is_alive():
 			horse = u
 	if horse:
 		hunter.hunt(horse)
 	var food: int = main.players[1].resources.food
 	for i in 6:
 		await get_tree().create_timer(5.0).timeout
-		print("  hunter state %d target==horse %s hunting %s carrying %d step %d cd %.1f action %s horse hp %.1f" % [hunter.state, hunter.target == horse, hunter.hunting, hunter.carried, hunter._attack_step, hunter._cooldown, hunter._action, horse.health if is_instance_valid(horse) else -1.0])
-	print("hunter may hunt horses %s; horse alive %s; food +%d" % [hunter.may_hunt_horses(),
+		print("  hunter state %d target==horse %s hunting %s carrying %d step %d cd %.1f action %s horse hp %.1f" % [hunter.state, hunter.target == horse, hunter.work.hunting, hunter.work.carried, hunter._attack_step, hunter._cooldown, hunter._action, horse.health if is_instance_valid(horse) else -1.0])
+	print("hunter may hunt horses %s; horse alive %s; food +%d" % [hunter.work.may_hunt_horses(),
 			is_instance_valid(horse) and horse.is_alive(), main.players[1].resources.food - food])
 	get_tree().quit()
 
@@ -919,20 +920,20 @@ func _scenario_tepee() -> void:
 	tepee.take_damage(tepee.max_health * 0.3)
 	var target := ai._find_spot(type, hq.position + Vector2(-400, 300))
 	ai.free()
-	main._spawn_squad(Unit.TRAVOIS, 1, tepee.position + Vector2(0, 160), 1)
-	var travois: Unit = Unit.all_units.filter(func(u: Unit) -> bool: return u.unit_type.guid() == Unit.TRAVOIS)[0]
+	main._spawn_squad(UnitTepees.TRAVOIS, 1, tepee.position + Vector2(0, 160), 1)
+	var travois: Unit = Unit.all_units.filter(func(u: Unit) -> bool: return u.unit_type.guid() == UnitTepees.TRAVOIS)[0]
 	var cap: int = main.players[1].population_cap()
 	main.selection._select([travois], false)
 	main.selection.begin_targeting("pack")
 	main.selection._give_targeted(tepee.work_rect().get_center())
 	await get_tree().create_timer(14.0).timeout
-	print("packed %s, tepee gone %s, housing %d -> %d" % [travois.packed_tepee, not is_instance_valid(tepee), cap, main.players[1].population_cap()])
+	print("packed %s, tepee gone %s, housing %d -> %d" % [travois.tepees.packed, not is_instance_valid(tepee), cap, main.players[1].population_cap()])
 	main.hud.unpack_tepee()
 	main.build_controller._place(target, false)
 	for i in 5:
 		await get_tree().create_timer(5.0).timeout
 		var again := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.guid == 101 and o.owner_index == 1)
-		print("t=%ds travois at %s carrying %s; tepees %s" % [(i + 1) * 5, travois.position.round(), not travois.packed_tepee.is_empty(),
+		print("t=%ds travois at %s carrying %s; tepees %s" % [(i + 1) * 5, travois.position.round(), not travois.tepees.packed.is_empty(),
 				again.map(func(o: MapObject) -> String: return "%s %d%%" % ["up" if o.complete else "site", int(100 * o.health / o.max_health)])])
 	main.camera.position = target
 	print("housing now %d" % main.players[1].population_cap())
@@ -975,7 +976,7 @@ func _scenario_boats() -> void:
 	var boat: Unit = null
 	for i in 120:
 		await get_tree().create_timer(1.0).timeout
-		var boats := Unit.all_units.filter(func(u: Unit) -> bool: return u.is_boat())
+		var boats := Unit.all_units.filter(func(u: Unit) -> bool: return u.water.is_boat())
 		if not boats.is_empty():
 			boat = boats[0]
 			break
@@ -983,7 +984,7 @@ func _scenario_boats() -> void:
 		print("no boat launched")
 		get_tree().quit()
 		return
-	print("boat launched at %s, on deep water %s" % [boat.position.round(), boat.on_water()])
+	print("boat launched at %s, on deep water %s" % [boat.position.round(), boat.water.on_water()])
 	var army_guid: int = main.FACTIONS[faction].army
 	main._spawn_squad(army_guid, 1, spot + Vector2(0, 140), 4)
 	var soldiers := Unit.all_units.filter(func(u: Unit) -> bool: return u.unit_type.guid() == army_guid and u.team == 1)
@@ -991,9 +992,9 @@ func _scenario_boats() -> void:
 	main.selection.order_board(boat, soldiers)
 	for i in 10:
 		await get_tree().create_timer(2.0).timeout
-		if boat.passengers.size() == soldiers.size():
+		if boat.water.passengers.size() == soldiers.size():
 			break
-	print("aboard %d / %d" % [boat.passengers.size(), soldiers.size()])
+	print("aboard %d / %d" % [boat.water.passengers.size(), soldiers.size()])
 	# The nearest bank straight across deep water.
 	var landing := Vector2.INF
 	for step in 32:
@@ -1015,9 +1016,9 @@ func _scenario_boats() -> void:
 	for i in 30:
 		await get_tree().create_timer(2.0).timeout
 		main.camera.position = boat.position
-		if boat.passengers.is_empty():
+		if boat.water.passengers.is_empty():
 			break
-	print("boat at %s, passengers %d, soldiers ashore %s" % [boat.position.round(), boat.passengers.size(),
+	print("boat at %s, passengers %d, soldiers ashore %s" % [boat.position.round(), boat.water.passengers.size(),
 			soldiers.map(func(u: Unit) -> String: return "%d" % int(u.position.distance_to(landing)) if is_instance_valid(u) and not u.inside else "aboard")])
 	if GameData.cmdline_option("screenshot") == "":
 		get_tree().quit()
@@ -1050,22 +1051,22 @@ func _scenario_swim() -> void:
 	main.players[1].complete_research(914)
 	main._spawn_squad(152, 1, shore, 3)
 	main._spawn_squad(153, 1, shore + Vector2(0, 40), 1)
-	main._spawn_squad(Unit.CANOE, 1, shore + Vector2(40, 0), 1)
+	main._spawn_squad(UnitWater.CANOE, 1, shore + Vector2(40, 0), 1)
 	main.camera.position = shore
-	var swimmers := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 1 and u.unit_type.guid() in [152, 153, Unit.CANOE])
+	var swimmers := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 1 and u.unit_type.guid() in [152, 153, UnitWater.CANOE])
 	for u: Unit in swimmers:
 		u.move_to(across)
 	var seen_swimming := false
 	for i in 20:
 		await get_tree().create_timer(2.0).timeout
 		for u: Unit in swimmers:
-			if u.unit_type.guid() == Unit.CANOE and u.on_water():
+			if u.unit_type.guid() == UnitWater.CANOE and u.water.on_water():
 				print("  canoe on water plays ", u._action)
-			if u.on_water() and u._action == "swim":
+			if u.water.on_water() and u._action == "swim":
 				seen_swimming = true
 				main.camera.position = u.position
 		if i % 4 == 3:
-			print("t=%ds %s" % [(i + 1) * 2, swimmers.map(func(u: Unit) -> String: return "%d%s" % [int(u.position.distance_to(across)), "~" if u.on_water() else ""])])
+			print("t=%ds %s" % [(i + 1) * 2, swimmers.map(func(u: Unit) -> String: return "%d%s" % [int(u.position.distance_to(across)), "~" if u.water.on_water() else ""])])
 	print("swam: %s" % seen_swimming)
 	if GameData.cmdline_option("screenshot") == "":
 		get_tree().quit()

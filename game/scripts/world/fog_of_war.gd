@@ -161,7 +161,7 @@ func _circle(radius: int) -> PackedVector2Array:
 ## A detector of ours (arrow shooter, militiaman, hunter, trapper) with `point` in sight.
 func _detects(point: Vector2) -> bool:
 	for unit in Unit.all_units:
-		if unit.team == player_team and unit.is_alive() and unit.unit_type.guid() in Unit.DETECTORS \
+		if unit.team == player_team and unit.is_alive() and unit.unit_type.guid() in UnitStealth.DETECTORS \
 				and unit.position.distance_to(point) <= unit.sight():
 			return true
 	return false
@@ -171,7 +171,7 @@ func _detects(point: Vector2) -> bool:
 func _apply_to_objects() -> void:
 	for unit in Unit.all_units:
 		unit.fogged = unit.team != player_team and ((enabled and not is_visible_at(unit.position)) \
-				or (unit.concealed and not unit.detected_by(player_team)))
+				or (unit.stealth.concealed and not unit.stealth.detected_by(player_team)))
 	for object in MapObject.structures:
 		if object.is_building() and object.owner_index != player_team:
 			object.visible = not enabled or is_explored_at(object.footprint_rect().get_center())

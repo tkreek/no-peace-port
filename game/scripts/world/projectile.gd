@@ -42,7 +42,7 @@ static func launch(shooter: Unit, target: Node2D, damage: float, hit: bool) -> v
 	p._damage = damage
 	p._hit = hit
 	p._from = shooter.position + Vector2(0, -22)
-	p._to = shooter._aim_point(target)
+	p._to = shooter.aim_point(target)
 	if not hit:
 		p._to += Vector2(randf_range(-30, 30), randf_range(-20, 20))
 	p._duration = maxf(0.12, p._from.distance_to(p._to) / SPEED.get(p._kind, DEFAULT_SPEED))
@@ -68,7 +68,7 @@ func _setup(team: int) -> void:
 func _process(delta: float) -> void:
 	# Follow a moving target so a hit lands where the target now stands.
 	if _hit and is_instance_valid(_target) and _target.is_alive() and _attacker and is_instance_valid(_attacker):
-		_to = _attacker._aim_point(_target) if _target is MapObject else _target.position + Vector2(0, -16)
+		_to = _attacker.aim_point(_target) if _target is MapObject else _target.position + Vector2(0, -16)
 	_flight = minf(1.0, _flight + delta / _duration)
 	var ground := _from.lerp(_to, _flight)
 	var lift := sin(_flight * PI) * _from.distance_to(_to) * float(ARC.get(_kind, 0.0))

@@ -242,11 +242,11 @@ func _check_victory() -> void:
 					alive[index] = true
 			# A chief's tepee packed on a travois is still the people's.
 			for unit in Unit.all_units:
-				if unit.is_alive() and unit.team > 0 and int(unit.packed_tepee.get("guid", -1)) in MapObject.MAIN_BUILDINGS:
+				if unit.is_alive() and unit.team > 0 and int(unit.tepees.packed.get("guid", -1)) in MapObject.MAIN_BUILDINGS:
 					alive[unit.team] = true
 		_:
 			for node in units_root.get_children():
-				if (node is Unit and node.is_alive() and not node.is_cow()) or (node is MapObject and node.is_building() and node.is_alive()):
+				if (node is Unit and node.is_alive() and not node.animal.is_cow()) or (node is MapObject and node.is_building() and node.is_alive()):
 					var owner: int = node.team if node is Unit else node.owner_index
 					if owner > 0:
 						alive[owner] = true
@@ -280,7 +280,7 @@ func _on_building_placed(site: MapObject) -> void:
 func _on_unit_trained(building: MapObject, unit_guid: int) -> void:
 	var unit_type: UnitType = null
 	if unit_guid == MapObject.COW_GUID:
-		unit_type = UnitType.load_type(Unit.COW_DIR)  # a calf raised at the ranch or hacienda
+		unit_type = UnitType.load_type(UnitAnimal.COW_DIR)  # a calf raised at the ranch or hacienda
 	else:
 		var type := ObjectTypes.get_type(GameData.type_for_guid(unit_guid, terrain.biome))
 		if type == null:
@@ -291,7 +291,7 @@ func _on_unit_trained(building: MapObject, unit_guid: int) -> void:
 	var rect := building.footprint_rect()
 	var exit := Vector2(rect.get_center().x, rect.end.y + 12)
 	var cell := nav.nearest_walkable(nav.cell_of(exit))
-	if unit_guid in Unit.BOATS:
+	if unit_guid in UnitWater.BOATS:
 		# Boats are launched onto the water by the wharf or boathouse.
 		var water := nav.nearest_passable(nav.cell_of(rect.get_center()), 30, NavGrid.Layer.WATER)
 		if water.x < 0:
@@ -303,7 +303,7 @@ func _on_unit_trained(building: MapObject, unit_guid: int) -> void:
 	unit.setup(unit_type, building.owner_index)
 	if building.rally_point != Vector2.INF:
 		unit.move_to(building.rally_point + Vector2(randf_range(-24, 24), randf_range(-16, 16)))
-	elif unit.is_boat():
+	elif unit.water.is_boat():
 		pass
 	else:
 		unit.move_to(unit.position + Vector2(randf_range(-40, 40), 50))
@@ -403,9 +403,9 @@ func _print_report(frame: int) -> void:
 	if GameData.cmdline_option("trace-workers") != "":
 		for node in units_root.get_children():
 			if node is Unit and node.team == 1 and node.unit_type.is_hunter():
-				print("  hunter state=%d hunting=%s target=%s pos=%s carrying=%s" % [node.state, node.hunting, node.target, node.position.round(), node.carrying])
+				print("  hunter state=%d hunting=%s target=%s pos=%s carrying=%s" % [node.state, node.work.hunting, node.target, node.position.round(), node.work.carrying])
 			if node is Unit and node.team == 1 and node.state == Unit.State.GATHERING:
-				print("  worker phase=%d action=%s carrying='%s' inside=%s" % [node._gather_phase, node._action, node.carrying, node.inside])
+				print("  worker phase=%d action=%s carrying='%s' inside=%s" % [node.work.phase, node._action, node.work.carrying, node.inside])
 	var alive := {}
 	for node in units_root.get_children():
 		if node is Unit and node.is_alive():
@@ -423,8 +423,8 @@ func _print_report(frame: int) -> void:
 	var mines_heard := MapObject.all_objects.filter(func(o: MapObject) -> bool:
 		return o.is_mine() and o._mine_sound != null and o._mine_sound.playing).size()
 	print("  mines with work sound playing: %d" % mines_heard)
-	var carcasses := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 0 and not u.is_alive() and u.has_meat())
-	print("  carcasses: %s" % [carcasses.map(func(u: Unit) -> int: return u.meat_left)])
+	var carcasses := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 0 and not u.is_alive() and u.animal.has_meat())
+	print("  carcasses: %s" % [carcasses.map(func(u: Unit) -> int: return u.animal.meat_left)])
 	var now := Time.get_ticks_usec()
 	print("frame %d: %.2f ms per frame, %d units, %d objects" % [frame, (now - _report_clock) / 1000.0 / 300.0,
 			Unit.all_units.size(), MapObject.all_objects.size()])
@@ -473,6 +473,22 @@ func _setup_screenshot() -> void:
 
 ## --selftest=1: decode all sounds and maps, print a summary and quit.
 func _selftest() -> void:
+	if GameData.cmdline_option("selftest") == "parse":
+		# Load every script once so parse and type errors show up together.
+		var count := 0
+		var dirs := ["res://scripts"]
+		while not dirs.is_empty():
+			var dir: String = dirs.pop_back()
+			for sub in DirAccess.get_directories_at(dir):
+				dirs.append(dir.path_join(sub))
+			for file in DirAccess.get_files_at(dir):
+				if file.ends_with(".gd"):
+					if load(dir.path_join(file)) == null:
+						print("FAILED ", dir.path_join(file))
+					count += 1
+		print("parsed %d scripts" % count)
+		get_tree().quit()
+		return
 	if GameData.cmdline_option("selftest") == "audio":
 		Sound.play_music("mex")
 		Sound.play_sound(198)  # "landarbeiter anklicken"

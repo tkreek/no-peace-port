@@ -340,18 +340,18 @@ func _unit_detail(unit: Unit) -> String:
 		lines.append("Speed %d   %s" % [unit.move_speed(), STANCE_NAMES[unit.stance]])
 	else:
 		lines.append("Sight %d   Speed %d" % [unit.sight(), unit.move_speed()])
-	if unit.carried > 0:
-		lines.append("Carrying %d %s" % [unit.carried, unit.carrying])
-	if unit.is_boat():
-		lines.append("Passengers %d / %d" % [unit.passengers.size(), unit.boat_capacity()])
-	if not unit.packed_tepee.is_empty():
-		lines.append("Carrying a packed %s" % String(GameData.stats(int(unit.packed_tepee.guid)).get("name", "tepee")).to_lower())
-	if unit.is_cow():
-		lines.append("Worth %d gold (up to %d)" % [unit.cattle_value, Unit.COW_MAX_VALUE])
-	if Unit.CASTERS.has(unit.unit_type.guid()):
-		lines.append("Magic %d / %d" % [unit.magic_energy, unit.magic_pool()])
-	if unit.shield_time > 0.0:
-		lines.append("Shielded %d s" % ceili(unit.shield_time))
+	if unit.work.carried > 0:
+		lines.append("Carrying %d %s" % [unit.work.carried, unit.work.carrying])
+	if unit.water.is_boat():
+		lines.append("Passengers %d / %d" % [unit.water.passengers.size(), unit.water.capacity()])
+	if not unit.tepees.packed.is_empty():
+		lines.append("Carrying a packed %s" % String(GameData.stats(int(unit.tepees.packed.guid)).get("name", "tepee")).to_lower())
+	if unit.animal.is_cow():
+		lines.append("Worth %d gold (up to %d)" % [unit.animal.cattle_value, UnitAnimal.COW_MAX_VALUE])
+	if UnitMagic.CASTERS.has(unit.unit_type.guid()):
+		lines.append("Magic %d / %d" % [unit.magic.magic_energy, unit.magic.magic_pool()])
+	if unit.magic.shield_time > 0.0:
+		lines.append("Shielded %d s" % ceili(unit.magic.shield_time))
 	return "\n".join(lines)
 
 
@@ -629,7 +629,7 @@ func _refresh_commands() -> void:
 			farmers.size() > 0, building.get_instance_id() if building else 0,
 			building.complete if building else false, _build_menu, fighters.size() > 0, stances.keys(),
 			units.size() > 0, formations.keys(), selection.pending,
-			building.garrison.size() if building else 0, units.map(func(u: Unit) -> String: return "%s%d" % [u.packed_tepee.is_empty(), u.passengers.size()])]
+			building.garrison.size() if building else 0, units.map(func(u: Unit) -> String: return "%s%d" % [u.tepees.packed.is_empty(), u.water.passengers.size()])]
 	if signature == _command_signature:
 		_update_affordability()
 		return
@@ -676,10 +676,10 @@ func _refresh_commands() -> void:
 							func() -> void: set_formation(formation), formations.size() == 1 and formations.has(formation))
 		var spells := {}
 		for spell in (units[0] as Unit).known_spells():
-			if units.all(func(u: Unit) -> bool: return spell in u.known_spells()):
+			if units.all(func(u: Unit) -> bool: return spell in u.magic.known_spells()):
 				spells[spell] = true
 		for spell in spells:
-			var info: Dictionary = Unit.SPELLS[spell]
+			var info: Dictionary = UnitMagic.SPELLS[spell]
 			_add_spell_command(spell, "%s (%d magic)\n%s\nThen click the %s" % [info.name, info.cost, info.text,
 					{"point": "spot", "unit": "unit to protect", "enemy": "enemy to convert"}[info.target]])
 		var riders := units.filter(func(u: Unit) -> bool: return GameData.foot_of(u.unit_type.guid()) >= 0)
@@ -689,23 +689,23 @@ func _refresh_commands() -> void:
 						for u: Unit in riders:
 							if is_instance_valid(u):
 								u.dismount())
-		var hiders := units.filter(func(u: Unit) -> bool: return u.can_hide())
+		var hiders := units.filter(func(u: Unit) -> bool: return u.stealth.can_hide())
 		if hiders.size() == units.size():
 			var assassin := hiders.any(func(u: Unit) -> bool: return u.unit_type.guid() == 362)
 			_add_icon_command(_extra_icons, ICON_HIDE, "Dig in: wait hidden and stab passers-by" if assassin \
 					else "Camouflage: blend into the landscape until given another order", func() -> void:
 				for u: Unit in hiders:
 					u.conceal())
-		if units.all(func(u: Unit) -> bool: return u.is_boat()):
-			if units.any(func(u: Unit) -> bool: return not u.passengers.is_empty()):
+		if units.all(func(u: Unit) -> bool: return u.water.is_boat()):
+			if units.any(func(u: Unit) -> bool: return not u.water.passengers.is_empty()):
 				_add_icon_command(_extra_icons, ICON_LEAVE, "Unload (U): put the passengers ashore at the nearest bank\n(or right-click the land where they should go)",
 						unload_boats)
-		if units.all(func(u: Unit) -> bool: return u.can_pack()):
+		if units.all(func(u: Unit) -> bool: return u.tepees.can_pack()):
 			_add_icon_command(_extra_icons, ICON_ENTER, "Pack tepee (G): click one of your tepees",
 					func() -> void: selection.begin_targeting("pack"), selection.pending == "pack")
-			var loaded := units.filter(func(u: Unit) -> bool: return not u.packed_tepee.is_empty())
+			var loaded := units.filter(func(u: Unit) -> bool: return not u.tepees.packed.is_empty())
 			if not loaded.is_empty():
-				_add_icon_command(_extra_icons, ICON_LEAVE, "Set up tepee (L): %s" % GameData.stats(int(loaded[0].packed_tepee.guid)).get("name", "tepee"),
+				_add_icon_command(_extra_icons, ICON_LEAVE, "Set up tepee (L): %s" % GameData.stats(int(loaded[0].tepees.packed.guid)).get("name", "tepee"),
 						func() -> void: unpack_tepee())
 		if units.all(selection._can_quarter):
 			_add_icon_command(_extra_icons, ICON_ENTER, "Move into quarters (G): click a fort or tower",
@@ -764,8 +764,8 @@ func _refresh_commands() -> void:
 ## Place the tepee the first loaded travois in the selection carries.
 func unpack_tepee() -> void:
 	for u: Unit in selection.selection:
-		if is_instance_valid(u) and u.can_pack() and not u.packed_tepee.is_empty():
-			var type_id := GameData.type_for_guid(int(u.packed_tepee.guid), biome)
+		if is_instance_valid(u) and u.tepees.can_pack() and not u.tepees.packed.is_empty():
+			var type_id := GameData.type_for_guid(int(u.tepees.packed.guid), biome)
 			if type_id >= 0:
 				build_controller.start(type_id, u)
 			return
@@ -773,13 +773,13 @@ func unpack_tepee() -> void:
 
 func unload_boats() -> void:
 	for u: Unit in selection.selection:
-		if is_instance_valid(u) and u.is_boat():
+		if is_instance_valid(u) and u.water.is_boat():
 			u.unload_at(u.position)
 
 
 func _all_travois() -> bool:
 	var units := selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
-	return not units.is_empty() and units.all(func(u: Unit) -> bool: return u.can_pack())
+	return not units.is_empty() and units.all(func(u: Unit) -> bool: return u.tepees.can_pack())
 
 
 func _open_build_menu(menu: String) -> void:
@@ -831,7 +831,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		var building := selection.selected_building
 		if is_instance_valid(building) and building.owner_index == player.index:
 			building.demolish()
-	elif key == KEY_U and selection.selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_boat()):
+	elif key == KEY_U and selection.selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.water.is_boat()):
 		unload_boats()
 	elif key == KEY_G and _all_travois():
 		selection.begin_targeting("pack")

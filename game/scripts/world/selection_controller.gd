@@ -75,7 +75,7 @@ func _give_targeted(world: Vector2) -> void:
 		if on_unit == null:
 			on_unit = _unit_at(world, false)
 		for unit: Unit in units:
-			if spell in unit.known_spells():
+			if spell in unit.magic.known_spells():
 				unit.cast(spell, world, on_unit)
 				break  # one caster is enough
 		OrderMarker.spawn(units_root, world, player_team)
@@ -95,8 +95,8 @@ func _give_targeted(world: Vector2) -> void:
 					unit.follow(leader)
 		"pack":
 			var tepee := _building_at(world)
-			if tepee and tepee.guid in Unit.TEPEES and tepee.complete:
-				var travois := units.filter(func(u: Unit) -> bool: return u.can_pack() and u.packed_tepee.is_empty())
+			if tepee and tepee.guid in UnitTepees.TEPEES and tepee.complete:
+				var travois := units.filter(func(u: Unit) -> bool: return u.tepees.can_pack() and u.tepees.packed.is_empty())
 				travois.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.distance_to(tepee.position) < b.position.distance_to(tepee.position))
 				if not travois.is_empty():
 					travois[0].pack(tepee)
@@ -176,9 +176,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			if site and (not site.complete or site.needs_repair()) and selection.any(func(u: Unit) -> bool: return _is_builder(u, site.guid)):
 				order_build(site)
 			elif site and site.guid in MapObject.ANIMAL_PROCESSING and site.complete \
-					and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_cow()):
-				for cow: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_cow()):
-					cow.deliver(site)
+					and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_cow()):
+				for cow: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_cow()):
+					cow.animal.deliver(site)
 				site.flash()
 			elif site and site.is_gold_warehouse() and site.complete and selection.any(_is_transport):
 				order_haul(site)
@@ -186,36 +186,36 @@ func _unhandled_input(event: InputEvent) -> void:
 				order_haul(_abandoned_at(world))
 			elif site and site.capacity() > 0 and selection.any(_can_quarter):
 				order_quarters(site)
-			elif animal and animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.may_hunt_horses()):
+			elif animal and animal.animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.may_hunt_horses()):
 				# Hunters (but not the Native Americans') shoot the horse for its meat.
-				for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.may_hunt_horses()):
+				for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.may_hunt_horses()):
 					unit.hunt(animal)
 				animal.flash(Color(1.0, 0.35, 0.3))
 				Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
-			elif animal and animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.can_mount()):
+			elif animal and animal.animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.riding.can_mount()):
 				# Mount the wild horse: the nearest unit that can ride takes it.
-				var riders := selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.can_mount())
+				var riders := selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.riding.can_mount())
 				riders.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.distance_to(animal.position) < b.position.distance_to(animal.position))
 				riders[0].mount(animal)
 				animal.flash(Color(1.0, 0.9, 0.4))
 				Sound.play_event(riders[0].unit_type.guid(), Sound.Event.ORDER)
 			elif site and site.guid in MapObject.HORSE_BUILDINGS and site.complete \
-					and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_horse()):
-				for horse: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_horse()):
-					horse.stable(site)
+					and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_horse()):
+				for horse: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_horse()):
+					horse.animal.stable(site)
 				site.flash()
 			elif animal and selection.any(func(u: Unit) -> bool: return u.unit_type.is_hunter()):
 				for unit in selection:
 					if is_instance_valid(unit) and unit.unit_type.is_hunter():
 						unit.hunt(animal)
 				Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
-			elif enemy is Unit and enemy.unit_type.is_transport() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.can_steal()):
-				for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.can_steal()):
+			elif enemy is Unit and enemy.unit_type.is_transport() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_steal()):
+				for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_steal()):
 					unit.steal(enemy)
 				enemy.flash(Color(1.0, 0.9, 0.4))
 				Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
-			elif enemy is MapObject and Unit.loot_of(enemy) > 0 and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.can_rob()):
-				for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.can_rob()):
+			elif enemy is MapObject and UnitWork.loot_of(enemy) > 0 and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_rob()):
+				for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_rob()):
 					unit.rob(enemy)
 				enemy.flash(Color(1.0, 0.9, 0.4))
 				Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
@@ -254,11 +254,11 @@ func _unhandled_input(event: InputEvent) -> void:
 func _water_order(world: Vector2) -> bool:
 	var units := selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
 	var boat := _unit_at(world)
-	var walkers := units.filter(func(u: Unit) -> bool: return not u.is_boat() and u.unit_type.guid() != Unit.CANOE)
-	if boat and boat.is_boat() and not walkers.is_empty():
+	var walkers := units.filter(func(u: Unit) -> bool: return not u.water.is_boat() and u.unit_type.guid() != UnitWater.CANOE)
+	if boat and boat.water.is_boat() and not walkers.is_empty():
 		order_board(boat, walkers)
 		return true
-	var loaded := units.filter(func(u: Unit) -> bool: return u.is_boat() and not u.passengers.is_empty())
+	var loaded := units.filter(func(u: Unit) -> bool: return u.water.is_boat() and not u.water.passengers.is_empty())
 	var nav := NavGrid.current
 	if not loaded.is_empty() and nav and nav.is_walkable(nav.cell_of(world)) and not nav.is_water(nav.cell_of(world)):
 		for u: Unit in loaded:
@@ -275,7 +275,7 @@ func _water_order(world: Vector2) -> bool:
 ## The units walk to the shore by the boat and climb aboard; the boat, if idle, comes to the
 ## water's edge nearest them.
 func order_board(boat: Unit, walkers: Array) -> void:
-	var room := boat.boat_capacity() - boat.passengers.size()
+	var room := boat.water.capacity() - boat.water.passengers.size()
 	if room <= 0:
 		Sound.play_sound(80)
 		return
@@ -285,7 +285,7 @@ func order_board(boat: Unit, walkers: Array) -> void:
 	if nav and boat.state == Unit.State.IDLE:
 		var centre := _centre(walkers)
 		var shore := nav.nearest_passable(nav.cell_of(centre), 40, NavGrid.Layer.WATER)
-		if shore.x >= 0 and nav.center_of(shore).distance_to(boat.position) > Unit.BOARD_REACH:
+		if shore.x >= 0 and nav.center_of(shore).distance_to(boat.position) > UnitWater.BOARD_REACH:
 			boat.move_to(nav.center_of(shore))
 	walkers.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.distance_to(boat.position) < b.position.distance_to(boat.position))
 	for unit: Unit in walkers.slice(0, room):
@@ -314,7 +314,7 @@ func _units(own: bool) -> Array[Unit]:
 
 func _animal_at(point: Vector2) -> Unit:
 	for unit in Unit.all_units:
-		if unit.has_meat() and point.distance_to(unit.position + Vector2(0, -12)) < CLICK_RADIUS:
+		if unit.animal.has_meat() and point.distance_to(unit.position + Vector2(0, -12)) < CLICK_RADIUS:
 			return unit
 	return null
 
@@ -427,7 +427,7 @@ func order_attack(enemy: Node2D, at_horse := false) -> void:
 	Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	for unit in selection:
 		unit.attack(enemy, true)
-		unit.aim_at_horse = at_horse
+		unit.riding.aim_at_horse = at_horse
 
 
 func _units_in(rect: Rect2) -> Array[Unit]:

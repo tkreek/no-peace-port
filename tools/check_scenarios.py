@@ -21,6 +21,7 @@ ISLANDS = "--map=[2 Players] - 2 islands.alf"
 
 # name -> (extra arguments, frames to stop after or 0 if it quits itself, expected patterns)
 CHECKS = {
+    "parse": ([], 0, [r"parsed \d+ scripts"]),
     "abandoned": (["--map=[4 Players] - forts.alf"], 0, [r"store left 0; guns \d+ -> \d+"]),
     "rob": (["--faction=des"], 1200, [r"robber can rob true, barber can steal true", r"our gold \+[1-9]"]),
     "horses": ([], 0, [r"mounted: true \(horse gone true\)", r"horses 1 / 5, cowboy on foot again true"]),
@@ -42,6 +43,9 @@ CHECKS = {
     "boats": (["--faction=usa", "--time-scale=4", ISLANDS], 0, [r"aboard 4 / 4", r"passengers 0, soldiers ashore"]),
     "swim": (["--faction=ind", ISLANDS], 0, [r"swam: true", r"canoe on water plays paddle"]),
     "saveload": ([], 0, [r"before: units (\d+)", r"after: +units \d+"]),
+    # Six computer players for ten game minutes: no script errors, and the waves go out.
+    "aigame": (["--ai-vs-ai=1", "--players=mex,usa,ind,des,mex,usa", "--time-scale=4", "--trace-ai=1",
+                "--map=[6 Players] - oasis.alf"], 4500, [r"attacks with \d+ units"]),
 }
 
 
@@ -51,7 +55,12 @@ def run(name):
     command = ["godot", "--headless", "--path", GAME]
     if frames:
         command += ["--fixed-fps", "30"]
-    command += ["--", "--scenario=" + scenario] + BASE + args
+    if name == "parse":
+        command += ["--", "--selftest=parse"]
+    elif name == "aigame":
+        command += ["--", "--fog=off"] + args
+    else:
+        command += ["--", "--scenario=" + scenario] + BASE + args
     if frames:
         command.append("--report-after=%d" % frames)
     started = time.time()

@@ -66,6 +66,7 @@ var _parts: Array[UnitPart] = []  # in the order they get the frame
 var _patrol := PackedVector2Array()  ## the two ends of a patrol route
 var _ordered := false  ## the current target was picked by the player, not by the stance
 var _attack_step := -1  # position in unit_type.attack_anims, -1 = not in an attack
+var _released := false  # the shot of this attack has left early (UnitType.release_frame)
 var _cooldown := 0.0
 var _scan_timer := randf() * SCAN_INTERVAL
 var _last_repath := 0
@@ -666,6 +667,7 @@ func _update_attack(delta: float) -> void:
 	face(to_target)
 	if _cooldown <= 0.0:
 		_attack_step = 0
+		_released = false
 		_play_index(unit_type.attack_anims[0])
 	else:
 		play("idle")
@@ -674,9 +676,13 @@ func _update_attack(delta: float) -> void:
 func _continue_attack() -> void:
 	if is_instance_valid(target):
 		face(aim_point(target) - position)
+	var releasing := _attack_step == unit_type.fire_step and unit_type.release_frame >= 0
+	if releasing and not _released and _step >= unit_type.release_frame:
+		_released = true
+		_strike()
 	if not _anim_finished:
 		return
-	if _attack_step == unit_type.fire_step:
+	if _attack_step == unit_type.fire_step and not releasing:
 		_strike()
 	_attack_step += 1
 	if _attack_step >= unit_type.attack_anims.size():

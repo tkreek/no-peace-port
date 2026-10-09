@@ -5,9 +5,13 @@ extends Node2D
 ## deals the damage when it lands; cannonballs and dynamite burst into the original
 ## explosion animation and hurt everyone close by.
 
-const SPEED := {"ball": 1100.0, "dynamite": 480.0, "tomahawk": 620.0, "knife": 720.0}
+const SPEED := {"ball": 1800.0, "dynamite": 480.0, "tomahawk": 620.0, "knife": 720.0}
 const DEFAULT_SPEED := 900.0  # arrows
-const ARC := {"ball": 0.18, "dynamite": 0.3, "tomahawk": 0.12, "knife": 0.06}
+const ARC := {"ball": 0.03, "dynamite": 0.3, "tomahawk": 0.12, "knife": 0.06}
+## Kinds that fly straight at where the target stood when fired instead of following it.
+const STRAIGHT := ["ball"]
+## Cannonballs leave from the muzzle: this far out along the barrel, and this high.
+const MUZZLE := Vector2(30.0, -14.0)
 const EXPLOSION_BOB := "effects/explosion/explosion.anims.json"
 const SPLASH_RADIUS := 40.0
 ## Impact sounds from the sound table (GUID 720 cannonball, 721 dynamite; event "shoot").
@@ -42,6 +46,9 @@ static func launch(shooter: Unit, target: Node2D, damage: float, hit: bool) -> v
 	p._damage = damage
 	p._hit = hit
 	p._from = shooter.position + Vector2(0, -22)
+	if p._kind == "ball":
+		var barrel := Vector2.from_angle(deg_to_rad(shooter.direction * 45.0 + 45.0))
+		p._from = shooter.position + barrel * MUZZLE.x + Vector2(0, MUZZLE.y)
 	p._to = shooter.aim_point(target)
 	if not hit:
 		p._to += Vector2(randf_range(-30, 30), randf_range(-20, 20))
@@ -67,7 +74,7 @@ func _setup(team: int) -> void:
 
 func _process(delta: float) -> void:
 	# Follow a moving target so a hit lands where the target now stands.
-	if _hit and is_instance_valid(_target) and _target.is_alive() and _attacker and is_instance_valid(_attacker):
+	if _hit and _kind not in STRAIGHT and is_instance_valid(_target) and _target.is_alive() and _attacker and is_instance_valid(_attacker):
 		_to = _attacker.aim_point(_target) if _target is MapObject else _target.position + Vector2(0, -16)
 	_flight = minf(1.0, _flight + delta / _duration)
 	var ground := _from.lerp(_to, _flight)

@@ -65,6 +65,9 @@ var reload_ms := 1500
 ## Body animation indices played in order for one attack (e.g. aim, fire, reload).
 var attack_anims := PackedInt32Array()
 var fire_step := 0  ## index into attack_anims at which the shot/blow lands
+## Frame of the firing animation at which the shot leaves (-1: when it has played out).
+## A cannon's sheet opens with the muzzle flash, so its ball is away at once.
+var release_frame := -1
 var min_range := 0.0  ## ranged units cannot fire at enemies closer than this
 var projectile_anim := -1
 var carry := CARRY_AMOUNT  ## resources carried per trip  ## a flying arrow, knife, tomahawk, cannonball or stick of dynamite
@@ -160,6 +163,8 @@ func _setup_combat() -> void:
 		var index := _find(stem, false, true)
 		if index >= 0:
 			projectile_anim = index
+			if stem == "ball":
+				release_frame = 1
 			break
 
 

@@ -69,6 +69,7 @@ func _ready() -> void:
 	nav.setup(map)
 	_spawn_placements(map)
 	selection.units_root = units_root
+	selection.camera = camera
 	add_child(selection)
 	camera.bounds = Rect2(Vector2.ZERO, map.pixel_size())
 	add_child(camera)
@@ -666,6 +667,15 @@ func _scenario_damage() -> void:
 		built.append(b)
 	ai.free()
 	camera.position = built[1].position + Vector2(0, -60)
+	if GameData.cmdline_option("repair") != "":
+		var builders := units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.anim_index("build") >= 0)
+		selection._select(builders, false)
+		selection.order_build(built[1])
+		var wood: int = players[1].resources.wood
+		for i in 6:
+			await get_tree().create_timer(5.0).timeout
+			print("repair t=%ds energy %d%% anim %d fires %d wood -%d" % [(i + 1) * 5, int(100 * built[1].health / built[1].max_health), built[1]._body_anim, built[1]._fires.size(), wood - players[1].resources.wood])
+		get_tree().quit()
 	print("damage: ", built.map(func(b: MapObject) -> String: return "%d%% anim %d fires %d" % [int(100 * b.health / b.max_health), b._body_anim, b._fires.size()]))
 
 

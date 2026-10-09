@@ -18,6 +18,11 @@ var _dragging := false
 var _pressed := false
 ## A command waiting for its target click: "patrol", "follow" or "rally" ("" = none).
 var pending := ""
+var camera: Camera2D
+var _last_group := -1
+var _last_group_time := 0
+var _idle_index := 0
+var _double := false
 var _rally_flag: OrderMarker
 
 
@@ -45,6 +50,19 @@ func _process(_delta: float) -> void:
 		_rally_flag = OrderMarker.flag(units_root, rally, player_team)
 	else:
 		_rally_flag.position = rally
+
+
+## "." : the next idle worker or woman, selected and centred (manual 3.2).
+func _select_idle_worker() -> void:
+	var idle := _units(true).filter(func(u: Unit) -> bool:
+		return u.state == Unit.State.IDLE and (u.unit_type.can_gather("wood") or u.unit_type.is_farmer()))
+	if idle.is_empty():
+		return
+	_idle_index = (_idle_index + 1) % idle.size()
+	var unit: Unit = idle[_idle_index]
+	_select([unit], false)
+	if camera:
+		camera.position = unit.position
 
 
 func _give_targeted(world: Vector2) -> void:
@@ -96,11 +114,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				_pressed = true
+				_double = event.double_click
 				_drag_start = world
 			elif _pressed:
 				_pressed = false
 				if _dragging:
 					_select(_units_in(Rect2(_drag_start, world - _drag_start).abs()), event.shift_pressed)
+				elif _double:
+					# Double-click: every unit of that kind on screen.
+					var unit := _unit_at(world)
+					if unit:
+						var view := get_viewport().get_canvas_transform().affine_inverse() * get_viewport().get_visible_rect()
+						_select(_units(true).filter(func(u: Unit) -> bool:
+							return u.unit_type == unit.unit_type and view.has_point(u.position)), event.shift_pressed)
 				else:
 					var unit := _unit_at(world)
 					if unit == null and not event.shift_pressed:
@@ -120,7 +146,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			var source := _resource_at(world)
 			var animal := _animal_at(world)
 			var site := _building_at(world)
-			if site and not site.complete and selection.any(_is_builder):
+			if site and (not site.complete or site.needs_repair()) and selection.any(func(u: Unit) -> bool: return _is_builder(u, site.guid)):
 				order_build(site)
 			elif site and site.is_gold_warehouse() and site.complete and selection.any(_is_transport):
 				order_haul(site)
@@ -148,7 +174,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			if event.ctrl_pressed:
 				groups[digit] = selection.duplicate()
 			elif groups.has(digit):
-				_select(groups[digit].filter(is_instance_valid), false)
+				var members: Array = groups[digit].filter(func(u) -> bool: return is_instance_valid(u) and u.is_alive())
+				# Pressing the number again centres the view on the group (manual 3.2).
+				var again := _last_group == digit and Time.get_ticks_msec() - _last_group_time < 600
+				_last_group = digit
+				_last_group_time = Time.get_ticks_msec()
+				_select(members, false)
+				if again and not members.is_empty() and camera:
+					camera.position = _centre(members)
+		elif event.keycode == KEY_PERIOD:
+			_select_idle_worker()
 
 
 func _draw() -> void:

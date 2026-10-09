@@ -205,6 +205,39 @@ func take_gold(wanted: int) -> int:
 	return taken
 
 
+func needs_repair() -> bool:
+	return is_building() and complete and health > 0.0 and health < max_health
+
+
+## Repairing (manual 3.5): a builder restores energy at the construction pace, paying the
+## share of the building's cost that the restored energy represents.
+func add_repair_work(seconds: float) -> bool:
+	var total := maxf(5.0, float(GameData.stats(guid).get("build_time", max_health * BUILD_WORK_PER_HEALTH)))
+	var restore := minf(max_health - health, max_health * seconds / total)
+	var cost: Dictionary = GameData.stats(guid).get("cost", {})
+	var player: Player = Player.by_index.get(owner_index)
+	_repair_debt += restore / max_health * 0.5  # half price, settled in whole units
+	var bill := {}
+	for key in cost:
+		if Player.RESOURCES.has(key):
+			var due := int(float(cost[key]) * _repair_debt)
+			if due > 0:
+				bill[key] = due
+	if not bill.is_empty():
+		if player == null or not player.spend(bill):
+			return false
+		_repair_debt = 0.0
+	health += restore
+	_overlay.queue_redraw()
+	_update_fires()
+	if health >= max_health * BURNT_BELOW and _body_anim == BURNT_ANIM:
+		_refresh_sprites()
+	return true
+
+
+var _repair_debt := 0.0
+
+
 ## Tear the building down (Del). Queued orders are refunded, and so is the part of the
 ## construction cost not yet built into an unfinished site.
 func demolish() -> void:
@@ -616,6 +649,8 @@ func _process(delta: float) -> void:
 		_update_garrison(delta)
 	if guid == DISTILLERY_GUID and complete:
 		_distill(delta)
+	if guid in INCOME_BUILDINGS and complete and health > 0.0:
+		_earn(delta)
 	if queue.is_empty() or not complete:
 		return
 	var unit_guid := queue[0]
@@ -647,6 +682,30 @@ func _process(delta: float) -> void:
 		unit_trained.emit(self, unit_guid)
 	if selected:
 		_overlay.queue_redraw()
+
+
+## Banks (interest) and missions (donations) pay gold on their own; more of them pay more,
+## up to five each (manual).
+const INCOME_BUILDINGS := [416, 216]
+const INCOME_GOLD := 15
+const INCOME_SECONDS := 12.0
+var _income_timer := 0.0
+
+
+func _earn(delta: float) -> void:
+	_income_timer += delta
+	if _income_timer < INCOME_SECONDS:
+		return
+	_income_timer = 0.0
+	var same := 0
+	for object in all_objects:
+		if object.guid == guid and object.owner_index == owner_index and object.complete and object.is_alive():
+			same += 1
+			if object == self and same > 5:
+				return
+	var player: Player = Player.by_index.get(owner_index)
+	if player:
+		player.add("gold", INCOME_GOLD)
 
 
 func _distill(delta: float) -> void:

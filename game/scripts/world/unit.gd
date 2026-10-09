@@ -152,6 +152,38 @@ func attack_damage() -> float:
 	return (unit_type.damage + _bonus("attack")) * morale()
 
 
+## Spear fighters and whip crackers are "very effective against mounted units"; flaming
+## arrows, dynamite and cannon fire set about buildings, which bullets and blades barely dent.
+const ANTI_CAVALRY := [162, 363]
+const BUILDING_BREAKERS := [154, 158, 159, 276, 277, 265, 465, 359, 468]
+
+
+func damage_factor(against: Node2D) -> float:
+	var me := unit_type.guid()
+	if against is MapObject:
+		return 3.0 if me in BUILDING_BREAKERS else 0.5
+	if against is Unit and against.unit_type.mounted and me in ANTI_CAVALRY:
+		return 2.0
+	return 1.0
+
+
+## Native Americans heal over time with herb blends; outlaws once Self-healing is researched.
+const SELF_HEALING_UPGRADE := 957
+const SELF_HEAL_PER_SECOND := 0.6
+var _heal_timer := 0.0
+
+
+func _self_heal(delta: float) -> void:
+	_heal_timer -= delta
+	if _heal_timer > 0.0 or health >= max_health or team <= 0:
+		return
+	_heal_timer = 1.0
+	var player: Player = Player.by_index.get(team)
+	if player and (player.faction == "ind" or (player.faction == "des" and player.researched.has(SELF_HEALING_UPGRADE))):
+		health = minf(max_health, health + SELF_HEAL_PER_SECOND)
+		_overlay.queue_redraw()
+
+
 ## Morale (manual 4.4): 80% .. 120%. The leader's falls the further he is from the main
 ## building; everyone else's depends on how close the leader is, and drops to 80% when he
 ## is dead. It scales fighting and working alike.
@@ -377,8 +409,10 @@ func meat_value() -> int:
 
 
 ## Walk to a construction site and work on it until it is finished.
+## Build a construction site, or repair a damaged finished building.
 func build(site: MapObject) -> void:
-	if not is_alive() or site == null or site.complete or not unit_type.can_build(site.guid):
+	if not is_alive() or site == null or not unit_type.can_build(site.guid) \
+			or (site.complete and not site.needs_repair()):
 		return
 	_clear_orders()
 	build_site = site
@@ -501,6 +535,8 @@ func _process(delta: float) -> void:
 					queue_free()
 	if state != State.DEAD and not inside:
 		_separate(delta)
+	if state != State.DEAD:
+		_self_heal(delta)
 	if debug_paths:
 		_overlay.queue_redraw()
 	_advance(delta)
@@ -657,10 +693,11 @@ func _strike() -> void:
 	if unit_type.ranged:
 		var accuracy := clampf(1.1 - position.distance_to(_aim_point(target)) / (attack_range() * 1.6), 0.4, 0.95)
 		hit = randf() <= accuracy
+	var damage := attack_damage() * damage_factor(target)
 	if unit_type.ranged and unit_type.projectile_anim >= 0:
-		Projectile.launch(self, target, attack_damage(), hit)  # damage lands with it
+		Projectile.launch(self, target, damage, hit)  # damage lands with it
 	elif hit:
-		target.take_damage(attack_damage(), self)
+		target.take_damage(damage, self)
 
 
 func _die() -> void:
@@ -852,7 +889,8 @@ func _main_building() -> MapObject:
 
 
 func _update_build(delta: float) -> void:
-	if build_site == null or not is_instance_valid(build_site) or build_site.complete:
+	if build_site == null or not is_instance_valid(build_site) or not build_site.is_alive() \
+			or (build_site.complete and not build_site.needs_repair()):
 		build_site = null
 		state = State.IDLE
 		return
@@ -867,7 +905,11 @@ func _update_build(delta: float) -> void:
 	face(build_site.work_rect().get_center() - position)
 	# Women without a hammering animation swing their axe instead.
 	play_repeating("build" if unit_type.anim_index("build") >= 0 else "chop")
-	build_site.add_build_work(delta)
+	if build_site.complete:
+		if not build_site.add_repair_work(delta):
+			stop()  # out of resources for the repair
+	else:
+		build_site.add_build_work(delta)
 
 
 ## Walk up to the kill and gut it (the hunters' "erlegen"/"ausbeinen" animation), then

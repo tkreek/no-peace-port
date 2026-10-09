@@ -241,6 +241,7 @@ func order_at(world: Vector2, ctrl := false) -> void:
 		for unit in selection:
 			if is_instance_valid(unit) and unit.unit_type.is_hunter():
 				unit.hunt(animal)
+		animal.flash(Color(1.0, 0.35, 0.3))  # marked as the target, like an attack order
 		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	elif enemy is Unit and enemy.unit_type.is_transport() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_steal()):
 		for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_steal()):

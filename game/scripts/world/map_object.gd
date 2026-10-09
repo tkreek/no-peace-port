@@ -60,6 +60,9 @@ var train_progress := 0.0  # 0..1 for queue[0]
 var field_state := Field.FALLOW
 var field_progress := 0.0  # sowing work done, then growth (0..1)
 var _distill_timer := 0.0
+## Gold mines: worker-seconds spent inside; the entrance gets timbered as work goes on.
+var mine_work := 0.0
+const MINE_FRAMED_AFTER := 12.0  # worker-seconds until the timbered entrance is finished
 
 var _bob: BobFile
 var _body: Sprite2D
@@ -112,6 +115,27 @@ func is_field() -> bool:
 	return guid == FIELD_GUID
 
 
+func is_mine() -> bool:
+	return object_type != null and object_type.name.begins_with("Mine")
+
+
+## Workers inside a mine build up its timber entrance (original frames: bare, framing, timbered).
+func add_mine_work(seconds: float) -> void:
+	var before := _mine_stage()
+	mine_work += seconds
+	if _mine_stage() != before:
+		_refresh_sprites()
+
+
+## 0 untouched, 1 framing going up, 2 timbered entrance, 3 boarded up (exhausted).
+func _mine_stage() -> int:
+	if amount <= 0:
+		return 3
+	if mine_work <= 0.0:
+		return 0
+	return 1 if mine_work < MINE_FRAMED_AFTER else 2
+
+
 ## Add sowing work; returns true once the field is sown and starts growing.
 func sow(seconds: float) -> bool:
 	if field_state != Field.FALLOW:
@@ -145,6 +169,8 @@ func harvest(wanted: int) -> int:
 		return 0
 	var taken := mini(wanted, amount)
 	amount -= taken
+	if is_mine() and amount <= 0:
+		_refresh_sprites()
 	if is_field():
 		if amount <= 0:
 			field_state = Field.FALLOW
@@ -290,7 +316,18 @@ func _refresh_sprites() -> bool:
 	var body_anim := object_type.anim
 	var shadow_anim := object_type.shadow_anim
 	var frame_hint := -1  # -1 = last frame of the animation
-	if is_field():
+	if is_mine() and _bob.anims.size() >= 6:
+		# Anim pairs (body, shadow): 0/1 untouched, 2/3 framing -> timbered, 4/5 exhausted.
+		match _mine_stage():
+			0:
+				body_anim = 0
+			1, 2:
+				body_anim = 2
+				frame_hint = _mine_stage() - 1
+			3:
+				body_anim = 4
+		shadow_anim = body_anim + 1
+	elif is_field():
 		body_anim = 0
 		var stage := 0
 		match field_state:

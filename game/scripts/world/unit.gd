@@ -386,6 +386,8 @@ func _update_gather(delta: float) -> void:
 				return
 			if gather_source.resource == "food":
 				play("harvest")
+			elif gather_source.is_mine():
+				gather_source.add_mine_work(delta)
 			_work_timer -= delta
 			if gather_source.resource == "wood":
 				play("chop")

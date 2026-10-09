@@ -210,7 +210,8 @@ func _haul_gold(transports: Array) -> void:
 func _farm(units: Array, hq: MapObject) -> void:
 	var store := _faction_guid(MapObject.FOOD_STORES)
 	if store < 0:
-		return  # the outlaws distil liquor instead
+		_distil(units, hq)  # the outlaws distil liquor instead
+		return
 	var fields := MapObject.all_objects.filter(func(o: MapObject) -> bool:
 		return o.is_field() and o.owner_index == player.index)
 	var store_pending := _my_buildings().any(func(b: MapObject) -> bool: return b.guid == store)
@@ -250,6 +251,16 @@ func _farm(units: Array, hq: MapObject) -> void:
 			if counts.get(field, 0) < counts.get(least, 0):
 				least = field
 		unit.gather(least)
+
+
+## Outlaws turn wood into liquor: keep a distillery per few workers while food runs low.
+func _distil(units: Array, hq: MapObject) -> void:
+	var distilleries := _my_buildings().filter(func(b: MapObject) -> bool: return b.guid == MapObject.DISTILLERY_GUID).size()
+	var wanted := 1 + _my_units().size() / 12
+	var food := int(player.resources.get("food", 0))
+	if distilleries < wanted and food < 2500 and _sites() < _level().sites and _affordable(MapObject.DISTILLERY_GUID):
+		_place(MapObject.DISTILLERY_GUID, hq.position, units.filter(func(u: Unit) -> bool:
+			return u.unit_type.can_build(MapObject.DISTILLERY_GUID)))
 
 
 # ------------------------------------------------------------------ building

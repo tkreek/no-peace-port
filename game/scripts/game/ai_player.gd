@@ -56,6 +56,7 @@ func _think() -> void:
 					break
 	_build(workers, hq)
 	_train_army()
+	_research()
 	if army.size() >= ATTACK_ARMY + _attack_wave * 2:
 		_attack(army)
 
@@ -315,6 +316,19 @@ func _train_army() -> void:
 		for guid in options:
 			if building.enqueue(guid):
 				break
+
+
+## Spend spare food and gold on upgrades, one at a time.
+func _research() -> void:
+	if int(player.resources.get("gold", 0)) < 600 or int(player.resources.get("food", 0)) < 800:
+		return
+	for building: MapObject in _my_buildings():
+		if not building.queue.is_empty():
+			continue
+		var options := building.researchable_upgrades()
+		if not options.is_empty():
+			building.enqueue(options[randi() % options.size()])
+			return
 
 
 func _attack(army: Array) -> void:

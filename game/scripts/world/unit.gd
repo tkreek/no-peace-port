@@ -80,6 +80,7 @@ func setup(type: UnitType, team_index: int) -> void:
 	team = team_index
 	max_health = type.health
 	health = max_health
+	refresh_upgrades.call_deferred()
 	guard_position = position
 	for sprite: Sprite2D in [_shadow, _body]:
 		sprite.centered = false
@@ -104,6 +105,42 @@ var _flash_time := 0.0
 func flash(color := Color(1.0, 0.35, 0.3)) -> void:
 	_flash_time = 0.8
 	_body.self_modulate = color
+
+
+## Researched upgrades of this unit's player (see Player.bonus).
+func _bonus(effect: String) -> float:
+	var player: Player = Player.by_index.get(team)
+	return player.bonus(unit_type.guid(), effect, unit_type.mounted) if player else 0.0
+
+
+## Re-apply life-energy upgrades, keeping the current health ratio.
+func refresh_upgrades() -> void:
+	if not is_alive():
+		return
+	var ratio := health / max_health if max_health > 0 else 1.0
+	max_health = unit_type.health * (1.0 + _bonus("health_pct") / 100.0)
+	health = max_health * ratio
+	_overlay.queue_redraw()
+
+
+func attack_damage() -> float:
+	return unit_type.damage + _bonus("attack")
+
+
+func attack_range() -> float:
+	return unit_type.attack_range * (1.0 + _bonus("range_pct") / 100.0)
+
+
+func sight() -> float:
+	return unit_type.sight * (1.0 + _bonus("sight_pct") / 100.0)
+
+
+func move_speed() -> float:
+	var tiers := int(_bonus("speed_tiers"))
+	if tiers == 0:
+		return unit_type.speed
+	var tier := int(GameData.stats(unit_type.guid()).get("speed_tier", 2)) + tiers
+	return GameData.def_value("LaufenSpeed%d" % mini(tier, 5), 100) * 0.6
 
 
 func display_name() -> String:
@@ -229,7 +266,7 @@ func _process(delta: float) -> void:
 			_scan_timer -= delta
 			if _scan_timer <= 0.0:
 				_scan_timer = SCAN_INTERVAL
-				var enemy := _nearest_enemy(unit_type.sight)
+				var enemy := _nearest_enemy(sight())
 				if enemy:
 					attack(enemy)
 			play("idle")
@@ -238,7 +275,7 @@ func _process(delta: float) -> void:
 				_scan_timer -= delta
 				if _scan_timer <= 0.0:
 					_scan_timer = SCAN_INTERVAL
-					var enemy := _nearest_target(unit_type.sight)
+					var enemy := _nearest_target(sight())
 					if enemy:
 						var resume := guard_position
 						attack(enemy)
@@ -283,7 +320,7 @@ func _update_attack(delta: float) -> void:
 			return
 		if _attack_step < 0:
 			# Look for the next enemy nearby before standing down.
-			var enemy := _nearest_target(unit_type.sight)
+			var enemy := _nearest_target(sight())
 			if enemy:
 				target = enemy
 			elif position.distance_to(guard_position) > 64.0 and guard_position != Vector2.ZERO:
@@ -296,7 +333,7 @@ func _update_attack(delta: float) -> void:
 		_continue_attack()
 		return
 	var to_target := _aim_point(target) - position
-	if to_target.length() > unit_type.attack_range:
+	if to_target.length() > attack_range():
 		var now := Time.get_ticks_msec()
 		if path.is_empty() or now - _last_repath > REPATH_MS:
 			_last_repath = now
@@ -336,10 +373,10 @@ func _strike() -> void:
 	Sound.play_event(unit_type.guid(), event, position, 60)
 	# Ranged hits are not certain; distance makes them less likely.
 	if unit_type.ranged:
-		var accuracy := clampf(1.1 - position.distance_to(_aim_point(target)) / (unit_type.attack_range * 1.6), 0.4, 0.95)
+		var accuracy := clampf(1.1 - position.distance_to(_aim_point(target)) / (attack_range() * 1.6), 0.4, 0.95)
 		if randf() > accuracy:
 			return
-	target.take_damage(unit_type.damage, self)
+	target.take_damage(attack_damage(), self)
 
 
 func _die() -> void:
@@ -379,7 +416,10 @@ func _update_gather(delta: float) -> void:
 			if gather_source.work_rect().grow(REACH).has_point(position) or path.is_empty():
 				path.clear()
 				_gather_phase = Gather.WORKING
-				_work_timer = WORK_SECONDS.get(gather_source.resource, 4.0)
+				var faster := _bonus("chop_pct") if gather_source.resource == "wood" else _bonus("mine_pct")
+				if gather_source.resource == "food":
+					faster = 0.0
+				_work_timer = WORK_SECONDS.get(gather_source.resource, 4.0) / (1.0 + faster / 100.0)
 				face(gather_source.work_rect().get_center() - position)
 				if gather_source.resource == "gold":
 					inside = true  # workers go inside the mine
@@ -581,7 +621,7 @@ func _follow_path(delta: float) -> void:
 	if path.is_empty():
 		return
 	var to_point := path[0] - position
-	var step := unit_type.speed * delta
+	var step := move_speed() * delta
 	if to_point.length() <= maxf(step, ARRIVE_DISTANCE):
 		position = path[0]
 		path.remove_at(0)

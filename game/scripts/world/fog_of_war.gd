@@ -74,7 +74,7 @@ func update_now() -> void:
 	else:
 		for unit in Unit.all_units:
 			if unit.team == player_team and unit.is_alive():
-				_reveal(unit.position, unit.unit_type.sight)
+				_reveal(unit.position, unit.sight())
 		for object in MapObject.all_objects:
 			if object.is_building() and object.owner_index == player_team and object.is_alive():
 				_reveal(object.footprint_rect().get_center(), BUILDING_SIGHT)

@@ -23,6 +23,9 @@ static var by_index := {}
 var index := 1
 var faction := ""
 var resources := {}
+var researched := {}  # upgrade GUID -> true
+
+const UPGRADE_READY_SOUNDS := {"des": 13, "ind": 31, "mex": 46, "usa": 131}
 
 
 func _init(player_index: int, faction_name: String) -> void:
@@ -81,6 +84,68 @@ func has_commander() -> bool:
 
 func has_room() -> bool:
 	return population() + queued_units() < population_cap()
+
+
+## Upgrades: is `upgrade` available to research now (level order + tech-tree rules)?
+func can_research(upgrade: int) -> bool:
+	if researched.has(upgrade) or is_researching(upgrade):
+		return false
+	var previous := previous_level(upgrade)
+	if previous >= 0 and not researched.has(previous):
+		return false
+	return meets_prerequisites(upgrade)
+
+
+func is_researching(upgrade: int) -> bool:
+	for object in MapObject.all_objects:
+		if object.owner_index == index and upgrade in object.queue:
+			return true
+	return false
+
+
+## "Rifle 2" requires "Rifle 1" of the same people.
+static func previous_level(upgrade: int) -> int:
+	var stats := GameData.stats(upgrade)
+	var name: String = stats.get("name", "")
+	var level := name.get_slice(" ", name.get_slice_count(" ") - 1)
+	if not level.is_valid_int() or level.to_int() <= 1:
+		return -1
+	var wanted := "%s %d" % [name.substr(0, name.length() - level.length() - 1), level.to_int() - 1]
+	for other in GameData.stats_guids():
+		var o := GameData.stats(other)
+		if o.get("kind") == "upgrade" and o.get("faction") == stats.get("faction") and o.get("name") == wanted:
+			return other
+	return -1
+
+
+func complete_research(upgrade: int) -> void:
+	researched[upgrade] = true
+	var effects: Dictionary = GameData.stats(upgrade).get("effects", {})
+	if effects.has("health_pct"):
+		for unit in Unit.all_units:
+			if unit.team == index and unit.is_alive():
+				unit.refresh_upgrades()
+		for object in MapObject.all_objects:
+			if object.owner_index == index and object.is_building():
+				object.refresh_upgrades()
+	Sound.play_sound(UPGRADE_READY_SOUNDS.get(faction, 46))
+	resources_changed.emit()
+
+
+## Sum of an effect over researched upgrades that apply to `target_guid`.
+func bonus(target_guid: int, effect: String, mounted := false) -> float:
+	var total := 0.0
+	for upgrade in researched:
+		var stats := GameData.stats(upgrade)
+		var effects: Dictionary = stats.get("effects", {})
+		if not effects.has(effect):
+			continue
+		var targets: Array = stats.get("applies_to_guids", [])
+		# Mounted units are listed by their foot version (GUID - 1).
+		var everyone := targets.is_empty() or effect == "field_yield"  # field upgrades apply to all fields
+		if everyone or target_guid in targets or (mounted and target_guid - 1 in targets):
+			total += float(effects[effect])
+	return total
 
 
 func has_building(guid: int) -> bool:

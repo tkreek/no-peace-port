@@ -185,8 +185,10 @@ func _refresh_selection() -> void:
 		if not building.complete:
 			_selection_detail.text = "Under construction %d%%" % int(building.build_progress * 100)
 		elif not building.queue.is_empty():
-			_selection_detail.text = "Training %s (%d queued)" % [
-				GameData.stats(building.queue[0]).get("name", "?"), building.queue.size()]
+			var current := GameData.stats(building.queue[0])
+			_selection_detail.text = "%s %s — %d%% (%d queued)" % [
+				"Researching" if current.get("kind") == "upgrade" else "Training", current.get("name", "?"),
+				int(building.train_progress * 100), building.queue.size()]
 		else:
 			_selection_detail.text = "Energy %d / %d" % [building.health, building.max_health]
 		return
@@ -269,7 +271,8 @@ func _refresh_commands() -> void:
 	var building := selection.selected_building if is_instance_valid(selection.selected_building) else null
 	var builders := units.filter(func(u: Unit) -> bool: return u.unit_type.anim_index("build") >= 0)
 	var farmers := units.filter(func(u: Unit) -> bool: return u.unit_type.can_gather("food"))
-	var signature := "%s|%s|%s|%s" % [builders.size() > 0, farmers.size() > 0, building.get_instance_id() if building else 0,
+	var research_state := "%d/%s" % [player.researched.size(), building.queue if building else []]
+	var signature := "%s|%s|%s|%s|%s" % [research_state, builders.size() > 0, farmers.size() > 0, building.get_instance_id() if building else 0,
 			building.complete if building else false]
 	if signature == _command_signature:
 		_update_affordability()
@@ -295,6 +298,10 @@ func _refresh_commands() -> void:
 				_add_command(type_id, guid, func() -> void:
 					if not building.enqueue(guid):
 						Sound.play_sound(80))  # the original "not possible" sound
+		for upgrade in building.researchable_upgrades():
+			_add_command(-1, upgrade, func() -> void:
+				if not building.enqueue(upgrade):
+					Sound.play_sound(80))
 	_layout()
 
 
@@ -322,14 +329,29 @@ func _add_command(type_id: int, guid: int, action: Callable) -> void:
 		if key != "population":
 			cost.append("%d %s" % [stats.cost[key], key])
 	button.tooltip_text = "%s\n%s" % [stats.get("name", "?"), ", ".join(cost)]
+	if stats.get("kind") == "upgrade":
+		button.tooltip_text = "Research: %s\n%s\n%s\nApplies to: %s" % [stats.get("name", "?"),
+				stats.get("function", ""), ", ".join(cost), stats.get("applies_to", "")]
 	button.set_meta("tooltip", button.tooltip_text)
 	button.set_meta("guid", guid)
 	button.pressed.connect(action)
-	var thumb := Thumbnail.portrait(guid)
+	var thumb: Thumbnail = null
 	var inset := 0
-	if thumb == null:
-		thumb = Thumbnail.for_type(type_id, player.index)
-		inset = 3
+	if type_id >= 0:
+		thumb = Thumbnail.portrait(guid)
+		if thumb == null:
+			thumb = Thumbnail.for_type(type_id, player.index)
+			inset = 3
+	else:
+		# Upgrades: a parchment card with the upgrade's name.
+		var label := MenuStyle.label(stats.get("name", "?"), int(10 * ui_scale), Color("#3a2410"))
+		label.add_theme_constant_override("outline_size", 0)
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.set_anchors_preset(Control.PRESET_FULL_RECT)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(label)
 	if thumb and thumb.has_meta("portrait"):
 		# The parchment portrait is the button; just brighten it on hover.
 		var none := StyleBoxEmpty.new()
@@ -455,6 +477,9 @@ func _unavailable_reason(guid: int, cost: Dictionary) -> String:
 		return "Build a %s first (each allows %d fields)" % [store, MapObject.FIELDS_PER_STORE] if store \
 				else "Needs a food store"
 	var stats := GameData.stats(guid)
+	if stats.get("kind") == "upgrade" and not player.can_research(guid):
+		return "Already researched or in progress" if player.researched.has(guid) or player.is_researching(guid) \
+				else "Research the previous level first"
 	if stats.get("kind") == "unit":
 		if guid in Player.COMMANDERS and player.has_commander():
 			return "You can only have one %s" % stats.get("name", "commander").to_lower()

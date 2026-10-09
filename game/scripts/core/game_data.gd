@@ -197,7 +197,13 @@ func _load_tables() -> void:
 	var stats_json = JSON.parse_string(FileAccess.get_file_as_string("res://data/stats.json"))
 	if stats_json is Dictionary:
 		for key in stats_json:
-			_stats[int(key)] = stats_json[key]
+			var entry: Dictionary = stats_json[key]
+			# JSON numbers load as floats; GUID lists must be ints to match unit GUIDs.
+			if entry.has("applies_to_guids"):
+				entry.applies_to_guids = entry.applies_to_guids.map(func(g) -> int: return int(g))
+			if entry.has("produced_at") and entry.produced_at is float:
+				entry.produced_at = int(entry.produced_at)
+			_stats[int(key)] = entry
 	# The editor's Defaults.dat (expansion) holds the real values; the manual data still
 	# supplies production places and prerequisite names.
 	var defaults := DefaultsData.load()

@@ -14,6 +14,7 @@ const MINE_GOLD := 3000
 const BUILD_WORK_PER_HEALTH := 0.05
 const TRAIN_SECONDS := {"default": 14.0, "worker": 9.0}
 const QUEUE_LIMIT := 5
+const UPGRADE_SECONDS := 60.0
 
 ## Drop-off buildings by GUID (main buildings take everything).
 const MAIN_BUILDINGS := [100, 200, 300, 400]
@@ -306,6 +307,33 @@ func add_build_work(seconds: float) -> bool:
 	return complete
 
 
+## Energy upgrades (e.g. "Thick boards", tower upgrades) for this building's type.
+func refresh_upgrades() -> void:
+	var player: Player = Player.by_index.get(owner_index)
+	if player == null or not complete:
+		return
+	var base := float(GameData.stats(guid).get("health", max_health))
+	var ratio := health / max_health if max_health > 0 else 1.0
+	max_health = base * (1.0 + player.bonus(guid, "health_pct") / 100.0)
+	health = max_health * ratio
+
+
+## Upgrades researched here that the owner can start now.
+func researchable_upgrades() -> PackedInt32Array:
+	var out := PackedInt32Array()
+	var player: Player = Player.by_index.get(owner_index)
+	if not complete or player == null:
+		return out
+	var ids := GameData.stats_guids()
+	ids.sort()
+	for upgrade in ids:
+		var stats := GameData.stats(upgrade)
+		if stats.get("kind") == "upgrade" and int(stats.get("produced_at", -1)) == guid \
+				and player.can_research(upgrade):
+			out.append(upgrade)
+	return out
+
+
 ## Units this building can train (GUIDs from the manual's "place of production").
 func trainable_units() -> PackedInt32Array:
 	var out := PackedInt32Array()
@@ -322,6 +350,13 @@ func enqueue(unit_guid: int) -> bool:
 	var player: Player = Player.by_index.get(owner_index)
 	if queue.size() >= QUEUE_LIMIT or player == null:
 		return false
+	var is_upgrade: bool = GameData.stats(unit_guid).get("kind") == "upgrade"
+	if is_upgrade:
+		var upgrade_cost: Dictionary = GameData.stats(unit_guid).get("cost", {})
+		if not player.can_research(unit_guid) or not player.spend(upgrade_cost):
+			return false
+		queue.append(unit_guid)
+		return true
 	if unit_guid in Player.COMMANDERS and player.has_commander():
 		return false
 	var cost: Dictionary = GameData.stats(unit_guid).get("cost", {}).duplicate()
@@ -346,7 +381,8 @@ func _process(delta: float) -> void:
 		field_progress += delta / FIELD_GROW_SECONDS
 		if field_progress >= 1.0:
 			field_state = Field.RIPE
-			amount = FIELD_YIELD
+			var owner_player: Player = Player.by_index.get(owner_index)
+			amount = FIELD_YIELD + (int(owner_player.bonus(-1, "field_yield")) if owner_player else 0)
 		_refresh_sprites()
 	if guid == DISTILLERY_GUID and complete:
 		_distill(delta)
@@ -357,10 +393,20 @@ func _process(delta: float) -> void:
 	if GameData.stats(unit_guid).get("damage", 0) <= 4:
 		seconds = TRAIN_SECONDS.worker
 	seconds = float(GameData.stats(unit_guid).get("build_time", seconds))
+	if GameData.stats(unit_guid).get("kind") == "upgrade":
+		# The editor data gives 60 s for level 1 and 90 s for level 2 of an upgrade.
+		var name: String = GameData.stats(unit_guid).get("name", "")
+		var level := name.get_slice(" ", name.get_slice_count(" ") - 1)
+		seconds = 30.0 + 30.0 * level.to_int() if level.is_valid_int() else UPGRADE_SECONDS
 	train_progress += delta / seconds
 	if train_progress >= 1.0:
 		train_progress = 0.0
 		queue.remove_at(0)
+		if GameData.stats(unit_guid).get("kind") == "upgrade":
+			var player: Player = Player.by_index.get(owner_index)
+			if player:
+				player.complete_research(unit_guid)
+			return
 		Sound.play_event(guid, Sound.Event.UNIT_READY, position, 0)
 		unit_trained.emit(self, unit_guid)
 	if selected:

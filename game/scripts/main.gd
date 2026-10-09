@@ -102,6 +102,8 @@ func _ready() -> void:
 		_scenario_food.call_deferred()
 	if GameData.cmdline_option("scenario") == "build":
 		_scenario_build.call_deferred()
+	if GameData.cmdline_option("scenario") == "research":
+		_scenario_research.call_deferred()
 	if GameData.cmdline_option("scenario") == "menus":
 		_scenario_menus.call_deferred()
 	if GameData.cmdline_option("scenario") == "help-build":
@@ -318,6 +320,35 @@ func _spawn_squad(directory: String, team: int, centre: Vector2, count: int) -> 
 		units_root.add_child(unit)
 		unit.setup(unit_type, team)
 		unit.direction = 5 if team == 1 else 1
+
+
+## A finished weapons factory researches rifle and armour upgrades; infantry stats are checked.
+func _scenario_research() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	var ai := AiPlayer.new()
+	ai.biome = terrain.biome
+	var type := ObjectTypes.get_type(GameData.type_for_guid(211, terrain.biome))
+	var factory := MapObject.new()
+	factory.setup(type, 1)
+	factory.position = ai._find_spot(type, hq.position)
+	units_root.add_child(factory)
+	ai.free()
+	players[1].resources.gold = 5000
+	players[1].resources.food = 5000
+	selection.select_building(factory)
+	camera.position = factory.position
+	print("research options: ", Array(factory.researchable_upgrades()).map(func(g: int) -> String: return GameData.stats(g).name))
+	print("queue rifle 1:", factory.enqueue(925), " rifle 2 now:", factory.enqueue(926))
+	_spawn_squad(_unit_dir(258), 1, hq.position + Vector2(0, 200), 1)
+	var infantry: Unit = units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == 258)[0]
+	print("before: damage %.0f health %.0f" % [infantry.attack_damage(), infantry.max_health])
+	await get_tree().create_timer(65.0).timeout
+	print("researched: ", players[1].researched.keys(), " rifle 2 now:", factory.enqueue(926), " clothing 1:", factory.enqueue(929))
+	await get_tree().create_timer(160.0).timeout
+	print("after: damage %.0f health %.0f researched %s" % [infantry.attack_damage(), infantry.max_health, players[1].researched.keys()])
 
 
 ## Print the command buttons shown for player 1's builders and for its farmers, and the

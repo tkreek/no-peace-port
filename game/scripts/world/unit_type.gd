@@ -208,13 +208,10 @@ func is_farmer() -> bool:
 	return can_gather("food") and not (can_gather("wood") and anim_index("build") >= 0)
 
 
-## Builders (hammering animation) put up every structure; women who farm can also put up
-## their people's grain store (granary, finca, farm), which they need before fields.
-## guid -1 asks whether the unit can build anything at all.
-func can_build(guid := -1) -> bool:
-	if anim_index("build") >= 0:
-		return true
-	return is_farmer() and (guid < 0 or guid in MapObject.FOOD_STORES)
+## Builders (hammering animation) put up every structure (`guid`, or anything with -1).
+## Women who farm without one (Mexican and American) only lay out fields (is_farmer).
+func can_build(_guid := -1) -> bool:
+	return anim_index("build") >= 0
 
 
 ## "säen" is spelled several ways in the file names (saehen, sähen, sähene).

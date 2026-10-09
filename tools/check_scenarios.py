@@ -45,9 +45,10 @@ CHECKS = {
     "boats": (["--faction=usa", "--time-scale=4", ISLANDS], 0, [r"clicked boat selected true; sailed [1-9]\d* px, \d{1,2} px short",
                                                                   r"aboard 4 / 4", r"passengers 0, soldiers ashore"]),
     "swim": (["--faction=ind", ISLANDS], 0, [r"swam: true", r"canoe on water plays paddle"]),
-    # The command panel for builders, farmers and every building that trains something.
+    # The command panel for builders, farmers (only fields for the Mexican women) and every
+    # building that trains something.
     "menus": ([], 300, [r"builders  \(\d+ units\): Build structure \(B\), Build expanded structure \(V\)",
-                        r"farmers  \(\d+ units\): Build structure \(B\), Field"]),
+                        r"farmers  \(\d+ units\): Field \(F\)"]),
     "stages": ([], 0, [r"structures (\d+): construction ends on the finished picture \1, burnt \1, rubble \1 \[\]"]),
     "furnace": ([], 0, [r"furnace glows: idle false, working true, after cancelling false"]),
     "poplimit": ([], 0, [r"warned on filling 1, on a train order 1"]),

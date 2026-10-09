@@ -21,7 +21,9 @@ const STANCE_ICONS := {Unit.Stance.AGGRESSIVE: 0, Unit.Stance.DEFENSIVE: 6, Unit
 		Unit.Stance.PASSIVE: 8}
 const STANCE_NAMES := {Unit.Stance.AGGRESSIVE: "Act aggressively", Unit.Stance.DEFENSIVE: "Act defensively",
 		Unit.Stance.HOLD: "Hold ground", Unit.Stance.PASSIVE: "Passive"}
-const STANCE_KEYS := {KEY_A: Unit.Stance.AGGRESSIVE, KEY_D: Unit.Stance.DEFENSIVE, KEY_H: Unit.Stance.HOLD,
+## The original used A/D/S for aggressive, defensive and stop; those keys scroll the map
+## (WASD), so aggressive and defensive sit on Q/E and stop on X.
+const STANCE_KEYS := {KEY_Q: Unit.Stance.AGGRESSIVE, KEY_E: Unit.Stance.DEFENSIVE, KEY_H: Unit.Stance.HOLD,
 		KEY_Y: Unit.Stance.PASSIVE}
 const FIELD_ICONS := "global/gfx/usa/icons/einheiten/USAEinheiten.spr"
 const ICON_FIELD := 32  # the green crop field among the unit icons
@@ -599,7 +601,7 @@ func _refresh_commands() -> void:
 							func() -> void: set_formation(formation), formations.size() == 1 and formations.has(formation))
 		_add_icon_command(_extra_icons, ICON_ENTER, "Move into quarters (G): click a fort or tower",
 				func() -> void: selection.begin_targeting("quarters"), selection.pending == "quarters")
-		_add_icon_command(_command_icons, ICON_STOP, "Stop (S)", stop_selection)
+		_add_icon_command(_command_icons, ICON_STOP, "Stop (X)", stop_selection)
 	elif building and building.complete and building.owner_index == player.index:
 		for guid in building.trainable_units():
 			var type_id := GameData.type_for_guid(guid, biome)
@@ -656,7 +658,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if event.ctrl_pressed or event.alt_pressed:
 		return
 	var handled := true
-	if key == KEY_S:
+	if key == KEY_X:
 		stop_selection()
 	elif key == KEY_Z or key == KEY_C:
 		if not selection.selection.is_empty():

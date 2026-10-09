@@ -10,6 +10,9 @@ var camera: Camera2D
 var objects_root: Node2D
 var _texture: ImageTexture
 var _dragging := false
+## Map modes (manual 3.1): everything; civilian units and buildings only; military only.
+enum Mode { REGULAR, ECONOMIC, MILITARY }
+var mode := Mode.REGULAR
 
 
 func setup(alf_map: AlfMap, map_camera: Camera2D, objects: Node2D, overview: Image) -> void:
@@ -34,14 +37,41 @@ func _draw() -> void:
 			continue  # hidden by the fog of war
 		if node is Unit:
 			var u: Unit = node
+			if not _shown(_is_military_unit(u)):
+				continue
 			draw_rect(Rect2(u.position * to_mini - Vector2.ONE, Vector2(2, 2)), Player.TEAM_COLORS[u.team])
 		elif node is MapObject and node.owner_index > 0:
 			var o: MapObject = node
+			if not _shown(_is_military_building(o)):
+				continue
 			draw_rect(Rect2(o.position * to_mini - Vector2(2, 2), Vector2(4, 4)), Player.TEAM_COLORS[o.owner_index])
 	if FogOfWar.current and FogOfWar.current.enabled:
 		draw_texture_rect(FogOfWar.current.overview_texture(), Rect2(Vector2.ZERO, size), false)
 	var view := camera.get_viewport_rect().size / camera.zoom
 	draw_rect(Rect2((camera.position - view / 2.0) * to_mini, view * to_mini), Color(1, 1, 1, 0.9), false, 1.0)
+
+
+func _shown(military: bool) -> bool:
+	match mode:
+		Mode.ECONOMIC:
+			return not military
+		Mode.MILITARY:
+			return military
+	return true
+
+
+static func _is_military_unit(u: Unit) -> bool:
+	return not u.unit_type.attack_anims.is_empty() and not u.unit_type.can_gather("wood") \
+			and not u.unit_type.is_farmer() and not u.unit_type.is_transport()
+
+
+static func _is_military_building(o: MapObject) -> bool:
+	if o.capacity() > 0 and o.guid not in MapObject.MAIN_BUILDINGS:
+		return true  # forts and towers
+	for unit_guid in o.trainable_units():
+		if GameData.stats(unit_guid).get("damage", 0) >= 5 and unit_guid not in Player.COMMANDERS:
+			return true
+	return false
 
 
 func is_dragging() -> bool:

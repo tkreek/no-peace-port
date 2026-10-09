@@ -36,6 +36,9 @@ const FORMATION_NAMES := {Unit.Formation.COLUMN: "Column", Unit.Formation.DOUBLE
 const ICON_FOLLOW := 2  # two men walking one behind the other
 const ICON_PATROL := 4  # two men with an arrow
 const ICON_RALLY := 12  # Iconserstereihe: signpost
+const MAP_MODE_ICONS := [13, 15, 17]  # KleineIcons: landscape, field, armed men
+const MAP_MODE_NAMES := ["Regular map (Alt+N)", "Economic map (Alt+R)", "Military map (Alt+C)"]
+const ICON_IDLE := 19  # KleineIcons: a lone cowboy
 const ICON_HIDE := 14  # Iconserstereihe: hooded figure
 const ICON_ENTER := 2  # Iconserstereihe: arrow into a doorway
 const ICON_LEAVE := 0  # arrow out of a doorway
@@ -134,6 +137,9 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	minimap.setup(map, camera, objects, terrain_colors)
 	_root.add_child(minimap)
 	_root.move_child(minimap, _root.get_children().find(_right))  # behind the frame
+	# Control buttons beside the minimap: map mode and the next idle worker.
+	_map_button = _small_icon_button(MAP_MODE_ICONS[0], MAP_MODE_NAMES[0], _cycle_map_mode)
+	_idle_button = _small_icon_button(ICON_IDLE, "Next idle worker (.)", func() -> void: selection._select_idle_worker())
 
 	_top.add_child(_resources)
 	for key in Player.RESOURCES:
@@ -224,6 +230,10 @@ func _layout() -> void:
 	_middle.scale = Vector2.ONE
 	minimap.position = _right.position + MINIMAP_HOLE.position * ui_scale
 	minimap.size = MINIMAP_HOLE.size * ui_scale
+	for i in 2:
+		var button: Button = [_map_button, _idle_button][i]
+		button.size = Vector2(46, 46) * ui_scale
+		button.position = _right.position + Vector2(22, 34 + i * 62) * ui_scale
 
 	var top_h := 30.0 * ui_scale
 	_top.position = Vector2.ZERO
@@ -721,6 +731,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo) or get_tree().paused:
 		return
 	var key: int = event.keycode
+	if event.alt_pressed and key in [KEY_N, KEY_R, KEY_C]:
+		_cycle_map_mode([KEY_N, KEY_R, KEY_C].find(key))
+		get_viewport().set_input_as_handled()
+		return
 	if event.ctrl_pressed or event.alt_pressed:
 		return
 	var handled := true
@@ -983,6 +997,37 @@ func quick_load() -> void:
 	Match.load_data = data
 	get_tree().paused = false
 	get_tree().reload_current_scene()
+
+
+var _map_button: Button
+var _idle_button: Button
+
+
+func _small_icon_button(frame: int, tip: String, action: Callable) -> Button:
+	var button := Button.new()
+	button.focus_mode = Control.FOCUS_NONE
+	var none := StyleBoxEmpty.new()
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		button.add_theme_stylebox_override(state, none)
+	button.tooltip_text = tip
+	var icon := TextureRect.new()
+	icon.name = "Icon"
+	icon.texture = _atlas(_formation_icons, frame)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	button.add_child(icon)
+	button.pressed.connect(action)
+	_root.add_child(button)
+	return button
+
+
+func _cycle_map_mode(to := -1) -> void:
+	minimap.mode = ((int(minimap.mode) + 1) % 3 if to < 0 else to) as Minimap.Mode
+	(_map_button.get_node("Icon") as TextureRect).texture = _atlas(_formation_icons, MAP_MODE_ICONS[minimap.mode])
+	_map_button.tooltip_text = MAP_MODE_NAMES[minimap.mode]
 
 
 ## Music, sound and scroll speed (the original's in-game settings), kept between sessions.

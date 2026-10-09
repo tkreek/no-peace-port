@@ -78,11 +78,31 @@ Any of `--map`, `--scenario`, `--screenshot`, `--report-after` skips the menu an
 
 - `scripts/formats/`: readers for the original formats (RDA archives, LZW, `.alf` maps, sprites,
   palettes, `.bob` animations, the `BobListe.blf` object table). See `docs/technical/file-formats.md`.
-- `scripts/core/game_data.gd`: autoload that finds the installation and serves archive files.
-- `scripts/world/`: terrain renderer, units (combat, gathering, building), map objects
-  (construction, training), navigation, camera, selection, placement.
-- `scripts/game/`: players (stockpiles, housing) and the AI opponent.
-- `scripts/ui/`: HUD, minimap, command thumbnails.
+- `scripts/core/`: autoloads that find the installation and serve its files (`GameData`), play
+  sounds and music (`Sound`), hold the match settings (`Match`); player settings.
+- `scripts/main.gd`: the match: map, peoples, interface, computer players, victory.
+- `scripts/world/`: terrain, navigation (ground, water, both), fog of war, camera, selection
+  and orders, building placement, projectiles and effects.
+  - `units/`: `Unit` (state machine, orders, combat, movement) on `UnitSprite`, with parts for
+    work, riding, animals, magic, stealth, water and tepees.
+  - `objects/`: `MapObject` (buildings and scenery) with its stock, and for buildings their
+    condition, production and defence.
+- `scripts/game/`: players (stockpiles, housing, research, trading), saved games, and the
+  computer player in `ai/` (economy, building, army).
+- `scripts/ui/`: main menu, settings, minimap, thumbnails; the in-game interface in `hud/`
+  (selection panel, command panel, game menu).
+- `scripts/dev/`: test scenarios (`--scenario=`), self-tests, headless reports and the profiler.
 - `data/stats.json`: unit and structure stats extracted from the manual
   (`tools/data/extract_manual_stats.py`).
-- `shaders/`: GPU terrain compositing and team-colour palette lookup.
+- `shaders/`: GPU terrain compositing, team-colour palette lookup and the fog of war.
+
+## Checks
+
+```bash
+python3 tools/check_scenarios.py
+```
+
+runs every test scenario headless (about seven minutes, several at once) and checks what
+each prints: the scripts parse, the rules work (gathering, combat, magic, boats...), the
+command panel builds, saving and loading keeps the match, and a six-player AI game runs.
+Pass names to run only some (`tools/check_scenarios.py boats swim`).

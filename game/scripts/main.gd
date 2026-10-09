@@ -133,6 +133,8 @@ func _ready() -> void:
 		_scenario_orders.call_deferred()
 	# --time-scale=N runs the simulation N times faster (long AI tests).
 	Engine.time_scale = clampf(GameData.cmdline_option("time-scale", "1").to_float(), 0.1, 8.0)
+	if Match.configured:
+		Engine.time_scale *= Match.speed  # the setup screen's game speed
 	var report := GameData.cmdline_option("report-after")
 	if report != "":
 		_report_after(report.to_int())
@@ -239,12 +241,24 @@ func _unhandled_input(event: InputEvent) -> void:
 func _check_victory() -> void:
 	if _game_over:
 		return
+	# Who is still in the game depends on the game type: anyone with units or buildings left,
+	# anyone whose leader lives, or anyone whose main building stands.
 	var alive := {}
-	for node in units_root.get_children():
-		if (node is Unit and node.is_alive()) or (node is MapObject and node.is_building() and node.is_alive()):
-			var owner: int = node.team if node is Unit else node.owner_index
-			if owner > 0:
-				alive[owner] = true
+	match Match.game_type if Match.configured else Match.GameType.EVERYBODY:
+		Match.GameType.KILL_LEADER:
+			for index in players:
+				if players[index].leader() != null:
+					alive[index] = true
+		Match.GameType.MAIN_BUILDING:
+			for index in players:
+				if players[index].main_building() != null:
+					alive[index] = true
+		_:
+			for node in units_root.get_children():
+				if (node is Unit and node.is_alive()) or (node is MapObject and node.is_building() and node.is_alive()):
+					var owner: int = node.team if node is Unit else node.owner_index
+					if owner > 0:
+						alive[owner] = true
 	var human_alive: bool = alive.has(1)
 	var others_alive := alive.keys().any(func(k: int) -> bool: return k != 1)
 	if human_alive and others_alive:

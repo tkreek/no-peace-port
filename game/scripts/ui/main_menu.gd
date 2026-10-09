@@ -26,10 +26,14 @@ var _map_info := Label.new()
 var _slots := VBoxContainer.new()
 var _supply := OptionButton.new()
 var _difficulty := OptionButton.new()
+var _game_type := OptionButton.new()
+var _population := OptionButton.new()
+var _speed := OptionButton.new()
 var _faction := OptionButton.new()
 
 
 func _ready() -> void:
+	Engine.time_scale = 1.0  # a finished match may have left its game speed behind
 	theme = MenuStyle.theme()
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	if _skip_to_game():
@@ -256,9 +260,26 @@ func _build_setup() -> Control:
 	_difficulty.select(Match.difficulty)
 	MenuStyle.style(_difficulty, 13)
 	level.add_child(_difficulty)
+	var rules := HBoxContainer.new()
+	rules.add_theme_constant_override("separation", 6)
+	for i in Match.GAME_TYPE_TEXT.size():
+		_game_type.add_item(GameData.menu_text(Match.GAME_TYPE_TEXT[i], Match.GAME_TYPE_NAMES[i]))
+	for limit in Match.POPULATION_LIMITS:
+		_population.add_item("%d units" % limit)
+	_population.select(Match.POPULATION_LIMITS.find(100))
+	for i in Match.SPEEDS.size():
+		_speed.add_item(Match.SPEED_NAMES[i])
+	_speed.select(1)
+	_game_type.tooltip_text = GameData.menu_text(264, "Game type")
+	_population.tooltip_text = GameData.menu_text(266, "Population limit")
+	_speed.tooltip_text = GameData.menu_text(267, "Game speed")
+	for option: OptionButton in [_game_type, _population, _speed]:
+		MenuStyle.style(option, 12)
+		rules.add_child(option)
+	players_box.add_child(rules)
 
 	var buttons := HBoxContainer.new()
-	buttons.position = Vector2(214, 548)
+	buttons.position = Vector2(214, 562)
 	buttons.add_theme_constant_override("separation", 24)
 	buttons.add_child(_small_button(GameData.menu_text(16, "Back"), func() -> void: _show("main")))
 	buttons.add_child(_small_button(GameData.menu_text(15, "Start"), _start))
@@ -375,6 +396,9 @@ func _start() -> void:
 	Match.setup(map.path, slots)
 	Match.supply = _supply.selected
 	Match.difficulty = _difficulty.selected
+	Match.game_type = _game_type.selected as Match.GameType
+	Match.population_limit = Match.POPULATION_LIMITS[_population.selected]
+	Match.speed = Match.SPEEDS[_speed.selected]
 	_show_loading()
 	await get_tree().process_frame
 	await get_tree().process_frame

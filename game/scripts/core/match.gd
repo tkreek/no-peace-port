@@ -17,7 +17,20 @@ const SUPPLY_PRESETS := [{}, {"food": 500, "wood": 500, "gold": 500, "guns": 5},
 const DIFFICULTY_TEXT := [198, 199, 200, 201]
 const DIFFICULTY_NAMES := ["Very easy", "Easy", "Medium", "Difficult"]
 
+## Game types (Menu.eng 280..282) decide what knocks a people out.
+const GAME_TYPE_TEXT := [280, 281, 282]
+const GAME_TYPE_NAMES := ["Everybody for themselves", "Kill leader", "Destroy main buildings"]
+enum GameType { EVERYBODY, KILL_LEADER, MAIN_BUILDING }
+## Population limit per people (75..200 in the original's setup).
+const POPULATION_LIMITS := [75, 100, 150, 200]
+## Game speed (Menu.eng 267).
+const SPEEDS := [0.75, 1.0, 1.25, 1.5]
+const SPEED_NAMES := ["Slow", "Normal", "Fast", "Very fast"]
+
 var configured := false
+var game_type := GameType.EVERYBODY
+var population_limit := 100
+var speed := 1.0
 var supply := 0
 var difficulty := 2
 var map_path := ""

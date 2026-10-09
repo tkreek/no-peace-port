@@ -149,7 +149,41 @@ func refresh_upgrades() -> void:
 
 
 func attack_damage() -> float:
-	return unit_type.damage + _bonus("attack")
+	return (unit_type.damage + _bonus("attack")) * morale()
+
+
+## Morale (manual 4.4): 80% .. 120%. The leader's falls the further he is from the main
+## building; everyone else's depends on how close the leader is, and drops to 80% when he
+## is dead. It scales fighting and working alike.
+const MORALE_MIN := 0.8
+const MORALE_MAX := 1.2
+const LEADER_REACH := 1200.0  # beyond this the leader's presence no longer helps
+const HOME_REACH := 2400.0  # the leader's own morale is lowest this far from home
+var _morale := 1.0
+var _morale_timer := 0.0
+
+
+func morale() -> float:
+	if team <= 0:
+		return 1.0
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - _morale_timer < 0.5:
+		return _morale
+	_morale_timer = now
+	var player: Player = Player.by_index.get(team)
+	if player == null:
+		return 1.0
+	var leader := player.leader()
+	if leader == null:
+		_morale = MORALE_MIN
+	elif leader == self:
+		var home := player.main_building()
+		var away := position.distance_to(home.position) if home else HOME_REACH
+		_morale = lerpf(MORALE_MAX, MORALE_MIN, clampf(away / HOME_REACH, 0.0, 1.0))
+	else:
+		var closeness := 1.0 - clampf(position.distance_to(leader.position) / LEADER_REACH, 0.0, 1.0)
+		_morale = MORALE_MIN + (leader.morale() - MORALE_MIN) * closeness
+	return _morale
 
 
 func attack_range() -> float:
@@ -672,7 +706,7 @@ func _update_gather(delta: float) -> void:
 				var faster := _bonus("chop_pct") if gather_source.resource == "wood" else _bonus("mine_pct")
 				if gather_source.resource == "food":
 					faster = 0.0
-				_work_timer = WORK_SECONDS.get(gather_source.resource, 4.0) / (1.0 + faster / 100.0)
+				_work_timer = WORK_SECONDS.get(gather_source.resource, 4.0) / (1.0 + faster / 100.0) / morale()
 				face(gather_source.work_rect().get_center() - position)
 				if gather_source.resource == "gold":
 					inside = true  # workers go inside the mine
@@ -1131,3 +1165,9 @@ func _draw_overlay(canvas: Node2D) -> void:
 		canvas.draw_rect(bar, Color(0.1, 0.1, 0.1, 0.8))
 		canvas.draw_rect(Rect2(bar.position, Vector2(bar.size.x * ratio, bar.size.y)),
 				Color(0.85, 0.2, 0.1).lerp(Color(0.3, 0.9, 0.2), ratio))
+		if selected and team > 0:
+			# Morale below the energy (manual 4.4): 80% empty .. 120% full, blue.
+			var low := bar.position + Vector2(0, 4)
+			var level := (morale() - MORALE_MIN) / (MORALE_MAX - MORALE_MIN)
+			canvas.draw_rect(Rect2(low, bar.size), Color(0.1, 0.1, 0.1, 0.8))
+			canvas.draw_rect(Rect2(low, Vector2(bar.size.x * level, bar.size.y)), Color(0.35, 0.6, 1.0))

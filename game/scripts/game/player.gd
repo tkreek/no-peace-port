@@ -117,7 +117,23 @@ func has_commander() -> bool:
 
 
 func has_room() -> bool:
-	return population() + queued_units() < population_cap()
+	return population() + queued_units() < mini(population_cap(), Match.population_limit)
+
+
+## The people's leader (chief, comandante, band leader, commander) if alive.
+func leader() -> Unit:
+	for unit in Unit.all_units:
+		if unit.team == index and unit.is_alive() and unit.unit_type.guid() in COMMANDERS:
+			return unit
+	return null
+
+
+## The main building (chief's tepee, command post, base, headquarters) if standing.
+func main_building() -> MapObject:
+	for object in MapObject.all_objects:
+		if object.owner_index == index and object.guid in MapObject.MAIN_BUILDINGS and object.is_alive() and object.complete:
+			return object
+	return null
 
 
 ## Upgrades: is `upgrade` available to research now (level order + tech-tree rules)?

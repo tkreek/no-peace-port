@@ -311,7 +311,7 @@ func _refresh_selection() -> void:
 
 ## Everything worth knowing about one unit: energy, weapon, range, reload, sight, speed.
 func _unit_detail(unit: Unit) -> String:
-	var lines := PackedStringArray(["Energy %d / %d" % [unit.health, unit.max_health]])
+	var lines := PackedStringArray(["Energy %d / %d   Morale %d%%" % [unit.health, unit.max_health, roundi(unit.morale() * 100)]])
 	if not unit.unit_type.attack_anims.is_empty():
 		var weapon := "Range %d" % unit.attack_range() if unit.unit_type.ranged else "Melee"
 		lines.append("Damage %d   %s" % [unit.attack_damage(), weapon])
@@ -892,6 +892,7 @@ func toggle_menu() -> void:
 
 func _to_main_menu() -> void:
 	get_tree().paused = false
+	Engine.time_scale = 1.0
 	Match.configured = false
 	get_tree().change_scene_to_file("res://scenes/menu.tscn")
 

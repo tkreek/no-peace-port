@@ -32,10 +32,10 @@ var start_positions := {}  # player -> Vector2, from the map's Editor_Start mark
 
 ## Main building and a representative soldier per people (for --scenario=battle).
 const FACTIONS := {
-	"ind": {"main": 100, "army": 160},
-	"mex": {"main": 200, "army": 258},
-	"des": {"main": 300, "army": 356},
-	"usa": {"main": 400, "army": 458},
+	"ind": {"main": 100, "army": 160, "commander": 151},
+	"mex": {"main": 200, "army": 258, "commander": 251},
+	"des": {"main": 300, "army": 356, "commander": 351},
+	"usa": {"main": 400, "army": 458, "commander": 451},
 }
 const START_BUILDERS := 5
 const START_FARMERS := 3
@@ -102,6 +102,8 @@ func _ready() -> void:
 		_scenario_food.call_deferred()
 	if GameData.cmdline_option("scenario") == "build":
 		_scenario_build.call_deferred()
+	if GameData.cmdline_option("scenario") == "menus":
+		_scenario_menus.call_deferred()
 	if GameData.cmdline_option("scenario") == "help-build":
 		_scenario_help_build.call_deferred()
 	var report := GameData.cmdline_option("report-after")
@@ -293,6 +295,15 @@ func _setup_player(player: int, start: Vector2) -> void:
 		_spawn_squad(builder, player, start + toward_centre * 220.0, START_BUILDERS)
 	if not farmer.is_empty():
 		_spawn_squad(farmer, player, start + toward_centre * 220.0 + toward_centre.orthogonal() * 120.0, START_FARMERS)
+	# Every people starts with its commander on horseback.
+	var commander_dir := _unit_dir(FACTIONS[players[player].faction].commander)
+	var commander_type := UnitType.load_type(commander_dir, true) if commander_dir else null
+	if commander_type:
+		var commander := Unit.new()
+		var spot := start + toward_centre * 300.0 - toward_centre.orthogonal() * 100.0
+		commander.position = (Vector2(nav.nearest_walkable(nav.cell_of(spot))) + Vector2(0.5, 0.5)) * NavGrid.CELL
+		units_root.add_child(commander)
+		commander.setup(commander_type, player)
 
 
 func _spawn_squad(directory: String, team: int, centre: Vector2, count: int) -> void:
@@ -307,6 +318,54 @@ func _spawn_squad(directory: String, team: int, centre: Vector2, count: int) -> 
 		units_root.add_child(unit)
 		unit.setup(unit_type, team)
 		unit.direction = 5 if team == 1 else 1
+
+
+## Print the command buttons shown for player 1's builders and for its farmers, and the
+## train buttons of each of its people's buildings (placed finished next to the HQ).
+func _scenario_menus() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	var ai := AiPlayer.new()
+	ai.biome = terrain.biome
+	for guid in GameData.stats_guids():
+		var stats := GameData.stats(guid)
+		if stats.get("faction") != players[1].faction or stats.get("kind") != "structure":
+			continue
+		var type := ObjectTypes.get_type(GameData.type_for_guid(guid, terrain.biome))
+		var building := MapObject.new()
+		building.setup(type, 1)
+		if building.trainable_units().is_empty():
+			building.free()
+			continue
+		building.position = ai._find_spot(type, hq.position)
+		units_root.add_child(building)
+		selection.select_building(building)
+		hud._command_signature = ""
+		hud._refresh_commands()
+		await get_tree().process_frame
+		var names := []
+		for button in hud._commands.get_children():
+			if not button.is_queued_for_deletion():
+				names.append(button.tooltip_text.replace("\n", " / "))
+		var queued := []
+		for unit_guid in building.trainable_units():
+			queued.append("%s:%s" % [GameData.stats(unit_guid).get("name"), building.enqueue(unit_guid)])
+		print("%s: %s | enqueue %s" % [stats.name, names, queued])
+	ai.free()
+	for kind in ["builders", "farmers"]:
+		var units := units_root.get_children().filter(func(n: Node) -> bool:
+			return n is Unit and n.team == 1 and (n.unit_type.anim_index("build") >= 0 if kind == "builders" else n.unit_type.is_farmer()))
+		selection._select(units, false)
+		hud._command_signature = ""
+		hud._refresh_commands()
+		await get_tree().process_frame
+		var names := []
+		for button in hud._commands.get_children():
+			if not button.is_queued_for_deletion():
+				names.append("%s%s" % [button.tooltip_text.get_slice("\n", 0), " (off)" if button.disabled else ""])
+		print("%s %s (%d units): %s" % [players[1].faction, kind, units.size(), ", ".join(names)])
 
 
 ## One worker starts a house; the others are then sent to help via the help-build order.
@@ -479,6 +538,13 @@ func _selftest() -> void:
 			bad.append(path.get_file())
 	print("maps: %d ok, %d failed %s" % [maps, bad.size(), bad])
 	print("object types: %d" % ObjectTypes.count())
+	if GameData.cmdline_option("selftest") == "farm":
+		for guid in [108, 208, 408, 149]:
+			for biome in ["steppe", "wiese"]:
+				var tid := GameData.type_for_guid(guid, biome)
+				var t := ObjectTypes.get_type(tid)
+				var bob := GameData.load_bob(t.bob_path) if t else null
+				print("guid %d %s -> type %d %s %s anims=%d stats=%s" % [guid, biome, tid, t.name if t else "?", t.bob_path if t else "", bob.anims.size() if bob else -1, GameData.stats(guid).get("name")])
 	if GameData.cmdline_option("selftest") == "stats":
 		var d := DefaultsData.load()
 		print("defaults entries: ", d.size(), " sample: ", d.get(258), " raw bytes: ", GameData.read("Defaults.dat").size())

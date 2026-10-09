@@ -1287,5 +1287,1515 @@
   "health": 100,
   "damage": 30,
   "produced_at": 411
+ },
+ "900": {
+  "name": "Hardened arrowhead 1",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 100,
+   "gold": 100
+  },
+  "produced_at": 107,
+  "effects": {
+   "attack": 1
+  },
+  "function": "Adds 1 unit of attack force",
+  "applies_to": "Spear fighters, arrow shooters, mounted arrow shooters, flaming arrow shooters, mounted flaming arrow shooters",
+  "applies_to_guids": [
+   162,
+   156,
+   158
+  ]
+ },
+ "901": {
+  "name": "Hardened arrowhead 2",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 200
+  },
+  "produced_at": 107,
+  "effects": {
+   "attack": 1
+  },
+  "function": "Adds 1 unit of attack force",
+  "applies_to": "Spear fighters, arrow shooters, mounted arrow shooters, flaming arrow shooters, mounted flaming arrow shooters",
+  "applies_to_guids": [
+   162,
+   156,
+   158
+  ]
+ },
+ "902": {
+  "name": "Hardened arrowhead 3",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 300,
+   "gold": 300
+  },
+  "produced_at": 107,
+  "effects": {
+   "attack": 1
+  },
+  "function": "Adds 1 unit of attack force",
+  "applies_to": "Spear fighters, arrow shooters, mounted arrow shooters, flaming arrow shooters, mounted flaming arrow shooters",
+  "applies_to_guids": [
+   162,
+   156,
+   158
+  ]
+ },
+ "903": {
+  "name": "Protective clothing 1",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 100,
+   "gold": 100
+  },
+  "produced_at": 107,
+  "effects": {
+   "health_pct": 10
+  },
+  "function": "Increases energy by 10%",
+  "applies_to": "Spear fighters, arrow shooters, mounted arrow shooters, flaming arrow shooters, mounted flaming arrow shooters, riflemen, mounted riflemen, knife throwers",
+  "applies_to_guids": [
+   162,
+   156,
+   158,
+   160,
+   163
+  ]
+ },
+ "904": {
+  "name": "Protective clothing 2",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 200
+  },
+  "produced_at": 107,
+  "effects": {
+   "health_pct": 10
+  },
+  "function": "Increases energy by 10%",
+  "applies_to": "Spear fighters, arrow shooters, mounted arrow shooters, flaming arrow shooters, mounted flaming arrow shooters, riflemen, mounted riflemen, knife throwers",
+  "applies_to_guids": [
+   162,
+   156,
+   158,
+   160,
+   163
+  ]
+ },
+ "905": {
+  "name": "Protective clothing 3",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 300,
+   "gold": 300
+  },
+  "produced_at": 107,
+  "effects": {
+   "health_pct": 10
+  },
+  "function": "Increases energy by 10%",
+  "applies_to": "Spear fighters, arrow shooters, mounted arrow shooters, flaming arrow shooters, mounted flaming arrow shooters, riflemen, mounted riflemen, knife throwers",
+  "applies_to_guids": [
+   162,
+   156,
+   158,
+   160,
+   163
+  ]
+ },
+ "906": {
+  "name": "Hardened leather",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "wood": 150,
+   "gold": 150
+  },
+  "produced_at": 109,
+  "effects": {
+   "health_pct": 20
+  },
+  "function": "Increases energy by 20%",
+  "applies_to": "Canoe",
+  "applies_to_guids": [
+   154
+  ]
+ },
+ "907": {
+  "name": "Hardened flaming arrow",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "wood": 300,
+   "gold": 300
+  },
+  "produced_at": 109,
+  "effects": {
+   "attack": 5
+  },
+  "function": "Adds 5 units of attack force",
+  "applies_to": "Canoe",
+  "applies_to_guids": [
+   154
+  ]
+ },
+ "908": {
+  "name": "Axe 1",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 50,
+   "wood": 150
+  },
+  "produced_at": 109,
+  "effects": {
+   "chop_pct": 10
+  },
+  "function": "Enables units to chop wood 10% faster",
+  "applies_to": "Warriors",
+  "applies_to_guids": [
+   152
+  ]
+ },
+ "909": {
+  "name": "Axe 2",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 150,
+   "wood": 300
+  },
+  "produced_at": 109,
+  "effects": {
+   "chop_pct": 10
+  },
+  "function": "Enables units to chop wood 10% faster",
+  "applies_to": "Warriors",
+  "applies_to_guids": [
+   152
+  ]
+ },
+ "910": {
+  "name": "Pickaxe 1",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 50,
+   "wood": 150
+  },
+  "produced_at": 104,
+  "effects": {
+   "mine_pct": 10
+  },
+  "function": "Enables units to mine gold 10% faster",
+  "applies_to": "Warriors",
+  "applies_to_guids": [
+   152
+  ]
+ },
+ "911": {
+  "name": "Pickaxe 2",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 150,
+   "wood": 250
+  },
+  "produced_at": 104,
+  "effects": {
+   "mine_pct": 10
+  },
+  "function": "Enables units to mine gold 10% faster",
+  "applies_to": "Warriors",
+  "applies_to_guids": [
+   152
+  ]
+ },
+ "912": {
+  "name": "Shovel 1",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 50,
+   "wood": 150
+  },
+  "produced_at": 108,
+  "effects": {
+   "field_yield": 25
+  },
+  "function": "Adds 25 food units to yield of new fields",
+  "applies_to": "Field",
+  "applies_to_guids": [
+   149
+  ]
+ },
+ "913": {
+  "name": "Shovel 2",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 150,
+   "wood": 300
+  },
+  "produced_at": 108,
+  "effects": {
+   "field_yield": 25
+  },
+  "function": "Adds 25 food units to yield of new fields",
+  "applies_to": "Field",
+  "applies_to_guids": [
+   149
+  ]
+ },
+ "914": {
+  "name": "Swim",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 400
+  },
+  "produced_at": 112,
+  "effects": {},
+  "function": "Enables units to swim",
+  "applies_to": "All Native American infantry units and the travois",
+  "applies_to_guids": []
+ },
+ "915": {
+  "name": "Camouflage",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 500,
+   "wood": 200
+  },
+  "produced_at": 112,
+  "effects": {},
+  "function": "Enables units to camouflage themselves",
+  "applies_to": "Arrow shooters, flaming arrow shooters, riflemen",
+  "applies_to_guids": [
+   156,
+   158,
+   160
+  ]
+ },
+ "916": {
+  "name": "Rob",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 100
+  },
+  "produced_at": 112,
+  "effects": {},
+  "function": "Enables units to rob banks, missions and gold warehouses",
+  "applies_to": "Warriors, travois",
+  "applies_to_guids": [
+   152,
+   155
+  ]
+ },
+ "917": {
+  "name": "Magic energy",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 200
+  },
+  "produced_at": 115,
+  "effects": {
+   "magic_pct": 50
+  },
+  "function": "Increases magic energy by 50%",
+  "applies_to": "Medicine man",
+  "applies_to_guids": [
+   164
+  ]
+ },
+ "918": {
+  "name": "Eagle eye",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 150,
+   "wood": 150,
+   "gold": 200
+  },
+  "produced_at": 115,
+  "effects": {},
+  "function": "Lifts fog of war (click any location to lift the fog of war within a certain radius)",
+  "applies_to": "Medicine man",
+  "applies_to_guids": [
+   164
+  ]
+ },
+ "919": {
+  "name": "Lightning dance",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 300,
+   "gold": 400
+  },
+  "produced_at": 115,
+  "effects": {},
+  "function": "Weakens your enemies’ life energy (click any location to create a thunderstorm)",
+  "applies_to": "Medicine man",
+  "applies_to_guids": [
+   164
+  ]
+ },
+ "920": {
+  "name": "Hail dance",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 250,
+   "gold": 250
+  },
+  "produced_at": 115,
+  "effects": {},
+  "function": "Causes hail to fall on your opponent’s fields",
+  "applies_to": "Medicine man",
+  "applies_to_guids": [
+   164
+  ]
+ },
+ "921": {
+  "name": "Rain dance",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "wood": 500,
+   "gold": 200
+  },
+  "produced_at": 115,
+  "effects": {},
+  "function": "Increases a field’s yield",
+  "applies_to": "Medicine man",
+  "applies_to_guids": [
+   164
+  ]
+ },
+ "922": {
+  "name": "Protective dance",
+  "faction": "ind",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 400
+  },
+  "produced_at": 115,
+  "effects": {},
+  "function": "Surrounds a unit with a shield of protection",
+  "applies_to": "Medicine man",
+  "applies_to_guids": [
+   164
+  ]
+ },
+ "925": {
+  "name": "Rifle 1",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 100,
+   "gold": 100
+  },
+  "produced_at": 211,
+  "effects": {
+   "attack": 1
+  },
+  "function": "Adds 1 unit of attack force",
+  "applies_to": "Infantrymen and militiamen",
+  "applies_to_guids": [
+   258,
+   261
+  ]
+ },
+ "926": {
+  "name": "Rifle 2",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 200
+  },
+  "produced_at": 211,
+  "effects": {
+   "attack": 1
+  },
+  "function": "Adds 1 unit of attack force",
+  "applies_to": "Infantrymen and militiamen",
+  "applies_to_guids": [
+   258,
+   261
+  ]
+ },
+ "927": {
+  "name": "Pistol 1",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 100,
+   "gold": 100
+  },
+  "produced_at": 211,
+  "effects": {
+   "attack": 1
+  },
+  "function": "Adds 1 unit of attack force",
+  "applies_to": "Gauchos, mounted gauchos, gunslingers",
+  "applies_to_guids": [
+   263,
+   262
+  ]
+ },
+ "928": {
+  "name": "Pistol 2",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 200
+  },
+  "produced_at": 211,
+  "effects": {
+   "attack": 1
+  },
+  "function": "Adds 1 unit of attack force",
+  "applies_to": "Gauchos, mounted gauchos, gunslingers",
+  "applies_to_guids": [
+   263,
+   262
+  ]
+ },
+ "929": {
+  "name": "Protective clothing 1",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 100,
+   "gold": 100
+  },
+  "produced_at": 211,
+  "effects": {
+   "health_pct": 10
+  },
+  "function": "Increases life energy by 10%",
+  "applies_to": "Infantrymen, cavalrymen, mounted cavalrymen, gauchos, mounted gauchos, gunslingers",
+  "applies_to_guids": [
+   258,
+   259,
+   263,
+   262
+  ]
+ },
+ "930": {
+  "name": "Protective clothing 2",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 200
+  },
+  "produced_at": 211,
+  "effects": {
+   "health_pct": 10
+  },
+  "function": "Increases life energy by 10%",
+  "applies_to": "Infantrymen, cavalrymen, mounted cavalrymen, gauchos, mounted gauchos, gunslingers",
+  "applies_to_guids": [
+   258,
+   259,
+   263,
+   262
+  ]
+ },
+ "931": {
+  "name": "Protective clothing 3",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 300,
+   "gold": 300
+  },
+  "produced_at": 211,
+  "effects": {
+   "health_pct": 10
+  },
+  "function": "Increases life energy by 10%",
+  "applies_to": "Infantrymen, cavalrymen, mounted cavalrymen, gauchos, mounted gauchos, gunslingers",
+  "applies_to_guids": [
+   258,
+   259,
+   263,
+   262
+  ]
+ },
+ "932": {
+  "name": "Hardened bullet",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "wood": 100,
+   "gold": 400
+  },
+  "produced_at": 211,
+  "effects": {
+   "attack": 3
+  },
+  "function": "Adds 3 units of attack force",
+  "applies_to": "Cannons",
+  "applies_to_guids": [
+   265
+  ]
+ },
+ "933": {
+  "name": "Wheel",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "wood": 300,
+   "gold": 300
+  },
+  "produced_at": 211,
+  "effects": {
+   "speed_tiers": 1
+  },
+  "function": "Adds 1 unit of speed",
+  "applies_to": "Cannons",
+  "applies_to_guids": [
+   265
+  ]
+ },
+ "934": {
+  "name": "Axe 1",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 50,
+   "wood": 150
+  },
+  "produced_at": 209,
+  "effects": {
+   "chop_pct": 10
+  },
+  "function": "Enables units to chop wood 10% faster",
+  "applies_to": "Field workers and women",
+  "applies_to_guids": [
+   252
+  ]
+ },
+ "935": {
+  "name": "Axe 2",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 150,
+   "wood": 300
+  },
+  "produced_at": 209,
+  "effects": {
+   "chop_pct": 10
+  },
+  "function": "Enables units to chop wood 10% faster",
+  "applies_to": "Field workers and women",
+  "applies_to_guids": [
+   252
+  ]
+ },
+ "936": {
+  "name": "Pickaxe 1",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 50,
+   "gold": 150
+  },
+  "produced_at": 206,
+  "effects": {
+   "mine_pct": 10
+  },
+  "function": "Enables units to mine gold 10% faster",
+  "applies_to": "Field workers",
+  "applies_to_guids": [
+   252
+  ]
+ },
+ "937": {
+  "name": "Pickaxe 2",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 150,
+   "gold": 250
+  },
+  "produced_at": 206,
+  "effects": {
+   "mine_pct": 10
+  },
+  "function": "Enables units to mine gold 10% faster",
+  "applies_to": "Field workers",
+  "applies_to_guids": [
+   252
+  ]
+ },
+ "938": {
+  "name": "Shovel 1",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 50,
+   "wood": 150
+  },
+  "produced_at": 208,
+  "effects": {
+   "field_yield": 25
+  },
+  "function": "Adds 25 units to yield of new fields",
+  "applies_to": "Field",
+  "applies_to_guids": [
+   252
+  ]
+ },
+ "939": {
+  "name": "Shovel 2",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 150,
+   "wood": 250
+  },
+  "produced_at": 208,
+  "effects": {
+   "field_yield": 25
+  },
+  "function": "Adds 25 units to yield of new fields",
+  "applies_to": "Women",
+  "applies_to_guids": []
+ },
+ "940": {
+  "name": "Thick boards",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 50,
+   "wood": 150
+  },
+  "produced_at": 209,
+  "effects": {
+   "health_pct": 10
+  },
+  "function": "Increases life energy by 10%",
+  "applies_to": "Transport wagons",
+  "applies_to_guids": [
+   255
+  ]
+ },
+ "941": {
+  "name": "Rob",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 100
+  },
+  "produced_at": 207,
+  "effects": {},
+  "function": "Enables units to rob banks, missions and gold warehouses",
+  "applies_to": "Field workers, transport wagons",
+  "applies_to_guids": [
+   252,
+   255
+  ]
+ },
+ "942": {
+  "name": "Steal",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 100
+  },
+  "produced_at": 207,
+  "effects": {},
+  "function": "Enables units to change the color of their opponents’ transport vehicles",
+  "applies_to": "Gauchos, mounted gauchos",
+  "applies_to_guids": [
+   263
+  ]
+ },
+ "943": {
+  "name": "Sight 1",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 100
+  },
+  "produced_at": 213,
+  "effects": {
+   "sight_pct": 10
+  },
+  "function": "Increases visibility by 10%",
+  "applies_to": "Tower",
+  "applies_to_guids": [
+   213
+  ]
+ },
+ "944": {
+  "name": "Sight 2",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "food": 300,
+   "gold": 150
+  },
+  "produced_at": 213,
+  "effects": {
+   "sight_pct": 10
+  },
+  "function": "Increases visibility by 10%",
+  "applies_to": "Tower",
+  "applies_to_guids": [
+   213
+  ]
+ },
+ "945": {
+  "name": "Healing energy",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "gold": 400
+  },
+  "produced_at": 216,
+  "effects": {
+   "heal_pct": 50
+  },
+  "function": "Increases healing energy by 50%",
+  "applies_to": "Nuns",
+  "applies_to_guids": [
+   256
+  ]
+ },
+ "946": {
+  "name": "Regeneration",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "gold": 500
+  },
+  "produced_at": 216,
+  "effects": {
+   "heal_regen_pct": 50
+  },
+  "function": "Causes healing energy to regenerate 50% faster",
+  "applies_to": "Nuns",
+  "applies_to_guids": [
+   256
+  ]
+ },
+ "947": {
+  "name": "Magic energy",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "gold": 200
+  },
+  "produced_at": 216,
+  "effects": {
+   "magic_pct": 50
+  },
+  "function": "Increases magic energy by 50%",
+  "applies_to": "Priests",
+  "applies_to_guids": [
+   257
+  ]
+ },
+ "948": {
+  "name": "Conversion",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "gold": 300
+  },
+  "produced_at": 216,
+  "effects": {},
+  "function": "Enables priests to change the color of enemy units Exceptions: Commander, mounted commander, construction units, field workers, wood cutters, gold miners, transport vehicles and boats",
+  "applies_to": "Priests",
+  "applies_to_guids": [
+   257
+  ]
+ },
+ "949": {
+  "name": "Power",
+  "faction": "mex",
+  "kind": "upgrade",
+  "cost": {
+   "gold": 500
+  },
+  "produced_at": 216,
+  "effects": {
+   "convert_pct": 50
+  },
+  "function": "Increases speed of conversion by 50%",
+  "applies_to": "Priests",
+  "applies_to_guids": [
+   257
+  ]
+ },
+ "950": {
+  "name": "Pistol 1",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "food": 100,
+   "gold": 100
+  },
+  "produced_at": 303,
+  "effects": {
+   "attack": 1
+  },
+  "function": "Adds 1 unit of attack force",
+  "applies_to": "Barbers, mounted barbers, gunslingers and mounted gunslingers",
+  "applies_to_guids": [
+   353,
+   360
+  ]
+ },
+ "951": {
+  "name": "Pistol 2",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 200
+  },
+  "produced_at": 303,
+  "effects": {
+   "attack": 1
+  },
+  "function": "Adds 1 unit of attack force",
+  "applies_to": "Barbers, mounted barbers, gunslingers and mounted gunslingers",
+  "applies_to_guids": [
+   353,
+   360
+  ]
+ },
+ "952": {
+  "name": "Protective clothing 1",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "food": 100,
+   "gold": 100
+  },
+  "produced_at": 303,
+  "effects": {
+   "health_pct": 10
+  },
+  "function": "Increases life energy by 10%",
+  "applies_to": "Barbers, mounted barbers, riflemen, mounted riflemen, gunslingers, mounted gunslingers and hunters",
+  "applies_to_guids": [
+   353,
+   356,
+   360,
+   358
+  ]
+ },
+ "953": {
+  "name": "Protective clothing 2",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 200
+  },
+  "produced_at": 303,
+  "effects": {
+   "health_pct": 10
+  },
+  "function": "Increases life energy by 10%",
+  "applies_to": "Barbers, mounted barbers, riflemen, mounted riflemen, gunslingers, mounted gunslingers and hunters",
+  "applies_to_guids": [
+   353,
+   356,
+   360,
+   358
+  ]
+ },
+ "954": {
+  "name": "Protective clothing 3",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "food": 300,
+   "gold": 300
+  },
+  "produced_at": 303,
+  "effects": {
+   "health_pct": 10
+  },
+  "function": "Increases life energy by 10%",
+  "applies_to": "Barbers, mounted barbers, riflemen, mounted riflemen, gunslingers, mounted gunslingers and hunters",
+  "applies_to_guids": [
+   353,
+   356,
+   360,
+   358
+  ]
+ },
+ "955": {
+  "name": "TNT",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "gold": 400
+  },
+  "produced_at": 314,
+  "effects": {
+   "attack": 3
+  },
+  "function": "Adds 3 units of attack force",
+  "applies_to": "Blasters",
+  "applies_to_guids": [
+   359
+  ]
+ },
+ "956": {
+  "name": "Endurance",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "gold": 400
+  },
+  "produced_at": 311,
+  "effects": {
+   "health_pct": 50
+  },
+  "function": "Increases life energy by 50%",
+  "applies_to": "Assassins",
+  "applies_to_guids": [
+   362
+  ]
+ },
+ "957": {
+  "name": "Self-healing",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "gold": 500
+  },
+  "produced_at": 303,
+  "effects": {},
+  "function": "Enables units to heal themselves",
+  "applies_to": "All units",
+  "applies_to_guids": []
+ },
+ "958": {
+  "name": "Axe 1",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "food": 50,
+   "wood": 150
+  },
+  "produced_at": 309,
+  "effects": {
+   "chop_pct": 10
+  },
+  "function": "Enables units to chop wood 10% faster",
+  "applies_to": "Outlaws",
+  "applies_to_guids": [
+   352
+  ]
+ },
+ "959": {
+  "name": "Axe 2",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "food": 150,
+   "gold": 300
+  },
+  "produced_at": 309,
+  "effects": {
+   "chop_pct": 10
+  },
+  "function": "Enables units to chop wood 10% faster",
+  "applies_to": "Outlaws",
+  "applies_to_guids": [
+   352
+  ]
+ },
+ "960": {
+  "name": "Pickaxe 1",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "food": 50,
+   "wood": 150
+  },
+  "produced_at": 304,
+  "effects": {
+   "mine_pct": 10
+  },
+  "function": "Enables units to mine gold 10% faster",
+  "applies_to": "Outlaws",
+  "applies_to_guids": [
+   352
+  ]
+ },
+ "961": {
+  "name": "Pickaxe 2",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "food": 150,
+   "wood": 250
+  },
+  "produced_at": 304,
+  "effects": {
+   "mine_pct": 10
+  },
+  "function": "Enables units to mine gold 10% faster",
+  "applies_to": "Outlaws",
+  "applies_to_guids": [
+   352
+  ]
+ },
+ "962": {
+  "name": "Sight 1",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 100
+  },
+  "produced_at": 313,
+  "effects": {
+   "sight_pct": 10
+  },
+  "function": "Increases visibility by 10%",
+  "applies_to": "Lookout",
+  "applies_to_guids": [
+   313
+  ]
+ },
+ "963": {
+  "name": "Sight 2",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "food": 300,
+   "gold": 150
+  },
+  "produced_at": 313,
+  "effects": {
+   "sight_pct": 10
+  },
+  "function": "Increases visibility by 10%",
+  "applies_to": "Lookout",
+  "applies_to_guids": [
+   313
+  ]
+ },
+ "964": {
+  "name": "Thick boards",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "food": 50,
+   "wood": 150
+  },
+  "produced_at": 309,
+  "effects": {
+   "health_pct": 10
+  },
+  "function": "Increases life energy by 10%",
+  "applies_to": "Flat-bed wagon",
+  "applies_to_guids": [
+   355
+  ]
+ },
+ "965": {
+  "name": "Lift Fog of War",
+  "faction": "des",
+  "kind": "upgrade",
+  "cost": {
+   "food": 100,
+   "wood": 100,
+   "gold": 200
+  },
+  "produced_at": 311,
+  "effects": {},
+  "function": "After an upgrade, this function is available in the saloon. First click the Sight icon and then the map to lift the fog of war at that particular location. To lift the fog of war, you will need “energy,” which regenerates slowly.",
+  "applies_to": "Saloon",
+  "applies_to_guids": [
+   303
+  ]
+ },
+ "975": {
+  "name": "Rifle 1",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 100,
+   "gold": 100
+  },
+  "produced_at": 411,
+  "effects": {
+   "attack": 1
+  },
+  "function": "Adds 1 unit of attack force",
+  "applies_to": "Infantrymen and trappers",
+  "applies_to_guids": [
+   458,
+   461
+  ]
+ },
+ "976": {
+  "name": "Rifle 2",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 200
+  },
+  "produced_at": 411,
+  "effects": {
+   "attack": 1
+  },
+  "function": "Adds 1 unit of attack force",
+  "applies_to": "Infantrymen and trappers",
+  "applies_to_guids": [
+   458,
+   461
+  ]
+ },
+ "977": {
+  "name": "Pistol 1",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 100,
+   "gold": 100
+  },
+  "produced_at": 411,
+  "effects": {
+   "attack": 1
+  },
+  "function": "Adds 1 unit of attack force",
+  "applies_to": "Cowboys, mounted cowboys, sheriff and cavalrymen",
+  "applies_to_guids": [
+   463,
+   462,
+   459
+  ]
+ },
+ "978": {
+  "name": "Pistol 2",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 200
+  },
+  "produced_at": 411,
+  "effects": {
+   "attack": 1
+  },
+  "function": "Adds 1 unit of attack force",
+  "applies_to": "Cowboys, mounted cowboys, sheriff and cavalrymen",
+  "applies_to_guids": [
+   463,
+   462,
+   459
+  ]
+ },
+ "979": {
+  "name": "Protective clothing 1",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 100,
+   "gold": 100
+  },
+  "produced_at": 411,
+  "effects": {
+   "health_pct": 10
+  },
+  "function": "Increases life energy by 10%",
+  "applies_to": "Cowboys, mounted cowboys, sheriff, cavalrymen, mounted cavalrymen, trappers and infantrymen",
+  "applies_to_guids": [
+   463,
+   462,
+   459,
+   461,
+   458
+  ]
+ },
+ "980": {
+  "name": "Protective clothing 2",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 200
+  },
+  "produced_at": 411,
+  "effects": {
+   "health_pct": 10
+  },
+  "function": "Increases life energy by 10%",
+  "applies_to": "Cowboys, mounted cowboys, sheriff, cavalrymen, mounted cavalrymen, trappers and infantrymen People",
+  "applies_to_guids": [
+   463,
+   462,
+   459,
+   461
+  ]
+ },
+ "981": {
+  "name": "Protective clothing 3",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 300,
+   "gold": 300
+  },
+  "produced_at": 411,
+  "effects": {
+   "health_pct": 10
+  },
+  "function": "Increases life energy by 10%",
+  "applies_to": "Cowboys, mounted cowboys, sheriff, cavalrymen, mounted cavalrymen, trappers and infantrymen",
+  "applies_to_guids": [
+   463,
+   462,
+   459,
+   461,
+   458
+  ]
+ },
+ "982": {
+  "name": "Longer barrel",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "wood": 300,
+   "gold": 300
+  },
+  "produced_at": 411,
+  "effects": {
+   "range_pct": 10
+  },
+  "function": "Increases range by 10%",
+  "applies_to": "Cannons",
+  "applies_to_guids": [
+   465
+  ]
+ },
+ "983": {
+  "name": "Healing energy",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "gold": 400
+  },
+  "produced_at": 415,
+  "effects": {
+   "heal_pct": 50
+  },
+  "function": "Increases healing energy by 50%",
+  "applies_to": "Nurse",
+  "applies_to_guids": [
+   457
+  ]
+ },
+ "984": {
+  "name": "Axe 1",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "wood": 150
+  },
+  "produced_at": 409,
+  "effects": {
+   "chop_pct": 10
+  },
+  "function": "Enables units to chop wood 10% faster",
+  "applies_to": "Frontiersmen, frontierswomen",
+  "applies_to_guids": [
+   452,
+   453
+  ]
+ },
+ "985": {
+  "name": "Axe 2",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 150,
+   "wood": 300
+  },
+  "produced_at": 409,
+  "effects": {
+   "chop_pct": 10
+  },
+  "function": "Enables units to chop wood 10% faster",
+  "applies_to": "Frontiersmen and frontierswomen",
+  "applies_to_guids": [
+   452,
+   453
+  ]
+ },
+ "986": {
+  "name": "Pickaxe 1",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 50,
+   "wood": 150
+  },
+  "produced_at": 419,
+  "effects": {
+   "mine_pct": 10
+  },
+  "function": "Enables units to mine gold 10% faster",
+  "applies_to": "Frontiersmen America",
+  "applies_to_guids": []
+ },
+ "987": {
+  "name": "Pickaxe 2",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 150,
+   "wood": 250
+  },
+  "produced_at": 419,
+  "effects": {
+   "mine_pct": 10
+  },
+  "function": "Enables units to mine gold 10% faster",
+  "applies_to": "Frontiersmen",
+  "applies_to_guids": [
+   452
+  ]
+ },
+ "988": {
+  "name": "Shovel 1",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 50,
+   "wood": 150
+  },
+  "produced_at": 408,
+  "effects": {
+   "field_yield": 25
+  },
+  "function": "Adds 25 units to yield of new fields",
+  "applies_to": "Field",
+  "applies_to_guids": []
+ },
+ "989": {
+  "name": "Shovel 2",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 150,
+   "wood": 250
+  },
+  "produced_at": 408,
+  "effects": {
+   "field_yield": 25
+  },
+  "function": "Adds 25 units to yield of new fields",
+  "applies_to": "Field",
+  "applies_to_guids": []
+ },
+ "991": {
+  "name": "Rob",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 100
+  },
+  "produced_at": 407,
+  "effects": {},
+  "function": "Enables units to rob banks, missions and gold warehouses",
+  "applies_to": "Frontiersmen, covered wagons and stagecoaches",
+  "applies_to_guids": [
+   452,
+   455,
+   456
+  ]
+ },
+ "992": {
+  "name": "Steal",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 100,
+   "gold": 200
+  },
+  "produced_at": 407,
+  "effects": {},
+  "function": "Enables units to change the color of enemy transport vehicles",
+  "applies_to": "Cowboys and mounted cowboys",
+  "applies_to_guids": [
+   463
+  ]
+ },
+ "993": {
+  "name": "Sight 1",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 200,
+   "gold": 100
+  },
+  "produced_at": 413,
+  "effects": {
+   "sight_pct": 10
+  },
+  "function": "Increases visibility by 10%",
+  "applies_to": "Watchtower",
+  "applies_to_guids": [
+   413
+  ]
+ },
+ "994": {
+  "name": "Sight 2",
+  "faction": "usa",
+  "kind": "upgrade",
+  "cost": {
+   "food": 300,
+   "gold": 150
+  },
+  "produced_at": 413,
+  "effects": {
+   "sight_pct": 10
+  },
+  "function": "Increases visibility by 10%",
+  "applies_to": "Watchtower",
+  "applies_to_guids": [
+   413
+  ]
  }
 }

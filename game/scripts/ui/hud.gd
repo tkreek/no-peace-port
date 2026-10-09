@@ -292,7 +292,9 @@ func _refresh_commands() -> void:
 		for guid in building.trainable_units():
 			var type_id := GameData.type_for_guid(guid, biome)
 			if type_id >= 0:
-				_add_command(type_id, guid, func() -> void: building.enqueue(guid))
+				_add_command(type_id, guid, func() -> void:
+					if not building.enqueue(guid):
+						Sound.play_sound(80))  # the original "not possible" sound
 	_layout()
 
 
@@ -320,6 +322,7 @@ func _add_command(type_id: int, guid: int, action: Callable) -> void:
 		if key != "population":
 			cost.append("%d %s" % [stats.cost[key], key])
 	button.tooltip_text = "%s\n%s" % [stats.get("name", "?"), ", ".join(cost)]
+	button.set_meta("tooltip", button.tooltip_text)
 	button.set_meta("guid", guid)
 	button.pressed.connect(action)
 	var thumb := Thumbnail.portrait(guid)
@@ -350,9 +353,9 @@ func _update_affordability() -> void:
 		cost.erase("population")
 		cost.erase("horses")
 		var guid: int = button.get_meta("guid")
-		button.disabled = not player.can_afford(cost) or not player.meets_prerequisites(guid)
-		if guid == MapObject.FIELD_GUID:
-			button.disabled = not player.can_afford(cost) or MapObject.field_allowance(player.index) <= 0
+		var reason := _unavailable_reason(guid, cost)
+		button.disabled = not reason.is_empty()
+		button.tooltip_text = button.get_meta("tooltip") + ("\n" + reason if reason else "")
 		button.modulate = Color(1, 1, 1, 0.55) if button.disabled else Color.WHITE
 
 
@@ -440,3 +443,43 @@ func show_banner(text: String) -> void:
 	back.pressed.connect(_to_main_menu)
 	_root.add_child(back)
 	back.position = label.position + Vector2(label.get_minimum_size().x / 2.0 - 110 * ui_scale, label.get_minimum_size().y + 20)
+
+
+## Why a build/train button is unavailable, or "" when it can be used.
+func _unavailable_reason(guid: int, cost: Dictionary) -> String:
+	if guid == MapObject.FIELD_GUID and MapObject.field_allowance(player.index) <= 0:
+		var store := ""
+		for food_store in MapObject.FOOD_STORES:
+			if GameData.stats(food_store).get("faction") == player.faction:
+				store = GameData.stats(food_store).get("name", "food store")
+		return "Build a %s first (each allows %d fields)" % [store, MapObject.FIELDS_PER_STORE] if store \
+				else "Needs a food store"
+	var stats := GameData.stats(guid)
+	if stats.get("kind") == "unit":
+		if guid in Player.COMMANDERS and player.has_commander():
+			return "You can only have one %s" % stats.get("name", "commander").to_lower()
+		if not player.has_room():
+			var house := ""
+			for other in GameData.stats_guids():
+				var s2 := GameData.stats(other)
+				if s2.get("faction") == player.faction and s2.get("kind") == "structure" \
+						and int(s2.get("housing", 0)) > 0 and int(s2.get("housing", 0)) < 12:
+					house = s2.get("name", "")
+			return "Not enough housing (%d/%d)%s" % [player.population() + player.queued_units(),
+					player.population_cap(), " — build a %s" % house if house else ""]
+		var selected := selection.selected_building
+		if is_instance_valid(selected) and selected.queue.size() >= MapObject.QUEUE_LIMIT:
+			return "Queue full"
+	var missing := PackedStringArray()
+	for required in GameData.prerequisites(guid):
+		if not player.has_building(required):
+			missing.append(GameData.stats(required).get("name", "?"))
+	if not missing.is_empty():
+		return "Requires: " + ", ".join(missing)
+	var short := PackedStringArray()
+	for key in cost:
+		if int(player.resources.get(key, 0)) < int(cost[key]):
+			short.append(GameData.text(Player.RESOURCES[key].text, key) if Player.RESOURCES.has(key) else key)
+	if not short.is_empty():
+		return "Not enough " + ", ".join(short).to_lower()
+	return ""

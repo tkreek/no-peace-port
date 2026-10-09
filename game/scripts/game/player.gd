@@ -63,6 +63,22 @@ func queued_units() -> int:
 	return count
 
 
+## Commanders (on foot or mounted): a people may only ever have one.
+const COMMANDERS := [150, 151, 250, 251, 350, 351, 450, 451]
+
+
+func has_commander() -> bool:
+	for unit in Unit.all_units:
+		if unit.team == index and unit.is_alive() and unit.unit_type.guid() in COMMANDERS:
+			return true
+	for object in MapObject.all_objects:
+		if object.owner_index == index:
+			for queued in object.queue:
+				if queued in COMMANDERS:
+					return true
+	return false
+
+
 func has_room() -> bool:
 	return population() + queued_units() < population_cap()
 

@@ -363,11 +363,11 @@ func _update_gather(delta: float) -> void:
 				_route_gather()
 			_follow_path(delta)
 			play(_walk_action())
-			if gather_source.footprint_rect().grow(REACH).has_point(position) or path.is_empty():
+			if gather_source.work_rect().grow(REACH).has_point(position) or path.is_empty():
 				path.clear()
 				_gather_phase = Gather.WORKING
 				_work_timer = WORK_SECONDS.get(gather_source.resource, 4.0)
-				face(gather_source.position - position)
+				face(gather_source.work_rect().get_center() - position)
 				if gather_source.resource == "gold":
 					inside = true  # workers go inside the mine
 		Gather.WORKING:
@@ -411,7 +411,7 @@ func _update_gather(delta: float) -> void:
 					return
 			_follow_path(delta)
 			play(_walk_action())
-			if _drop_off.footprint_rect().grow(REACH).has_point(position) or path.is_empty():
+			if _drop_off.work_rect().grow(REACH).has_point(position) or path.is_empty():
 				path.clear()
 				var player: Player = Player.by_index.get(team)
 				if player and carried > 0:
@@ -435,7 +435,7 @@ func _update_build(delta: float) -> void:
 		build_site = null
 		state = State.IDLE
 		return
-	if not build_site.footprint_rect().grow(REACH).has_point(position):
+	if not build_site.work_rect().grow(REACH).has_point(position):
 		if path.is_empty():
 			path = _find_path(build_site.position)
 		_follow_path(delta)
@@ -443,7 +443,7 @@ func _update_build(delta: float) -> void:
 		if not path.is_empty():
 			return
 	path.clear()
-	face(build_site.footprint_rect().get_center() - position)
+	face(build_site.work_rect().get_center() - position)
 	play("build")
 	Sound.play_event(build_site.guid, Sound.Event.BUILD, build_site.position, 2500)
 	build_site.add_build_work(delta)
@@ -525,7 +525,7 @@ func _nearest_drop_off(resource: String) -> MapObject:
 ## Closest point of a target: a unit's feet, or the nearest edge of a building's footprint.
 func _aim_point(node: Node2D) -> Vector2:
 	if node is MapObject:
-		var rect: Rect2 = node.footprint_rect()
+		var rect: Rect2 = node.work_rect()
 		return Vector2(clampf(position.x, rect.position.x, rect.end.x), clampf(position.y, rect.position.y, rect.end.y))
 	return node.position
 

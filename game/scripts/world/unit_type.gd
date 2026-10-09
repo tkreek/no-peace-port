@@ -33,6 +33,16 @@ const ACTION_FALLBACKS := {
 }
 const CARRY_AMOUNT := 10
 
+## Riding versions of the actions (commanders, cavalry and other units with horse sheets).
+const MOUNTED_STEMS := {
+	"walk": ["reiten"],
+	"idle": ["stehen_pferd"],
+	"die": ["sterben_pferd"],
+	"shoot": ["pferd_schiessen", "schiessen_pferd"],
+	"melee": ["kaempfen_pferd", "mpfen_pferd"],
+	"fight": ["kaempfen_pferd", "mpfen_pferd"],
+}
+
 static var _cache := {}
 
 var directory := ""
@@ -41,6 +51,7 @@ var palette: ImageTexture
 var ramps: Texture2D
 var speed := 60.0
 var type_id := -1  ## object type id (BobListe.blf), for names and stats
+var mounted := false  ## uses the riding sheets and the "+Pferd" type's stats
 var health := 50.0
 var damage := 5
 var ranged := false
@@ -60,9 +71,10 @@ func display_name() -> String:
 	return GameData.type_name(type_id) if type_id >= 0 else directory.get_file().capitalize()
 
 
-static func load_type(dir: String) -> UnitType:
-	if _cache.has(dir):
-		return _cache[dir]
+static func load_type(dir: String, riding := false) -> UnitType:
+	var key := dir + ("#mounted" if riding else "")
+	if _cache.has(key):
+		return _cache[key]
 	var bob_path := ""
 	for archive in GameData.archives:
 		for path in archive.list(dir + "/"):
@@ -73,16 +85,18 @@ static func load_type(dir: String) -> UnitType:
 		return null
 	var unit_type := UnitType.new()
 	unit_type.directory = dir
+	unit_type.mounted = riding
 	unit_type.bob = GameData.load_bob(bob_path)
 	unit_type.palette = GameData.load_palette_texture(dir, unit_type.bob.palettes)
 	unit_type.ramps = GameData.load_ramps(bob_path)
 	for id in ObjectTypes.count():
 		var t := ObjectTypes.get_type(id)
-		if t.kind == ObjectTypes.Kind.UNIT and t.bob_path == bob_path:
+		if t.kind == ObjectTypes.Kind.UNIT and t.bob_path == bob_path \
+				and t.name.contains("Pferd") == riding:
 			unit_type.type_id = id
 			break
 	unit_type._setup_combat()
-	_cache[dir] = unit_type
+	_cache[key] = unit_type
 	return unit_type
 
 
@@ -122,6 +136,11 @@ func _setup_combat() -> void:
 func anim_index(action: String) -> int:
 	if action == "sow":
 		return _sow_anim()
+	if mounted and MOUNTED_STEMS.has(action):
+		for stem in MOUNTED_STEMS[action]:
+			var riding := bob.find_anim(stem)
+			if riding >= 0:
+				return riding
 	var index := bob.find_anim(ACTION_STEMS.get(action, action))
 	for alternative in ACTION_FALLBACKS.get(action, []):
 		if index >= 0:

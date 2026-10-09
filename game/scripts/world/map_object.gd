@@ -77,6 +77,7 @@ var _shadow: Sprite2D
 var _palette: Texture2D
 var _ramps: Texture2D
 var _overlay := DrawOverlay.new()
+var _work_rect := Rect2()
 
 
 func _enter_tree() -> void:
@@ -162,6 +163,26 @@ func display_name() -> String:
 ## Footprint rectangle in world space (for arrival checks and placement).
 func footprint_rect() -> Rect2:
 	return footprint_rect_for(object_type, position)
+
+
+## The solid part of the footprint (trunk, walls, mine entrance): where workers stand at.
+## The full footprint grid also covers the empty space around the sprite.
+func work_rect() -> Rect2:
+	if _work_rect.size == Vector2.ZERO:
+		_work_rect = footprint_rect()
+		if object_type and not object_type.footprint_cells.is_empty():
+			var grid := object_type.footprint_grid
+			var low := Vector2i(grid.x, grid.y)
+			var high := Vector2i(-1, -1)
+			for i in object_type.footprint_cells.size():
+				if object_type.footprint_cells[i] & NavGrid.BLOCKED:
+					var c := Vector2i(i % grid.x, i / grid.x)
+					low = Vector2i(mini(low.x, c.x), mini(low.y, c.y))
+					high = Vector2i(maxi(high.x, c.x), maxi(high.y, c.y))
+			if high.x >= 0:
+				var origin := footprint_rect().position
+				_work_rect = Rect2(origin + Vector2(low * NavGrid.CELL), Vector2(high - low + Vector2i.ONE) * NavGrid.CELL)
+	return _work_rect
 
 
 static func footprint_rect_for(type: ObjectTypes.ObjectType, at: Vector2) -> Rect2:
@@ -287,9 +308,11 @@ func trainable_units() -> PackedInt32Array:
 
 
 func enqueue(unit_guid: int) -> bool:
-	if queue.size() >= QUEUE_LIMIT:
-		return false
 	var player: Player = Player.by_index.get(owner_index)
+	if queue.size() >= QUEUE_LIMIT or player == null:
+		return false
+	if unit_guid in Player.COMMANDERS and player.has_commander():
+		return false
 	var cost: Dictionary = GameData.stats(unit_guid).get("cost", {}).duplicate()
 	cost.erase("population")
 	cost.erase("horses")

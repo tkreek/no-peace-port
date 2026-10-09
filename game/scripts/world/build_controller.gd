@@ -58,7 +58,7 @@ func can_place(at: Vector2) -> bool:
 		if (placing_type.footprint_cells[i] & NavGrid.BLOCKED) == 0:
 			continue
 		var cell := origin + Vector2i(i % placing_type.footprint_grid.x, i / placing_type.footprint_grid.x)
-		if not nav.is_walkable(cell):
+		if not nav.can_build_on(cell, placing_type.footprint_cells[i]):
 			return false
 	for unit in Unit.all_units:
 		if unit.is_alive() and unit.team != player.index and rect.has_point(unit.position):

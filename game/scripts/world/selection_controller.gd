@@ -71,9 +71,6 @@ func _unhandled_input(event: InputEvent) -> void:
 				groups[digit] = selection.duplicate()
 			elif groups.has(digit):
 				_select(groups[digit].filter(is_instance_valid), false)
-		elif event.keycode == KEY_H:
-			for unit in selection:
-				unit.stop()
 
 
 func _draw() -> void:
@@ -103,22 +100,40 @@ func _animal_at(point: Vector2) -> Unit:
 	return null
 
 
+## The resource under the cursor. Forests overlap, so take the front-most object whose
+## picture is under the point (canopies count, not just the ground footprint).
 func _resource_at(point: Vector2) -> MapObject:
+	var best: MapObject = null
+	var best_score := INF
 	for object in MapObject.all_objects:
-		if object.is_field() and object.owner_index != player_team:
+		if object.resource == "" or (object.is_field() and object.owner_index != player_team):
 			continue
-		if object.resource != "" and object.footprint_rect().grow(6).has_point(point):
-			return object
-	return null
+		var footprint := object.footprint_rect()
+		var hit := object.work_rect().grow(6).has_point(point)
+		if object.is_tree():
+			var canopy := object.visual_rect()
+			hit = hit or canopy.grow_individual(-canopy.size.x * 0.2, -4, -canopy.size.x * 0.2, 0).has_point(point)
+		elif object.is_field():
+			hit = footprint.has_point(point)
+		else:
+			hit = hit or footprint.grow(6).has_point(point)
+		if not hit:
+			continue
+		# Front-most first (drawn on top), then closest to the trunk / centre.
+		var score := -object.position.y * 4.0 + point.distance_to(object.work_rect().get_center())
+		if score < best_score:
+			best_score = score
+			best = object
+	return best
 
 
-func _is_builder(u: Unit) -> bool:
-	return is_instance_valid(u) and u.is_alive() and u.unit_type.anim_index("build") >= 0
+func _is_builder(u: Unit, guid := -1) -> bool:
+	return is_instance_valid(u) and u.is_alive() and u.unit_type.can_build(guid)
 
 
 ## Send the selected builders to help finish a construction site.
 func order_build(site: MapObject) -> void:
-	var builders := selection.filter(_is_builder)
+	var builders := selection.filter(func(u: Unit) -> bool: return _is_builder(u, site.guid))
 	if builders.is_empty():
 		return
 	site.flash()
@@ -127,7 +142,7 @@ func order_build(site: MapObject) -> void:
 		unit.build(site)
 	# Anyone else selected just walks over.
 	for unit in selection:
-		if is_instance_valid(unit) and unit.is_alive() and not _is_builder(unit):
+		if is_instance_valid(unit) and unit.is_alive() and not _is_builder(unit, site.guid):
 			unit.move_to(site.position)
 
 
@@ -157,7 +172,7 @@ func order_attack(enemy: Node2D) -> void:
 	enemy.flash(Color(1.0, 0.35, 0.3))
 	Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	for unit in selection:
-		unit.attack(enemy)
+		unit.attack(enemy, true)
 
 
 func _units_in(rect: Rect2) -> Array[Unit]:
@@ -194,6 +209,17 @@ func select_building(building: MapObject) -> void:
 	selected_building = building
 	building.selected = true
 	Sound.play_event(building.guid, Sound.Event.SELECT)
+
+
+## Select exactly these units (e.g. from the HUD's group portraits).
+func select_units(units: Array) -> void:
+	_select(units, false)
+
+
+func deselect(unit: Unit) -> void:
+	if unit in selection:
+		selection.erase(unit)
+		unit.selected = false
 
 
 func _select(units: Array, add: bool) -> void:

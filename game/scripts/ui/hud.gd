@@ -10,6 +10,31 @@ const ICON_BOB := "global/gfx/status/resourcenicons/resourcenicons.bob"
 const MINIMAP_HOLE := Rect2(83, 15, 164, 160)  # magenta window in leisterechts.pic
 const BAR_HEIGHT := 167.0
 const TEXT_COLOR := Color("#f3e3bd")
+## The original command icons (all peoples use the same sheets).
+const COMMAND_ICONS := "global/gfx/usa/sonstigeicons/SonstigeIcons.spr"
+const EXTRA_ICONS := "global/gfx/usa/sonstigeicons/Iconserstereihe.spr"
+## SonstigeIcons frames (colour; +1 is the greyed version).
+const ICON_STOP := 14
+const ICON_BUILD := 18  # small hammer: structures for the economic and military cycle
+const ICON_BUILD_EXPANDED := 16  # large hammer: structures with enhanced functions
+const STANCE_ICONS := {Unit.Stance.AGGRESSIVE: 0, Unit.Stance.DEFENSIVE: 6, Unit.Stance.HOLD: 12,
+		Unit.Stance.PASSIVE: 8}
+const STANCE_NAMES := {Unit.Stance.AGGRESSIVE: "Act aggressively", Unit.Stance.DEFENSIVE: "Act defensively",
+		Unit.Stance.HOLD: "Hold ground", Unit.Stance.PASSIVE: "Passive"}
+const STANCE_KEYS := {KEY_A: Unit.Stance.AGGRESSIVE, KEY_D: Unit.Stance.DEFENSIVE, KEY_H: Unit.Stance.HOLD,
+		KEY_Y: Unit.Stance.PASSIVE}
+const FIELD_ICONS := "global/gfx/usa/icons/einheiten/USAEinheiten.spr"
+const ICON_FIELD := 32  # the green crop field among the unit icons
+const ICON_BACK := 0  # Iconserstereihe: arrow out of a doorway
+## "Build expanded structure" (V) per the manual's keyboard table; every other structure is
+## a basic one (B).
+const EXPANDED_STRUCTURES := [110, 111, 112, 114, 115,  # campfire, totem, camouflage school, pitfall, medicine man
+		210, 211, 212, 213, 215, 216, 217, 218,  # Mexican trading post, weapons, wall, tower, church, mission, fort, wharf
+		307, 310, 311, 312, 313, 314, 315,  # hotel, drugstore, cellar, barricade, lookout, explosives, boathouse
+		407, 411, 412, 413, 415, 416, 417, 418]  # sheriff, weapons, stockade, tower, church, bank, fort, wharf
+const CARD_SIZE := 44.0
+const CARD_STEP := 15.0  # queued units overlap like a hand of cards
+const GROUP_ICON := 34.0
 
 var player: Player
 var selection: SelectionController
@@ -34,6 +59,13 @@ var _population_label: Label
 var _status_sheet: RdSprite
 var _icon_sheet: RdSprite
 var _icon_material: Material
+var _command_icons: RdSprite
+var _extra_icons: RdSprite
+var _build_menu := ""  # "", "basic" or "expanded"
+var _queue_box := Control.new()
+var _queue_signature := ""
+var _group_box := Control.new()
+var _group_signature := ""
 
 
 func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D, local_player: Player,
@@ -41,6 +73,8 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	player = local_player
 	selection = selection_controller
 	_status_sheet = GameData.load_sprite(STATUS_SHEET)
+	_command_icons = GameData.load_sprite(COMMAND_ICONS)
+	_extra_icons = GameData.load_sprite(EXTRA_ICONS)
 	var icon_bob := GameData.load_bob(ICON_BOB)
 	_icon_sheet = GameData.load_sprite(ICON_BOB.get_base_dir().path_join(icon_bob.sub_sprites[0]))
 	_icon_material = SpriteMaterials.body(_icon_sheet,
@@ -88,6 +122,9 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	_health_bar.add_theme_stylebox_override("background", _flat(Color(0.12, 0.08, 0.05, 0.85)))
 	_health_bar.add_theme_stylebox_override("fill", _flat(Color(0.35, 0.75, 0.2)))
 	_left.add_child(_health_bar)
+	for box: Control in [_queue_box, _group_box]:
+		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_left.add_child(box)
 
 	var pop_icon := TextureRect.new()
 	pop_icon.texture = _atlas(_icon_sheet, 5)
@@ -167,6 +204,10 @@ func _layout() -> void:
 	_health_bar.size = Vector2(220, 10) * ui_scale
 	_selection_detail.position = pad + Vector2(0, 54) * ui_scale
 	_selection_detail.add_theme_font_size_override("font_size", int(16 * ui_scale))
+	_queue_box.position = pad + Vector2(0, 80) * ui_scale
+	_group_box.position = pad + Vector2(0, 2) * ui_scale
+	_queue_signature = ""
+	_group_signature = ""
 
 
 func _refresh_resources() -> void:
@@ -186,13 +227,19 @@ func _refresh_selection() -> void:
 			_selection_detail.text = "Under construction %d%%" % int(building.build_progress * 100)
 		elif not building.queue.is_empty():
 			var current := GameData.stats(building.queue[0])
-			_selection_detail.text = "%s %s — %d%% (%d queued)" % [
+			_selection_detail.text = "%s %s — %d%%" % [
 				"Researching" if current.get("kind") == "upgrade" else "Training", current.get("name", "?"),
-				int(building.train_progress * 100), building.queue.size()]
+				int(building.train_progress * 100)]
 		else:
 			_selection_detail.text = "Energy %d / %d" % [building.health, building.max_health]
+		_refresh_queue(building)
+		_refresh_group([])
 		return
-	_health_bar.visible = not units.is_empty()
+	_refresh_queue(null)
+	_refresh_group(units if units.size() > 1 else [])
+	_health_bar.visible = units.size() == 1
+	_selection_title.visible = units.size() <= 1
+	_selection_detail.visible = units.size() <= 1
 	if units.is_empty():
 		_selection_title.text = ""
 		_selection_detail.text = ""
@@ -209,6 +256,111 @@ func _refresh_selection() -> void:
 	_health_bar.value = health
 	_selection_detail.text = ("%d selected" % units.size()) if units.size() > 1 else \
 			"Health %d / %d" % [first.health, first.max_health]
+
+
+## The production queue as a hand of overlapping cards; the first one shows its progress.
+## Clicking a card cancels that order and refunds it.
+func _refresh_queue(building: MapObject) -> void:
+	var queue: Array = Array(building.queue) if building and building.complete else []
+	var signature := "%s|%s" % [building.get_instance_id() if building else 0, queue]
+	if signature != _queue_signature:
+		_queue_signature = signature
+		for child in _queue_box.get_children():
+			child.queue_free()
+		for i in queue.size():
+			var card := _card(queue[i], CARD_SIZE * ui_scale)
+			card.position = Vector2(i * CARD_STEP * ui_scale + (8 * ui_scale if i > 0 else 0.0), 0)
+			card.tooltip_text = "%s\nClick to cancel" % GameData.stats(queue[i]).get("name", "?")
+			var index := i
+			card.pressed.connect(func() -> void: building.cancel_queued(index))
+			_queue_box.add_child(card)
+			_queue_box.move_child(card, 0)  # later orders tuck in behind the first
+		if not queue.is_empty():
+			var bar := ProgressBar.new()
+			bar.show_percentage = false
+			bar.add_theme_stylebox_override("background", _flat(Color(0.12, 0.08, 0.05, 0.85)))
+			bar.add_theme_stylebox_override("fill", _flat(Color(0.4, 0.7, 1.0)))
+			bar.position = Vector2(0, CARD_SIZE * ui_scale + 2)
+			bar.size = Vector2(CARD_SIZE * ui_scale, 5 * ui_scale)
+			bar.max_value = 1.0
+			bar.step = 0.0
+			bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			bar.name = "Progress"
+			_queue_box.add_child(bar)
+	var progress := _queue_box.get_node_or_null("Progress") as ProgressBar
+	if progress and building:
+		progress.value = building.train_progress
+
+
+## Portraits of every selected unit with a health strip. Click one to select only it,
+## shift-click to drop it from the selection.
+func _refresh_group(units: Array) -> void:
+	var signature := ",".join(units.map(func(u: Unit) -> String: return str(u.get_instance_id())))
+	if signature != _group_signature:
+		_group_signature = signature
+		for child in _group_box.get_children():
+			child.queue_free()
+		var size := GROUP_ICON * ui_scale
+		var columns := maxi(1, int((_left.size.x - 50 * ui_scale) / (size + 2)))
+		for i in units.size():
+			var unit: Unit = units[i]
+			var card := _card(unit.unit_type.guid(), size, unit.unit_type.type_id)
+			card.position = Vector2((i % columns) * (size + 2), (i / columns) * (size + 7 * ui_scale))
+			card.tooltip_text = unit.display_name()
+			card.set_meta("unit", unit)
+			card.gui_input.connect(func(event: InputEvent) -> void:
+				if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+					if event.shift_pressed:
+						selection.deselect(unit)
+					else:
+						selection.select_units([unit])
+					card.accept_event())
+			var health := ColorRect.new()
+			health.name = "Health"
+			health.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			health.position = Vector2(0, size + 1)
+			health.size = Vector2(size, 3 * ui_scale)
+			card.add_child(health)
+			_group_box.add_child(card)
+	for card in _group_box.get_children():
+		var unit: Unit = card.get_meta("unit") if card.has_meta("unit") else null
+		var health := card.get_node_or_null("Health") as ColorRect
+		if unit and is_instance_valid(unit) and health:
+			var ratio := unit.health / unit.max_health if unit.max_health > 0 else 0.0
+			health.size.x = GROUP_ICON * ui_scale * ratio
+			health.color = Color(0.9, 0.2, 0.1).lerp(Color(0.3, 0.85, 0.2), ratio)
+
+
+## A small portrait button for a unit, building or upgrade.
+func _card(guid: int, size: float, type_id := -1) -> Button:
+	var card := Button.new()
+	card.focus_mode = Control.FOCUS_NONE
+	card.size = Vector2(size, size)
+	var none := StyleBoxEmpty.new()
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		card.add_theme_stylebox_override(state, none)
+	var thumb: Control = Thumbnail.portrait(guid)
+	if thumb == null and type_id < 0:
+		type_id = GameData.type_for_guid(guid, biome)
+	if thumb == null and type_id >= 0:
+		thumb = Thumbnail.for_type(type_id, player.index)
+	if thumb == null:
+		var label := MenuStyle.label(GameData.stats(guid).get("name", "?"), int(9 * ui_scale), Color("#3a2410"))
+		label.add_theme_constant_override("outline_size", 0)
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		var paper := Panel.new()
+		paper.add_theme_stylebox_override("panel", _flat(Color(0.93, 0.84, 0.64, 0.95)))
+		paper.add_child(label)
+		label.set_anchors_preset(Control.PRESET_FULL_RECT)
+		thumb = paper
+	thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	thumb.set_anchors_preset(Control.PRESET_FULL_RECT)
+	card.add_child(thumb)
+	card.mouse_entered.connect(func() -> void: thumb.modulate = Color(1.2, 1.15, 1.0))
+	card.mouse_exited.connect(func() -> void: thumb.modulate = Color.WHITE)
+	return card
 
 
 ## A status-bar plank as its own texture, resized so 1 original pixel = `pixel_scale` screen px
@@ -269,28 +421,57 @@ func _flat(color: Color) -> StyleBoxFlat:
 func _refresh_commands() -> void:
 	var units := selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
 	var building := selection.selected_building if is_instance_valid(selection.selected_building) else null
-	var builders := units.filter(func(u: Unit) -> bool: return u.unit_type.anim_index("build") >= 0)
-	var farmers := units.filter(func(u: Unit) -> bool: return u.unit_type.can_gather("food"))
+	var builders := units.filter(func(u: Unit) -> bool: return u.unit_type.can_build())
+	var full_builders := builders.any(func(u: Unit) -> bool: return u.unit_type.anim_index("build") >= 0)
+	var farmers := units.filter(func(u: Unit) -> bool: return u.unit_type.is_farmer())
+	var fighters := units.filter(func(u: Unit) -> bool: return not u.unit_type.attack_anims.is_empty() \
+			and not u.unit_type.can_build() and u.team == player.index)
+	var stances := {}
+	for u: Unit in fighters:
+		stances[u.stance] = true
+	if builders.is_empty():
+		_build_menu = ""
 	var research_state := "%d/%s" % [player.researched.size(), building.queue if building else []]
-	var signature := "%s|%s|%s|%s|%s" % [research_state, builders.size() > 0, farmers.size() > 0, building.get_instance_id() if building else 0,
-			building.complete if building else false]
+	var signature := "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [research_state, builders.size() > 0, full_builders,
+			farmers.size() > 0, building.get_instance_id() if building else 0,
+			building.complete if building else false, _build_menu, fighters.size() > 0, stances.keys(),
+			units.size() > 0]
 	if signature == _command_signature:
 		_update_affordability()
 		return
 	_command_signature = signature
 	for child in _commands.get_children():
 		child.queue_free()
-	if not farmers.is_empty():
-		var field_type := GameData.type_for_guid(MapObject.FIELD_GUID, biome)
-		if field_type >= 0:
-			_add_command(field_type, MapObject.FIELD_GUID, func() -> void: build_controller.start(field_type))
-	if not builders.is_empty():
+	if not _build_menu.is_empty():
+		# One of the two building menus: its structures, then a way back.
 		for guid in _faction_guids("structure"):
-			if guid == MapObject.FIELD_GUID:
+			if guid == MapObject.FIELD_GUID or (guid in EXPANDED_STRUCTURES) != (_build_menu == "expanded"):
+				continue
+			if not full_builders and guid not in MapObject.FOOD_STORES:
 				continue
 			var type_id := GameData.type_for_guid(guid, biome)
 			if type_id >= 0:
 				_add_command(type_id, guid, func() -> void: build_controller.start(type_id))
+		_add_icon_command(_extra_icons, ICON_BACK, "Back", func() -> void: _open_build_menu(""))
+	elif not units.is_empty():
+		if not builders.is_empty():
+			_add_icon_command(_command_icons, ICON_BUILD, "Build structure (B)", func() -> void: _open_build_menu("basic"))
+			if full_builders:
+				_add_icon_command(_command_icons, ICON_BUILD_EXPANDED, "Build expanded structure (V)",
+						func() -> void: _open_build_menu("expanded"))
+		if not farmers.is_empty():
+			var field_type := GameData.type_for_guid(MapObject.FIELD_GUID, biome)
+			if field_type >= 0:
+				_add_command(field_type, MapObject.FIELD_GUID, func() -> void: build_controller.start(field_type))
+				_commands.get_child(_commands.get_child_count() - 1).set_meta("tooltip", "Field (F)\n" + \
+						_commands.get_child(_commands.get_child_count() - 1).get_meta("tooltip"))
+		if not fighters.is_empty():
+			for stance in STANCE_ICONS:
+				var key: int = STANCE_KEYS.find_key(stance)
+				_add_icon_command(_command_icons, STANCE_ICONS[stance], "%s (%s)" % [STANCE_NAMES[stance],
+						OS.get_keycode_string(key)], func() -> void: set_stance(stance),
+						stances.size() == 1 and stances.has(stance))
+		_add_icon_command(_command_icons, ICON_STOP, "Stop (S)", stop_selection)
 	elif building and building.complete and building.owner_index == player.index:
 		for guid in building.trainable_units():
 			var type_id := GameData.type_for_guid(guid, biome)
@@ -303,6 +484,81 @@ func _refresh_commands() -> void:
 				if not building.enqueue(upgrade):
 					Sound.play_sound(80))
 	_layout()
+
+
+func _open_build_menu(menu: String) -> void:
+	_build_menu = menu
+	_command_signature = ""
+
+
+func set_stance(stance: Unit.Stance) -> void:
+	for u: Unit in selection.selection:
+		if is_instance_valid(u) and u.is_alive() and not u.unit_type.attack_anims.is_empty():
+			u.set_stance(stance)
+	_command_signature = ""
+
+
+func stop_selection() -> void:
+	for u: Unit in selection.selection:
+		if is_instance_valid(u):
+			u.stop()
+
+
+## Original keyboard shortcuts for the command menu.
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo) or get_tree().paused:
+		return
+	var key: int = event.keycode
+	if event.ctrl_pressed or event.alt_pressed:
+		return
+	var handled := true
+	if key == KEY_S:
+		stop_selection()
+	elif STANCE_KEYS.has(key):
+		set_stance(STANCE_KEYS[key])
+	elif key == KEY_B or key == KEY_V:
+		_open_build_menu("basic" if key == KEY_B else "expanded")
+	elif key == KEY_F:
+		var field_type := GameData.type_for_guid(MapObject.FIELD_GUID, biome)
+		if field_type >= 0 and selection.selection.any(func(u: Unit) -> bool:
+				return is_instance_valid(u) and u.unit_type.is_farmer()):
+			build_controller.start(field_type)
+	else:
+		handled = false
+	if handled:
+		get_viewport().set_input_as_handled()
+
+
+func _add_icon_command(sheet: RdSprite, frame: int, tip: String, action: Callable, active := false) -> void:
+	var button := Button.new()
+	button.focus_mode = Control.FOCUS_NONE
+	var none := StyleBoxEmpty.new()
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		button.add_theme_stylebox_override(state, none)
+	if active:
+		var ring := StyleBoxFlat.new()
+		ring.draw_center = false
+		ring.border_color = Color(1.0, 0.85, 0.3)
+		ring.set_border_width_all(2)
+		ring.set_corner_radius_all(3)
+		button.add_theme_stylebox_override("normal", ring)
+		button.add_theme_stylebox_override("hover", ring)
+	button.tooltip_text = tip
+	button.set_meta("tooltip", tip)
+	button.set_meta("guid", -1)
+	button.pressed.connect(action)
+	if sheet and frame < sheet.frame_count():
+		var icon := TextureRect.new()
+		icon.texture = _atlas(sheet, frame)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+		button.add_child(icon)
+		button.mouse_entered.connect(func() -> void: icon.modulate = Color(1.2, 1.15, 1.0))
+		button.mouse_exited.connect(func() -> void: icon.modulate = Color.WHITE)
+	_commands.add_child(button)
 
 
 func _faction_guids(kind: String) -> Array:
@@ -337,7 +593,16 @@ func _add_command(type_id: int, guid: int, action: Callable) -> void:
 	button.pressed.connect(action)
 	var thumb: Thumbnail = null
 	var inset := 0
-	if type_id >= 0:
+	if guid == MapObject.FIELD_GUID:
+		var sheet := GameData.load_sprite(FIELD_ICONS)
+		if sheet and ICON_FIELD < sheet.frame_count():
+			thumb = Thumbnail.new()
+			thumb.set_meta("portrait", true)
+			thumb.texture = _atlas(sheet, ICON_FIELD)
+			thumb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			thumb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	elif type_id >= 0:
 		thumb = Thumbnail.portrait(guid)
 		if thumb == null:
 			thumb = Thumbnail.for_type(type_id, player.index)
@@ -371,6 +636,8 @@ func _add_command(type_id: int, guid: int, action: Callable) -> void:
 
 func _update_affordability() -> void:
 	for button: Button in _commands.get_children():
+		if int(button.get_meta("guid", -1)) < 0:
+			continue
 		var cost: Dictionary = GameData.stats(button.get_meta("guid")).get("cost", {}).duplicate()
 		cost.erase("population")
 		cost.erase("horses")

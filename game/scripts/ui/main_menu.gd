@@ -24,6 +24,7 @@ var _map_list := ItemList.new()
 var _preview := TextureRect.new()
 var _map_info := Label.new()
 var _slots := VBoxContainer.new()
+var _supply := OptionButton.new()
 var _faction := OptionButton.new()
 
 
@@ -235,6 +236,13 @@ func _build_setup() -> Control:
 	you.add_child(_faction)
 	players_box.add_child(you)
 	players_box.add_child(_slots)
+	var supply := HBoxContainer.new()
+	supply.add_child(_fixed_label(GameData.text(268, "Raw materials"), 110))
+	for i in Match.SUPPLY_TEXT.size():
+		_supply.add_item(GameData.text(Match.SUPPLY_TEXT[i], Match.SUPPLY_NAMES[i]))
+	MenuStyle.style(_supply, 13)
+	supply.add_child(_supply)
+	players_box.add_child(supply)
 
 	var buttons := HBoxContainer.new()
 	buttons.position = Vector2(214, 548)
@@ -352,6 +360,7 @@ func _start() -> void:
 	if slots.size() < 2:
 		slots.append({"faction": "usa", "ai": true})
 	Match.setup(map.path, slots)
+	Match.supply = _supply.selected
 	_show_loading()
 	await get_tree().process_frame
 	await get_tree().process_frame

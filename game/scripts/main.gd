@@ -87,6 +87,7 @@ func _ready() -> void:
 		computer[2] = GameData.cmdline_option("ai") != "off"
 		computer[1] = GameData.cmdline_option("ai-vs-ai") != ""
 	for player in players:
+		players[player].set_start_resources(Match.start_resources(map.start_resources))
 		_setup_player(player, start_positions.get(player, _fallback_start(player, size)))
 	camera.position = _vector_option("camera", start_positions.get(1, size / 2.0))
 	if GameData.cmdline_option("scenario") == "economy":
@@ -108,6 +109,8 @@ func _ready() -> void:
 		_scenario_menus.call_deferred()
 	if GameData.cmdline_option("scenario") == "help-build":
 		_scenario_help_build.call_deferred()
+	if GameData.cmdline_option("scenario") == "ui":
+		_scenario_ui.call_deferred()
 	var report := GameData.cmdline_option("report-after")
 	if report != "":
 		_report_after(report.to_int())
@@ -389,14 +392,39 @@ func _scenario_menus() -> void:
 		var units := units_root.get_children().filter(func(n: Node) -> bool:
 			return n is Unit and n.team == 1 and (n.unit_type.anim_index("build") >= 0 if kind == "builders" else n.unit_type.is_farmer()))
 		selection._select(units, false)
-		hud._command_signature = ""
-		hud._refresh_commands()
-		await get_tree().process_frame
-		var names := []
-		for button in hud._commands.get_children():
-			if not button.is_queued_for_deletion():
-				names.append("%s%s" % [button.tooltip_text.get_slice("\n", 0), " (off)" if button.disabled else ""])
-		print("%s %s (%d units): %s" % [players[1].faction, kind, units.size(), ", ".join(names)])
+		for menu in ["", "basic", "expanded"]:
+			hud._open_build_menu(menu)
+			hud._refresh_commands()
+			await get_tree().process_frame
+			var names := []
+			for button in hud._commands.get_children():
+				if not button.is_queued_for_deletion():
+					names.append("%s%s" % [button.tooltip_text.get_slice("\n", 0), " (off)" if button.disabled else ""])
+			print("%s %s %s (%d units): %s" % [players[1].faction, kind, menu, units.size(), ", ".join(names)])
+
+
+## The HQ with a queue of orders (cards), a right-clicked tree and a move marker.
+func _scenario_ui() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	players[1].resources.food = 5000
+	for guid in hq.trainable_units():
+		hq.enqueue(guid)
+		hq.enqueue(guid)
+	selection.select_building(hq)
+	var tree: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_tree() and (tree == null or object.position.distance_to(hq.position) < tree.position.distance_to(hq.position)):
+			tree = object
+	camera.position = tree.position
+	var picked := selection._resource_at(tree.position + Vector2(0, -60))
+	print("click above trunk picks the tree: ", picked == tree, " ", picked.position if picked else null, " ", tree.position)
+	for i in 4:
+		await get_tree().create_timer(0.35).timeout
+		tree.flash()
+	OrderMarker.spawn(units_root, tree.position + Vector2(-120, 40), 1)
 
 
 ## One worker starts a house; the others are then sent to help via the help-build order.
@@ -423,11 +451,17 @@ func _scenario_help_build() -> void:
 
 
 ## Workers build a house next to the HQ while the HQ trains two more workers.
+## --builders=women: the women put up their people's grain store instead.
 func _scenario_build() -> void:
+	var women := GameData.cmdline_option("builders") == "women"
 	var workers := units_root.get_children().filter(func(n: Node) -> bool:
-		return n is Unit and n.team == 1 and n.unit_type.anim_index("build") >= 0)
+		return n is Unit and n.team == 1 and (n.unit_type.is_farmer() if women else n.unit_type.anim_index("build") >= 0))
 	selection._select(workers, false)
-	var house := GameData.type_for_guid(201, terrain.biome)
+	var store := 0
+	for guid in MapObject.FOOD_STORES:
+		if GameData.stats(guid).get("faction") == players[1].faction:
+			store = guid
+	var house := GameData.type_for_guid(store if women else 201, terrain.biome)
 	build_controller.start(house)
 	var hq: MapObject = null
 	for object in MapObject.all_objects:

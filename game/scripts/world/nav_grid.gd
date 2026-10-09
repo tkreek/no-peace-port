@@ -4,14 +4,21 @@ extends RefCounted
 ##
 ## Cell flags (map BITARRAY and object "BARY" footprints share them):
 ##   bits 0-2   walkable ground (cleared on cliff faces and water)
-##   bit 6      blocked by a placed object
+##   bit 6      blocked (cliffs, rocks painted into the map)
 ##   bit 7      terrain type
 ##   bits 12-13 height level
-##   bits 29-31 blocked by an object (trees, rocks, buildings)
+##   bit 29     cover: canopy or roof drawn over the ground (walkable)
+##   bit 30     margin: a one-cell ring round buildings and mines that keeps other
+##              buildings at a distance (walkable, so there is always a lane between them)
+##   bit 31     solid: walls, mine entrances, tree trunks
 
 const CELL := 16
 const WALKABLE := 0x2
-const BLOCKED := 0x40 | 0xE0000000
+const SOLID := 0x40 | 0x80000000
+const MARGIN := 0x40000000
+const COVER := 0x20000000
+## Every bit an object footprint stamps into the grid.
+const BLOCKED := SOLID | MARGIN | COVER
 
 static var current: NavGrid
 
@@ -38,7 +45,7 @@ func setup(map: AlfMap) -> void:
 
 
 static func _passable_flags(value: int) -> bool:
-	return (value & WALKABLE) != 0 and (value & BLOCKED) == 0
+	return (value & WALKABLE) != 0 and (value & SOLID) == 0
 
 
 func cell_of(point: Vector2) -> Vector2i:
@@ -47,6 +54,22 @@ func cell_of(point: Vector2) -> Vector2i:
 
 func is_walkable(cell: Vector2i) -> bool:
 	return _astar.is_in_boundsv(cell) and not _astar.is_point_solid(cell)
+
+
+func flags_at(cell: Vector2i) -> int:
+	return flags[cell.y * size.x + cell.x] if _astar.is_in_boundsv(cell) else SOLID
+
+
+## Whether a new building's footprint cell (its own flags `own`) can go on `cell`: walls
+## need open, uncovered ground clear of other buildings' margins; the margin only needs
+## the ground not to be solid.
+func can_build_on(cell: Vector2i, own: int) -> bool:
+	if not _astar.is_in_boundsv(cell):
+		return false
+	var there := flags_at(cell)
+	if own & SOLID:
+		return is_walkable(cell) and (there & (MARGIN | COVER)) == 0
+	return (there & SOLID) == 0
 
 
 ## Mark an object's footprint as blocked. The footprint grid's top-left is position - anchor.
@@ -59,8 +82,8 @@ func block_footprint(type: ObjectTypes.ObjectType, position: Vector2) -> void:
 			continue
 		var cell := origin + Vector2i(i % type.footprint_grid.x, i / type.footprint_grid.x)
 		if _astar.is_in_boundsv(cell):
-			_astar.set_point_solid(cell)
 			flags[cell.y * size.x + cell.x] |= type.footprint_cells[i] & BLOCKED
+			_astar.set_point_solid(cell, not _passable_flags(flags[cell.y * size.x + cell.x]))
 
 
 ## Clear an object's footprint again (e.g. a felled tree), keeping the ground's own flags.

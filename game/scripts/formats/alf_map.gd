@@ -17,6 +17,8 @@ const CELL_SIZE := 32
 var title := ""
 var columns := 0
 var rows := 0
+## Start resources set in the level editor (LVL_INFO 0x120..0x12C; leather starts empty).
+var start_resources := {}
 var chunks := {}  # name -> PackedByteArray (first occurrence)
 var tile_ids := PackedInt32Array()
 var placements: Array[Placement] = []
@@ -74,6 +76,9 @@ func _parse() -> void:
 		title = info.slice(0, end if end >= 0 else 64).get_string_from_ascii()
 		columns = info.decode_u32(0x114)
 		rows = info.decode_u32(0x118)
+	if info.size() >= 0x130:
+		start_resources = {"food": info.decode_u32(0x120), "wood": info.decode_u32(0x124),
+				"gold": info.decode_u32(0x128), "guns": info.decode_u32(0x12C)}
 	var objects: PackedByteArray = chunks.get("BOBLISTE", PackedByteArray())
 	if objects.size() >= 4:
 		for i in objects.decode_u32(0):

@@ -177,6 +177,13 @@ func footprint_rect() -> Rect2:
 	return footprint_rect_for(object_type, position)
 
 
+## Where the object's current picture is drawn, in world coordinates (canopy, roof...).
+func visual_rect() -> Rect2:
+	if _body == null or _body.texture == null:
+		return footprint_rect()
+	return _body.get_global_transform() * _body.get_rect()
+
+
 ## The solid part of the footprint (trunk, walls, mine entrance): where workers stand at.
 ## The full footprint grid also covers the empty space around the sprite.
 func work_rect() -> Rect2:
@@ -187,7 +194,7 @@ func work_rect() -> Rect2:
 			var low := Vector2i(grid.x, grid.y)
 			var high := Vector2i(-1, -1)
 			for i in object_type.footprint_cells.size():
-				if object_type.footprint_cells[i] & NavGrid.BLOCKED:
+				if object_type.footprint_cells[i] & NavGrid.SOLID:
 					var c := Vector2i(i % grid.x, i / grid.x)
 					low = Vector2i(mini(low.x, c.x), mini(low.y, c.y))
 					high = Vector2i(maxi(high.x, c.x), maxi(high.y, c.y))
@@ -286,10 +293,16 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 	return true
 
 
+var _build_sound_played := false
+
+
 ## Add construction work (worker-seconds); returns true when the building completes.
 func add_build_work(seconds: float) -> bool:
 	if complete:
 		return true
+	if not _build_sound_played:
+		_build_sound_played = true  # the construction sound plays once, when work begins
+		Sound.play_event(guid, Sound.Event.BUILD, position, 0)
 	# Worker-seconds: the original production time (one worker), else scaled by energy.
 	var total := float(GameData.stats(guid).get("build_time", max_health * BUILD_WORK_PER_HEALTH))
 	total = maxf(5.0, total)
@@ -344,6 +357,22 @@ func trainable_units() -> PackedInt32Array:
 		if stats.get("kind") == "unit" and int(stats.get("produced_at", -1)) == guid:
 			out.append(unit_guid)
 	return out
+
+
+## Take entry `index` off the production queue and refund what it cost.
+func cancel_queued(index: int) -> void:
+	if index < 0 or index >= queue.size():
+		return
+	var item := queue[index]
+	queue.remove_at(index)
+	if index == 0:
+		train_progress = 0.0
+	var player: Player = Player.by_index.get(owner_index)
+	if player:
+		var cost: Dictionary = GameData.stats(item).get("cost", {})
+		for key in cost:
+			if Player.RESOURCES.has(key):
+				player.add(key, int(cost[key]))
 
 
 func enqueue(unit_guid: int) -> bool:
@@ -491,7 +520,8 @@ func _draw_overlay(canvas: Node2D) -> void:
 	if _flash_time > 0.0:
 		var work := work_rect()
 		work.position -= position
-		var radius := maxf(work.size.x * 0.55, 20.0)
+		# Trees get a tight ring round the trunk; buildings and mines one round their walls.
+		var radius := 13.0 if is_tree() else maxf(work.size.x * 0.55, 20.0)
 		canvas.draw_set_transform(work.get_center() + Vector2(0, work.size.y * 0.3), 0.0, Vector2(1.0, 0.55))
 		canvas.draw_arc(Vector2.ZERO, radius * (1.25 - _flash_time * 0.25), 0.0, TAU, 48,
 				Color(_flash_color, _flash_time), 2.5, true)

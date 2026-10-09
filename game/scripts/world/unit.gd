@@ -8,6 +8,10 @@ signal died(unit: Unit)
 
 enum State { IDLE, MOVING, ATTACKING, GATHERING, BUILDING, DEAD }
 enum Gather { TO_SOURCE, WORKING, TO_DROP_OFF }
+## Rules of conduct for military units (manual 4.1): aggressive units pursue relentlessly,
+## defensive ones only a short way before returning, units holding ground never leave their
+## spot, and passive units neither move nor fight back.
+enum Stance { AGGRESSIVE, DEFENSIVE, HOLD, PASSIVE }
 
 const ARRIVE_DISTANCE := 3.0
 const REPATH_MS := 600
@@ -19,6 +23,7 @@ const WORK_SECONDS := {"wood": 4.0, "gold": 5.0, "food": 5.0}
 const MEAT := {"Tier_B": 150, "Tier_K": 100, "Tier_P": 60}  # buffalo, cow, horse
 const HUNT_RANGE := 1500.0
 const REACH := 20.0
+const DEFENSIVE_PURSUIT := 160.0  # how far defensive units chase before returning
 
 static var debug_paths := false
 static var all_units: Array[Unit] = []
@@ -38,6 +43,8 @@ var path := PackedVector2Array()
 var state := State.IDLE
 var target: Node2D  ## Unit or MapObject building
 var attack_moving := false  ## moving, but engage enemies met on the way
+var stance := Stance.AGGRESSIVE
+var _ordered := false  ## the current target was picked by the player, not by the stance
 var hunting := false  ## target is an animal; carry the meat home after the kill
 var guard_position := Vector2.ZERO  # where an idle unit returns after chasing
 ## Hidden by the fog of war (enemy out of sight) / inside a building such as a gold mine.
@@ -151,6 +158,31 @@ func is_alive() -> bool:
 	return state != State.DEAD
 
 
+func set_stance(value: Stance) -> void:
+	stance = value
+	if stance == Stance.PASSIVE and state == State.ATTACKING and not _ordered:
+		stop()
+
+
+## How far an idle unit looks for enemies to engage on its own.
+func _engage_radius() -> float:
+	match stance:
+		Stance.PASSIVE:
+			return 0.0
+		Stance.HOLD:
+			return attack_range()
+	return sight()
+
+
+func _may_engage(enemy: Node2D) -> bool:
+	match stance:
+		Stance.PASSIVE:
+			return false
+		Stance.HOLD:
+			return position.distance_to(_aim_point(enemy)) <= attack_range()
+	return true
+
+
 func is_enemy_of(other: Unit) -> bool:
 	return other.team != team and other.team > 0 and team > 0
 
@@ -176,9 +208,13 @@ func move_to(destination: Vector2) -> void:
 	state = State.MOVING if not path.is_empty() else State.IDLE
 
 
-func attack(enemy: Node2D) -> void:
+## Fight `enemy`. `ordered` when the player gave the order (ignores the stance's limits).
+func attack(enemy: Node2D, ordered := false) -> void:
 	if not is_alive() or enemy == null or not enemy.is_alive() or unit_type.attack_anims.is_empty():
 		return
+	if state != State.ATTACKING:
+		guard_position = position if state != State.MOVING else guard_position
+	_ordered = ordered
 	hunting = false
 	target = enemy
 	gather_source = null
@@ -205,7 +241,7 @@ func meat_value() -> int:
 
 ## Walk to a construction site and work on it until it is finished.
 func build(site: MapObject) -> void:
-	if not is_alive() or site == null or site.complete or unit_type.anim_index("build") < 0:
+	if not is_alive() or site == null or site.complete or not unit_type.can_build(site.guid):
 		return
 	build_site = site
 	target = null
@@ -249,7 +285,7 @@ func take_damage(amount: float, attacker: Node2D = null) -> void:
 	_overlay.queue_redraw()
 	if health <= 0.0:
 		_die()
-	elif state == State.IDLE and attacker and attacker.is_alive():
+	elif state == State.IDLE and attacker and attacker.is_alive() and _may_engage(attacker):
 		attack(attacker)  # fight back
 
 
@@ -266,7 +302,7 @@ func _process(delta: float) -> void:
 			_scan_timer -= delta
 			if _scan_timer <= 0.0:
 				_scan_timer = SCAN_INTERVAL
-				var enemy := _nearest_enemy(sight())
+				var enemy := _nearest_enemy(_engage_radius())
 				if enemy:
 					attack(enemy)
 			play("idle")
@@ -320,7 +356,7 @@ func _update_attack(delta: float) -> void:
 			return
 		if _attack_step < 0:
 			# Look for the next enemy nearby before standing down.
-			var enemy := _nearest_target(sight())
+			var enemy := _nearest_target(_engage_radius())
 			if enemy:
 				target = enemy
 			elif position.distance_to(guard_position) > 64.0 and guard_position != Vector2.ZERO:
@@ -333,6 +369,21 @@ func _update_attack(delta: float) -> void:
 		_continue_attack()
 		return
 	var to_target := _aim_point(target) - position
+	if to_target.length() > attack_range() and not _ordered and not hunting:
+		# The stance limits how far a unit goes after enemies it picked itself.
+		var leash := INF
+		if stance == Stance.HOLD or stance == Stance.PASSIVE:
+			leash = 0.0
+		elif stance == Stance.DEFENSIVE:
+			leash = DEFENSIVE_PURSUIT
+		if position.distance_to(guard_position) >= leash:
+			target = null
+			if stance == Stance.DEFENSIVE and position.distance_to(guard_position) > 16.0:
+				var home := guard_position
+				move_to(home)
+			else:
+				state = State.IDLE
+			return
 	if to_target.length() > attack_range():
 		var now := Time.get_ticks_msec()
 		if path.is_empty() or now - _last_repath > REPATH_MS:
@@ -432,20 +483,19 @@ func _update_gather(delta: float) -> void:
 				return
 			if gather_source.is_field() and gather_source.field_state != MapObject.Field.RIPE:
 				if gather_source.field_state == MapObject.Field.FALLOW:
-					play("sow")
+					play_repeating("sow")
 					gather_source.sow(delta)
 				else:
 					play("idle")  # wait for the crop to ripen
 				return
 			if gather_source.resource == "food":
-				play("harvest")
+				play_repeating("harvest")
 			elif gather_source.is_mine():
 				gather_source.add_mine_work(delta)
 			_work_timer -= delta
 			if gather_source.resource == "wood":
-				play("chop")
-				if _anim_finished or _step == 0:
-					Sound.play_event(unit_type.guid(), Sound.Event.CHOP, position, 900)
+				if play_repeating("chop"):
+					Sound.play_event(unit_type.guid(), Sound.Event.CHOP, position, 300)
 			if _work_timer > 0.0:
 				return
 			var resource := gather_source.resource
@@ -497,8 +547,8 @@ func _update_build(delta: float) -> void:
 			return
 	path.clear()
 	face(build_site.work_rect().get_center() - position)
-	play("build")
-	Sound.play_event(build_site.guid, Sound.Event.BUILD, build_site.position, 2500)
+	# Women without a hammering animation swing their axe instead.
+	play_repeating("build" if unit_type.anim_index("build") >= 0 else "chop")
 	build_site.add_build_work(delta)
 
 
@@ -663,6 +713,18 @@ func play(action: String) -> void:
 		index = 0  # e.g. animals without walk/idle sheets: show their first animation
 	_action = action
 	_start_anim(index)
+
+
+## Work animations (chopping, building, sowing...) are single swings in the .bob files;
+## the original repeats them for as long as the work goes on. True when a swing starts.
+func play_repeating(action: String) -> bool:
+	if action != _action:
+		play(action)
+		return _action == action
+	if _anim_finished:
+		_start_anim(_anim)
+		return true
+	return false
 
 
 func _play_index(index: int) -> void:

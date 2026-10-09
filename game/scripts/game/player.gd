@@ -33,7 +33,13 @@ func _init(player_index: int, faction_name: String) -> void:
 	faction = faction_name
 	by_index[index] = self
 	for key in RESOURCES:
-		resources[key] = GameData.def_value(RESOURCES[key].def, 0)
+		resources[key] = 0
+
+
+func set_start_resources(amounts: Dictionary) -> void:
+	for key in RESOURCES:
+		resources[key] = int(amounts.get(key, 0))
+	resources_changed.emit()
 
 
 func color() -> Color:

@@ -115,6 +115,66 @@ func take_damage(amount: float, _attacker: Node2D = null) -> void:
 		_destroy()
 
 
+func capacity() -> int:
+	return int(GameData.stats(guid).get("capacity", 0)) if is_building() and complete and health > 0.0 else 0
+
+
+func has_room_for(unit: Unit) -> bool:
+	return unit.team == owner_index and garrison.size() < capacity()
+
+
+func enter(unit: Unit) -> bool:
+	if not has_room_for(unit):
+		return false
+	garrison.append(unit)
+	unit.enter_quarters(self)
+	set_process(true)
+	_overlay.queue_redraw()
+	return true
+
+
+## Send quartered units back outside, below the building (all of them, or just `which`).
+func release(which: Unit = null) -> void:
+	for unit in garrison.duplicate():
+		if which != null and unit != which:
+			continue
+		garrison.erase(unit)
+		if not is_instance_valid(unit) or not unit.is_alive():
+			continue
+		var rect := footprint_rect()
+		var spot := Vector2(rect.get_center().x + randf_range(-24, 24), rect.end.y + 8)
+		if NavGrid.current:
+			var cell := NavGrid.current.nearest_walkable(NavGrid.current.cell_of(spot))
+			spot = (Vector2(cell) + Vector2(0.5, 0.5)) * NavGrid.CELL
+		unit.leave_quarters(spot)
+
+
+## Quartered riflemen and archers fire out at the nearest enemy each can reach.
+func _update_garrison(delta: float) -> void:
+	_garrison_scan -= delta
+	for unit in garrison.duplicate():
+		if not is_instance_valid(unit):
+			garrison.erase(unit)
+	if _garrison_scan > 0.0:
+		return
+	_garrison_scan = 0.25
+	var centre := work_rect().get_center()
+	for unit in garrison:
+		if not unit.unit_type.ranged or unit.unit_type.attack_anims.is_empty() or not unit.ready_to_fire():
+			continue
+		var reach := unit.attack_range() + GARRISON_RANGE_BONUS
+		var best: Node2D = null
+		var best_distance := reach
+		for other in Unit.all_units:
+			if other.is_alive() and not other.inside and other.team > 0 and other.team != owner_index:
+				var d := centre.distance_to(other.position)
+				if d < best_distance:
+					best = other
+					best_distance = d
+		if best:
+			unit.fire_from_quarters(best, centre)
+
+
 ## Tear the building down (Del). Queued orders are refunded, and so is the part of the
 ## construction cost not yet built into an unfinished site.
 func demolish() -> void:
@@ -133,6 +193,7 @@ func demolish() -> void:
 
 
 func _destroy() -> void:
+	release()  # the quartered units escape the ruins
 	Sound.play_event(guid, Sound.Event.RUBBLE, position, 0)
 	queue.clear()
 	accepts = PackedStringArray()
@@ -314,6 +375,10 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 
 
 var _build_sound_played := false
+## Units quartered inside (forts, towers): safe from attack and shooting out at enemies.
+var garrison: Array[Unit] = []
+const GARRISON_RANGE_BONUS := 60.0  # firing from the walls / platform reaches further
+var _garrison_scan := 0.0
 ## Where units trained here gather ("Specify assembly location"); INF = just outside.
 var rally_point := Vector2.INF
 
@@ -435,6 +500,8 @@ func _process(delta: float) -> void:
 			var owner_player: Player = Player.by_index.get(owner_index)
 			amount = FIELD_YIELD + (int(owner_player.bonus(-1, "field_yield")) if owner_player else 0)
 		_refresh_sprites()
+	if not garrison.is_empty():
+		_update_garrison(delta)
 	if guid == DISTILLERY_GUID and complete:
 		_distill(delta)
 	if queue.is_empty() or not complete:

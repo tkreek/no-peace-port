@@ -6,7 +6,7 @@ extends Node2D
 
 signal died(unit: Unit)
 
-enum State { IDLE, MOVING, ATTACKING, GATHERING, BUILDING, DEAD }
+enum State { IDLE, MOVING, ATTACKING, GATHERING, BUILDING, DEAD, QUARTERED }
 enum Gather { TO_SOURCE, WORKING, TO_DROP_OFF }
 ## Rules of conduct for military units (manual 4.1): aggressive units pursue relentlessly,
 ## defensive ones only a short way before returning, units holding ground never leave their
@@ -50,6 +50,7 @@ var stance := Stance.AGGRESSIVE
 var formation := Formation.RELAXED
 var follow_target: Unit  ## keep close to this unit until given another order
 var _patrol := PackedVector2Array()  ## the two ends of a patrol route
+var quarters: MapObject  ## the building this unit is heading into or sitting in
 var _ordered := false  ## the current target was picked by the player, not by the stance
 var hunting := false  ## target is an animal; carry the meat home after the kill
 var guard_position := Vector2.ZERO  # where an idle unit returns after chasing
@@ -190,6 +191,8 @@ func _may_engage(enemy: Node2D) -> bool:
 
 
 func is_enemy_of(other: Unit) -> bool:
+	if other.state == State.QUARTERED:
+		return false  # out of reach behind the walls
 	return other.team != team and other.team > 0 and team > 0
 
 
@@ -220,6 +223,48 @@ func follow(leader: Unit) -> void:
 func _clear_orders() -> void:
 	_patrol.clear()
 	follow_target = null
+	if state != State.QUARTERED:
+		quarters = null
+
+
+## Walk to one of our buildings with room (fort, tower) and take quarters inside.
+func take_quarters(building: MapObject) -> void:
+	if not is_alive() or building == null or not building.has_room_for(self):
+		return
+	move_to(building.work_rect().get_center())
+	quarters = building
+
+
+func enter_quarters(building: MapObject) -> void:
+	quarters = building
+	path.clear()
+	target = null
+	state = State.QUARTERED
+	inside = true
+	selected = false
+	position = building.work_rect().get_center()
+
+
+func leave_quarters(at: Vector2) -> void:
+	quarters = null
+	inside = false
+	position = at
+	state = State.IDLE
+	guard_position = at
+	play("idle")
+
+
+func ready_to_fire() -> bool:
+	return _cooldown <= 0.0
+
+
+## A shot from inside quarters: no animation (the unit is out of sight), just the report.
+func fire_from_quarters(enemy: Node2D, from: Vector2) -> void:
+	_cooldown = unit_type.reload_ms / 1000.0
+	Sound.play_event(unit_type.guid(), Sound.Event.SHOOT, from, 60)
+	var accuracy := clampf(1.1 - from.distance_to(enemy.position) / ((attack_range() + 60.0) * 1.6), 0.4, 0.95)
+	if randf() <= accuracy:
+		enemy.take_damage(attack_damage(), self)
 
 
 func move_to(destination: Vector2, keep_orders := false) -> void:
@@ -314,7 +359,7 @@ func stop() -> void:
 
 
 func take_damage(amount: float, attacker: Node2D = null) -> void:
-	if not is_alive():
+	if not is_alive() or state == State.QUARTERED:
 		return
 	health = maxf(0.0, health - amount)
 	_overlay.queue_redraw()
@@ -328,6 +373,14 @@ func take_damage(amount: float, attacker: Node2D = null) -> void:
 
 func _process(delta: float) -> void:
 	_cooldown = maxf(0.0, _cooldown - delta)
+	if state == State.QUARTERED:
+		return
+	if quarters != null and (state == State.MOVING or state == State.IDLE) and is_instance_valid(quarters) \
+			and quarters.work_rect().grow(REACH * 2.0).has_point(position):
+		if not quarters.enter(self):
+			quarters = null
+			stop()
+		return
 	if _flash_time > 0.0:
 		_flash_time -= delta
 		if _flash_time <= 0.0:

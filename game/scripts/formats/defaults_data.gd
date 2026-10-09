@@ -123,6 +123,8 @@ static func to_stats(entry: Dictionary, base: Dictionary) -> Dictionary:
 	else:
 		if p.has(9):
 			stats.housing = int(p[9])
+		if p.has(8):
+			stats.capacity = int(p[8])  # units that can take quarters inside (fort 10, tower 3)
 		if p.has(10):
 			stats.sight_tier = int(p[10])
 	if entry.has("icon"):

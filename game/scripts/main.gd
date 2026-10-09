@@ -113,6 +113,8 @@ func _ready() -> void:
 		_scenario_ui.call_deferred()
 	if GameData.cmdline_option("scenario") == "select":
 		_scenario_select.call_deferred()
+	if GameData.cmdline_option("scenario") == "quarters":
+		_scenario_quarters.call_deferred()
 	if GameData.cmdline_option("scenario") == "orders":
 		_scenario_orders.call_deferred()
 	var report := GameData.cmdline_option("report-after")
@@ -451,6 +453,46 @@ func _scenario_select() -> void:
 				site.enqueue(site.researchable_upgrades()[0])
 				site.enqueue(site.researchable_upgrades()[1])
 			selection.select_building(site)
+
+
+## A tower manned by riflemen while enemy infantry walk up to it.
+func _scenario_quarters() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	var tower_guid: int = {"mex": 213, "usa": 413, "des": 313, "ind": 111}[players[1].faction]
+	var type := ObjectTypes.get_type(GameData.type_for_guid(tower_guid, terrain.biome))
+	var ai := AiPlayer.new()
+	var tower := MapObject.new()
+	tower.position = ai._find_spot(type, hq.position)
+	ai.free()
+	tower.setup(type, 1)
+	units_root.add_child(tower)
+	nav.block_footprint(type, tower.position)
+	var army: int = FACTIONS[players[1].faction].army
+	_spawn_squad(_unit_dir(army), 1, tower.position + Vector2(0, 160), 4)
+	var squad := units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 \
+			and n.unit_type.guid() == army)
+	selection._select(squad, false)
+	selection.order_quarters(tower)
+	await get_tree().create_timer(8.0).timeout
+	print("capacity %d, quartered %d, outside %d" % [tower.capacity(), tower.garrison.size(),
+			squad.filter(func(u: Unit) -> bool: return not u.inside).size()])
+	_spawn_squad(_unit_dir(FACTIONS[players[2].faction].army), 2, tower.position + Vector2(260, 0), 3)
+	var enemies := units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 \
+			and n.position.distance_to(tower.position) < 400)
+	for e: Unit in enemies:
+		e.stance = Unit.Stance.PASSIVE
+	await get_tree().create_timer(30.0).timeout
+	print("enemy energy after 30 s: ", enemies.map(func(u: Unit) -> int: return int(u.health) if is_instance_valid(u) else -1),
+			" quartered energy: ", tower.garrison.map(func(u: Unit) -> int: return int(u.health)))
+	selection.select_building(tower)
+	tower.release()
+	await get_tree().process_frame
+	print("after release: quartered %d, outside %d" % [tower.garrison.size(),
+			squad.filter(func(u: Unit) -> bool: return not u.inside).size()])
+	get_tree().quit()
 
 
 ## Formations, patrol, follow and a rally point, with positions printed as they play out.

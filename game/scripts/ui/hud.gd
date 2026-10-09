@@ -34,6 +34,8 @@ const FORMATION_NAMES := {Unit.Formation.COLUMN: "Column", Unit.Formation.DOUBLE
 const ICON_FOLLOW := 2  # two men walking one behind the other
 const ICON_PATROL := 4  # two men with an arrow
 const ICON_RALLY := 12  # Iconserstereihe: signpost
+const ICON_ENTER := 2  # Iconserstereihe: arrow into a doorway
+const ICON_LEAVE := 0  # arrow out of a doorway
 const ICON_DEMOLISH := 8  # Iconserstereihe: gravestone
 const ICON_BACK := 0  # Iconserstereihe: arrow out of a doorway
 ## "Build expanded structure" (V) per the manual's keyboard table; every other structure is
@@ -307,8 +309,9 @@ func _object_detail(object: MapObject) -> String:
 		return "%s %s — %d%%" % ["Researching" if current.get("kind") == "upgrade" else "Training",
 				current.get("name", "?"), int(object.train_progress * 100)]
 	var housing := int(GameData.stats(object.guid).get("housing", 0))
-	return "Energy %d / %d%s%s" % [object.health, object.max_health,
-			"\nHouses %d" % housing if housing > 0 else "", owner_note]
+	var quartered := "\nQuartered %d / %d" % [object.garrison.size(), object.capacity()] if object.capacity() > 0 else ""
+	return "Energy %d / %d%s%s%s" % [object.health, object.max_health,
+			"\nHouses %d" % housing if housing > 0 else "", quartered, owner_note]
 
 
 ## The portrait of the selected unit or object at the left of the panel.
@@ -343,7 +346,9 @@ func _set_portrait(guid: int, thing: Object) -> void:
 ## Clicking a card cancels that order and refunds it.
 func _refresh_queue(building: MapObject) -> void:
 	var queue: Array = Array(building.queue) if building and building.complete else []
-	var signature := "%s|%s" % [building.get_instance_id() if building else 0, queue]
+	var quartered: Array = building.garrison.duplicate() if building and queue.is_empty() else []
+	var signature := "%s|%s|%s" % [building.get_instance_id() if building else 0, queue,
+			quartered.map(func(u: Unit) -> int: return u.get_instance_id())]
 	if signature != _queue_signature:
 		_queue_signature = signature
 		for child in _queue_box.get_children():
@@ -356,6 +361,14 @@ func _refresh_queue(building: MapObject) -> void:
 			card.pressed.connect(func() -> void: building.cancel_queued(index))
 			_queue_box.add_child(card)
 			_queue_box.move_child(card, 0)  # later orders tuck in behind the first
+		# Quartered units: click one to send it out.
+		for i in quartered.size():
+			var unit: Unit = quartered[i]
+			var card := _card(unit.unit_type.guid(), CARD_SIZE * 0.8 * ui_scale, unit.unit_type.type_id)
+			card.position = Vector2(i * (CARD_SIZE * 0.8 + 3) * ui_scale, 0)
+			card.tooltip_text = "%s\nClick to leave quarters" % unit.display_name()
+			card.pressed.connect(func() -> void: building.release(unit))
+			_queue_box.add_child(card)
 		if not queue.is_empty():
 			var bar := ProgressBar.new()
 			bar.show_percentage = false
@@ -527,10 +540,11 @@ func _refresh_commands() -> void:
 	if builders.is_empty():
 		_build_menu = ""
 	var research_state := "%d/%s" % [player.researched.size(), building.queue if building else []]
-	var signature := "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [research_state, builders.size() > 0, full_builders,
+	var signature := "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [research_state, builders.size() > 0, full_builders,
 			farmers.size() > 0, building.get_instance_id() if building else 0,
 			building.complete if building else false, _build_menu, fighters.size() > 0, stances.keys(),
-			units.size() > 0, formations.keys(), selection.pending]
+			units.size() > 0, formations.keys(), selection.pending,
+			building.garrison.size() if building else 0]
 	if signature == _command_signature:
 		_update_affordability()
 		return
@@ -575,6 +589,8 @@ func _refresh_commands() -> void:
 				for formation in FORMATION_ICONS:
 					_add_icon_command(_formation_icons, FORMATION_ICONS[formation], FORMATION_NAMES[formation],
 							func() -> void: set_formation(formation), formations.size() == 1 and formations.has(formation))
+		_add_icon_command(_extra_icons, ICON_ENTER, "Move into quarters (G): click a fort or tower",
+				func() -> void: selection.begin_targeting("quarters"), selection.pending == "quarters")
 		_add_icon_command(_command_icons, ICON_STOP, "Stop (S)", stop_selection)
 	elif building and building.complete and building.owner_index == player.index:
 		for guid in building.trainable_units():
@@ -590,6 +606,8 @@ func _refresh_commands() -> void:
 			_add_command(-1, upgrade, func() -> void:
 				if not building.enqueue(upgrade):
 					Sound.play_sound(80))
+	if building and building.owner_index == player.index and not building.garrison.is_empty():
+		_add_icon_command(_extra_icons, ICON_LEAVE, "Move units from quarters (L)", func() -> void: building.release())
 	if building and building.is_building() and building.owner_index == player.index:
 		_add_icon_command(_extra_icons, ICON_DEMOLISH, "Demolish (Del)" if building.complete \
 				else "Demolish (Del) — refunds the unbuilt part", func() -> void: building.demolish())
@@ -639,6 +657,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		var building := selection.selected_building
 		if is_instance_valid(building) and building.owner_index == player.index:
 			building.demolish()
+	elif key == KEY_G:
+		if not selection.selection.is_empty():
+			selection.begin_targeting("quarters")
+	elif key == KEY_L:
+		if is_instance_valid(selection.selected_building) and selection.selected_building.owner_index == player.index:
+			selection.selected_building.release()
 	elif key == KEY_I:
 		if is_instance_valid(selection.selected_building) and selection.selected_building.owner_index == player.index:
 			selection.begin_targeting("rally")

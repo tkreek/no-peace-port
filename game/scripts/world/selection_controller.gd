@@ -64,6 +64,10 @@ func _give_targeted(world: Vector2) -> void:
 				leader.flash(Color(0.5, 0.9, 1.0))
 				for unit: Unit in units:
 					unit.follow(leader)
+		"quarters":
+			var building := _building_at(world)
+			if building and building.capacity() > 0:
+				order_quarters(building)
 		"rally":
 			if is_instance_valid(selected_building):
 				selected_building.rally_point = world
@@ -118,6 +122,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			var site := _building_at(world)
 			if site and not site.complete and selection.any(_is_builder):
 				order_build(site)
+			elif site and site.capacity() > 0 and selection.any(_can_quarter):
+				order_quarters(site)
 			elif animal and selection.any(func(u: Unit) -> bool: return u.unit_type.is_hunter()):
 				for unit in selection:
 					if is_instance_valid(unit) and unit.unit_type.is_hunter():
@@ -158,7 +164,7 @@ func _units(own: bool) -> Array[Unit]:
 	var out: Array[Unit] = []
 	for child in units_root.get_children():
 		if child is Unit and child.is_alive() and (child.team == player_team) == own and child.team > 0 \
-				and not child.fogged:
+				and not child.fogged and not child.inside:
 			out.append(child)
 	return out
 
@@ -199,6 +205,28 @@ func _resource_at(point: Vector2) -> MapObject:
 
 func _is_builder(u: Unit, guid := -1) -> bool:
 	return is_instance_valid(u) and u.is_alive() and u.unit_type.can_build(guid)
+
+
+## Workers and women keep working; soldiers, hunters and commanders can take quarters.
+func _can_quarter(u: Unit) -> bool:
+	return is_instance_valid(u) and u.is_alive() and not u.unit_type.can_gather("wood") \
+			and not u.unit_type.is_farmer()
+
+
+## Selected units walk into a fort or tower, as many as there is room for.
+func order_quarters(building: MapObject) -> void:
+	var units := selection.filter(_can_quarter)
+	var room := building.capacity() - building.garrison.size()
+	if units.is_empty() or room <= 0:
+		Sound.play_sound(80)
+		return
+	building.flash()
+	Sound.play_event(units[0].unit_type.guid(), Sound.Event.ORDER)
+	for unit: Unit in units:
+		if room <= 0:
+			break
+		unit.take_quarters(building)
+		room -= 1
 
 
 ## Send the selected builders to help finish a construction site.

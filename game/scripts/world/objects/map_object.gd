@@ -219,6 +219,8 @@ func _process(delta: float) -> void:
 		condition.burn(delta)
 	if complete:
 		production.update(delta)
+		if guid in BuildingProduction.GUN_FACTORIES and (_ambient != null) != _ambient_wanted():
+			_update_ambient()
 		if selected and not production.queue.is_empty():
 			_overlay.queue_redraw()
 
@@ -488,11 +490,16 @@ func _has_sheet(anim_index: int) -> bool:
 	return anim_index < _bob.anims.size() and not _bob.sub_sprite_is_shadow[_bob.anims[anim_index].sub_sprite]
 
 
-## Buildings with a moving part (the farm's windmill...) run it once they are finished.
+## Buildings with a moving part (the farm's windmill...) run it once they are finished; the
+## weapons factories' glowing furnace only while they are making something.
+func _ambient_wanted() -> bool:
+	if not complete or condition.burnt() or not _has_sheet(AMBIENT_ANIM) or _bob.anims[AMBIENT_ANIM].frames.size() <= 1:
+		return false
+	return guid not in BuildingProduction.GUN_FACTORIES or not production.queue.is_empty()
+
+
 func _update_ambient() -> void:
-	var wanted := complete and not condition.burnt() and _has_sheet(AMBIENT_ANIM) \
-			and _bob.anims[AMBIENT_ANIM].frames.size() > 1
-	if not wanted:
+	if not _ambient_wanted():
 		if _ambient:
 			_ambient.queue_free()
 			_ambient = null

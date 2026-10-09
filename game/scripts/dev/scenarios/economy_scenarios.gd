@@ -381,3 +381,28 @@ func _scenario_stages() -> void:
 	get_tree().quit()
 
 
+
+
+## The weapons factory's furnace glows only while it makes something.
+func _scenario_furnace() -> void:
+	var hq: MapObject = main.players[1].main_building()
+	var guid: int = 411 if main.players[1].faction == "usa" else 211
+	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
+	var factory := MapObject.new()
+	factory.position = AiBuilder.find_spot(type, hq.position)
+	factory.setup(type, 1)
+	main.units_root.add_child(factory)
+	main.camera.position = factory.position
+	main.players[1].resources.gold = 5000
+	main.players[1].resources.food = 5000
+	await get_tree().process_frame
+	var idle := factory._ambient != null
+	factory.production.enqueue(factory.production.researchable_upgrades()[0])
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var working := factory._ambient != null
+	factory.production.cancel(0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	print("furnace glows: idle %s, working %s, after cancelling %s" % [idle, working, factory._ambient != null])
+	get_tree().quit()

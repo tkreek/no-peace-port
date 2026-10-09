@@ -23,6 +23,10 @@ const DROP_OFFS := {
 const FOOD_STORES := [108, 208, 408]
 const FIELD_GUID := 149
 const FIELDS_PER_STORE := 5
+## Fields lie flat on the ground: beneath the women working them, whose feet may be above
+## the field's middle (where y-sorting would put them under it), and beneath corpses and
+## shadows (z -1).
+const FIELD_Z := -2
 const GOLD_MINE_GUID := 700  # selection sound "sound goldmine"
 const PITFALL_GUID := BuildingDefence.PITFALL_GUID
 ## Wharves and the boathouse launch boats, so they go up at the water's edge.
@@ -99,6 +103,8 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 	if _bob == null or _bob.anims.is_empty():
 		return false
 	_is_tree = type.name.begins_with("Baum") and _bob.anims.size() > ObjectStock.TREE_STUMP_ANIM + 1
+	if is_field():
+		z_index = FIELD_Z
 	_palette = GameData.load_palette_texture(type.directory(), _bob.palettes)
 	_ramps = GameData.load_ramps(type.bob_path)
 	_shadow = Sprite2D.new()

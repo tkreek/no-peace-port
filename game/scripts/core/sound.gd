@@ -67,7 +67,16 @@ func _load_table() -> void:
 ## `source` keeps the cooldown per emitter (e.g. each woodcutter) instead of per kind, so
 ## a nearby axe doesn't silence one further off; `reach` is how far away it can be heard.
 func play_event(guid: int, event: int, at = null, cooldown_ms := 250, source := 0, reach := HEARING_RANGE) -> void:
-	var options: PackedInt32Array = _events.get(guid, {}).get(event, PackedInt32Array())
+	var options := PackedInt32Array()
+	for id in _events.get(guid, {}).get(event, PackedInt32Array()):
+		if _sounds.has(id):
+			options.append(id)
+	# The original table points the Mexican woman's axe at a sound that does not exist;
+	# every people's woodcutters use the same "sound holz hacken".
+	if options.is_empty() and event == Event.CHOP:
+		var axe := _sound_id("holz hacken")
+		if axe >= 0:
+			options.append(axe)
 	if options.is_empty():
 		return
 	var key := "%d:%d:%d" % [guid, event, source]
@@ -93,6 +102,13 @@ func work_emitter(fragment: String) -> AudioStreamPlayer2D:
 			p2d.volume_db = linear_to_db(volume * sfx_volume * 0.8)
 			return p2d
 	return null
+
+
+func _sound_id(fragment: String) -> int:
+	for id in _sounds:
+		if String(_sounds[id].path).to_lower().contains(fragment):
+			return id
+	return -1
 
 
 ## Play the first sound whose file name contains `fragment` (lower case).

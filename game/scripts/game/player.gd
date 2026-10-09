@@ -46,7 +46,7 @@ func _init(player_index: int, faction_name: String) -> void:
 ## Gold sitting in gold warehouses, not yet hauled to the main building ("main (warehoused)").
 func warehoused_gold() -> int:
 	var total := 0
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.owner_index == index and object.is_gold_warehouse() and object.is_alive():
 			total += object.stored_gold
 	return total
@@ -99,7 +99,7 @@ func population() -> int:
 ## Housing from completed buildings ("Residence for N units" in the manual).
 func population_cap() -> int:
 	var cap := 0
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.owner_index == index and object.complete and object.is_alive():
 			cap += int(GameData.stats(object.guid).get("housing", 0))
 	return cap
@@ -107,7 +107,7 @@ func population_cap() -> int:
 
 func queued_units() -> int:
 	var count := 0
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.owner_index == index:
 			for item in object.queue:
 				if GameData.stats(item).get("kind") == "unit":
@@ -117,7 +117,7 @@ func queued_units() -> int:
 
 func queued_horses() -> int:
 	var count := 0
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.owner_index == index:
 			count += Array(object.queue).count(MapObject.HORSE_GUID)
 	return count
@@ -126,7 +126,7 @@ func queued_horses() -> int:
 ## Room for horses: five in every finished corral, hacienda or ranch.
 func horse_capacity() -> int:
 	var cap := 0
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.owner_index == index and object.guid in MapObject.HORSE_BUILDINGS and object.complete and object.is_alive():
 			cap += MapObject.HORSES_PER_BUILDING
 	return cap
@@ -140,7 +140,7 @@ func has_commander() -> bool:
 	for unit in Unit.all_units:
 		if unit.team == index and unit.is_alive() and unit.unit_type.guid() in COMMANDERS:
 			return true
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.owner_index == index:
 			for queued in object.queue:
 				if queued in COMMANDERS:
@@ -162,7 +162,7 @@ func leader() -> Unit:
 
 ## The main building (chief's tepee, command post, base, headquarters) if standing.
 func main_building() -> MapObject:
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.owner_index == index and object.guid in MapObject.MAIN_BUILDINGS and object.is_alive() and object.complete:
 			return object
 	return null
@@ -179,7 +179,7 @@ func can_research(upgrade: int) -> bool:
 
 
 func is_researching(upgrade: int) -> bool:
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.owner_index == index and upgrade in object.queue:
 			return true
 	return false
@@ -207,7 +207,7 @@ func complete_research(upgrade: int) -> void:
 		for unit in Unit.all_units:
 			if unit.team == index and unit.is_alive():
 				unit.refresh_upgrades()
-		for object in MapObject.all_objects:
+		for object in MapObject.structures:
 			if object.owner_index == index and object.is_building():
 				object.refresh_upgrades()
 	Sound.play_sound(UPGRADE_READY_SOUNDS.get(faction, 46))
@@ -231,7 +231,7 @@ func bonus(target_guid: int, effect: String, mounted := false) -> float:
 
 
 func has_building(guid: int) -> bool:
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.owner_index == index and object.guid == guid and object.complete and object.is_alive():
 			return true
 	return false

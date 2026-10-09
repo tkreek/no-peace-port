@@ -94,6 +94,10 @@ const DISTILL_WOOD := 20
 const DISTILL_FOOD := 40
 
 static var all_objects: Array[MapObject] = []
+## Buildings and fields: the few hundred objects worth scanning (all_objects also holds the
+## thousands of trees, rocks and mines).
+static var structures: Array[MapObject] = []
+static var abandoned_stores: Array[MapObject] = []
 
 var object_type: ObjectTypes.ObjectType
 var is_ghost := false  ## placement preview: not part of the world
@@ -132,10 +136,22 @@ var _work_rect := Rect2()
 func _enter_tree() -> void:
 	if not is_ghost:
 		all_objects.append(self)
+		if is_building() or is_field():
+			structures.append(self)
+		if is_abandoned_store():
+			abandoned_stores.append(self)
 
 
 func _exit_tree() -> void:
 	all_objects.erase(self)
+	structures.erase(self)
+	abandoned_stores.erase(self)
+
+
+## Godot turns on per-frame processing for every node with a _process when it enters the
+## tree; only buildings and fields need it (trees, mines and rocks are thousands strong).
+func _ready() -> void:
+	set_process(_flash_time > 0.0 or burning > 0.0 or (not is_ghost and (is_building() or is_field())))
 
 
 var _flash_time := 0.0
@@ -220,7 +236,7 @@ func _update_garrison(delta: float) -> void:
 		var reach := unit.attack_range() + GARRISON_RANGE_BONUS
 		var best: Node2D = null
 		var best_distance := reach
-		for other in Unit.all_units:
+		for other: Unit in UnitGrid.near(centre, reach):
 			if other.is_alive() and not other.inside and other.team > 0 and other.team != owner_index:
 				var d := centre.distance_to(other.position)
 				if d < best_distance:
@@ -303,7 +319,7 @@ func _spring_trap(delta: float) -> void:
 		return
 	_trap_scan = 0.2
 	var pit := footprint_rect().get_center()
-	for unit in Unit.all_units:
+	for unit: Unit in UnitGrid.near(pit, 30.0):
 		if unit.is_alive() and unit.team > 0 and unit.team != owner_index and not unit.inside \
 				and not unit.unit_type.is_transport() and unit.position.distance_to(pit) < 30.0:
 			unit.take_damage(unit.max_health * 10.0, self, true)
@@ -377,6 +393,7 @@ func vanish() -> void:
 	health = 0.0
 	accepts = PackedStringArray()
 	all_objects.erase(self)
+	structures.erase(self)
 	queue_free()
 
 
@@ -787,13 +804,25 @@ func trainable_units() -> PackedInt32Array:
 		for i in TRADES.size():
 			out.append(TRADE_GUID + i)
 	var owner_player: Player = Player.by_index.get(owner_index)
-	for unit_guid in GameData.stats_guids():
-		var stats := GameData.stats(unit_guid)
-		if stats.get("kind") == "unit" and int(stats.get("produced_at", -1)) == guid:
-			if unit_guid == STAGECOACH and (owner_player == null or not owner_player.researched.has(STAGECOACH_UPGRADE)):
-				continue  # needs the Stagecoach upgrade
-			out.append(unit_guid)
+	for unit_guid in units_trained_at(guid):
+		if unit_guid == STAGECOACH and (owner_player == null or not owner_player.researched.has(STAGECOACH_UPGRADE)):
+			continue  # needs the Stagecoach upgrade
+		out.append(unit_guid)
 	return out
+
+
+static var _trained_at := {}  # building GUID -> unit GUIDs whose place of production it is
+
+
+static func units_trained_at(building_guid: int) -> PackedInt32Array:
+	if not _trained_at.has(building_guid):
+		var found := PackedInt32Array()
+		for unit_guid in GameData.stats_guids():
+			var stats := GameData.stats(unit_guid)
+			if stats.get("kind") == "unit" and int(stats.get("produced_at", -1)) == building_guid:
+				found.append(unit_guid)
+		_trained_at[building_guid] = found
+	return _trained_at[building_guid]
 
 
 static func is_trade(item: int) -> bool:
@@ -974,7 +1003,7 @@ func _earn(delta: float) -> void:
 		return
 	_income_timer = 0.0
 	var same := 0
-	for object in all_objects:
+	for object in structures:
 		if object.guid == guid and object.owner_index == owner_index and object.complete and object.is_alive():
 			same += 1
 			if object == self and same > 5:
@@ -1130,7 +1159,7 @@ func _burn(delta: float) -> void:
 		_burn_tick -= 1.0
 		take_damage(BURN_DAMAGE)
 		var walls := work_rect().grow(SPREAD_REACH)
-		for other in all_objects:
+		for other in structures:
 			if other != self and other.burning <= 0.0 and other.is_building() and other.is_alive() \
 					and walls.intersects(other.work_rect()) and randf() < SPREAD_CHANCE:
 				other.ignite()
@@ -1236,7 +1265,7 @@ static func _drop_off_for(building_guid: int) -> PackedStringArray:
 static func field_allowance(team: int) -> int:
 	var stores := 0
 	var fields := 0
-	for object in all_objects:
+	for object in structures:
 		if object.owner_index != team:
 			continue
 		if object.guid in FOOD_STORES and object.complete and object.is_alive():

@@ -132,7 +132,7 @@ func _ready() -> void:
 	build_controller.objects_root = units_root
 	add_child(build_controller)  # after the selection controller, so it sees clicks first
 	build_controller.placed.connect(_on_building_placed)
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.is_building():
 			object.unit_trained.connect(_on_unit_trained)
 	hud.build_controller = build_controller
@@ -410,7 +410,7 @@ func _print_report(frame: int) -> void:
 	for node in units_root.get_children():
 		if node is Unit and node.is_alive():
 			alive[node.team] = alive.get(node.team, 0) + 1
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.is_building() and object.owner_index == 1:
 			print("  %s complete=%s progress=%.2f queue=%s" % [object.display_name(), object.complete, object.build_progress, object.queue])
 		elif object.is_field() and object.owner_index == 1:
@@ -439,7 +439,7 @@ func _print_report(frame: int) -> void:
 				if node is Unit and node.is_alive() and node.team == index:
 					kinds[node.display_name()] = kinds.get(node.display_name(), 0) + 1
 			var buildings := {}
-			for object in MapObject.all_objects:
+			for object in MapObject.structures:
 				if object.is_building() and object.owner_index == index and object.is_alive():
 					buildings[object.display_name()] = buildings.get(object.display_name(), 0) + 1
 			print("    units %s\n    buildings %s" % [kinds, buildings])

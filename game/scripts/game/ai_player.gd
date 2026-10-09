@@ -107,6 +107,7 @@ func _process(delta: float) -> void:
 	if _timer > 0.0:
 		return
 	_timer = _level().think
+	_cache_valid = false
 	_think()
 
 
@@ -156,13 +157,29 @@ func _is_soldier(u: Unit) -> bool:
 			and not (u.unit_type.is_hunter() and u.hunting)
 
 
+## Our living units and standing buildings, gathered once per think (sites placed during
+## a think drop the cache so they count at once).
+var _units_cache: Array = []
+var _buildings_cache: Array = []
+var _cache_valid := false
+
+
 func _my_units() -> Array:
-	return units_root.get_children().filter(func(n: Node) -> bool:
-		return n is Unit and n.team == player.index and n.is_alive())
+	_fill_cache()
+	return _units_cache.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
 
 
 func _my_buildings() -> Array:
-	return MapObject.all_objects.filter(func(o: MapObject) -> bool:
+	_fill_cache()
+	return _buildings_cache.filter(func(b: MapObject) -> bool: return is_instance_valid(b) and b.is_alive())
+
+
+func _fill_cache() -> void:
+	if _cache_valid:
+		return
+	_cache_valid = true
+	_units_cache = Unit.all_units.filter(func(u: Unit) -> bool: return u.team == player.index and u.is_alive())
+	_buildings_cache = MapObject.structures.filter(func(o: MapObject) -> bool:
 		return o.is_building() and o.owner_index == player.index and o.is_alive())
 
 
@@ -278,7 +295,7 @@ func _train_civilians(hq: MapObject, workers: Array, units: Array) -> void:
 ## Spare wagons empty abandoned warehouses nearby.
 func _haul_gold(transports: Array) -> void:
 	var warehouses := _my_buildings().filter(func(b: MapObject) -> bool: return b.is_gold_warehouse() and b.complete)
-	var abandoned := MapObject.all_objects.filter(func(o: MapObject) -> bool:
+	var abandoned := MapObject.abandoned_stores.filter(func(o: MapObject) -> bool:
 		return o.is_abandoned_store() and o.loot > 0 and o.position.distance_to(_home) < 1800.0 and not _enemy_near(o.position, 600.0))
 	if warehouses.is_empty() and abandoned.is_empty():
 		return
@@ -336,7 +353,7 @@ func _farm(units: Array, hq: MapObject) -> void:
 	var field_target := FIELD_TARGET if _workers_ready(units) else 2
 	if fields.size() < field_target and MapObject.field_allowance(player.index) > 0 and _affordable(MapObject.FIELD_GUID):
 		var store_object: MapObject = null
-		for object in MapObject.all_objects:
+		for object in MapObject.structures:
 			if object.guid == store and object.owner_index == player.index and object.complete:
 				store_object = object
 		if store_object:
@@ -496,7 +513,22 @@ func _house_guid() -> int:
 	return -1
 
 
+## The nearest tree or mine with something left (remembered for a while: the search
+## covers thousands of trees).
+var _nearest_cache := {}  # "resource@x,y" -> [MapObject, when]
+
+
 func _nearest_resource(resource: String, from: Vector2) -> MapObject:
+	var key := "%s@%d,%d" % [resource, int(from.x), int(from.y)]
+	var cached: Array = _nearest_cache.get(key, [])
+	if not cached.is_empty() and _elapsed - float(cached[1]) < 15.0 and is_instance_valid(cached[0]) and cached[0].amount > 0:
+		return cached[0]
+	var best := _search_nearest_resource(resource, from)
+	_nearest_cache[key] = [best, _elapsed]
+	return best
+
+
+func _search_nearest_resource(resource: String, from: Vector2) -> MapObject:
 	var best: MapObject = null
 	for object in MapObject.all_objects:
 		if object.resource == resource and object.amount > 0 and not object.is_field() \
@@ -514,7 +546,7 @@ func _trees_near(at: Vector2) -> int:
 
 
 func _no_drop_off_near(resource: String, at: Vector2) -> bool:
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.owner_index == player.index and object.is_building() \
 				and (resource in object.accepts or (not object.complete and object.guid in MapObject.DROP_OFFS.get(resource, []))) \
 				and object.position.distance_to(at) < FAR_FROM_HQ:
@@ -542,6 +574,7 @@ func _place(guid: int, around: Vector2, builders: Array, min_radius := 220, max_
 		site.free()
 		return false
 	units_root.add_child(site)
+	_cache_valid = false
 	if not site.is_trap():
 		NavGrid.current.block_footprint(type, spot)
 	site.unit_trained.connect(get_parent()._on_unit_trained)
@@ -561,10 +594,8 @@ func _worth_trying(guid: int) -> bool:
 
 
 func _produces_army(structure_guid: int) -> bool:
-	for guid in GameData.stats_guids():
-		var stats := GameData.stats(guid)
-		if stats.get("kind") == "unit" and int(stats.get("produced_at", -1)) == structure_guid \
-				and stats.get("damage", 0) >= 5 and guid not in Player.COMMANDERS and guid != Unit.CANOE:
+	for guid in MapObject.units_trained_at(structure_guid):
+		if GameData.stats(guid).get("damage", 0) >= 5 and guid not in Player.COMMANDERS and guid != Unit.CANOE:
 			return true
 	return false
 
@@ -605,7 +636,7 @@ func _footprint_free(type: ObjectTypes.ObjectType, at: Vector2, nav: NavGrid) ->
 		if not nav.is_walkable(cell):
 			return false
 	# Keep a walkable margin so buildings don't wall each other in.
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.is_building() and object.footprint_rect().grow(32).intersects(rect):
 			return false
 	return true
@@ -677,7 +708,7 @@ func _build_with_prerequisites(guid: int, around: Vector2, workers: Array, depth
 
 
 func _enemy_near(at: Vector2, radius: float) -> bool:
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.is_building() and object.owner_index > 0 and object.owner_index != player.index \
 				and object.position.distance_to(at) < radius:
 			return true
@@ -803,7 +834,7 @@ func _magic(units: Array, army: Array) -> void:
 					caster.cast(922, soldier.position, soldier)
 					break
 		elif 921 in spells and caster.magic_energy >= caster.magic_pool() * 0.9:
-			for field in MapObject.all_objects:
+			for field in MapObject.structures:
 				if field.is_field() and field.owner_index == player.index and field.field_state == MapObject.Field.GROWING \
 						and not field._rained:
 					caster.cast(921, field.position)
@@ -1121,7 +1152,7 @@ func _raid(army: Array) -> void:
 					unit.steal(other)
 					break
 		if unit.can_rob() and unit.state != Unit.State.GATHERING:
-			for object in MapObject.all_objects:
+			for object in MapObject.structures:
 				if object.is_building() and object.owner_index > 0 and object.owner_index != player.index \
 						and object.is_alive() and Unit.loot_of(object) > 0 and object.position.distance_to(unit.position) < 900.0:
 					unit.rob(object)
@@ -1140,7 +1171,7 @@ func _intruder(hq: MapObject) -> Unit:
 
 func _enemy_base() -> Vector2:
 	var best := Vector2.INF
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.is_building() and object.owner_index > 0 and object.owner_index != player.index and object.is_alive():
 			if best == Vector2.INF or object.guid in MapObject.MAIN_BUILDINGS:
 				best = object.position

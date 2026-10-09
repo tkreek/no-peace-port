@@ -24,10 +24,11 @@ var rows := 0
 var explored := PackedByteArray()
 var visible_cells := PackedByteArray()
 
-var _image: Image
-var _texture: ImageTexture
-var _overview_image: Image
-var _overview: ImageTexture  # RGBA: black with fog as alpha, for the minimap
+## The two cell grids as textures (0/1 bytes; the shaders scale them up).
+var _visible_image: Image
+var _visible_texture: ImageTexture
+var _explored_image: Image
+var _explored_texture: ImageTexture
 var _sprite := Sprite2D.new()
 var _timer := 0.0
 var _circles := {}  # radius in cells -> PackedVector2Array of offsets
@@ -40,18 +41,18 @@ func setup(map: AlfMap, team: int) -> void:
 	rows = map.rows
 	explored.resize(columns * rows)
 	visible_cells.resize(columns * rows)
-	_image = Image.create_empty(columns, rows, false, Image.FORMAT_L8)
-	_image.fill(Color(1, 1, 1))
-	_texture = ImageTexture.create_from_image(_image)
-	_overview_image = Image.create_empty(columns, rows, false, Image.FORMAT_RGBA8)
-	_overview = ImageTexture.create_from_image(_overview_image)
-	_sprite.texture = _texture
+	_visible_image = Image.create_from_data(columns, rows, false, Image.FORMAT_L8, visible_cells)
+	_visible_texture = ImageTexture.create_from_image(_visible_image)
+	_explored_image = Image.create_from_data(columns, rows, false, Image.FORMAT_L8, explored)
+	_explored_texture = ImageTexture.create_from_image(_explored_image)
+	_sprite.texture = _visible_texture
 	_sprite.centered = false
 	_sprite.scale = Vector2(CELL, CELL)
 	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	var material := ShaderMaterial.new()
 	material.shader = FogShader
 	material.set_shader_parameter("map_cells", Vector2(columns, rows))
+	material.set_shader_parameter("explored_cells", _explored_texture)
 	_sprite.material = material
 	z_index = 90  # above units and buildings, below health bars and the HUD
 	z_as_relative = false
@@ -72,10 +73,16 @@ func update_now() -> void:
 		visible_cells.fill(1)
 		explored.fill(1)
 	else:
+		# Units standing in the same cell with the same sight reveal the same circle: once.
+		var stamped := {}
 		for unit in Unit.all_units:
 			if unit.team == player_team and unit.is_alive():
-				_reveal(unit.position, unit.sight())
-		for object in MapObject.all_objects:
+				var sight := unit.sight()
+				var key := _index(unit.position) * 64 + int(sight / CELL)
+				if not stamped.has(key):
+					stamped[key] = true
+					_reveal(unit.position, sight)
+		for object in MapObject.structures:
 			if object.is_building() and object.owner_index == player_team and object.is_alive():
 				var owner: Player = Player.by_index.get(player_team)
 				var sharper := owner.bonus(object.guid, "sight_pct") if owner else 0.0  # tower Sight upgrades
@@ -84,18 +91,10 @@ func update_now() -> void:
 		_reveals = _reveals.filter(func(r: Dictionary) -> bool: return r.until > now)
 		for r in _reveals:
 			_reveal(r.at, r.radius)
-	var bytes := PackedByteArray()
-	bytes.resize(columns * rows)
-	var rgba := PackedByteArray()
-	rgba.resize(columns * rows * 4)
-	for i in bytes.size():
-		var value := VISIBLE if visible_cells[i] else (EXPLORED if explored[i] else UNEXPLORED)
-		bytes[i] = value
-		rgba[i * 4 + 3] = mini(255, value * 3 / 4 + (64 if value == UNEXPLORED else 0))
-	_image.set_data(columns, rows, false, Image.FORMAT_L8, bytes)
-	_texture.update(_image)
-	_overview_image.set_data(columns, rows, false, Image.FORMAT_RGBA8, rgba)
-	_overview.update(_overview_image)
+	_visible_image.set_data(columns, rows, false, Image.FORMAT_L8, visible_cells)
+	_visible_texture.update(_visible_image)
+	_explored_image.set_data(columns, rows, false, Image.FORMAT_L8, explored)
+	_explored_texture.update(_explored_image)
 	_apply_to_objects()
 
 
@@ -118,8 +117,13 @@ func is_explored_at(point: Vector2) -> bool:
 	return i >= 0 and explored[i] != 0
 
 
-func overview_texture() -> Texture2D:
-	return _overview
+## The cell grids for the minimap's fog (see minimap_fog.gdshader).
+func visible_texture() -> Texture2D:
+	return _visible_texture
+
+
+func explored_texture() -> Texture2D:
+	return _explored_texture
 
 
 func _index(point: Vector2) -> int:
@@ -168,7 +172,7 @@ func _apply_to_objects() -> void:
 	for unit in Unit.all_units:
 		unit.fogged = unit.team != player_team and ((enabled and not is_visible_at(unit.position)) \
 				or (unit.concealed and not unit.detected_by(player_team)))
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.is_building() and object.owner_index != player_team:
 			object.visible = not enabled or is_explored_at(object.footprint_rect().get_center())
 			if object.is_trap():

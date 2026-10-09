@@ -337,6 +337,7 @@ func change_team(new_team: int) -> void:
 ## militiaman, hunter, trapper) has them in sight. Any order breaks cover.
 const CAMOUFLAGE := {156: 915, 158: 915, 160: 915, 362: 0}
 const DETECTORS := [156, 157, 261, 358, 461]
+const DETECTOR_REACH := 700.0  # beyond any detector's sight, upgrades included
 var concealed := false
 
 
@@ -365,7 +366,7 @@ func _play_once_then_hold(action: String) -> void:
 
 ## Traps are only found by detectors (arrow shooters, militiamen, hunters, trappers).
 func _sees_trap(trap: MapObject) -> bool:
-	for other in all_units:
+	for other: Unit in UnitGrid.near(trap.position, DETECTOR_REACH):
 		if other.team == team and other.is_alive() and other.unit_type.guid() in DETECTORS \
 				and other.position.distance_to(trap.position) <= other.sight():
 			return true
@@ -374,7 +375,7 @@ func _sees_trap(trap: MapObject) -> bool:
 
 ## Whether `team` has a detector with this unit in sight.
 func detected_by(by_team: int) -> bool:
-	for other in all_units:
+	for other: Unit in UnitGrid.near(position, DETECTOR_REACH):
 		if other.team == by_team and other.is_alive() and other.unit_type.guid() in DETECTORS \
 				and other.position.distance_to(position) <= other.sight():
 			return true
@@ -388,7 +389,7 @@ func _update_hidden() -> void:
 	play("hide")
 	# A dug-in assassin stabs whoever comes within reach.
 	if unit_type.guid() == 362 and not unit_type.attack_anims.is_empty():
-		for other in all_units:
+		for other: Unit in UnitGrid.near(position, 40.0):
 			if other.is_alive() and other.team > 0 and other.team != team and other.position.distance_to(position) < 40.0:
 				uncover()
 				attack(other)
@@ -501,17 +502,17 @@ func _apply_spell(spell: int, at: Vector2) -> void:
 		919:
 			var caster_team := team
 			Weather.spawn(parent, at, Weather.LIGHTNING_BOB, 6.0, func(where: Vector2) -> void:
-				for other in all_units:
+				for other: Unit in UnitGrid.near(where, 140.0):
 					if other.is_alive() and other.team > 0 and other.team != caster_team and other.position.distance_to(where) < 140.0:
 						other.take_damage(8.0))
 		920:
 			Weather.spawn(parent, at, Weather.HAIL_BOB, 4.0)
-			for field in MapObject.all_objects:
+			for field in MapObject.structures:
 				if field.is_field() and field.owner_index != team and field.position.distance_to(at) < 200.0:
 					field.ruin_crop()
 		921:
 			Weather.spawn(parent, at, Weather.RAIN_BOB, 4.0)
-			for field in MapObject.all_objects:
+			for field in MapObject.structures:
 				if field.is_field() and field.owner_index == team and field.position.distance_to(at) < 200.0:
 					field.rain()
 		922:
@@ -564,7 +565,7 @@ func _herd(delta: float) -> void:
 	if _herd_scan > 0.0:
 		return
 	_herd_scan = 0.5
-	for other in all_units:
+	for other: Unit in UnitGrid.near(position, 60.0):
 		if other.is_alive() and other.is_cow() and other.team != team and other.position.distance_to(position) < 60.0:
 			other.change_team(team)
 
@@ -953,7 +954,7 @@ func _update_boat(delta: float) -> void:
 			continue
 		var best: Unit = null
 		var best_distance := unit.attack_range()
-		for other in all_units:
+		for other: Unit in UnitGrid.near(position, best_distance):
 			if other.is_alive() and not other.inside and is_enemy_of(other):
 				var d := position.distance_to(other.position)
 				if d < best_distance:
@@ -1077,6 +1078,8 @@ func _may_engage(enemy: Node2D) -> bool:
 
 
 func is_enemy_of(other: Unit) -> bool:
+	if other.team == team or other.team <= 0 or team <= 0:
+		return false
 	var other_player: Player = Player.by_index.get(other.team)
 	if other_player and other_player.surrendered:
 		return false  # laid down their arms
@@ -1423,7 +1426,7 @@ func is_healer() -> bool:
 func _nearest_wounded() -> Unit:
 	var best: Unit = null
 	var best_distance := sight()
-	for other in all_units:
+	for other: Unit in UnitGrid.near(position, best_distance):
 		if other != self and other.team == team and other.is_alive() and not other.inside \
 				and other.health < other.max_health:
 			var distance := position.distance_to(other.position)
@@ -1778,7 +1781,7 @@ func _update_haul(delta: float) -> void:
 
 func _main_building() -> MapObject:
 	var best: MapObject = null
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.owner_index == team and object.guid in MapObject.MAIN_BUILDINGS and object.complete and object.is_alive() \
 				and (best == null or position.distance_to(object.position) < position.distance_to(best.position)):
 			best = object
@@ -1921,7 +1924,7 @@ func _nearest_source(resource: String, max_distance := INF) -> MapObject:
 func _nearest_drop_off(resource: String) -> MapObject:
 	var best: MapObject = null
 	var best_distance := INF
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.owner_index == team and resource in object.accepts:
 			var distance := position.distance_to(object.position)
 			if distance < best_distance:
@@ -1945,7 +1948,7 @@ func _nearest_target(radius: float) -> Node2D:
 		return unit
 	var best: MapObject = null
 	var best_distance := radius
-	for object in MapObject.all_objects:
+	for object in MapObject.structures:
 		if object.is_building() and object.owner_index > 0 and object.owner_index != team and object.is_alive() \
 				and not (object.is_trap() and not _sees_trap(object)):
 			var distance := position.distance_to(_aim_point(object))
@@ -1958,7 +1961,7 @@ func _nearest_target(radius: float) -> Node2D:
 func _nearest_enemy(radius: float) -> Unit:
 	var best: Unit = null
 	var best_distance := radius
-	for other in all_units:
+	for other: Unit in UnitGrid.near(position, radius):
 		if other.is_alive() and is_enemy_of(other):
 			var distance := position.distance_to(other.position)
 			if distance < best_distance:
@@ -1989,7 +1992,7 @@ func _follow_path(delta: float) -> void:
 ## Idle units drift apart so groups don't stand inside each other.
 func _separate(delta: float) -> void:
 	var push := Vector2.ZERO
-	for other in all_units:
+	for other: Unit in UnitGrid.near(position, SEPARATION_RADIUS):
 		if other == self or not other.is_alive():
 			continue
 		var offset := position - other.position

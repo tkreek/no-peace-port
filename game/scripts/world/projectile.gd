@@ -110,7 +110,7 @@ func _land() -> void:
 		Sound.play_event(IMPACT_SOUND[_kind], Sound.Event.SHOOT, _to, 0)
 		OrderMarker.effect(get_parent(), _to, EXPLOSION_BOB, 0)
 		var team := _attacker.team if is_instance_valid(_attacker) else -1
-		for unit in Unit.all_units:
+		for unit: Unit in UnitGrid.near(_to, SPLASH_RADIUS):
 			if unit != _target and unit.is_alive() and unit.team > 0 and unit.team != team \
 					and unit.position.distance_to(_to) < SPLASH_RADIUS:
 				unit.take_damage(_damage * 0.5, _attacker if is_instance_valid(_attacker) else null, true)

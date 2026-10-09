@@ -89,3 +89,12 @@ def write_png(path, width, height, pixels):
     png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
     png += chunk(b"IDAT", zlib.compress(bytes(raw), 6)) + chunk(b"IEND", b"")
     open(path, "wb").write(png)
+
+
+def read_pic_indexed(path):
+    """Return (width, height, palette_rgb_bytes(768), pixel_bytes) for a COLS/PRAW .pic."""
+    data = open(path, "rb").read()
+    if data[:4] != b"RDIC" or data[16:20] != b"COLS" or data[20 + 768:24 + 768] != b"PRAW":
+        raise ValueError(f"{path}: not an indexed RDIC image")
+    width, height = struct.unpack_from("<II", data, 4)
+    return width, height, data[20:20 + 768], data[24 + 768:24 + 768 + width * height]

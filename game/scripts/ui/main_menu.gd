@@ -13,8 +13,9 @@ const LOADING_BG_BASE := "global/gfx/ladebild/ladebild1024768.pic"
 const ART_SIZE := Vector2(800, 600)
 ## Areas of the selectgame artwork (800x600 coordinates).
 const SETUP_TITLE := Rect2(277, 103, 247, 30)
-const SETUP_LIST := Rect2(214, 170, 374, 200)
-const PLAYER_CELL := Vector2(184, 24)  # one seat in the two-column player grid
+const SETUP_BOARD := Rect2(211, 166, 380, 268)  # the dark board under the title
+const SETUP_LIST_WIDTH := 152.0
+const PLAYER_OPTION_WIDTH := 126.0  # one seat's dropdown in the two-column player grid
 
 var _art := Control.new()  # 800x600 design space, scaled to fit the window
 var _screens := {}
@@ -24,6 +25,7 @@ var _maps: Array[Dictionary] = []
 var _map_list := ItemList.new()
 var _preview := TextureRect.new()
 var _map_info := Label.new()
+var _seats := PanelContainer.new()
 var _slots := GridContainer.new()  # "You", then one seat per possible opponent
 var _supply := OptionButton.new()
 var _difficulty := OptionButton.new()
@@ -254,64 +256,56 @@ func _build_setup() -> Control:
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	screen.add_child(title)
 
-	_map_list.position = SETUP_LIST.position
-	_map_list.size = Vector2(SETUP_LIST.size.x * 0.58, SETUP_LIST.size.y)
+	# The artwork's dark board: the maps on the left; the preview and the match options on the right.
+	var board := SETUP_BOARD.grow(-8)
+	_map_list.position = board.position
+	_map_list.size = Vector2(SETUP_LIST_WIDTH, board.size.y)
 	_map_list.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	_map_list.add_theme_font_override("font", MenuStyle.font())
 	_map_list.add_theme_font_size_override("font_size", 13)
 	_map_list.add_theme_color_override("font_color", MenuStyle.TEXT)
+	_map_list.add_theme_color_override("font_hovered_color", MenuStyle.TEXT_HOVER)
 	_map_list.add_theme_color_override("font_selected_color", MenuStyle.TEXT_HOVER)
+	_map_list.add_theme_constant_override("v_separation", 3)
 	var selected := StyleBoxFlat.new()
 	selected.bg_color = Color(0.55, 0.3, 0.12, 0.6)
+	selected.set_corner_radius_all(2)
 	_map_list.add_theme_stylebox_override("selected", selected)
 	_map_list.add_theme_stylebox_override("selected_focus", selected)
+	_map_list.add_theme_stylebox_override("cursor", StyleBoxEmpty.new())
+	_map_list.add_theme_stylebox_override("cursor_unfocused", StyleBoxEmpty.new())
 	_map_list.item_selected.connect(_on_map_selected)
 	screen.add_child(_map_list)
 
-	_preview.position = SETUP_LIST.position + Vector2(SETUP_LIST.size.x * 0.62, 6)
-	_preview.size = Vector2(SETUP_LIST.size.x * 0.38 - 6, SETUP_LIST.size.x * 0.38 - 6)
+	var side := VBoxContainer.new()
+	side.position = Vector2(board.position.x + SETUP_LIST_WIDTH + 10, board.position.y)
+	side.size = Vector2(board.end.x - side.position.x, board.size.y)
+	side.add_theme_constant_override("separation", 4)
+	screen.add_child(side)
+	var frame := PanelContainer.new()
+	frame.add_theme_stylebox_override("panel", _box(Color(0.05, 0.03, 0.01, 0.8), 1))
+	frame.custom_minimum_size.y = 112
 	_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	screen.add_child(_preview)
-	MenuStyle.style(_map_info, 12, MenuStyle.TEXT_DIM)
-	_map_info.position = _preview.position + Vector2(0, _preview.size.y + 4)
-	_map_info.size = Vector2(_preview.size.x, 60)
-	_map_info.autowrap_mode = TextServer.AUTOWRAP_WORD
-	screen.add_child(_map_info)
+	frame.add_child(_preview)
+	side.add_child(frame)
+	MenuStyle.style(_map_info, 11, MenuStyle.TEXT_DIM)
+	_map_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	side.add_child(_map_info)
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	side.add_child(spacer)
 
-	# Players in two columns (all eight seats fit): you, then the computer opponents.
-	var players_box := VBoxContainer.new()
-	players_box.position = Vector2(SETUP_LIST.position.x, SETUP_LIST.end.y + 10)
-	players_box.add_theme_constant_override("separation", 6)
-	screen.add_child(players_box)
-	_slots.columns = 2
-	_slots.add_theme_constant_override("h_separation", 6)
-	_slots.add_theme_constant_override("v_separation", 3)
-	var you := _player_cell("You", _faction)
-	you.set_meta("you", true)
-	_fill_factions(_faction, 0)
-	_slots.add_child(you)
-	players_box.add_child(_slots)
-	var supply := HBoxContainer.new()
-	supply.add_child(_fixed_label(GameData.menu_text(268, "Raw materials"), 110))
+	var options := GridContainer.new()
+	options.columns = 2
+	options.add_theme_constant_override("h_separation", 6)
+	options.add_theme_constant_override("v_separation", 4)
+	side.add_child(options)
 	for i in Match.SUPPLY_TEXT.size():
 		_supply.add_item(GameData.menu_text(Match.SUPPLY_TEXT[i], Match.SUPPLY_NAMES[i]))
-	MenuStyle.style(_supply, 13)
-	supply.add_child(_supply)
-	players_box.add_child(supply)
-	# Raw materials and the computer's level share one line.
-	var level := supply
-	level.add_theme_constant_override("separation", 6)
-	var gap := Control.new()
-	gap.custom_minimum_size.x = 18
-	level.add_child(gap)
-	level.add_child(_fixed_label(GameData.menu_text(265, "Computer AI"), 92))
 	for i in Match.DIFFICULTY_TEXT.size():
 		_difficulty.add_item(GameData.menu_text(Match.DIFFICULTY_TEXT[i], Match.DIFFICULTY_NAMES[i]))
 	_difficulty.select(Match.difficulty)
-	MenuStyle.style(_difficulty, 13)
-	level.add_child(_difficulty)
-	var rules := HBoxContainer.new()
-	rules.add_theme_constant_override("separation", 6)
 	for i in Match.GAME_TYPE_TEXT.size():
 		_game_type.add_item(GameData.menu_text(Match.GAME_TYPE_TEXT[i], Match.GAME_TYPE_NAMES[i]))
 	for limit in Match.POPULATION_LIMITS:
@@ -320,19 +314,45 @@ func _build_setup() -> Control:
 	for i in Match.SPEEDS.size():
 		_speed.add_item(Match.SPEED_NAMES[i])
 	_speed.select(1)
+	# The game type on a line of its own (its names are long), then short captions for the rest.
+	_style_option(_game_type)
 	_game_type.tooltip_text = GameData.menu_text(264, "Game type")
-	_population.tooltip_text = GameData.menu_text(266, "Population limit")
-	_speed.tooltip_text = GameData.menu_text(267, "Game speed")
-	for option: OptionButton in [_game_type, _population, _speed]:
-		MenuStyle.style(option, 12)
-		rules.add_child(option)
-	players_box.add_child(rules)
+	side.add_child(_game_type)
+	side.move_child(_game_type, options.get_index())
+	for row in [["Resources", GameData.menu_text(268, "Raw materials"), _supply],
+			["Computer", GameData.menu_text(265, "Computer AI"), _difficulty],
+			["Unit limit", GameData.menu_text(266, "Population limit"), _population],
+			["Speed", GameData.menu_text(267, "Game speed"), _speed]]:
+		var caption := _fixed_label(row[0], 62)
+		caption.tooltip_text = row[1]
+		caption.mouse_filter = Control.MOUSE_FILTER_PASS
+		options.add_child(caption)
+		_style_option(row[2])
+		row[2].tooltip_text = row[1]
+		row[2].size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		options.add_child(row[2])
+
+	# The seats, in two columns on a board of their own below: you, then the computer opponents.
+	_seats.add_theme_stylebox_override("panel", _box(Color(0.1, 0.05, 0.02, 0.82), 6, 8))
+	_seats.position = Vector2(SETUP_BOARD.position.x, SETUP_BOARD.end.y + 8)
+	_seats.custom_minimum_size.x = SETUP_BOARD.size.x
+	screen.add_child(_seats)
+	_slots.columns = 2
+	_slots.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_slots.add_theme_constant_override("h_separation", 12)
+	_slots.add_theme_constant_override("v_separation", 3)
+	var you := _player_cell("You", _faction)
+	you.set_meta("you", true)
+	_fill_factions(_faction, 0)
+	_slots.add_child(you)
+	_seats.add_child(_slots)
 
 	var buttons := HBoxContainer.new()
-	buttons.position = Vector2(214, 562)
 	buttons.add_theme_constant_override("separation", 24)
 	buttons.add_child(_small_button(GameData.menu_text(16, "Back"), func() -> void: _show("main")))
 	buttons.add_child(_small_button(GameData.menu_text(15, "Start"), _start))
+	buttons.reset_size()
+	buttons.position = Vector2(ART_SIZE.x * 0.5 - buttons.size.x * 0.5, 560)
 	screen.add_child(buttons)
 
 	_load_map_list()
@@ -342,18 +362,57 @@ func _build_setup() -> Control:
 func _player_cell(caption: String, option: OptionButton) -> HBoxContainer:
 	var cell := HBoxContainer.new()
 	cell.add_theme_constant_override("separation", 4)
-	cell.add_child(_fixed_label(caption, 58))
-	MenuStyle.style(option, 12)
-	option.custom_minimum_size = Vector2(PLAYER_CELL.x - 62, PLAYER_CELL.y)
-	option.clip_text = true
+	cell.add_child(_fixed_label(caption, 46))
+	_style_option(option, 11)
+	option.custom_minimum_size.x = PLAYER_OPTION_WIDTH
 	cell.add_child(option)
 	return cell
 
 
 func _fixed_label(text: String, width: float) -> Label:
-	var label := MenuStyle.label(text, 13)
+	var label := MenuStyle.label(text, 12)
 	label.custom_minimum_size.x = width
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	return label
+
+
+## Dropdowns in the colours of the menu buttons, compact enough for the 800x600 layout.
+func _style_option(option: OptionButton, font_size := 12) -> void:
+	MenuStyle.style(option, font_size)
+	option.custom_minimum_size.y = 21
+	option.fit_to_longest_item = false
+	option.clip_text = true
+	option.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	option.focus_mode = Control.FOCUS_NONE
+	option.add_theme_color_override("font_hover_color", MenuStyle.TEXT_HOVER)
+	option.add_theme_color_override("font_pressed_color", MenuStyle.TEXT_HOVER)
+	var normal := _box(Color(0.16, 0.09, 0.04, 0.9), 2, 6)
+	normal.border_color = Color(0.5, 0.34, 0.16)
+	normal.set_border_width_all(1)
+	normal.content_margin_top = 1
+	normal.content_margin_bottom = 1
+	var hover := normal.duplicate()
+	hover.bg_color = Color(0.32, 0.18, 0.07, 0.95)
+	option.add_theme_stylebox_override("normal", normal)
+	option.add_theme_stylebox_override("hover", hover)
+	option.add_theme_stylebox_override("pressed", hover)
+	option.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	var popup := option.get_popup()
+	popup.add_theme_font_override("font", MenuStyle.font())
+	popup.add_theme_font_size_override("font_size", 13)
+	popup.add_theme_color_override("font_color", MenuStyle.TEXT)
+	popup.add_theme_color_override("font_hover_color", MenuStyle.TEXT_HOVER)
+	popup.add_theme_stylebox_override("panel", _box(Color(0.12, 0.07, 0.03, 0.97), 3, 4))
+	var lit := _box(Color(0.45, 0.25, 0.1, 0.8), 2)
+	popup.add_theme_stylebox_override("hover", lit)
+
+
+func _box(colour: Color, radius: int, margin := 0) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = colour
+	box.set_corner_radius_all(radius)
+	box.set_content_margin_all(margin)
+	return box
 
 
 func _fill_factions(option: OptionButton, selected: int, closed := false) -> void:
@@ -429,6 +488,7 @@ func _on_map_selected(index: int) -> void:
 		var option := OptionButton.new()
 		_fill_factions(option, 2 if slot == 1 else 0, true)
 		_slots.add_child(_player_cell("Player %d" % (slot + 1), option))
+	_seats.reset_size()
 	_map_list.ensure_current_is_visible()
 
 

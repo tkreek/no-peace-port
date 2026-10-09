@@ -102,6 +102,8 @@ func _ready() -> void:
 		_scenario_food.call_deferred()
 	if GameData.cmdline_option("scenario") == "build":
 		_scenario_build.call_deferred()
+	if GameData.cmdline_option("scenario") == "help-build":
+		_scenario_help_build.call_deferred()
 	var report := GameData.cmdline_option("report-after")
 	if report != "":
 		_report_after(report.to_int())
@@ -283,6 +285,28 @@ func _spawn_squad(directory: String, team: int, centre: Vector2, count: int) -> 
 		units_root.add_child(unit)
 		unit.setup(unit_type, team)
 		unit.direction = 5 if team == 1 else 1
+
+
+## One worker starts a house; the others are then sent to help via the help-build order.
+func _scenario_help_build() -> void:
+	var workers := units_root.get_children().filter(func(n: Node) -> bool:
+		return n is Unit and n.team == 1 and n.unit_type.anim_index("build") >= 0)
+	selection._select([workers[0]], false)
+	build_controller.start(GameData.type_for_guid(201, terrain.biome))
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	for radius in range(200, 600, 32):
+		var spot := ((hq.position + Vector2(radius, 0).rotated(radius * 0.7)) / NavGrid.CELL).round() * NavGrid.CELL
+		if build_controller.can_place(spot):
+			build_controller._place(spot, false)
+			break
+	var site: MapObject = MapObject.all_objects.filter(func(o: MapObject) -> bool: return not o.complete)[0]
+	selection._select(workers.slice(1), false)
+	selection.order_build(site)
+	var helpers := workers.filter(func(u: Unit) -> bool: return u.build_site == site).size()
+	print("help-build: %d of %d workers now building" % [helpers, workers.size()])
 
 
 ## Workers build a house next to the HQ while the HQ trains two more workers.

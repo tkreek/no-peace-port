@@ -45,7 +45,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				enemy = _enemy_building_at(world)
 			var source := _resource_at(world)
 			var animal := _animal_at(world)
-			if animal and selection.any(func(u: Unit) -> bool: return u.unit_type.is_hunter()):
+			var site := _building_at(world)
+			if site and not site.complete and selection.any(_is_builder):
+				order_build(site)
+			elif animal and selection.any(func(u: Unit) -> bool: return u.unit_type.is_hunter()):
 				for unit in selection:
 					if is_instance_valid(unit) and unit.unit_type.is_hunter():
 						unit.hunt(animal)
@@ -107,6 +110,24 @@ func _resource_at(point: Vector2) -> MapObject:
 	return null
 
 
+func _is_builder(u: Unit) -> bool:
+	return is_instance_valid(u) and u.is_alive() and u.unit_type.anim_index("build") >= 0
+
+
+## Send the selected builders to help finish a construction site.
+func order_build(site: MapObject) -> void:
+	var builders := selection.filter(_is_builder)
+	if builders.is_empty():
+		return
+	Sound.play_event(builders[0].unit_type.guid(), Sound.Event.ORDER)
+	for unit: Unit in builders:
+		unit.build(site)
+	# Anyone else selected just walks over.
+	for unit in selection:
+		if is_instance_valid(unit) and unit.is_alive() and not _is_builder(unit):
+			unit.move_to(site.position)
+
+
 func order_gather(source: MapObject) -> void:
 	var gatherers := selection.filter(func(u: Unit) -> bool:
 		return is_instance_valid(u) and u.is_alive() and u.unit_type.can_gather(source.resource))
@@ -152,9 +173,15 @@ func _unit_at(point: Vector2, own := true) -> Unit:
 
 func _building_at(point: Vector2) -> MapObject:
 	for object in MapObject.all_objects:
-		if object.is_building() and object.owner_index == player_team and object.footprint_rect().has_point(point):
+		if object.is_building() and object.owner_index == player_team and _click_rect(object).has_point(point):
 			return object
 	return null
+
+
+## Buildings stand taller than their ground footprint; accept clicks on the walls and roof too.
+static func _click_rect(object: MapObject) -> Rect2:
+	var rect := object.footprint_rect()
+	return rect.grow_individual(8, rect.size.y * 0.6, 8, 8)
 
 
 func select_building(building: MapObject) -> void:

@@ -568,6 +568,110 @@ func _herd(delta: float) -> void:
 			other.change_team(team)
 
 
+## Wild horses (manual 2.6): a unit that can ride mounts one by walking up to it; a rider
+## who dismounts leaves the horse, which stays his people's for a minute (lead it into a
+## corral, hacienda or ranch to add it to the horses) before running wild again.
+const HORSE_DIR := "global/gfx/animals/pferd"
+const OWNED_HORSE_SECONDS := 60.0
+var _mount_target: Unit
+var _wild_timer := 0.0
+var _stable: MapObject
+
+
+func is_horse() -> bool:
+	return unit_type.directory.to_lower().ends_with("animals/pferd")
+
+
+func can_mount() -> bool:
+	return team > 0 and GameData.mounted_of(unit_type.guid()) >= 0
+
+
+func mount(horse: Unit) -> void:
+	if not can_mount() or horse == null or not horse.is_alive() or not horse.is_horse():
+		return
+	_clear_orders()
+	_mount_target = horse
+	state = State.MOVING
+	path = _find_path(horse.position)
+
+
+func _update_mount() -> void:
+	var horse := _mount_target
+	if not is_instance_valid(horse) or not horse.is_alive() or (horse.team > 0 and horse.team != team):
+		_mount_target = null
+		return
+	if position.distance_to(horse.position) > 36.0:
+		var now := Time.get_ticks_msec()
+		if path.is_empty() or now - _last_repath > REPATH_MS:
+			_last_repath = now
+			path = _find_path(horse.position)
+		state = State.MOVING
+		return
+	_mount_target = null
+	var rider := _become(GameData.mounted_of(unit_type.guid()))
+	if rider:
+		horse.all_units.erase(horse)
+		horse.queue_free()
+
+
+func dismount() -> void:
+	var foot := GameData.foot_of(unit_type.guid())
+	if foot < 0 or not is_alive():
+		return
+	var at := position
+	var owner := team
+	var parent := get_parent()
+	var walker := _become(foot)
+	if walker:
+		var horse := Unit.new()
+		horse.position = at + Vector2(24, 8)
+		parent.add_child(horse)
+		horse.setup(UnitType.load_type(HORSE_DIR), owner)
+		horse._wild_timer = OWNED_HORSE_SECONDS
+
+
+## Lead an owned horse into a horse building, where it joins the people's horses.
+func stable(building: MapObject) -> void:
+	if not is_horse() or team <= 0:
+		return
+	move_to(building.work_rect().get_center())
+	_stable = building
+
+
+func _update_horse(delta: float) -> void:
+	if team <= 0:
+		return
+	if is_instance_valid(_stable) and _stable.work_rect().grow(REACH * 3).has_point(position):
+		var player: Player = Player.by_index.get(team)
+		if player and int(player.resources.get("horses", 0)) < player.horse_capacity():
+			player.add("horses", 1)
+			all_units.erase(self)
+			queue_free()
+			return
+		_stable = null
+	_wild_timer -= delta
+	if _wild_timer <= 0.0:
+		change_team(0)  # runs wild again
+
+
+## Replace this unit by another kind (mounting, dismounting), keeping its condition.
+func _become(guid: int) -> Unit:
+	var new_type := UnitType.for_guid(guid)
+	if new_type == null:
+		return null
+	var other := Unit.new()
+	other.position = position
+	get_parent().add_child(other)
+	other.setup(new_type, team)
+	other.health = other.max_health * (health / max_health if max_health > 0 else 1.0)
+	other.experience = experience
+	other.stance = stance
+	other.direction = direction
+	all_units.erase(self)
+	queue_free()
+	return other
+
+
 ## Native Americans heal over time with herb blends; outlaws once Self-healing is researched.
 const SELF_HEALING_UPGRADE := 957
 const SELF_HEAL_PER_SECOND := 0.6
@@ -705,6 +809,7 @@ func follow(leader: Unit) -> void:
 
 func _clear_orders() -> void:
 	uncover()
+	_mount_target = null
 	_spell = -1
 	_patrol.clear()
 	follow_target = null
@@ -758,6 +863,7 @@ func move_to(destination: Vector2, keep_orders := false) -> void:
 	if not is_alive():
 		return
 	_deliver_to = null
+	_stable = null
 	if not keep_orders:
 		_clear_orders()
 	attack_moving = false
@@ -898,6 +1004,10 @@ func _process(delta: float) -> void:
 			_body.self_modulate = Color.WHITE
 	if shield_time > 0.0:
 		shield_time -= delta
+	if _mount_target != null and (state == State.IDLE or state == State.MOVING):
+		_update_mount()
+	if is_horse():
+		_update_horse(delta)
 	if is_cow():
 		_update_cow(delta)
 	elif team > 0 and unit_type.guid() in HERDERS:

@@ -168,6 +168,18 @@ func _unhandled_input(event: InputEvent) -> void:
 				order_haul(site)
 			elif site and site.capacity() > 0 and selection.any(_can_quarter):
 				order_quarters(site)
+			elif animal and animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.can_mount()):
+				# Mount the wild horse: the nearest unit that can ride takes it.
+				var riders := selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.can_mount())
+				riders.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.distance_to(animal.position) < b.position.distance_to(animal.position))
+				riders[0].mount(animal)
+				animal.flash(Color(1.0, 0.9, 0.4))
+				Sound.play_event(riders[0].unit_type.guid(), Sound.Event.ORDER)
+			elif site and site.guid in MapObject.HORSE_BUILDINGS and site.complete \
+					and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_horse()):
+				for horse: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_horse()):
+					horse.stable(site)
+				site.flash()
 			elif animal and selection.any(func(u: Unit) -> bool: return u.unit_type.is_hunter()):
 				for unit in selection:
 					if is_instance_valid(unit) and unit.unit_type.is_hunter():

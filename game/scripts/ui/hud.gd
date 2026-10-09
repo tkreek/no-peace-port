@@ -40,6 +40,7 @@ const MAP_MODE_ICONS := [13, 15, 17]  # KleineIcons: landscape, field, armed men
 const MAP_MODE_NAMES := ["Regular map (Alt+N)", "Economic map (Alt+R)", "Military map (Alt+C)"]
 const ICON_IDLE := 19  # KleineIcons: a lone cowboy
 const ICON_HIDE := 14  # Iconserstereihe: hooded figure
+const ICON_DISMOUNT := 54  # SonstigeIcons: horse with an arrow
 const ICON_ENTER := 2  # Iconserstereihe: arrow into a doorway
 const ICON_LEAVE := 0  # arrow out of a doorway
 const ICON_DEMOLISH := 8  # Iconserstereihe: gravestone
@@ -656,6 +657,13 @@ func _refresh_commands() -> void:
 			var info: Dictionary = Unit.SPELLS[spell]
 			_add_spell_command(spell, "%s (%d magic)\n%s\nThen click the %s" % [info.name, info.cost, info.text,
 					{"point": "spot", "unit": "unit to protect", "enemy": "enemy to convert"}[info.target]])
+		var riders := units.filter(func(u: Unit) -> bool: return GameData.foot_of(u.unit_type.guid()) >= 0)
+		if not riders.is_empty():
+			_add_icon_command(_command_icons, ICON_DISMOUNT, "Dismount: the horse can be led into a corral, hacienda or ranch",
+					func() -> void:
+						for u: Unit in riders:
+							if is_instance_valid(u):
+								u.dismount())
 		var hiders := units.filter(func(u: Unit) -> bool: return u.can_hide())
 		if not hiders.is_empty():
 			var assassin := hiders.any(func(u: Unit) -> bool: return u.unit_type.guid() == 362)

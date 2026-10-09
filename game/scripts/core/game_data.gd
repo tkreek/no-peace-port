@@ -242,6 +242,11 @@ func _load_tables() -> void:
 	for guid in _stats:
 		var st: Dictionary = _stats[guid]
 		var name := String(st.get("name", ""))
+		if st.get("kind") == "unit" and name.begins_with("Mounted "):
+			var rider_on_foot: int = by_name.get("%s|%s" % [st.get("faction"), name.substr(8).to_lower()], -1)
+			if rider_on_foot >= 0:
+				_mounted_of[rider_on_foot] = guid
+				_foot_of[guid] = rider_on_foot
 		if st.get("kind") == "unit" and name.begins_with("Mounted ") and not st.has("produced_at"):
 			var foot: int = by_name.get("%s|%s" % [st.get("faction"), name.substr(8).to_lower()], -1)
 			if foot >= 0 and _stats[foot].has("produced_at"):
@@ -302,6 +307,19 @@ func type_name(type_id: int) -> String:
 
 
 ## Stats for a GUID: {name, faction, kind, cost, health, damage, produced_at, ...} or {}.
+var _mounted_of := {}  # foot unit GUID -> its mounted version
+var _foot_of := {}
+
+
+## The riding version of a unit (-1 if it cannot ride) and back.
+func mounted_of(guid: int) -> int:
+	return _mounted_of.get(guid, -1)
+
+
+func foot_of(guid: int) -> int:
+	return _foot_of.get(guid, -1)
+
+
 func stats(guid: int) -> Dictionary:
 	return _stats.get(guid, {})
 

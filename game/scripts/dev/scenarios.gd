@@ -778,3 +778,32 @@ func _nearest_mine(from: Vector2) -> MapObject:
 		if object.resource == "gold" and (best == null or from.distance_to(object.position) < from.distance_to(best.position)):
 			best = object
 	return best
+
+
+## A cowboy mounts a wild horse, dismounts, and the horse is led into a ranch.
+func _scenario_horses() -> void:
+	var hq: MapObject = main.players[1].main_building()
+	var type := ObjectTypes.get_type(GameData.type_for_guid(405, main.terrain.biome))
+	var ai := AiPlayer.new()
+	var ranch := MapObject.new()
+	ranch.position = ai._find_spot(type, hq.position)
+	ai.free()
+	ranch.setup(type, 1)
+	main.units_root.add_child(ranch)
+	main.nav.block_footprint(type, ranch.position)
+	main._spawn_squad(Unit.HORSE_DIR, 0, hq.position + Vector2(-240, 240), 1)
+	main._spawn_squad(463, 1, hq.position + Vector2(0, 240), 1)
+	var horse: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.is_horse())[0]
+	var cowboy: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == 463)[0]
+	cowboy.mount(horse)
+	await get_tree().create_timer(8.0).timeout
+	var rider: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.is_alive() and n.unit_type.guid() == 464)[0] if main.units_root.get_children().any(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == 464) else null
+	print("mounted: %s (horse gone %s)" % [rider != null, not is_instance_valid(horse)])
+	rider.dismount()
+	await get_tree().process_frame
+	var led: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.is_horse() and n.team == 1)[0]
+	led.stable(ranch)
+	await get_tree().create_timer(12.0).timeout
+	print("horses %d / %d, cowboy on foot again %s" % [main.players[1].resources.horses, main.players[1].horse_capacity(),
+			main.units_root.get_children().any(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == 463)])
+	get_tree().quit()

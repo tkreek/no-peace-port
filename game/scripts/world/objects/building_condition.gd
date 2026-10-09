@@ -11,6 +11,8 @@ const BURNT_BELOW := 0.33
 const FIRE_BELOW := 0.66
 const RUBBLE_SECONDS := 25.0
 const FIRE_BOB := "effects/fire/fire.anims.json"
+## Ruins smoulder while they lie (two or three plumes, by the building's size).
+const SMOKE_BOB := "effects/smoke/smoke.anims.json"
 ## fire.bob: 0 large, 1 medium, 2 small flames; 3-5 clouds; 6 smoke column.
 const FIRE_STAGES := [[], [2, 6], [2, 1, 0, 6]]
 ## Flaming arrows "set fortifications and houses on fire" (manual 5.1): a hit sets the
@@ -233,11 +235,20 @@ func destroy() -> void:
 	var rubble := building.refresh_sprites() and building.shows_rubble()
 	var tween := building.create_tween()
 	if rubble:
+		_smoulder()
 		tween.tween_interval(RUBBLE_SECONDS)
 		tween.tween_property(building, "modulate", Color(1, 1, 1, 0.0), 3.0)
 	else:
 		tween.tween_property(building, "modulate", Color(0.3, 0.25, 0.2, 0.0), 2.5)
 	tween.tween_callback(building.queue_free)
+
+
+func _smoulder() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = building.get_instance_id() + 3
+	var plumes := 3 if building.footprint_rect().size.x > 128.0 else 2
+	for i in plumes:
+		OrderMarker.effect_loop(building, building.fire_spot(rng) - building.position, SMOKE_BOB, 0)
 
 
 ## Packing (a Native tepee onto a travois) or a cancelled set-up: the building leaves

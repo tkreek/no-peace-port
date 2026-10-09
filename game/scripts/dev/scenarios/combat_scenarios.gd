@@ -310,3 +310,36 @@ func _scenario_fire() -> void:
 		print("t=%ds %s" % [(i + 1) * 3, houses.map(func(b: MapObject) -> String:
 				return "%d%%%s" % [int(100 * b.health / b.max_health), " burning" if b.condition.burning > 0.0 else ""] if is_instance_valid(b) else "gone")])
 	get_tree().quit()
+
+
+## What the dead leave: a soldier, a cavalryman and a buffalo die in front of the camera and
+## their remains rot; a building falls and its ruins smoulder; gulls and an eagle fly over.
+## --remains-wait=<s> sets how long to wait before reporting (default 14).
+func _scenario_remains() -> void:
+	var at: Vector2 = main.camera.position
+	main._spawn_squad(Main.FACTIONS.usa.army, 2, at + Vector2(-120, 60), 1)
+	main._spawn_squad(GameData.guid_for_type(ObjectTypes.named("mexicans_cavalryman_mounted")), 2, at + Vector2(0, 80), 1)
+	main._spawn_squad("animals/buffalo", 0, at + Vector2(120, 60), 1)
+	var dead: Array = Unit.all_units.filter(func(u: Unit) -> bool: return u.is_alive() and u.position.distance_to(at + Vector2(0, 70)) < 160 and u.team != 1)
+	for u: Unit in dead:
+		u.health = 0
+		u.die()
+		u.animal.hunted = true  # no meat waiting for a hunter: rot at once
+	var house: MapObject = null
+	for object in MapObject.structures:
+		if object.is_building() and object.owner_index == 1:
+			house = object
+	if house:
+		house.health = 0.0
+		house.condition.destroy()
+	main.ambience._add(Ambience.Flyer.new(Ambience.EAGLE, at + Vector2(-300, -150), Vector2(60, 20), 7, 40.0))
+	var water := main.ambience._water_in(main.ambience._view())
+	if water != Vector2.INF:
+		main.ambience._add(Ambience.Flyer.new(Ambience.GULLS, water, Vector2.ZERO, 0, 40.0))
+	await get_tree().create_timer(GameData.cmdline_option("remains-wait", "14").to_float()).timeout
+	print("remains: %s" % [dead.map(func(u: Unit) -> String:
+			return "%s step %d" % [u.unit_type.directory.get_file(), u._remains._step if u._remains else -1])])
+	print("smoke plumes: %d, flyers: %d" % [house.get_children().filter(func(n: Node) -> bool: return n is OrderMarker).size() if is_instance_valid(house) else -1,
+			main.ambience.get_child_count()])
+	if GameData.cmdline_option("screenshot").is_empty():
+		get_tree().quit()

@@ -58,6 +58,8 @@ CHECKS = {
     "poplimit": ([], 0, [r"warned on filling 1, on a train order 1"]),
     "picking": ([], 0, [r"roof \(picture centre, upper third\) +-> true", r"walls centre +-> true",
                         r"open corner of the walls' box +-> false"]),
+    # The dead rot to bones, ruins smoulder, an eagle flies over.
+    "remains": ([ISLANDS], 0, [r"remains: \[.*step [12].*step [12]", r"smoke plumes: [23], flyers: [1-9]"]),
     "saveload": ([], 0, [r"before: units (\d+)", r"after: +units \d+"]),
     # The map editor: paint a lake (its rings grow), place things, save, read back, redraw
     # an original map, and drive it with mouse and keyboard events.

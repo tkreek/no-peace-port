@@ -45,6 +45,12 @@ func _draw_overlay(_canvas: Node2D) -> void:
 	pass
 
 
+## Take the unit's own picture away (its remains are shown instead).
+func hide_body() -> void:
+	_body.visible = false
+	_shadow.visible = false
+
+
 func set_palette_row(row: int) -> void:
 	_body.set_instance_shader_parameter("palette_row", clampi(row, 0, unit_type.bob.teams - 1))
 

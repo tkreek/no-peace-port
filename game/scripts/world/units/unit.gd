@@ -22,7 +22,7 @@ enum Formation { COLUMN, DOUBLE_COLUMN, WEDGE, DOUBLE_LINE, SQUARE, RELAXED }
 
 const ARRIVE_DISTANCE := 3.0
 const REPATH_MS := 600
-const CORPSE_SECONDS := 20.0
+const CORPSE_SECONDS := 30.0  # the remains rot to scattered bones first (UnitRemains)
 const SEPARATION_RADIUS := 14.0
 const SCAN_INTERVAL := 0.4
 const REACH := 20.0
@@ -70,6 +70,7 @@ var _cooldown := 0.0
 var _scan_timer := randf() * SCAN_INTERVAL
 var _last_repath := 0
 var _corpse_timer := 0.0
+var _remains: UnitRemains
 
 
 func setup(type: UnitType, team_index: int) -> void:
@@ -500,6 +501,7 @@ func die() -> void:
 	Sound.play_event(unit_type.guid(), Sound.Event.DIE, position, 0)
 	play("die")
 	z_index = -1  # corpses lie under the living
+	_remains = UnitRemains.of(self)
 	died.emit(self)
 
 
@@ -563,6 +565,8 @@ func _process(delta: float) -> void:
 			_update_attack(delta)
 		State.DEAD:
 			_corpse_timer += delta
+			if _remains:
+				_remains.update(delta, _corpse_timer)
 			var lasts := animal.corpse_seconds()
 			if _corpse_timer > lasts:
 				modulate.a = maxf(0.0, 1.0 - (_corpse_timer - lasts) / 3.0)

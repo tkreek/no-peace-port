@@ -30,12 +30,13 @@ bell), but neither is in the archives. They were never in the game.
 
 These have English names in the asset folder and are ready to use:
 
-- **Corpses rotting** (`effects/decay/`): buffalo, cow, horse, human, and a rider fallen from his
-  horse. These are the original's after-death animations.
-- **Ambient effects** (`effects/`): smoke (two kinds), water ripples, gulls, an eagle, bubbles,
-  fog, an aura, and the original's "sensor" and "comsat" markers.
-- **Weapons factory production loop** (`buildings/mexicans/weapons_factory/weapons.anims.json`):
-  a separate animation set beside the building's own.
+- **Ambient effects** (`effects/`): water ripples, bubbles, fog, an aura, and the original's
+  "sensor" and "comsat" markers. (Since wired in: the corpses rotting, through
+  `UnitRemains`; smoke over ruins, through `BuildingCondition`; gulls and the eagle, through
+  `Ambience`.)
+- **Weapons factory** (`buildings/mexicans/weapons_factory/weapons.anims.json`): an older
+  copy of the factory's animation set, with a 5-frame furnace loop instead of 7. The game
+  uses the current set.
 - **Native storage camp** (`buildings/natives/camp/store.anims.json`).
 - **Second animation sets** for the American cavalryman, the native archer and the outlaw
   hunter (`*_2.anims.json`). The object types use the first ones.

@@ -27,6 +27,7 @@ var nav := NavGrid.new()
 var fog := FogOfWar.new()
 var hud := Hud.new()
 var build_controller := BuildController.new()
+var ambience := Ambience.new()
 var ais: Array[AiPlayer] = []
 var _game_over := false
 var players := {}
@@ -85,6 +86,8 @@ func _ready() -> void:
 	camera.bounds = Rect2(Vector2.ZERO, map.pixel_size())
 	add_child(camera)
 	camera.make_current()
+	ambience.camera = camera
+	add_child(ambience)
 
 	var size := Vector2(map.pixel_size())
 	Player.by_index.clear()

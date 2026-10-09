@@ -18,6 +18,11 @@ var bob: BobFile
 var palette: ImageTexture
 var ramps: Texture2D
 var speed := 60.0
+var type_id := -1  ## object type id (BobListe.blf), for names and stats
+
+
+func display_name() -> String:
+	return GameData.type_name(type_id) if type_id >= 0 else directory.get_file().capitalize()
 
 
 static func load_type(dir: String) -> UnitType:
@@ -36,6 +41,11 @@ static func load_type(dir: String) -> UnitType:
 	unit_type.bob = GameData.load_bob(bob_path)
 	unit_type.palette = GameData.load_palette_texture(dir, unit_type.bob.palettes)
 	unit_type.ramps = GameData.load_ramps(bob_path)
+	for id in ObjectTypes.count():
+		var t := ObjectTypes.get_type(id)
+		if t.kind == ObjectTypes.Kind.UNIT and t.bob_path == bob_path:
+			unit_type.type_id = id
+			break
 	_cache[dir] = unit_type
 	return unit_type
 

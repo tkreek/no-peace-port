@@ -40,6 +40,10 @@ func setup(type: UnitType, team_index: int) -> void:
 	play("idle")
 
 
+func display_name() -> String:
+	return unit_type.display_name()
+
+
 func play(action: String) -> void:
 	if action == _action:
 		return

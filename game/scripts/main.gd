@@ -14,6 +14,8 @@ var units_root := Node2D.new()
 var camera := RtsCamera.new()
 var selection := SelectionController.new()
 var nav := NavGrid.new()
+var hud := Hud.new()
+var players := {}
 var start_positions := {}  # player -> Vector2, from the map's Editor_Start markers
 
 ## Starting setup per player for this test scene: HQ object type and worker unit folder.
@@ -47,10 +49,15 @@ func _ready() -> void:
 	camera.make_current()
 
 	var size := Vector2(map.pixel_size())
+	players[1] = Player.new(1, "mex")
+	players[2] = Player.new(2, "usa")
 	for player in FACTION_STARTS:
 		_setup_player(player, start_positions.get(player, size * Vector2(0.5, 0.15 if player == 2 else 0.85)))
 	camera.position = _vector_option("camera", start_positions.get(1, size / 2.0))
 	camera.set_zoom_level(GameData.cmdline_option("zoom", "1").to_float())
+	add_child(hud)
+	hud.setup(map, terrain.overview_image(), camera, units_root, players[1], selection)
+	hud.minimap.move_ordered.connect(selection._order_move)
 	DisplayServer.window_set_title("America — %s" % map.title)
 	_setup_screenshot()
 

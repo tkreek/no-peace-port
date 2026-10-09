@@ -9,6 +9,8 @@ const TerrainShader := preload("res://shaders/terrain.gdshader")
 var map: AlfMap
 var biome := "steppe"
 var _material: ShaderMaterial
+var _ground_average := PackedColorArray()  # mean colour per ground layer
+var _atlas: Dictionary
 
 
 func setup(alf_map: AlfMap, biome_name: String) -> void:
@@ -16,6 +18,7 @@ func setup(alf_map: AlfMap, biome_name: String) -> void:
 	biome = biome_name
 	var directory := "%s/gfx/landschaft" % biome
 	var atlas := RdImage.read_indexed_pic(GameData.read(directory.path_join("steppe.pic")))
+	_atlas = atlas
 	if atlas.is_empty():
 		push_error("Missing terrain atlas for biome %s" % biome)
 		return
@@ -69,6 +72,33 @@ func _ground_textures(directory: String, atlas_palette: PackedByteArray) -> Text
 			layer.fill(Color8(atlas_palette[index * 3], atlas_palette[index * 3 + 1], atlas_palette[index * 3 + 2]))
 		layer.generate_mipmaps()
 		layers.append(layer)
+		# The smallest mip level is the layer's average colour.
+		var tiny := layer.duplicate()
+		tiny.resize(1, 1, Image.INTERPOLATE_TRILINEAR)
+		_ground_average.append(tiny.get_pixel(0, 0))
 	var array := Texture2DArray.new()
 	array.create_from_images(layers)
 	return array
+
+
+## One pixel per 32 px cell, averaging a 4x4 sample of each cell's composited colour.
+func overview_image() -> Image:
+	var image := Image.create_empty(map.columns, map.rows, false, Image.FORMAT_RGB8)
+	var width: int = _atlas.width
+	var per_row := width / AlfMap.CELL_SIZE
+	var pixels: PackedByteArray = _atlas.pixels
+	var palette: PackedByteArray = _atlas.palette
+	for i in map.tile_ids.size():
+		var tile := map.tile_ids[i]
+		var origin := Vector2i(tile % per_row, tile / per_row) * AlfMap.CELL_SIZE
+		var sum := Color(0, 0, 0)
+		for sy in 4:
+			for sx in 4:
+				var p := origin + Vector2i(4 + sx * 8, 4 + sy * 8)
+				var index := pixels[p.y * width + p.x]
+				if index < GROUND_LAYERS:
+					sum += _ground_average[index]
+				else:
+					sum += Color8(palette[index * 3], palette[index * 3 + 1], palette[index * 3 + 2])
+		image.set_pixel(i % map.columns, i / map.columns, sum / 16.0)
+	return image

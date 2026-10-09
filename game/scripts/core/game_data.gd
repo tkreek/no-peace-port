@@ -16,6 +16,9 @@ var archives: Array[RdaArchive] = []
 var _bob_cache := {}
 var _sprite_cache := {}
 var _palette_cache := {}
+var _texts := {}       # text id -> String (TEXTE.eng, text2.eng)
+var _guids := {}       # object type id -> GUID (GUIDS.INI steppe + Guids2.ini meadow)
+var _defs := {}        # DEFS.INI key -> value
 
 
 func _ready() -> void:
@@ -25,6 +28,8 @@ func _ready() -> void:
 		var archive := RdaArchive.new()
 		if archive.open(install_dir.path_join(name)) == OK:
 			archives.append(archive)
+	if not archives.is_empty():
+		_load_tables()
 	if archives.is_empty():
 		push_error("No original game archives found in '%s'. Pass --install-dir=<folder with america0.rda>." % install_dir)
 
@@ -129,6 +134,51 @@ func load_ramps(bob_path: String) -> Texture2D:
 	if not _palette_cache.has(path):
 		_palette_cache[path] = ImageTexture.create_from_image(Image.load_from_file(path))
 	return _palette_cache[path]
+
+
+func _load_tables() -> void:
+	for file in ["global/guids/TEXTE.eng", "global/guids/text2.eng"]:
+		for line in read_latin1(file).split("\n"):
+			var id := line.get_slice("=", 0).strip_edges()
+			if "=" in line and id.is_valid_int() and not _texts.has(id.to_int()):
+				_texts[id.to_int()] = line.substr(line.find("=") + 1).strip_edges()
+	for file in ["global/guids/GUIDS.INI", "global/guids/Guids2.ini"]:
+		for line in read_latin1(file).split("\n"):
+			var parts := line.strip_edges().split("=")
+			if parts.size() == 2 and parts[0].is_valid_int() and parts[1].is_valid_int():
+				_guids[parts[0].to_int()] = parts[1].to_int()
+	for line in read_latin1("global/guids/DEFS.INI").split("\n"):
+		var clean := line.get_slice("//", 0).strip_edges()
+		if "=" in clean:
+			_defs[clean.get_slice("=", 0).strip_edges()] = clean.get_slice("=", 1).strip_edges()
+
+
+## Original files are Windows-1252/Latin-1; decode byte-for-byte.
+func read_latin1(path: String) -> String:
+	var bytes := read(path)
+	var chars := PackedInt32Array()
+	chars.resize(bytes.size())
+	for i in bytes.size():
+		chars[i] = bytes[i]
+	return chars.to_byte_array().get_string_from_utf32().replace("\r", "")
+
+
+func text(id: int, fallback: String = "") -> String:
+	return _texts.get(id, fallback)
+
+
+func guid_for_type(type_id: int) -> int:
+	return _guids.get(type_id, -1)
+
+
+## Display name of an object type (via its GUID), e.g. "Command post".
+func type_name(type_id: int) -> String:
+	var type := ObjectTypes.get_type(type_id)
+	return text(guid_for_type(type_id), type.name if type else "?")
+
+
+func def_value(key: String, fallback := 0) -> int:
+	return str(_defs.get(key, fallback)).to_int()
 
 
 func maps_dir() -> String:

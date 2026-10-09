@@ -94,7 +94,10 @@ func _select(units: Array, add: bool) -> void:
 
 
 func _order_move(target: Vector2) -> void:
+	selection = selection.filter(is_instance_valid)
 	var count := selection.size()
+	if count == 0:
+		return
 	var columns := ceili(sqrt(count))
 	var centre := Vector2.ZERO
 	for unit in selection:

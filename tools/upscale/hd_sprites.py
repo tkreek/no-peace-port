@@ -15,7 +15,9 @@ rendered as grey shading (the average luminance of that palette entry over all t
 with the rest of the image, and re-tinted in the shader through the team's ramp. One upscale
 serves every team.
 
-Usage: hd_sprites.py <install dir with america*.rda> <out dir> [--only <path prefix>] [--jobs N]
+Usage: hd_sprites.py <install dir with america*.rda> <out dir> [--only <path prefix>]
+                     [--addon <expansion install dir>]
+With --addon, files the expansion replaces are regenerated even if they already exist.
 """
 import argparse
 import json
@@ -312,9 +314,10 @@ def main():
     parser.add_argument("out_dir")
     parser.add_argument("--only", default="", help="only .bob files under this path prefix")
     parser.add_argument("--batch", type=int, default=60, help="sprite files per upscaler run")
+    parser.add_argument("--addon", default=None, help="expansion pack install dir")
     args = parser.parse_args()
 
-    files = GameFiles(args.install_dir)
+    files = GameFiles(args.install_dir, args.addon)
     bobs = sorted(n for n in files.names() if n.endswith(".bob") and n.startswith(normalize(args.only)))
     print(f"{len(bobs)} animation descriptors", flush=True)
 
@@ -334,8 +337,8 @@ def main():
             if path in done or not files.exists(path):
                 continue
             done.add(path)
-            if os.path.exists(os.path.join(args.out_dir, path + ".json")):
-                continue  # already converted (resumable)
+            if os.path.exists(os.path.join(args.out_dir, path + ".json")) and not files.from_addon(path):
+                continue  # already converted (resumable); expansion files are redone
             try:
                 if path.endswith(".spr"):
                     pending.append(build_truecolor(files, path))

@@ -41,14 +41,27 @@ class RdaArchive:
 class GameFiles:
     """All five archives of an installation, searched in order."""
 
-    def __init__(self, install_dir):
+    def __init__(self, install_dir, addon_dir=None):
         self.archives = []
+        self.addon_archives = []
         for i in (9, 8, 7, 6, 5, 0, 1, 2, 3, 4):  # expansion archives take priority
-            path = os.path.join(install_dir, f"america{i}.rda")
-            if os.path.exists(path):
-                self.archives.append(RdaArchive(path))
+            for directory in filter(None, (addon_dir, install_dir)):
+                path = os.path.join(directory, f"america{i}.rda")
+                if os.path.exists(path) and all(a.path != path for a in self.archives):
+                    archive = RdaArchive(path)
+                    self.archives.append(archive)
+                    if i >= 5:
+                        self.addon_archives.append(archive)
         if not self.archives:
             raise FileNotFoundError(f"no america*.rda in {install_dir}")
+
+    def from_addon(self, name):
+        """True if the file is served from an expansion archive."""
+        key = normalize(name)
+        for archive in self.archives:
+            if key in archive.entries:
+                return archive in self.addon_archives
+        return False
 
     def read(self, name):
         key = normalize(name)

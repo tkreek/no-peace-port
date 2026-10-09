@@ -252,26 +252,26 @@ func _load_tables() -> void:
 			if foot >= 0 and _stats[foot].has("produced_at"):
 				st.produced_at = _stats[foot].produced_at
 	# Trades at the trading post (buy: green arrow, sell: red arrow icons in SonstigeIcons).
-	for i in MapObject.TRADES.size():
-		var trade: Dictionary = MapObject.TRADES[i]
-		_stats[MapObject.TRADE_GUID + i] = {"kind": "trade", "name": "%s %s" % ["Buy" if trade.buy else "Sell", trade.good],
+	for i in BuildingProduction.TRADES.size():
+		var trade: Dictionary = BuildingProduction.TRADES[i]
+		_stats[BuildingProduction.TRADE_GUID + i] = {"kind": "trade", "name": "%s %s" % ["Buy" if trade.buy else "Sell", trade.good],
 				"faction": "", "build_time": 6, "cost": {}, "icon_frame": trade.icon}
-	_stats[MapObject.COW_GUID] = {"kind": "cow", "name": "Cow", "faction": "", "build_time": 15,
+	_stats[BuildingProduction.COW_GUID] = {"kind": "cow", "name": "Cow", "faction": "", "build_time": 15,
 			"cost": {"food": 40}, "icon": "Potraits/Sonstige_icons/z08_kuh.bmp",
 			"function": "Raises a cow; it gains up to 25 gold of value while grazing"}
 	# The American "Stagecoach" upgrade (editor GUID 990) the manual lists at the sawmill.
-	if not _stats.has(MapObject.STAGECOACH_UPGRADE):
-		_stats[MapObject.STAGECOACH_UPGRADE] = {"kind": "upgrade", "faction": "usa", "name": "Stagecoach",
+	if not _stats.has(BuildingProduction.STAGECOACH_UPGRADE):
+		_stats[BuildingProduction.STAGECOACH_UPGRADE] = {"kind": "upgrade", "faction": "usa", "name": "Stagecoach",
 				"produced_at": 409, "cost": {"food": 150, "wood": 150, "gold": 250}, "effects": {},
 				"function": "Allows stagecoaches to be built", "applies_to": "Stagecoaches", "applies_to_guids": [456]}
 	# Making a rifle at the weapons factory (manual 4.3; GUID 710 "Guns" has no editor entry).
-	_stats[MapObject.GUN_GUID] = {"kind": "gun", "name": "Rifle",
+	_stats[BuildingProduction.GUN_GUID] = {"kind": "gun", "name": "Rifle",
 			"faction": "", "build_time": 12, "cost": {"wood": 40, "gold": 40},
 			"function": "Makes a rifle for the units that need one", "icon_frame": 52}
 	# Raising a horse (manual: corral, hacienda, ranch; "costs food"; no editor entry).
-	_stats[MapObject.HORSE_GUID] = {"kind": "horse", "name": "Horse", "faction": "", "build_time": 20,
+	_stats[BuildingProduction.HORSE_GUID] = {"kind": "horse", "name": "Horse", "faction": "", "build_time": 20,
 			"cost": {"food": 50}, "icon": "Potraits/Sonstige_icons/z02_pferd.bmp",
-			"function": "Raises a horse for mounted units (each horse building shelters %d)" % MapObject.HORSES_PER_BUILDING}
+			"function": "Raises a horse for mounted units (each horse building shelters %d)" % BuildingProduction.HORSES_PER_BUILDING}
 	for guid in EXPANSION_PRODUCTION:
 		if _stats.has(guid):
 			_stats[guid].produced_at = EXPANSION_PRODUCTION[guid]

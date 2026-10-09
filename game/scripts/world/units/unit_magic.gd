@@ -157,12 +157,12 @@ func _apply_spell(which: int, at: Vector2) -> void:
 			Weather.spawn(parent, at, Weather.HAIL_BOB, 4.0)
 			for field in MapObject.structures:
 				if field.is_field() and field.owner_index != team and field.position.distance_to(at) < 200.0:
-					field.ruin_crop()
+					field.stock.ruin_crop()
 		921:
 			Weather.spawn(parent, at, Weather.RAIN_BOB, 4.0)
 			for field in MapObject.structures:
 				if field.is_field() and field.owner_index == team and field.position.distance_to(at) < 200.0:
-					field.rain()
+					field.stock.rain()
 		922:
 			if is_instance_valid(_spell_unit):
 				_spell_unit.magic.shield()

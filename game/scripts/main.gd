@@ -185,12 +185,11 @@ func _spawn_placements(map: AlfMap) -> void:
 		else:
 			var object := MapObject.new()
 			object.position = placement.position
-			object.amount = placement.amount
 			if not object.setup(type, placement.owner, placement.amount):
 				object.free()
 				continue
 			if object.is_abandoned_store():
-				object.stock_abandoned_store(placement.content, placement.amount)
+				object.stock.stock_abandoned_store(placement.content, placement.amount)
 			units_root.add_child(object)
 		spawned += 1
 	print("Placed %d/%d map objects in %d ms" % [spawned, map.placements.size(), Time.get_ticks_msec() - started])
@@ -202,7 +201,7 @@ func _grow_forests(map: AlfMap) -> void:
 	var started := Time.get_ticks_msec()
 	var avoid: Array[Vector2] = []
 	for object in MapObject.all_objects:
-		if object.resource != "wood":
+		if object.stock.resource != "wood":
 			avoid.append(object.position)
 	var trees := ForestGenerator.generate(map, terrain.biome, avoid, start_positions.values())
 	for tree in trees:
@@ -212,7 +211,7 @@ func _grow_forests(map: AlfMap) -> void:
 		if not object.setup(type, 0):
 			object.free()
 			continue
-		object.amount = tree.wood
+		object.stock.amount = tree.wood
 		units_root.add_child(object)
 		nav.block_footprint(type, tree.position)
 	print("Grew %d forest trees in %d ms" % [trees.size(), Time.get_ticks_msec() - started])
@@ -279,7 +278,7 @@ func _on_building_placed(site: MapObject) -> void:
 ## A building finished training a unit: it steps out in front (below) of the footprint.
 func _on_unit_trained(building: MapObject, unit_guid: int) -> void:
 	var unit_type: UnitType = null
-	if unit_guid == MapObject.COW_GUID:
+	if unit_guid == BuildingProduction.COW_GUID:
 		unit_type = UnitType.load_type(UnitAnimal.COW_DIR)  # a calf raised at the ranch or hacienda
 	else:
 		var type := ObjectTypes.get_type(GameData.type_for_guid(unit_guid, terrain.biome))
@@ -301,8 +300,8 @@ func _on_unit_trained(building: MapObject, unit_guid: int) -> void:
 	unit.position = (Vector2(cell) + Vector2(0.5, 0.5)) * NavGrid.CELL
 	units_root.add_child(unit)
 	unit.setup(unit_type, building.owner_index)
-	if building.rally_point != Vector2.INF:
-		unit.move_to(building.rally_point + Vector2(randf_range(-24, 24), randf_range(-16, 16)))
+	if building.production.rally_point != Vector2.INF:
+		unit.move_to(building.production.rally_point + Vector2(randf_range(-24, 24), randf_range(-16, 16)))
 	elif unit.water.is_boat():
 		pass
 	else:
@@ -341,7 +340,7 @@ func _setup_player(player: int, start: Vector2) -> void:
 	var toward_centre := (Vector2(terrain.map.pixel_size()) / 2.0 - start).normalized()
 	var builder := -1
 	var farmer := -1
-	for guid in hq.trainable_units():
+	for guid in hq.production.trainable_units():
 		var unit_type := UnitType.for_guid(guid)
 		if unit_type == null:
 			continue
@@ -412,16 +411,16 @@ func _print_report(frame: int) -> void:
 			alive[node.team] = alive.get(node.team, 0) + 1
 	for object in MapObject.structures:
 		if object.is_building() and object.owner_index == 1:
-			print("  %s complete=%s progress=%.2f queue=%s" % [object.display_name(), object.complete, object.build_progress, object.queue])
+			print("  %s complete=%s progress=%.2f queue=%s" % [object.display_name(), object.complete, object.build_progress, object.production.queue])
 		elif object.is_field() and object.owner_index == 1:
-			print("  field state=%d progress=%.2f amount=%d" % [object.field_state, object.field_progress, object.amount])
+			print("  field state=%d progress=%.2f amount=%d" % [object.stock.field_state, object.stock.field_progress, object.stock.amount])
 	var states := [0, 0, 0]
 	for object in MapObject.all_objects:
 		if object.is_tree():
-			states[object.tree_state] += 1
+			states[object.stock.tree_state] += 1
 	print("  trees standing/felled/stumps: %s" % [states])
 	var mines_heard := MapObject.all_objects.filter(func(o: MapObject) -> bool:
-		return o.is_mine() and o._mine_sound != null and o._mine_sound.playing).size()
+		return o.is_mine() and o.stock._mine_sound != null and o.stock._mine_sound.playing).size()
 	print("  mines with work sound playing: %d" % mines_heard)
 	var carcasses := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 0 and not u.is_alive() and u.animal.has_meat())
 	print("  carcasses: %s" % [carcasses.map(func(u: Unit) -> int: return u.animal.meat_left)])

@@ -45,7 +45,7 @@ func unpack(site: MapObject) -> void:
 func clear_orders() -> void:
 	_pack_target = null
 	if is_instance_valid(_unpack_site) and not _unpack_site.complete:
-		_unpack_site.vanish()  # the tepee stays on the travois
+		_unpack_site.condition.vanish()  # the tepee stays on the travois
 	_unpack_site = null
 	busy = false
 
@@ -72,9 +72,9 @@ func update(delta: float) -> bool:
 	if building == _pack_target:
 		packed = {"guid": building.guid, "health": building.health / building.max_health}
 		_pack_target = null
-		building.vanish()
+		building.condition.vanish()
 	else:
-		building.finish_unpack(float(packed.health))
+		building.condition.finish_unpack(float(packed.health))
 		packed = {}
 		_unpack_site = null
 	return false

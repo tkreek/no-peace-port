@@ -419,7 +419,7 @@ func unpack(site: MapObject) -> void:
 
 ## Walk to one of our buildings with room (fort, tower) and take quarters inside.
 func take_quarters(building: MapObject) -> void:
-	if not is_alive() or building == null or not building.has_room_for(self):
+	if not is_alive() or building == null or not building.defence.has_room_for(self):
 		return
 	move_to(building.work_rect().get_center())
 	quarters = building
@@ -509,7 +509,7 @@ func _process(delta: float) -> void:
 		return
 	if quarters != null and (state == State.MOVING or state == State.IDLE) and is_instance_valid(quarters) \
 			and quarters.work_rect().grow(REACH * 2.0).has_point(position):
-		if not quarters.enter(self):
+		if not quarters.defence.enter(self):
 			quarters = null
 			stop()
 		return

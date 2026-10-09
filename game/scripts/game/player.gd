@@ -48,7 +48,7 @@ func warehoused_gold() -> int:
 	var total := 0
 	for object in MapObject.structures:
 		if object.owner_index == index and object.is_gold_warehouse() and object.is_alive():
-			total += object.stored_gold
+			total += object.stock.stored_gold
 	return total
 
 
@@ -108,8 +108,8 @@ func population_cap() -> int:
 func queued_units() -> int:
 	var count := 0
 	for object in MapObject.structures:
-		if object.owner_index == index:
-			for item in object.queue:
+		if object.owner_index == index and object.is_building():
+			for item in object.production.queue:
 				if GameData.stats(item).get("kind") == "unit":
 					count += 1
 	return count
@@ -118,8 +118,8 @@ func queued_units() -> int:
 func queued_horses() -> int:
 	var count := 0
 	for object in MapObject.structures:
-		if object.owner_index == index:
-			count += Array(object.queue).count(MapObject.HORSE_GUID)
+		if object.owner_index == index and object.is_building():
+			count += Array(object.production.queue).count(BuildingProduction.HORSE_GUID)
 	return count
 
 
@@ -127,8 +127,8 @@ func queued_horses() -> int:
 func horse_capacity() -> int:
 	var cap := 0
 	for object in MapObject.structures:
-		if object.owner_index == index and object.guid in MapObject.HORSE_BUILDINGS and object.complete and object.is_alive():
-			cap += MapObject.HORSES_PER_BUILDING
+		if object.owner_index == index and object.guid in BuildingProduction.HORSE_BUILDINGS and object.complete and object.is_alive():
+			cap += BuildingProduction.HORSES_PER_BUILDING
 	return cap
 
 
@@ -141,8 +141,8 @@ func has_commander() -> bool:
 		if unit.team == index and unit.is_alive() and unit.unit_type.guid() in COMMANDERS:
 			return true
 	for object in MapObject.structures:
-		if object.owner_index == index:
-			for queued in object.queue:
+		if object.owner_index == index and object.is_building():
+			for queued in object.production.queue:
 				if queued in COMMANDERS:
 					return true
 	return false
@@ -180,7 +180,7 @@ func can_research(upgrade: int) -> bool:
 
 func is_researching(upgrade: int) -> bool:
 	for object in MapObject.structures:
-		if object.owner_index == index and upgrade in object.queue:
+		if object.owner_index == index and object.is_building() and upgrade in object.production.queue:
 			return true
 	return false
 
@@ -209,7 +209,7 @@ func complete_research(upgrade: int) -> void:
 				unit.refresh_upgrades()
 		for object in MapObject.structures:
 			if object.owner_index == index and object.is_building():
-				object.refresh_upgrades()
+				object.condition.refresh_upgrades()
 	Sound.play_sound(UPGRADE_READY_SOUNDS.get(faction, 46))
 	resources_changed.emit()
 

@@ -51,14 +51,14 @@ func update(delta: float) -> bool:
 
 ## Harvest `source` repeatedly, carrying loads to the nearest drop-off.
 func gather(source: MapObject) -> void:
-	if not unit.is_alive() or source == null or not unit.unit_type.can_gather(source.resource):
+	if not unit.is_alive() or source == null or not unit.unit_type.can_gather(source.stock.resource):
 		return
-	if carrying != "" and carrying != source.resource:
+	if carrying != "" and carrying != source.stock.resource:
 		carrying = ""
 		carried = 0
 	unit.clear_orders()
 	gather_source = source
-	gather_resource = source.resource
+	gather_resource = source.stock.resource
 	unit.target = null
 	unit.state = Unit.State.GATHERING
 	phase = Phase.TO_DROP_OFF if carried >= unit.unit_type.carry else Phase.TO_SOURCE
@@ -84,7 +84,7 @@ func haul(warehouse: MapObject) -> void:
 ## Build a construction site, or repair a damaged finished building.
 func build(site: MapObject) -> void:
 	if not unit.is_alive() or site == null or not unit.unit_type.can_build(site.guid) \
-			or (site.complete and not site.needs_repair()):
+			or (site.complete and not site.condition.needs_repair()):
 		return
 	unit.clear_orders()
 	build_site = site
@@ -143,8 +143,8 @@ func can_steal() -> bool:
 ## mission its owner's treasury.
 static func loot_of(building: MapObject) -> int:
 	if building.is_gold_warehouse():
-		return building.stored_gold
-	if building.guid in MapObject.INCOME_BUILDINGS:
+		return building.stock.stored_gold
+	if building.guid in BuildingProduction.INCOME_BUILDINGS:
 		var owner: Player = Player.by_index.get(building.owner_index)
 		return int(owner.resources.get("gold", 0)) if owner else 0
 	return 0
@@ -220,13 +220,13 @@ func _update_gather(delta: float) -> void:
 			if arrived or unit.path.is_empty():
 				unit.path.clear()
 				phase = Phase.WORKING
-				var faster := unit.bonus("chop_pct") if gather_source.resource == "wood" else unit.bonus("mine_pct")
-				if gather_source.resource == "food":
+				var faster := unit.bonus("chop_pct") if gather_source.stock.resource == "wood" else unit.bonus("mine_pct")
+				if gather_source.stock.resource == "food":
 					faster = 0.0
-				_work_timer = WORK_SECONDS.get(gather_source.resource, 4.0) / (1.0 + faster / 100.0) \
+				_work_timer = WORK_SECONDS.get(gather_source.stock.resource, 4.0) / (1.0 + faster / 100.0) \
 						/ unit.morale() / unit.effectiveness()
 				unit.face(gather_source.work_rect().get_center() - unit.position)
-				if gather_source.resource == "gold":
+				if gather_source.stock.resource == "gold":
 					unit.inside = true  # workers go inside the mine
 		Phase.WORKING:
 			if not _source_valid():
@@ -235,22 +235,22 @@ func _update_gather(delta: float) -> void:
 				gather_source = null
 				phase = Phase.TO_SOURCE
 				return
-			if gather_source.is_field() and gather_source.field_state != MapObject.Field.RIPE:
+			if gather_source.is_field() and gather_source.stock.field_state != ObjectStock.Field.RIPE:
 				unit.play_repeating("sow")  # sow the fallow field, tend the growing crop
-				if gather_source.field_state == MapObject.Field.FALLOW:
-					gather_source.sow(delta)
+				if gather_source.stock.field_state == ObjectStock.Field.FALLOW:
+					gather_source.stock.sow(delta)
 				return
-			if gather_source.resource == "food":
+			if gather_source.stock.resource == "food":
 				unit.play_repeating("harvest")
 			elif gather_source.is_mine():
-				gather_source.add_mine_work(delta)
+				gather_source.stock.add_mine_work(delta)
 			_work_timer -= delta
-			if gather_source.resource == "wood" and unit.play_repeating("chop"):
+			if gather_source.stock.resource == "wood" and unit.play_repeating("chop"):
 				Sound.play_event(unit.unit_type.guid(), Sound.Event.CHOP, unit.position, 300, unit.get_instance_id(), Sound.WORK_RANGE)
 			if _work_timer > 0.0:
 				return
-			var resource := gather_source.resource
-			var got := gather_source.harvest(unit.unit_type.carry)
+			var resource := gather_source.stock.resource
+			var got := gather_source.stock.harvest(unit.unit_type.carry)
 			unit.inside = false
 			if got > 0:
 				carrying = resource
@@ -285,7 +285,7 @@ func _deliver() -> void:
 	var owner := player()
 	if owner and carried > 0:
 		if carrying == "gold" and _drop_off.is_gold_warehouse():
-			_drop_off.store_gold(carried)
+			_drop_off.stock.store_gold(carried)
 		else:
 			owner.add(carrying, carried)
 		owner.stats.gathered += carried
@@ -316,10 +316,10 @@ func _update_haul(delta: float) -> void:
 			_work_timer -= delta
 			_haul_wait += delta
 			# Leave with a full load, or whatever there is after a while.
-			if _work_timer > 0.0 or (gather_source.haul_available() < unit.unit_type.carry and _haul_wait < 8.0 \
+			if _work_timer > 0.0 or (gather_source.stock.haul_available() < unit.unit_type.carry and _haul_wait < 8.0 \
 					and not gather_source.is_abandoned_store()):
 				return
-			carried = gather_source.take_haul(unit.unit_type.carry)
+			carried = gather_source.stock.take_haul(unit.unit_type.carry)
 			if carried <= 0 and gather_source.is_abandoned_store():
 				unit.stop()  # emptied
 				return
@@ -327,7 +327,7 @@ func _update_haul(delta: float) -> void:
 				_work_timer = 2.0  # wait for the miners
 				return
 			_haul_wait = 0.0
-			carrying = gather_source.haul_kind()
+			carrying = gather_source.stock.haul_kind()
 			phase = Phase.TO_DROP_OFF
 			_drop_off = main_building()
 			unit.path = unit.find_path(_drop_off.position) if _drop_off else PackedVector2Array()
@@ -380,7 +380,7 @@ func _update_rob(delta: float) -> void:
 			var bags := unit.unit_type.carry * (1 if unit.unit_type.is_transport() else 3)
 			carried = mini(bags, loot_of(building))
 			if building.is_gold_warehouse():
-				building.take_gold(carried)
+				building.stock.take_gold(carried)
 			else:
 				var victim: Player = Player.by_index.get(building.owner_index)
 				if victim:
@@ -435,7 +435,7 @@ func _update_steal(delta: float) -> void:
 ## The BUILDING state: walk to the site and hammer (or repair) until it is done.
 func update_building(delta: float) -> void:
 	if build_site == null or not is_instance_valid(build_site) or not build_site.is_alive() \
-			or (build_site.complete and not build_site.needs_repair()):
+			or (build_site.complete and not build_site.condition.needs_repair()):
 		build_site = null
 		unit.state = Unit.State.IDLE
 		return
@@ -451,10 +451,10 @@ func update_building(delta: float) -> void:
 	# Women without a hammering animation swing their axe instead.
 	unit.play_repeating("build" if unit.unit_type.anim_index("build") >= 0 else "chop")
 	if build_site.complete:
-		if not build_site.add_repair_work(delta):
+		if not build_site.condition.add_repair_work(delta):
 			unit.stop()  # out of resources for the repair
 	else:
-		build_site.add_build_work(delta)
+		build_site.condition.add_build_work(delta)
 
 
 ## Walk up to the kill and gut it (the hunters' "erlegen"/"ausbeinen" animation), then
@@ -529,9 +529,9 @@ func _work_spot() -> Vector2:
 
 
 func _source_valid() -> bool:
-	if gather_source == null or not is_instance_valid(gather_source) or gather_source.resource == "":
+	if gather_source == null or not is_instance_valid(gather_source) or gather_source.stock.resource == "":
 		return false
-	return gather_source.is_field() or gather_source.amount > 0
+	return gather_source.is_field() or gather_source.stock.amount > 0
 
 
 func _last_resource() -> String:
@@ -544,7 +544,7 @@ func nearest_source(resource: String, max_distance := INF) -> MapObject:
 	var best: MapObject = null
 	var best_distance := max_distance
 	for object in MapObject.all_objects:
-		var usable := object.resource == resource and (object.amount > 0 or object.is_field())
+		var usable := object.stock.resource == resource and (object.stock.amount > 0 or object.is_field())
 		if usable and object.is_field() and object.owner_index != unit.team:
 			usable = false
 		if usable:

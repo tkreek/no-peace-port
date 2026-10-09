@@ -42,6 +42,9 @@ CHECKS = {
     "tepee": (["--faction=ind"], 0, [r"tepee gone true", r"\"up 70%\""]),
     "boats": (["--faction=usa", "--time-scale=4", ISLANDS], 0, [r"aboard 4 / 4", r"passengers 0, soldiers ashore"]),
     "swim": (["--faction=ind", ISLANDS], 0, [r"swam: true", r"canoe on water plays paddle"]),
+    # The command panel for builders, farmers and every building that trains something.
+    "menus": ([], 300, [r"builders  \(\d+ units\): Build structure \(B\), Build expanded structure \(V\)",
+                        r"farmers  \(\d+ units\): Build structure \(B\), Field"]),
     "saveload": ([], 0, [r"before: units (\d+)", r"after: +units \d+"]),
     # Six computer players for ten game minutes: no script errors, and the waves go out.
     "aigame": (["--ai-vs-ai=1", "--players=mex,usa,ind,des,mex,usa", "--time-scale=4", "--trace-ai=1",

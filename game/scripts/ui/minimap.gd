@@ -90,7 +90,9 @@ static var _military_kinds := {}  # building GUID -> trains soldiers
 
 
 static func _is_military_building(o: MapObject) -> bool:
-	if o.capacity() > 0 and o.guid not in MapObject.MAIN_BUILDINGS:
+	if not o.is_building():
+		return false
+	if o.defence.capacity() > 0 and o.guid not in MapObject.MAIN_BUILDINGS:
 		return true  # forts and towers
 	if not _military_kinds.has(o.guid):
 		_military_kinds[o.guid] = false

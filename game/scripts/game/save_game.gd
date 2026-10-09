@@ -36,17 +36,10 @@ static func save(main: Node, path := QUICK) -> bool:
 		if object.is_ghost:
 			continue
 		if object.is_building() or object.is_field():
-			data.objects.append({"type": object.object_type.id, "x": object.position.x, "y": object.position.y,
-					"owner": object.owner_index, "complete": object.complete, "progress": object.build_progress,
-					"health": object.health, "queue": Array(object.queue), "train": object.train_progress,
-					"rally": [object.rally_point.x, object.rally_point.y] if object.rally_point != Vector2.INF else null,
-					"stored_gold": object.stored_gold, "trap_kills": object.trap_kills,
-					"loot_kind": object.loot_kind, "loot": object.loot, "burning": object.burning, "distilling": object.distilling,
-					"field_state": object.field_state, "field_progress": object.field_progress, "amount": object.amount,
-					"garrison": object.garrison.filter(func(u: Unit) -> bool: return unit_ids.has(u)).map(func(u: Unit) -> int: return unit_ids[u])})
-		elif object.resource != "" or object.is_tree():
-			data.resources.append({"key": _key(object), "amount": object.amount, "tree_state": object.tree_state,
-					"mine_work": object.mine_work})
+			data.objects.append(object.save_state(unit_ids))
+		elif object.stock.resource != "" or object.is_tree():
+			data.resources.append({"key": _key(object), "amount": object.stock.amount, "tree_state": object.stock.tree_state,
+					"mine_work": object.stock.mine_work})
 	for unit in Unit.all_units:
 		if not unit.is_alive():
 			continue
@@ -55,7 +48,7 @@ static func save(main: Node, path := QUICK) -> bool:
 				"type": unit.unit_type.type_id, "team": unit.team, "x": unit.position.x, "y": unit.position.y,
 				"health": unit.health, "stance": unit.stance, "formation": unit.formation, "carried": unit.work.carried,
 				"carrying": unit.work.carrying, "cattle": unit.animal.cattle_value, "magic": unit.magic.magic_energy,
-				"gather": _key(source) if is_instance_valid(source) and source.resource != "" else "",
+				"gather": _key(source) if is_instance_valid(source) and source.stock.resource != "" else "",
 				"gather_resource": unit.work.gather_resource, "packed_tepee": unit.tepees.packed,
 				"vessel": unit_ids[unit.water.vessel] if unit.state == Unit.State.QUARTERED and unit_ids.has(unit.water.vessel) else -1})
 	var file := FileAccess.open(path, FileAccess.WRITE)
@@ -110,7 +103,7 @@ static func restore(main: Node, data: Dictionary) -> void:
 		saved_resources[entry.key] = entry
 	var by_key := {}
 	for object in MapObject.all_objects.duplicate():
-		if (object.resource == "" and not object.is_tree()) or object.is_field():
+		if (object.stock.resource == "" and not object.is_tree()) or object.is_field():
 			continue
 		var entry: Dictionary = saved_resources.get(_key(object), {})
 		if entry.is_empty():
@@ -118,7 +111,7 @@ static func restore(main: Node, data: Dictionary) -> void:
 			object.get_parent().remove_child(object)
 			object.queue_free()
 			continue
-		object.restore_resource(int(entry.amount), int(entry.tree_state), float(entry.mine_work))
+		object.stock.restore_resource(int(entry.amount), int(entry.stock.tree_state), float(entry.stock.mine_work))
 		by_key[_key(object)] = object
 	# Buildings and fields.
 	var garrisons := []
@@ -136,7 +129,7 @@ static func restore(main: Node, data: Dictionary) -> void:
 		if object.is_building() and not object.is_trap():
 			main.nav.block_footprint(type, object.position)
 		object.unit_trained.connect(main._on_unit_trained)
-		if not entry.garrison.is_empty():
+		if not entry.get("garrison", []).is_empty():
 			garrisons.append([object, entry.garrison])
 	# Units.
 	var units := {}
@@ -169,7 +162,7 @@ static func restore(main: Node, data: Dictionary) -> void:
 	for pair in garrisons:
 		for id in pair[1]:
 			if units.has(int(id)):
-				pair[0].enter(units[int(id)])
+				pair[0].defence.enter(units[int(id)])
 	if data.explored != "" and main.fog.enabled:
 		var explored := Marshalls.base64_to_raw(data.explored)
 		if explored.size() == main.fog.explored.size():

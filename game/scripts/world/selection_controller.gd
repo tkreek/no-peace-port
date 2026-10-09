@@ -40,8 +40,8 @@ func cancel_targeting() -> void:
 func _process(_delta: float) -> void:
 	# The selected building's assembly location shows as a waving flag.
 	var rally := Vector2.INF
-	if is_instance_valid(selected_building) and selected_building.owner_index == player_team:
-		rally = selected_building.rally_point
+	if is_instance_valid(selected_building) and selected_building.owner_index == player_team and selected_building.is_building():
+		rally = selected_building.production.rally_point
 	if rally == Vector2.INF:
 		if is_instance_valid(_rally_flag):
 			_rally_flag.queue_free()
@@ -103,17 +103,17 @@ func _give_targeted(world: Vector2) -> void:
 					tepee.flash()
 		"quarters":
 			var building := _building_at(world)
-			if building and building.capacity() > 0:
+			if building and building.defence.capacity() > 0:
 				order_quarters(building)
 		"look":
 			var saloon := selected_building
-			if is_instance_valid(saloon) and saloon.guid == MapObject.SALOON and Time.get_ticks_msec() >= saloon.look_ready_at:
-				saloon.look_ready_at = Time.get_ticks_msec() + MapObject.LOOK_RECHARGE * 1000.0
+			if is_instance_valid(saloon) and saloon.guid == BuildingProduction.SALOON and Time.get_ticks_msec() >= saloon.production.look_ready_at:
+				saloon.production.look_ready_at = Time.get_ticks_msec() + BuildingProduction.LOOK_RECHARGE * 1000.0
 				if FogOfWar.current:
 					FogOfWar.current.reveal_for(world, 450.0, 20.0)
 		"rally":
-			if is_instance_valid(selected_building):
-				selected_building.rally_point = world
+			if is_instance_valid(selected_building) and selected_building.is_building():
+				selected_building.production.rally_point = world
 				OrderMarker.spawn(units_root, world, player_team)
 	if not units.is_empty() and command != "rally":
 		Sound.play_event(units[0].unit_type.guid(), Sound.Event.ORDER)
@@ -173,9 +173,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			var source := _resource_at(world)
 			var animal := _animal_at(world)
 			var site := _building_at(world)
-			if site and (not site.complete or site.needs_repair()) and selection.any(func(u: Unit) -> bool: return _is_builder(u, site.guid)):
+			if site and (not site.complete or site.condition.needs_repair()) and selection.any(func(u: Unit) -> bool: return _is_builder(u, site.guid)):
 				order_build(site)
-			elif site and site.guid in MapObject.ANIMAL_PROCESSING and site.complete \
+			elif site and site.guid in BuildingProduction.ANIMAL_PROCESSING and site.complete \
 					and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_cow()):
 				for cow: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_cow()):
 					cow.animal.deliver(site)
@@ -184,7 +184,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				order_haul(site)
 			elif _abandoned_at(world) and selection.any(_is_transport):
 				order_haul(_abandoned_at(world))
-			elif site and site.capacity() > 0 and selection.any(_can_quarter):
+			elif site and site.defence.capacity() > 0 and selection.any(_can_quarter):
 				order_quarters(site)
 			elif animal and animal.animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.may_hunt_horses()):
 				# Hunters (but not the Native Americans') shoot the horse for its meat.
@@ -199,7 +199,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				riders[0].mount(animal)
 				animal.flash(Color(1.0, 0.9, 0.4))
 				Sound.play_event(riders[0].unit_type.guid(), Sound.Event.ORDER)
-			elif site and site.guid in MapObject.HORSE_BUILDINGS and site.complete \
+			elif site and site.guid in BuildingProduction.HORSE_BUILDINGS and site.complete \
 					and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_horse()):
 				for horse: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_horse()):
 					horse.animal.stable(site)
@@ -222,7 +222,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif enemy:
 				# Ctrl: shoot the horse rather than its rider.
 				order_attack(enemy, event.ctrl_pressed and enemy is Unit and enemy.unit_type.mounted)
-			elif source and selection.any(func(u: Unit) -> bool: return u.unit_type.can_gather(source.resource)):
+			elif source and selection.any(func(u: Unit) -> bool: return u.unit_type.can_gather(source.stock.resource)):
 				order_gather(source)
 			else:
 				_order_move(world)
@@ -325,7 +325,7 @@ func _resource_at(point: Vector2) -> MapObject:
 	var best: MapObject = null
 	var best_score := INF
 	for object in MapObject.all_objects:
-		if object.resource == "" or (object.is_field() and object.owner_index != player_team):
+		if object.stock.resource == "" or (object.is_field() and object.owner_index != player_team):
 			continue
 		var footprint := object.footprint_rect()
 		var hit := object.work_rect().grow(6).has_point(point)
@@ -350,7 +350,7 @@ func _is_builder(u: Unit, guid := -1) -> bool:
 
 
 func _abandoned_at(point: Vector2) -> MapObject:
-	return _front_most(point, func(o: MapObject) -> bool: return o.is_abandoned_store() and o.haul_available() > 0)
+	return _front_most(point, func(o: MapObject) -> bool: return o.is_abandoned_store() and o.stock.haul_available() > 0)
 
 
 func _is_transport(u: Unit) -> bool:
@@ -375,7 +375,7 @@ func _can_quarter(u: Unit) -> bool:
 ## Selected units walk into a fort or tower, as many as there is room for.
 func order_quarters(building: MapObject) -> void:
 	var units := selection.filter(_can_quarter)
-	var room := building.capacity() - building.garrison.size()
+	var room := building.defence.capacity() - building.defence.garrison.size()
 	if units.is_empty() or room <= 0:
 		Sound.play_sound(80)
 		return
@@ -405,7 +405,7 @@ func order_build(site: MapObject) -> void:
 
 func order_gather(source: MapObject) -> void:
 	var gatherers := selection.filter(func(u: Unit) -> bool:
-		return is_instance_valid(u) and u.is_alive() and u.unit_type.can_gather(source.resource))
+		return is_instance_valid(u) and u.is_alive() and u.unit_type.can_gather(source.stock.resource))
 	if gatherers.is_empty():
 		return
 	source.flash()

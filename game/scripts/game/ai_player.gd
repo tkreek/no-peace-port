@@ -206,7 +206,7 @@ func _faction_guid(candidates: Array) -> int:
 ## Idle workers build first, then gather: about WOOD_SHARE of them on wood.
 func _assign_workers(workers: Array) -> void:
 	var on_wood := workers.filter(func(u: Unit) -> bool:
-		return is_instance_valid(u.work.gather_source) and u.work.gather_source.resource == "wood").size()
+		return is_instance_valid(u.work.gather_source) and u.work.gather_source.stock.resource == "wood").size()
 	var share := _wood_share()
 	# Every half minute, move workers over when the stock leans too far one way.
 	if _elapsed - _rebalanced > 30.0:
@@ -219,7 +219,7 @@ func _assign_workers(workers: Array) -> void:
 				if excess <= 0:
 					break
 				if worker.state == Unit.State.GATHERING and is_instance_valid(worker.work.gather_source) \
-						and worker.work.gather_source.resource == from and worker.work.carried == 0:
+						and worker.work.gather_source.stock.resource == from and worker.work.carried == 0:
 					var source := _gold_source_for(worker, workers) if from == "wood" else worker.work.nearest_source("wood")
 					if source:
 						worker.gather(source)
@@ -238,7 +238,7 @@ func _assign_workers(workers: Array) -> void:
 			source = _gold_source_for(worker, workers) if want_wood else worker.work.nearest_source("wood")
 		if source:
 			worker.gather(source)
-			if source.resource == "wood":
+			if source.stock.resource == "wood":
 				on_wood += 1
 
 
@@ -257,7 +257,7 @@ var _rebalanced := 0.0
 ## warehouse close by): the one with the fewest miners, the nearest of those.
 func _gold_source_for(worker: Unit, workers: Array) -> MapObject:
 	var served := MapObject.all_objects.filter(func(o: MapObject) -> bool:
-		return o.resource == "gold" and o.amount > 0 and not _no_drop_off_near("gold", o.position))
+		return o.stock.resource == "gold" and o.stock.amount > 0 and not _no_drop_off_near("gold", o.position))
 	if served.is_empty():
 		return worker.work.nearest_source("gold")
 	var miners := {}
@@ -273,7 +273,7 @@ func _gold_source_for(worker: Unit, workers: Array) -> MapObject:
 
 ## Workers up to the difficulty's target, and women for the fields.
 func _train_civilians(hq: MapObject, workers: Array, units: Array) -> void:
-	if not hq.complete or hq.queue.size() >= 2:
+	if not hq.complete or hq.production.queue.size() >= 2:
 		return
 	var fields := MapObject.all_objects.filter(func(o: MapObject) -> bool:
 		return o.is_field() and o.owner_index == player.index).size()
@@ -281,13 +281,13 @@ func _train_civilians(hq: MapObject, workers: Array, units: Array) -> void:
 	var want_farmer := farmers < fields * 2
 	if not want_farmer and workers.size() >= _level().workers:
 		return
-	for guid in hq.trainable_units():
+	for guid in hq.production.trainable_units():
 		var unit_type := _unit_type_for(guid)
 		if unit_type == null or guid in Player.COMMANDERS:
 			continue
 		var is_builder := unit_type.anim_index("build") >= 0 and unit_type.can_gather("wood")
 		if (want_farmer and unit_type.is_farmer()) or (not want_farmer and is_builder):
-			hq.enqueue(guid)
+			hq.production.enqueue(guid)
 			return
 
 
@@ -296,7 +296,7 @@ func _train_civilians(hq: MapObject, workers: Array, units: Array) -> void:
 func _haul_gold(transports: Array) -> void:
 	var warehouses := _my_buildings().filter(func(b: MapObject) -> bool: return b.is_gold_warehouse() and b.complete)
 	var abandoned := MapObject.abandoned_stores.filter(func(o: MapObject) -> bool:
-		return o.is_abandoned_store() and o.loot > 0 and o.position.distance_to(_home) < 1800.0 and not _enemy_near(o.position, 600.0))
+		return o.is_abandoned_store() and o.stock.loot > 0 and o.position.distance_to(_home) < 1800.0 and not _enemy_near(o.position, 600.0))
 	if warehouses.is_empty() and abandoned.is_empty():
 		return
 	if warehouses.is_empty():
@@ -316,22 +316,22 @@ func _haul_gold(transports: Array) -> void:
 			wagon.haul(abandoned[0])
 			on_abandoned += 1
 			continue
-		warehouses.sort_custom(func(a: MapObject, b: MapObject) -> bool: return a.stored_gold > b.stored_gold)
+		warehouses.sort_custom(func(a: MapObject, b: MapObject) -> bool: return a.stock.stored_gold > b.stock.stored_gold)
 		wagon.haul(warehouses[0])
 	var waiting := 0
 	for w: MapObject in warehouses:
-		waiting += w.stored_gold
+		waiting += w.stock.stored_gold
 	if transports.size() < warehouses.size() + (1 if not abandoned.is_empty() else 0) and waiting >= 60:
 		_train_transport()
 
 
 func _train_transport() -> void:
 	for building: MapObject in _my_buildings():
-		if not building.complete or not building.queue.is_empty():
+		if not building.complete or not building.production.queue.is_empty():
 			continue
-		for guid in building.trainable_units():
+		for guid in building.production.trainable_units():
 			var unit_type := _unit_type_for(guid)
-			if unit_type and unit_type.is_transport() and building.enqueue(guid):
+			if unit_type and unit_type.is_transport() and building.production.enqueue(guid):
 				return
 
 
@@ -386,14 +386,14 @@ func _farm(units: Array, hq: MapObject) -> void:
 ## and let them rest while food piles up.
 func _distil(units: Array, hq: MapObject) -> void:
 	var food_now := int(player.resources.get("food", 0))
-	for still: MapObject in _my_buildings().filter(func(b: MapObject) -> bool: return b.guid == MapObject.DISTILLERY_GUID):
-		still.distilling = food_now < FOOD_SURPLUS
-	var distilleries := _my_buildings().filter(func(b: MapObject) -> bool: return b.guid == MapObject.DISTILLERY_GUID).size()
+	for still: MapObject in _my_buildings().filter(func(b: MapObject) -> bool: return b.guid == BuildingProduction.DISTILLERY_GUID):
+		still.production.distilling = food_now < FOOD_SURPLUS
+	var distilleries := _my_buildings().filter(func(b: MapObject) -> bool: return b.guid == BuildingProduction.DISTILLERY_GUID).size()
 	var wanted := 1 + _my_units().size() / 12
 	var food := int(player.resources.get("food", 0))
-	if distilleries < wanted and food < 2500 and _sites() < _level().sites and _affordable(MapObject.DISTILLERY_GUID):
-		_place(MapObject.DISTILLERY_GUID, hq.position, units.filter(func(u: Unit) -> bool:
-			return u.unit_type.can_build(MapObject.DISTILLERY_GUID)))
+	if distilleries < wanted and food < 2500 and _sites() < _level().sites and _affordable(BuildingProduction.DISTILLERY_GUID):
+		_place(BuildingProduction.DISTILLERY_GUID, hq.position, units.filter(func(u: Unit) -> bool:
+			return u.unit_type.can_build(BuildingProduction.DISTILLERY_GUID)))
 
 
 # ------------------------------------------------------------------ building
@@ -521,7 +521,7 @@ var _nearest_cache := {}  # "resource@x,y" -> [MapObject, when]
 func _nearest_resource(resource: String, from: Vector2) -> MapObject:
 	var key := "%s@%d,%d" % [resource, int(from.x), int(from.y)]
 	var cached: Array = _nearest_cache.get(key, [])
-	if not cached.is_empty() and _elapsed - float(cached[1]) < 15.0 and is_instance_valid(cached[0]) and cached[0].amount > 0:
+	if not cached.is_empty() and _elapsed - float(cached[1]) < 15.0 and is_instance_valid(cached[0]) and cached[0].stock.amount > 0:
 		return cached[0]
 	var best := _search_nearest_resource(resource, from)
 	_nearest_cache[key] = [best, _elapsed]
@@ -531,7 +531,7 @@ func _nearest_resource(resource: String, from: Vector2) -> MapObject:
 func _search_nearest_resource(resource: String, from: Vector2) -> MapObject:
 	var best: MapObject = null
 	for object in MapObject.all_objects:
-		if object.resource == resource and object.amount > 0 and not object.is_field() \
+		if object.stock.resource == resource and object.stock.amount > 0 and not object.is_field() \
 				and (best == null or from.distance_to(object.position) < from.distance_to(best.position)):
 			best = object
 	return best
@@ -540,7 +540,7 @@ func _search_nearest_resource(resource: String, from: Vector2) -> MapObject:
 func _trees_near(at: Vector2) -> int:
 	var count := 0
 	for object in MapObject.all_objects:
-		if object.resource == "wood" and object.amount > 0 and object.position.distance_to(at) < 260.0:
+		if object.stock.resource == "wood" and object.stock.amount > 0 and object.position.distance_to(at) < 260.0:
 			count += 1
 	return count
 
@@ -594,7 +594,7 @@ func _worth_trying(guid: int) -> bool:
 
 
 func _produces_army(structure_guid: int) -> bool:
-	for guid in MapObject.units_trained_at(structure_guid):
+	for guid in BuildingProduction.units_trained_at(structure_guid):
 		if GameData.stats(guid).get("damage", 0) >= 5 and guid not in Player.COMMANDERS and guid != UnitWater.CANOE:
 			return true
 	return false
@@ -676,14 +676,14 @@ func _build_extras(workers: Array, hq: MapObject) -> void:
 			and _worth_trying(MapObject.PITFALL_GUID) \
 			and _place(MapObject.PITFALL_GUID, hq.position + toward.rotated(randf_range(-0.5, 0.5)) * 520.0, workers, 0, 200.0):
 		return
-	var post := _faction_guid(MapObject.TRADE_BUILDINGS)
+	var post := _faction_guid(BuildingProduction.TRADE_BUILDINGS)
 	if post >= 0 and count.call([post]) == 0 and _build_with_prerequisites(post, hq.position, workers):
 		return
 	# A second mine with its own warehouse, so the miners spread out.
 	var gold_store := _faction_guid(Array(MapObject.DROP_OFFS.gold).filter(func(g: int) -> bool: return g not in MapObject.MAIN_BUILDINGS))
 	var served := 0
 	var next_mine: MapObject = null
-	var mines := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.resource == "gold" and o.amount > 300)
+	var mines := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.stock.resource == "gold" and o.stock.amount > 300)
 	mines.sort_custom(func(a: MapObject, b: MapObject) -> bool: return a.position.distance_to(hq.position) < b.position.distance_to(hq.position))
 	for mine: MapObject in mines:
 		if not _no_drop_off_near("gold", mine.position):
@@ -735,9 +735,9 @@ func _train_specialists() -> void:
 	var units := _my_units()
 	var soldiers := units.filter(_is_soldier).size()
 	for building: MapObject in _my_buildings():
-		if not building.complete or building.queue.size() >= 1:
+		if not building.complete or building.production.queue.size() >= 1:
 			continue
-		for guid in building.trainable_units():
+		for guid in building.production.trainable_units():
 			var unit_type := _unit_type_for(guid)
 			if unit_type == null or not unit_type.attack_anims.is_empty() or guid in Player.COMMANDERS:
 				continue
@@ -749,7 +749,7 @@ func _train_specialists() -> void:
 				wanted = 1 if soldiers >= 6 else 0
 			elif unit_type.anim_index("heal") >= 0 and not unit_type.is_transport():
 				wanted = soldiers / 8
-			if have < wanted and building.enqueue(guid):
+			if have < wanted and building.production.enqueue(guid):
 				return
 
 
@@ -758,7 +758,7 @@ func _train_specialists() -> void:
 func _trade() -> void:
 	var post: MapObject = null
 	for building: MapObject in _my_buildings():
-		if building.guid in MapObject.TRADE_BUILDINGS and building.complete and building.queue.size() < 3:
+		if building.guid in BuildingProduction.TRADE_BUILDINGS and building.complete and building.production.queue.size() < 3:
 			post = building
 	if post == null:
 		return
@@ -778,7 +778,7 @@ func _trade() -> void:
 	elif gold < 1500 and int(r.get("wood", 0)) > 3000:
 		trade = 3
 	if trade >= 0:
-		post.enqueue(MapObject.TRADE_GUID + trade)
+		post.production.enqueue(BuildingProduction.TRADE_GUID + trade)
 
 
 ## Idle soldiers who can ride catch wild horses near them.
@@ -798,7 +798,7 @@ func _use_horses(units: Array) -> void:
 func _cattle(units: Array) -> void:
 	var processing: MapObject = null
 	for building: MapObject in _my_buildings():
-		if building.guid in MapObject.ANIMAL_PROCESSING and building.complete:
+		if building.guid in BuildingProduction.ANIMAL_PROCESSING and building.complete:
 			processing = building
 	var cows := units.filter(func(u: Unit) -> bool: return u.animal.is_cow())
 	if processing:
@@ -808,8 +808,8 @@ func _cattle(units: Array) -> void:
 	if cows.size() >= COW_TARGET or int(player.resources.get("food", 0)) < 600:
 		return
 	for building: MapObject in _my_buildings():
-		if building.guid in MapObject.COW_BUILDINGS and building.complete and building.queue.is_empty():
-			building.enqueue(MapObject.COW_GUID)
+		if building.guid in BuildingProduction.COW_BUILDINGS and building.complete and building.production.queue.is_empty():
+			building.production.enqueue(BuildingProduction.COW_GUID)
 			return
 
 
@@ -835,8 +835,8 @@ func _magic(units: Array, army: Array) -> void:
 					break
 		elif 921 in spells and caster.magic.magic_energy >= caster.magic.magic_pool() * 0.9:
 			for field in MapObject.structures:
-				if field.is_field() and field.owner_index == player.index and field.field_state == MapObject.Field.GROWING \
-						and not field._rained:
+				if field.is_field() and field.owner_index == player.index and field.stock.field_state == ObjectStock.Field.GROWING \
+						and not field.stock._rained:
 					caster.cast(921, field.position)
 					break
 
@@ -845,25 +845,25 @@ func _magic(units: Array, army: Array) -> void:
 
 func _train_army() -> void:
 	for building: MapObject in _my_buildings():
-		if not building.complete or building.queue.size() >= 2 or building.guid in MapObject.MAIN_BUILDINGS:
+		if not building.complete or building.production.queue.size() >= 2 or building.guid in MapObject.MAIN_BUILDINGS:
 			continue
 		# Raise horses for the mounted units while there is room and food to spare.
-		if building.guid in MapObject.HORSE_BUILDINGS and int(player.resources.get("food", 0)) > 400 \
+		if building.guid in BuildingProduction.HORSE_BUILDINGS and int(player.resources.get("food", 0)) > 400 \
 				and int(player.resources.get("horses", 0)) < player.horse_capacity() and randf() < 0.5:
-			if building.enqueue(MapObject.HORSE_GUID):
+			if building.production.enqueue(BuildingProduction.HORSE_GUID):
 				continue
 		# Rifles for the infantry, while gold allows.
-		if building.guid in MapObject.GUN_FACTORIES and int(player.resources.get("guns", 0)) < 8 \
-				and int(player.resources.get("gold", 0)) > 250 and building.enqueue(MapObject.GUN_GUID):
+		if building.guid in BuildingProduction.GUN_FACTORIES and int(player.resources.get("guns", 0)) < 8 \
+				and int(player.resources.get("gold", 0)) > 250 and building.production.enqueue(BuildingProduction.GUN_GUID):
 			continue
 		var canoes := _my_units().filter(func(u: Unit) -> bool: return u.unit_type.guid() == UnitWater.CANOE).size()
 		var want_canoes := NavGrid.current != null and NavGrid.current.has_water and canoes < CANOE_TARGET
-		var options := Array(building.trainable_units()).filter(func(guid: int) -> bool:
+		var options := Array(building.production.trainable_units()).filter(func(guid: int) -> bool:
 			return GameData.stats(guid).get("damage", 0) >= 5 and guid not in Player.COMMANDERS \
 					and (guid != UnitWater.CANOE or want_canoes))
 		options.shuffle()
 		for guid in options:
-			if building.enqueue(guid):
+			if building.production.enqueue(guid):
 				break
 
 
@@ -872,17 +872,17 @@ func _research() -> void:
 	# Across the water the Native Americans learn to swim first.
 	if player.faction == "ind" and not _land_route and player.can_research(SWIM):
 		for building: MapObject in _my_buildings():
-			if building.queue.is_empty() and SWIM in building.researchable_upgrades():
-				building.enqueue(SWIM)
+			if building.production.queue.is_empty() and SWIM in building.production.researchable_upgrades():
+				building.production.enqueue(SWIM)
 				return
 	if int(player.resources.get("gold", 0)) < 600 or int(player.resources.get("food", 0)) < 800:
 		return
 	for building: MapObject in _my_buildings():
-		if not building.queue.is_empty():
+		if not building.production.queue.is_empty():
 			continue
-		var options := building.researchable_upgrades()
+		var options := building.production.researchable_upgrades()
 		if not options.is_empty():
-			building.enqueue(options[randi() % options.size()])
+			building.production.enqueue(options[randi() % options.size()])
 			return
 
 
@@ -971,14 +971,14 @@ func _keep_guard(army: Array, hq: MapObject) -> void:
 		if not _guard.has(unit.get_instance_id()) and unit not in _wave:
 			_guard[unit.get_instance_id()] = true
 			unit.set_stance(Unit.Stance.DEFENSIVE)
-	var towers := _my_buildings().filter(func(b: MapObject) -> bool: return b.capacity() > 0 and b.complete \
+	var towers := _my_buildings().filter(func(b: MapObject) -> bool: return b.defence.capacity() > 0 and b.complete \
 			and b.guid not in MapObject.MAIN_BUILDINGS)
 	var toward := (_enemy_base() - hq.position).normalized() if _enemy_base() != Vector2.INF else Vector2.DOWN
 	for unit: Unit in army:
 		if not _guard.has(unit.get_instance_id()) or unit.state != Unit.State.IDLE:
 			continue
 		for tower: MapObject in towers:
-			if unit.unit_type.ranged and tower.has_room_for(unit):
+			if unit.unit_type.ranged and tower.defence.has_room_for(unit):
 				unit.take_quarters(tower)
 				break
 		if unit.state == Unit.State.IDLE and unit.quarters == null:

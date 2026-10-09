@@ -308,7 +308,7 @@ func _refresh_selection() -> void:
 		_health_bar.max_value = building.max_health
 		_health_bar.value = building.health
 		_selection_detail.text = _object_detail(building)
-		_refresh_queue(building)
+		_refresh_queue(building if building.is_building() else null)
 		_refresh_group([])
 		return
 	_refresh_queue(null)
@@ -357,37 +357,39 @@ func _unit_detail(unit: Unit) -> String:
 
 func _object_detail(object: MapObject) -> String:
 	if object.is_tree():
-		return "Wood left: %d" % object.amount
+		return "Wood left: %d" % object.stock.amount
 	if object.is_mine():
-		return "Gold left: %d" % object.amount if object.amount > 0 else "Exhausted"
+		return "Gold left: %d" % object.stock.amount if object.stock.amount > 0 else "Exhausted"
 	if object.is_field():
-		match object.field_state:
-			MapObject.Field.FALLOW:
+		match object.stock.field_state:
+			ObjectStock.Field.FALLOW:
 				return "Fallow — needs sowing"
-			MapObject.Field.GROWING:
-				return "Growing %d%%" % int(object.field_progress * 100)
-		return "Ripe: %d food" % object.amount
+			ObjectStock.Field.GROWING:
+				return "Growing %d%%" % int(object.stock.field_progress * 100)
+		return "Ripe: %d food" % object.stock.amount
+	if not object.is_building():
+		return ""
 	var owner_note := ""
 	if object.owner_index != player.index and Player.by_index.has(object.owner_index):
 		owner_note = "\n" + Match.faction_name(Player.by_index[object.owner_index].faction)
 	if not object.complete:
 		return "Under construction %d%%\nEnergy %d / %d%s" % [int(object.build_progress * 100), object.health,
 				object.max_health, owner_note]
-	if not object.queue.is_empty():
-		var current := GameData.stats(object.queue[0])
+	if not object.production.queue.is_empty():
+		var current := GameData.stats(object.production.queue[0])
 		var doing: String = {"upgrade": "Researching", "trade": "Trading", "horse": "Raising", "gun": "Making"}.get(current.get("kind"), "Training")
 		return "%s %s — %d%%" % [doing,
-				current.get("name", "?"), int(object.train_progress * 100)]
-	if object.guid == MapObject.DISTILLERY_GUID:
-		owner_note += "\n" + ("Distilling %d wood into %d food every %d s" % [MapObject.DISTILL_WOOD, MapObject.DISTILL_FOOD,
-				MapObject.DISTILL_SECONDS] if object.distilling else "Resting")
+				current.get("name", "?"), int(object.production.progress * 100)]
+	if object.guid == BuildingProduction.DISTILLERY_GUID:
+		owner_note += "\n" + ("Distilling %d wood into %d food every %d s" % [BuildingProduction.DISTILL_WOOD, BuildingProduction.DISTILL_FOOD,
+				BuildingProduction.DISTILL_SECONDS] if object.production.distilling else "Resting")
 	var housing := int(GameData.stats(object.guid).get("housing", 0))
-	var quartered := "\nQuartered %d / %d" % [object.garrison.size(), object.capacity()] if object.capacity() > 0 else ""
+	var quartered := "\nQuartered %d / %d" % [object.defence.garrison.size(), object.defence.capacity()] if object.defence.capacity() > 0 else ""
 	if object.is_abandoned_store():
-		return "Abandoned warehouse: %d %s\nSend a wagon to haul it home" % [object.loot, object.loot_kind] if object.loot > 0 \
+		return "Abandoned warehouse: %d %s\nSend a wagon to haul it home" % [object.stock.loot, object.stock.loot_kind] if object.stock.loot > 0 \
 				else "Abandoned warehouse (empty)"
 	if object.is_gold_warehouse() and object.complete:
-		quartered += "\nGold stored: %d (send a wagon to haul it)" % object.stored_gold
+		quartered += "\nGold stored: %d (send a wagon to haul it)" % object.stock.stored_gold
 	return "Energy %d / %d%s%s%s" % [object.health, object.max_health,
 			"\nHouses %d" % housing if housing > 0 else "", quartered, owner_note]
 
@@ -423,8 +425,8 @@ func _set_portrait(guid: int, thing: Object) -> void:
 ## The production queue as a hand of overlapping cards; the first one shows its progress.
 ## Clicking a card cancels that order and refunds it.
 func _refresh_queue(building: MapObject) -> void:
-	var queue: Array = Array(building.queue) if building and building.complete else []
-	var quartered: Array = building.garrison.duplicate() if building and queue.is_empty() else []
+	var queue: Array = Array(building.production.queue) if building and building.complete else []
+	var quartered: Array = building.defence.garrison.duplicate() if building and queue.is_empty() else []
 	var signature := "%s|%s|%s" % [building.get_instance_id() if building else 0, queue,
 			quartered.map(func(u: Unit) -> int: return u.get_instance_id())]
 	if signature != _queue_signature:
@@ -436,7 +438,7 @@ func _refresh_queue(building: MapObject) -> void:
 			card.position = Vector2(i * CARD_STEP * ui_scale + (8 * ui_scale if i > 0 else 0.0), 0)
 			card.tooltip_text = "%s\nClick to cancel" % GameData.stats(queue[i]).get("name", "?")
 			var index := i
-			card.pressed.connect(func() -> void: building.cancel_queued(index))
+			card.pressed.connect(func() -> void: building.production.cancel(index))
 			_queue_box.add_child(card)
 			_queue_box.move_child(card, 0)  # later orders tuck in behind the first
 		# Quartered units: click one to send it out.
@@ -445,7 +447,7 @@ func _refresh_queue(building: MapObject) -> void:
 			var card := _card(unit.unit_type.guid(), CARD_SIZE * 0.8 * ui_scale, unit.unit_type.type_id)
 			card.position = Vector2(i * (CARD_SIZE * 0.8 + 3) * ui_scale, 0)
 			card.tooltip_text = "%s\nClick to leave quarters" % unit.display_name()
-			card.pressed.connect(func() -> void: building.release(unit))
+			card.pressed.connect(func() -> void: building.defence.release(unit))
 			_queue_box.add_child(card)
 		if not queue.is_empty():
 			var bar := ProgressBar.new()
@@ -461,7 +463,7 @@ func _refresh_queue(building: MapObject) -> void:
 			_queue_box.add_child(bar)
 	var progress := _queue_box.get_node_or_null("Progress") as ProgressBar
 	if progress and building:
-		progress.value = building.train_progress
+		progress.value = building.production.progress
 
 
 ## Portraits of every selected unit with a health strip. Click one to select only it,
@@ -604,7 +606,7 @@ func _flat(color: Color) -> StyleBoxFlat:
 ## Rebuild the command buttons when what they depend on changes.
 func _refresh_commands() -> void:
 	var units := selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
-	var building := selection.selected_building if is_instance_valid(selection.selected_building) else null
+	var building := _selected_building()
 	# Mixed groups get only the commands every member can carry out (manual 3.2).
 	var builders := units.filter(func(u: Unit) -> bool: return u.unit_type.can_build())
 	if builders.size() < units.size():
@@ -624,12 +626,12 @@ func _refresh_commands() -> void:
 		formations[u.formation] = true
 	if builders.is_empty():
 		_build_menu = ""
-	var research_state := "%d/%s" % [player.researched.size(), building.queue if building else []]
+	var research_state := "%d/%s" % [player.researched.size(), building.production.queue if building else []]
 	var signature := "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [research_state, builders.size() > 0, full_builders,
 			farmers.size() > 0, building.get_instance_id() if building else 0,
 			building.complete if building else false, _build_menu, fighters.size() > 0, stances.keys(),
 			units.size() > 0, formations.keys(), selection.pending,
-			building.garrison.size() if building else 0, units.map(func(u: Unit) -> String: return "%s%d" % [u.tepees.packed.is_empty(), u.water.passengers.size()])]
+			building.defence.garrison.size() if building else 0, units.map(func(u: Unit) -> String: return "%s%d" % [u.tepees.packed.is_empty(), u.water.passengers.size()])]
 	if signature == _command_signature:
 		_update_affordability()
 		return
@@ -675,7 +677,7 @@ func _refresh_commands() -> void:
 					_add_icon_command(_formation_icons, FORMATION_ICONS[formation], FORMATION_NAMES[formation],
 							func() -> void: set_formation(formation), formations.size() == 1 and formations.has(formation))
 		var spells := {}
-		for spell in (units[0] as Unit).known_spells():
+		for spell in (units[0] as Unit).magic.known_spells():
 			if units.all(func(u: Unit) -> bool: return spell in u.magic.known_spells()):
 				spells[spell] = true
 		for spell in spells:
@@ -712,52 +714,52 @@ func _refresh_commands() -> void:
 					func() -> void: selection.begin_targeting("quarters"), selection.pending == "quarters")
 		_add_icon_command(_command_icons, ICON_STOP, "Stop (X)", stop_selection)
 	elif building and building.complete and building.owner_index == player.index:
-		for guid in building.trainable_units():
+		for guid in building.production.trainable_units():
 			var type_id := GameData.type_for_guid(guid, biome)
-			if MapObject.is_trade(guid):
-				var trade: Dictionary = MapObject.TRADES[guid - MapObject.TRADE_GUID]
+			if BuildingProduction.is_trade(guid):
+				var trade: Dictionary = BuildingProduction.TRADES[guid - BuildingProduction.TRADE_GUID]
 				_add_icon_command(_command_icons, trade.icon, "", func() -> void:
-					if not building.enqueue(guid):
+					if not building.production.enqueue(guid):
 						Sound.play_sound(80))
 				var button: Button = _commands.get_child(_commands.get_child_count() - 1)
 				button.set_meta("guid", guid)
 				button.set_meta("trade", trade)
-			elif guid == MapObject.GUN_GUID:
+			elif guid == BuildingProduction.GUN_GUID:
 				_add_icon_command(_command_icons, int(GameData.stats(guid).icon_frame), "Make a rifle\n%s" % _cost_text(guid), func() -> void:
-					if not building.enqueue(guid):
+					if not building.production.enqueue(guid):
 						Sound.play_sound(80))
 				var gun_button: Button = _commands.get_child(_commands.get_child_count() - 1)
 				gun_button.set_meta("guid", guid)
-			elif guid == MapObject.HORSE_GUID or guid == MapObject.COW_GUID:
+			elif guid == BuildingProduction.HORSE_GUID or guid == BuildingProduction.COW_GUID:
 				_add_command(-1, guid, func() -> void:
-					if not building.enqueue(guid):
+					if not building.production.enqueue(guid):
 						Sound.play_sound(80))
 			elif type_id >= 0:
 				_add_command(type_id, guid, func() -> void:
-					if not building.enqueue(guid):
+					if not building.production.enqueue(guid):
 						Sound.play_sound(80))  # the original "not possible" sound
-		if building.guid == MapObject.SALOON and player.researched.has(MapObject.LIFT_FOG_UPGRADE):
-			var ready := Time.get_ticks_msec() >= building.look_ready_at
-			_add_spell_command(MapObject.LIFT_FOG_UPGRADE, "Look over the land: click a spot to lift the fog there for a while" +
+		if building.guid == BuildingProduction.SALOON and player.researched.has(BuildingProduction.LIFT_FOG_UPGRADE):
+			var ready := Time.get_ticks_msec() >= building.production.look_ready_at
+			_add_spell_command(BuildingProduction.LIFT_FOG_UPGRADE, "Look over the land: click a spot to lift the fog there for a while" +
 					("" if ready else "\n(recovering)"), "look")
-		if building.guid == MapObject.DISTILLERY_GUID:
-			_add_icon_command(_command_icons, ICON_STOP, "Stop distilling (keeps the wood)" if building.distilling \
-					else "Start distilling again (%d wood into %d food every %d s)" % [MapObject.DISTILL_WOOD, MapObject.DISTILL_FOOD,
-					MapObject.DISTILL_SECONDS], func() -> void:
-						building.distilling = not building.distilling
-						_command_signature = "", not building.distilling)
-		if not building.trainable_units().is_empty():
+		if building.guid == BuildingProduction.DISTILLERY_GUID:
+			_add_icon_command(_command_icons, ICON_STOP, "Stop distilling (keeps the wood)" if building.production.distilling \
+					else "Start distilling again (%d wood into %d food every %d s)" % [BuildingProduction.DISTILL_WOOD, BuildingProduction.DISTILL_FOOD,
+					BuildingProduction.DISTILL_SECONDS], func() -> void:
+						building.production.distilling = not building.production.distilling
+						_command_signature = "", not building.production.distilling)
+		if not building.production.trainable_units().is_empty():
 			_add_icon_command(_extra_icons, ICON_RALLY, "Specify assembly location (I)",
 					func() -> void: selection.begin_targeting("rally"), selection.pending == "rally")
-		for upgrade in building.researchable_upgrades():
+		for upgrade in building.production.researchable_upgrades():
 			_add_command(-1, upgrade, func() -> void:
-				if not building.enqueue(upgrade):
+				if not building.production.enqueue(upgrade):
 					Sound.play_sound(80))
-	if building and building.owner_index == player.index and not building.garrison.is_empty():
-		_add_icon_command(_extra_icons, ICON_LEAVE, "Move units from quarters (L)", func() -> void: building.release())
+	if building and building.owner_index == player.index and not building.defence.garrison.is_empty():
+		_add_icon_command(_extra_icons, ICON_LEAVE, "Move units from quarters (L)", func() -> void: building.defence.release())
 	if building and building.is_building() and building.owner_index == player.index:
 		_add_icon_command(_extra_icons, ICON_DEMOLISH, "Demolish (Del)" if building.complete \
-				else "Demolish (Del) — refunds the unbuilt part", func() -> void: building.demolish())
+				else "Demolish (Del) — refunds the unbuilt part", func() -> void: building.condition.demolish())
 	_layout()
 
 
@@ -780,6 +782,12 @@ func unload_boats() -> void:
 func _all_travois() -> bool:
 	var units := selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
 	return not units.is_empty() and units.all(func(u: Unit) -> bool: return u.tepees.can_pack())
+
+
+## The selected building, if a building (not a tree, mine or field) is selected.
+func _selected_building() -> MapObject:
+	var building := selection.selected_building
+	return building if is_instance_valid(building) and building.is_building() else null
 
 
 func _open_build_menu(menu: String) -> void:
@@ -828,9 +836,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		if not selection.selection.is_empty():
 			selection.begin_targeting("patrol" if key == KEY_Z else "follow")
 	elif key == KEY_DELETE:
-		var building := selection.selected_building
-		if is_instance_valid(building) and building.owner_index == player.index:
-			building.demolish()
+		var building := _selected_building()
+		if building and building.owner_index == player.index:
+			building.condition.demolish()
 	elif key == KEY_U and selection.selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.water.is_boat()):
 		unload_boats()
 	elif key == KEY_G and _all_travois():
@@ -841,10 +849,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		if not selection.selection.is_empty():
 			selection.begin_targeting("quarters")
 	elif key == KEY_L:
-		if is_instance_valid(selection.selected_building) and selection.selected_building.owner_index == player.index:
-			selection.selected_building.release()
+		if _selected_building() and _selected_building().owner_index == player.index:
+			_selected_building().defence.release()
 	elif key == KEY_I:
-		if is_instance_valid(selection.selected_building) and selection.selected_building.owner_index == player.index:
+		if _selected_building() and _selected_building().owner_index == player.index:
 			selection.begin_targeting("rally")
 	elif STANCE_KEYS.has(key):
 		set_stance(STANCE_KEYS[key])
@@ -1030,9 +1038,9 @@ func _update_affordability() -> void:
 		button.tooltip_text = button.get_meta("tooltip") + ("\n" + reason if reason else "")
 		button.modulate = Color(1, 1, 1, 0.55) if button.disabled else Color.WHITE
 		# An upgrade being researched here shows its progress across the button.
-		var building := selection.selected_building
-		var researching: bool = GameData.stats(guid).get("kind") == "upgrade" and is_instance_valid(building) \
-				and guid in building.queue
+		var building := _selected_building()
+		var researching: bool = GameData.stats(guid).get("kind") == "upgrade" and building != null \
+				and guid in building.production.queue
 		var bar := button.get_node_or_null("Research") as ProgressBar
 		if researching:
 			if bar == null:
@@ -1048,7 +1056,7 @@ func _update_affordability() -> void:
 				bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 				bar.offset_top = -14 * ui_scale
 				button.add_child(bar)
-			bar.value = building.train_progress if building.queue[0] == guid else 0.0
+			bar.value = building.production.progress if building.production.queue[0] == guid else 0.0
 			button.modulate = Color.WHITE
 			button.tooltip_text = "%s\nResearching: %d%%" % [button.get_meta("tooltip"), int(bar.value * 100)]
 		elif bar:
@@ -1272,8 +1280,8 @@ func _unavailable_reason(guid: int, cost: Dictionary) -> String:
 	var stats := GameData.stats(guid)
 	if guid in MapObject.SHIPYARDS and not NavGrid.current.has_water:
 		return "Needs water (this map has none)"
-	if guid == MapObject.HORSE_GUID and int(player.resources.get("horses", 0)) + player.queued_horses() >= player.horse_capacity():
-		return "No room for more horses (%d per corral, hacienda or ranch)" % MapObject.HORSES_PER_BUILDING
+	if guid == BuildingProduction.HORSE_GUID and int(player.resources.get("horses", 0)) + player.queued_horses() >= player.horse_capacity():
+		return "No room for more horses (%d per corral, hacienda or ranch)" % BuildingProduction.HORSES_PER_BUILDING
 	if stats.get("kind") == "upgrade" and not player.can_research(guid):
 		return "Already researched or in progress" if player.researched.has(guid) or player.is_researching(guid) \
 				else "Research the previous level first"
@@ -1289,8 +1297,8 @@ func _unavailable_reason(guid: int, cost: Dictionary) -> String:
 					house = s2.get("name", "")
 			return "Not enough housing (%d/%d)%s" % [player.population() + player.queued_units(),
 					player.population_cap(), " — build a %s" % house if house else ""]
-		var selected := selection.selected_building
-		if is_instance_valid(selected) and selected.queue.size() >= MapObject.QUEUE_LIMIT:
+		var selected := _selected_building()
+		if selected and selected.production.queue.size() >= BuildingProduction.QUEUE_LIMIT:
 			return "Queue full"
 	var missing := PackedStringArray()
 	# Fields are shared by every people; their requirement is the grain store checked above.

@@ -62,13 +62,13 @@ func _scenario_research() -> void:
 	main.players[1].resources.food = 5000
 	main.selection.select_building(factory)
 	main.camera.position = factory.position
-	print("research options: ", Array(factory.researchable_upgrades()).map(func(g: int) -> String: return GameData.stats(g).name))
-	print("queue rifle 1:", factory.enqueue(925), " rifle 2 now:", factory.enqueue(926))
+	print("research options: ", Array(factory.production.researchable_upgrades()).map(func(g: int) -> String: return GameData.stats(g).name))
+	print("queue rifle 1:", factory.production.enqueue(925), " rifle 2 now:", factory.production.enqueue(926))
 	main._spawn_squad(258, 1, hq.position + Vector2(0, 200), 1)
 	var infantry: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == 258)[0]
 	print("before: damage %.0f health %.0f" % [infantry.attack_damage(), infantry.max_health])
 	await get_tree().create_timer(65.0).timeout
-	print("researched: ", main.players[1].researched.keys(), " rifle 2 now:", factory.enqueue(926), " clothing 1:", factory.enqueue(929))
+	print("researched: ", main.players[1].researched.keys(), " rifle 2 now:", factory.production.enqueue(926), " clothing 1:", factory.production.enqueue(929))
 	await get_tree().create_timer(160.0).timeout
 	print("after: damage %.0f health %.0f researched %s" % [infantry.attack_damage(), infantry.max_health, main.players[1].researched.keys()])
 
@@ -89,7 +89,7 @@ func _scenario_menus() -> void:
 		var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
 		var building := MapObject.new()
 		building.setup(type, 1)
-		if building.trainable_units().is_empty():
+		if building.production.trainable_units().is_empty():
 			building.free()
 			continue
 		building.position = ai._find_spot(type, hq.position)
@@ -103,8 +103,8 @@ func _scenario_menus() -> void:
 			if not button.is_queued_for_deletion():
 				names.append(button.tooltip_text.replace("\n", " / "))
 		var queued := []
-		for unit_guid in building.trainable_units():
-			queued.append("%s:%s" % [GameData.stats(unit_guid).get("name"), building.enqueue(unit_guid)])
+		for unit_guid in building.production.trainable_units():
+			queued.append("%s:%s" % [GameData.stats(unit_guid).get("name"), building.production.enqueue(unit_guid)])
 		print("%s: %s | enqueue %s" % [stats.name, names, queued])
 	ai.free()
 	for kind in ["builders", "farmers"]:
@@ -156,12 +156,12 @@ func _scenario_select() -> void:
 			site.setup(type, 1, 0, GameData.cmdline_option("pick") == "site")
 			main.units_root.add_child(site)
 			if GameData.cmdline_option("pick") == "site":
-				site.add_build_work(20.0)
+				site.condition.add_build_work(20.0)
 			else:
 				main.players[1].resources.gold = 5000
 				main.players[1].resources.food = 5000
-				site.enqueue(site.researchable_upgrades()[0])
-				site.enqueue(site.researchable_upgrades()[1])
+				site.production.enqueue(site.production.researchable_upgrades()[0])
+				site.production.enqueue(site.production.researchable_upgrades()[1])
 			main.selection.select_building(site)
 
 
@@ -187,7 +187,7 @@ func _scenario_quarters() -> void:
 	main.selection._select(squad, false)
 	main.selection.order_quarters(tower)
 	await get_tree().create_timer(8.0).timeout
-	print("capacity %d, quartered %d, outside %d" % [tower.capacity(), tower.garrison.size(),
+	print("capacity %d, quartered %d, outside %d" % [tower.defence.capacity(), tower.defence.garrison.size(),
 			squad.filter(func(u: Unit) -> bool: return not u.inside).size()])
 	main._spawn_squad(main.FACTIONS[main.players[2].faction].army, 2, tower.position + Vector2(260, 0), 3)
 	var enemies := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 \
@@ -196,11 +196,11 @@ func _scenario_quarters() -> void:
 		e.stance = Unit.Stance.PASSIVE
 	await get_tree().create_timer(30.0).timeout
 	print("enemy energy after 30 s: ", enemies.map(func(u: Unit) -> int: return int(u.health) if is_instance_valid(u) else -1),
-			" quartered energy: ", tower.garrison.map(func(u: Unit) -> int: return int(u.health)))
+			" quartered energy: ", tower.defence.garrison.map(func(u: Unit) -> int: return int(u.health)))
 	main.selection.select_building(tower)
-	tower.release()
+	tower.defence.release()
 	await get_tree().process_frame
-	print("after release: quartered %d, outside %d" % [tower.garrison.size(),
+	print("after release: quartered %d, outside %d" % [tower.defence.garrison.size(),
 			squad.filter(func(u: Unit) -> bool: return not u.inside).size()])
 	get_tree().quit()
 
@@ -272,11 +272,11 @@ func _scenario_fields() -> void:
 	if field:
 		main.camera.position = field.position
 	print("field placed=%s complete=%s resource=%s state=%d store=%s" % [placed, field.complete if field else false,
-			field.resource if field else "", field.field_state if field else -1, GameData.stats(store_guid).get("name")])
+			field.stock.resource if field else "", field.stock.field_state if field else -1, GameData.stats(store_guid).get("name")])
 	for i in 16:
 		await get_tree().create_timer(5.0).timeout
-		print("t=%ds field state=%d progress=%.2f amount=%d food=%d women=%s" % [(i + 1) * 5, field.field_state,
-				field.field_progress, field.amount, main.players[1].resources.food,
+		print("t=%ds field state=%d progress=%.2f amount=%d food=%d women=%s" % [(i + 1) * 5, field.stock.field_state,
+				field.stock.field_progress, field.stock.amount, main.players[1].resources.food,
 				women.map(func(u: Unit) -> String: return "%d/%d/%s" % [u.state, u.work.phase, u._action])])
 	get_tree().quit()
 
@@ -352,9 +352,9 @@ func _scenario_damage() -> void:
 		var wood: int = main.players[1].resources.wood
 		for i in 6:
 			await get_tree().create_timer(5.0).timeout
-			print("repair t=%ds energy %d%% anim %d fires %d wood -%d" % [(i + 1) * 5, int(100 * built[1].health / built[1].max_health), built[1]._body_anim, built[1]._fires.size(), wood - main.players[1].resources.wood])
+			print("repair t=%ds energy %d%% anim %d fires %d wood -%d" % [(i + 1) * 5, int(100 * built[1].health / built[1].max_health), built[1]._body_anim, built[1].condition._fires.size(), wood - main.players[1].resources.wood])
 		get_tree().quit()
-	print("damage: ", built.map(func(b: MapObject) -> String: return "%d%% anim %d fires %d" % [int(100 * b.health / b.max_health), b._body_anim, b._fires.size()]))
+	print("damage: ", built.map(func(b: MapObject) -> String: return "%d%% anim %d fires %d" % [int(100 * b.health / b.max_health), b._body_anim, b.condition._fires.size()]))
 
 
 ## Miners fill a gold warehouse by the nearest mine; a wagon hauls it to the main building.
@@ -396,7 +396,7 @@ func _scenario_gold() -> void:
 func _scenario_woodcut() -> void:
 	var worker: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.can_gather("wood") and n.unit_type.anim_index("build") >= 0)[0]
 	var tree := worker.work.nearest_source("wood")
-	print("tree %d px away, wood %d" % [worker.position.distance_to(tree.position), tree.amount])
+	print("tree %d px away, wood %d" % [worker.position.distance_to(tree.position), tree.stock.amount])
 	worker.gather(tree)
 	var wood: int = main.players[1].resources.wood
 	for i in 60:
@@ -422,9 +422,9 @@ func _scenario_trade() -> void:
 	post.setup(type, 1)
 	main.units_root.add_child(post)
 	var p: Player = main.players[1]
-	print("trades offered: ", Array(post.trainable_units()).map(func(g: int) -> String: return GameData.stats(g).name))
+	print("trades offered: ", Array(post.production.trainable_units()).map(func(g: int) -> String: return GameData.stats(g).name))
 	print("before: %s  gun price %d, wood sells for %d" % [p.resources, p.buy_price("guns"), p.sell_price("wood")])
-	print("queued: ", post.enqueue(MapObject.TRADE_GUID + 4), post.enqueue(MapObject.TRADE_GUID + 4), post.enqueue(MapObject.TRADE_GUID + 3))
+	print("queued: ", post.production.enqueue(BuildingProduction.TRADE_GUID + 4), post.production.enqueue(BuildingProduction.TRADE_GUID + 4), post.production.enqueue(BuildingProduction.TRADE_GUID + 3))
 	print("paid:   %s" % p.resources)
 	await get_tree().create_timer(20.0).timeout
 	print("after:  %s  gun price %d, wood sells for %d" % [p.resources, p.buy_price("guns"), p.sell_price("wood")])
@@ -446,7 +446,7 @@ func _scenario_rob() -> void:
 	store.setup(type, 2)
 	main.units_root.add_child(store)
 	main.nav.block_footprint(type, store.position)
-	store.stored_gold = 300
+	store.stock.stored_gold = 300
 	main._spawn_squad(455 if main.players[2].faction == "usa" else 255, 2, store.position + Vector2(-200, 120), 1)
 	main._spawn_squad(353, 1, hq.position + Vector2(0, 220), 1)
 	var robber: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.guid() == 352)[0]
@@ -458,7 +458,7 @@ func _scenario_rob() -> void:
 	var gold: int = main.players[1].resources.gold
 	for i in 8:
 		await get_tree().create_timer(5.0).timeout
-		print("t=%ds store %d, our gold +%d, robber phase %d carrying %d inside %s; wagon team %d" % [(i + 1) * 5, store.stored_gold,
+		print("t=%ds store %d, our gold +%d, robber phase %d carrying %d inside %s; wagon team %d" % [(i + 1) * 5, store.stock.stored_gold,
 				main.players[1].resources.gold - gold, robber.work.phase, robber.work.carried, robber.inside, wagon.team])
 	get_tree().quit()
 
@@ -502,7 +502,7 @@ func _scenario_pitfall() -> void:
 	await get_tree().create_timer(12.0).timeout
 	var foes := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 and n.position.distance_to(centre) < 400)
 	print("enemies alive %s; our warrior alive %s; pit %s" % [foes.map(func(f: Unit) -> bool: return f.is_alive()), friend.is_alive(),
-			"spent" if not is_instance_valid(pit) or not pit.is_alive() else "%d kills" % pit.trap_kills])
+			"spent" if not is_instance_valid(pit) or not pit.is_alive() else "%d kills" % pit.defence.trap_kills])
 	get_tree().quit()
 
 
@@ -564,7 +564,7 @@ func _scenario_cattle() -> void:
 	cow.animal.deliver(yard)
 	await get_tree().create_timer(15.0).timeout
 	print("sold: cow gone %s, gold +%d; stockyard trains: %s" % [not is_instance_valid(cow), main.players[1].resources.gold - gold,
-			Array(MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.guid == 405).map(func(o: MapObject) -> Array: return Array(o.trainable_units())))])
+			Array(MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.guid == 405).map(func(o: MapObject) -> Array: return Array(o.production.trainable_units())))])
 	get_tree().quit()
 
 
@@ -602,7 +602,7 @@ func _scenario_saveload() -> void:
 func _snapshot() -> String:
 	var units := Unit.all_units.filter(func(u: Unit) -> bool: return u.is_alive() and u.team > 0)
 	var buildings := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.is_building())
-	var stumps := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.is_tree() and o.tree_state != MapObject.TreeState.STANDING)
+	var stumps := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.is_tree() and o.stock.tree_state != ObjectStock.TreeState.STANDING)
 	return "units %d, buildings %d (%s), felled/stumps %d, p1 %s, time %d" % [units.size(), buildings.size(),
 			", ".join(buildings.map(func(b: MapObject) -> String: return "%s %d%%" % [b.display_name(), int(b.build_progress * 100)])),
 			stumps.size(), main.players[1].resources, main.game_time]
@@ -648,18 +648,18 @@ func _scenario_orders() -> void:
 		u.queue_free()  # make room in the housing
 	await get_tree().process_frame
 	var before := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit)
-	print("queued ", GameData.stats(hq.trainable_units()[1]).name, ": ", hq.enqueue(hq.trainable_units()[1]))
+	print("queued ", GameData.stats(hq.production.trainable_units()[1]).name, ": ", hq.production.enqueue(hq.production.trainable_units()[1]))
 	await get_tree().create_timer(40.0).timeout
 	var newest: Unit = null
 	for n in main.units_root.get_children():
 		if n is Unit and n.team == 1 and n not in before:
 			newest = n
 	if newest == null:
-		print("nothing trained yet, queue ", hq.queue, " progress ", hq.train_progress)
+		print("nothing trained yet, queue ", hq.production.queue, " progress ", hq.production.progress)
 		get_tree().quit()
 		return
 	print("rally flag: ", is_instance_valid(main.selection._rally_flag), " trained unit distance to rally: ",
-			int(newest.position.distance_to(hq.rally_point)))
+			int(newest.position.distance_to(hq.production.rally_point)))
 	get_tree().quit()
 
 
@@ -670,9 +670,9 @@ func _scenario_ui() -> void:
 		if object.is_building() and object.owner_index == 1:
 			hq = object
 	main.players[1].resources.food = 5000
-	for guid in hq.trainable_units():
-		hq.enqueue(guid)
-		hq.enqueue(guid)
+	for guid in hq.production.trainable_units():
+		hq.production.enqueue(guid)
+		hq.production.enqueue(guid)
 	main.selection.select_building(hq)
 	var tree: MapObject = null
 	for object in MapObject.all_objects:
@@ -734,7 +734,7 @@ func _scenario_build() -> void:
 			main.build_controller._place(spot, false)
 			print("house site at ", spot)
 			break
-	print("queued: ", hq.enqueue(252), hq.enqueue(252))
+	print("queued: ", hq.production.enqueue(252), hq.production.enqueue(252))
 
 
 ## A finca with two fields worked by three women, and two militiamen hunting.
@@ -776,7 +776,7 @@ func _scenario_food() -> void:
 func _nearest_mine(from: Vector2) -> MapObject:
 	var best: MapObject = null
 	for object in MapObject.all_objects:
-		if object.resource == "gold" and (best == null or from.distance_to(object.position) < from.distance_to(best.position)):
+		if object.stock.resource == "gold" and (best == null or from.distance_to(object.position) < from.distance_to(best.position)):
 			best = object
 	return best
 
@@ -813,10 +813,10 @@ func _scenario_horses() -> void:
 ## A wagon empties the nearest abandoned warehouse into the main building.
 func _scenario_abandoned() -> void:
 	var hq: MapObject = main.players[1].main_building()
-	var stores := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.is_abandoned_store() and o.loot > 0)
+	var stores := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.is_abandoned_store() and o.stock.loot > 0)
 	stores.sort_custom(func(a: MapObject, b: MapObject) -> bool: return a.position.distance_to(hq.position) < b.position.distance_to(hq.position))
 	var store: MapObject = stores[0]
-	print("%d abandoned warehouses; nearest holds %d %s, %d px away" % [stores.size(), store.loot, store.loot_kind, store.position.distance_to(hq.position)])
+	print("%d abandoned warehouses; nearest holds %d %s, %d px away" % [stores.size(), store.stock.loot, store.stock.loot_kind, store.position.distance_to(hq.position)])
 	var wagon_guid: int = {"mex": 255, "usa": 455, "ind": 155, "des": 355}[main.players[1].faction]
 	main._spawn_squad(wagon_guid, 1, store.position + Vector2(0, 160), 1)
 	var wagon: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == wagon_guid)[0]
@@ -825,7 +825,7 @@ func _scenario_abandoned() -> void:
 	for k in 12:
 		await get_tree().create_timer(10.0).timeout
 		print("  t=%d wagon state %d phase %d carrying %s %d path %d at %s" % [(k + 1) * 10, wagon.state, wagon.work.phase, wagon.work.carrying, wagon.work.carried, wagon.path.size(), wagon.position.round()])
-	print("store left %d; %s %d -> %d" % [store.loot, store.loot_kind, before[store.loot_kind], main.players[1].resources[store.loot_kind]])
+	print("store left %d; %s %d -> %d" % [store.stock.loot, store.stock.loot_kind, before[store.stock.loot_kind], main.players[1].resources[store.stock.loot_kind]])
 	get_tree().quit()
 
 
@@ -903,7 +903,7 @@ func _scenario_fire() -> void:
 				a.stop()
 				a.stance = Unit.Stance.PASSIVE
 		print("t=%ds %s" % [(i + 1) * 3, houses.map(func(b: MapObject) -> String:
-				return "%d%%%s" % [int(100 * b.health / b.max_health), " burning" if b.burning > 0.0 else ""] if is_instance_valid(b) else "gone")])
+				return "%d%%%s" % [int(100 * b.health / b.max_health), " burning" if b.condition.burning > 0.0 else ""] if is_instance_valid(b) else "gone")])
 	get_tree().quit()
 
 
@@ -972,7 +972,7 @@ func _scenario_boats() -> void:
 	main.players[1].resources.wood = 5000
 	main.players[1].resources.gold = 5000
 	main.players[1].resources.food = 5000
-	print("enqueue boat: %s (%s s)" % [wharf.enqueue(boat_guid), GameData.stats(boat_guid).get("build_time")])
+	print("enqueue boat: %s (%s s)" % [wharf.production.enqueue(boat_guid), GameData.stats(boat_guid).get("build_time")])
 	var boat: Unit = null
 	for i in 120:
 		await get_tree().create_timer(1.0).timeout

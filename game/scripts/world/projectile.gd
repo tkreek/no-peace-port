@@ -102,8 +102,8 @@ func _land() -> void:
 	if _hit and is_instance_valid(_target) and _target.is_alive():
 		if is_instance_valid(_attacker):
 			_attacker.deal_damage(_target, _damage, explodes)
-			if _target is MapObject and _attacker.unit_type.guid() in MapObject.FIRE_STARTERS:
-				_target.ignite()
+			if _target is MapObject and _attacker.unit_type.guid() in BuildingCondition.FIRE_STARTERS:
+				_target.condition.ignite()
 		else:
 			_target.take_damage(_damage, null, explodes)
 	if explodes:

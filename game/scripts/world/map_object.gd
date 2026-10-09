@@ -246,6 +246,8 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 	add_child(_overlay)
 	if not _refresh_sprites():
 		return false
+	# Only buildings (training, distilling) and fields (growing) need a per-frame update.
+	set_process(is_building() or is_field())
 	var team_row := owner if type.kind == ObjectTypes.Kind.BUILDING and owner > 0 else 0
 	_body.set_instance_shader_parameter("palette_row", mini(team_row, _bob.palettes.size() - 1))
 	return true

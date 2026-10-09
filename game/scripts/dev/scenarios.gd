@@ -41,7 +41,7 @@ func _scenario_battle() -> void:
 ## The in-game menu's options panel, open.
 func _scenario_options() -> void:
 	main.hud.toggle_menu()
-	main.hud._show_options()
+	main.hud.menu.show_options()
 
 
 ## A finished weapons factory researches rifle and armour upgrades; infantry stats are checked.
@@ -95,11 +95,11 @@ func _scenario_menus() -> void:
 		building.position = ai._find_spot(type, hq.position)
 		main.units_root.add_child(building)
 		main.selection.select_building(building)
-		main.hud._command_signature = ""
-		main.hud._refresh_commands()
+		main.hud.commands.signature = ""
+		main.hud.commands.refresh()
 		await get_tree().process_frame
 		var names := []
-		for button in main.hud._commands.get_children():
+		for button in main.hud.commands.grid.get_children():
 			if not button.is_queued_for_deletion():
 				names.append(button.tooltip_text.replace("\n", " / "))
 		var queued := []
@@ -112,11 +112,11 @@ func _scenario_menus() -> void:
 			return n is Unit and n.team == 1 and (n.unit_type.anim_index("build") >= 0 if kind == "builders" else n.unit_type.is_farmer()))
 		main.selection._select(units, false)
 		for menu in ["", "basic", "expanded"]:
-			main.hud._open_build_menu(menu)
-			main.hud._refresh_commands()
+			main.hud.commands.open_build_menu(menu)
+			main.hud.commands.refresh()
 			await get_tree().process_frame
 			var names := []
-			for button in main.hud._commands.get_children():
+			for button in main.hud.commands.grid.get_children():
 				if not button.is_queued_for_deletion():
 					names.append("%s%s" % [button.tooltip_text.get_slice("\n", 0), " (off)" if button.disabled else ""])
 			print("%s %s %s (%d units): %s" % [main.players[1].faction, kind, menu, units.size(), ", ".join(names)])
@@ -619,7 +619,7 @@ func _scenario_orders() -> void:
 	var squad := main.units_root.get_children().filter(func(n: Node) -> bool:
 		return n is Unit and n.team == 1 and n.unit_type.guid() == main.FACTIONS[main.players[1].faction].army)
 	main.selection._select(squad, false)
-	main.hud.set_formation(Unit.Formation.WEDGE)
+	main.hud.commands.set_formation(Unit.Formation.WEDGE)
 	main.selection._order_move(start + Vector2(0, 200))
 	await get_tree().create_timer(6.0).timeout
 	var centre := SelectionController._centre(squad)
@@ -928,7 +928,7 @@ func _scenario_tepee() -> void:
 	main.selection._give_targeted(tepee.work_rect().get_center())
 	await get_tree().create_timer(14.0).timeout
 	print("packed %s, tepee gone %s, housing %d -> %d" % [travois.tepees.packed, not is_instance_valid(tepee), cap, main.players[1].population_cap()])
-	main.hud.unpack_tepee()
+	main.hud.commands.unpack_tepee()
 	main.build_controller._place(target, false)
 	for i in 5:
 		await get_tree().create_timer(5.0).timeout
@@ -1086,4 +1086,4 @@ func _scenario_icons() -> void:
 	main.camera.position = hq.position + Vector2(-100, 260)
 	var builders := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.anim_index("build") >= 0)
 	main.selection._select(builders, false)
-	main.hud._open_build_menu("expanded")
+	main.hud.commands.open_build_menu("expanded")

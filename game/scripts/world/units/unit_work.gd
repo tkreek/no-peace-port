@@ -8,8 +8,9 @@ enum Phase { TO_SOURCE, WORKING, TO_DROP_OFF }
 
 const WORK_SECONDS := {"wood": 4.0, "gold": 5.0, "food": 5.0}
 const HUNT_RANGE := 1500.0
-const BUTCHER_SECONDS := 2.0
-const MEAT_PER_TRIP := 30  # a hunter carries this much home per trip; carcasses last several
+## Cutting off a load takes as long as a field worker's harvest (DEFS.INI gives no rates);
+## a hunter carries his "Tragkapazität" like any gatherer, so a buffalo lasts ten trips.
+const BUTCHER_SECONDS := 5.0
 ## Robbing banks, missions and gold warehouses, and stealing transports: unit GUID -> the
 ## upgrade it needs (0 = none; the outlaws are born robbers).
 const ROBBERS := {152: 916, 155: 916, 252: 941, 255: 941, 452: 991, 455: 991, 456: 991,
@@ -114,8 +115,9 @@ func hunt(animal: Unit) -> void:
 		unit._attack_step = -1
 		unit.state = Unit.State.ATTACKING
 		unit.path.clear()
+		animal.animal.keep()
 	hunting = true
-	_work_timer = BUTCHER_SECONDS
+	_work_timer = BUTCHER_SECONDS / unit.morale() / unit.effectiveness()
 
 
 func may_hunt_horses() -> bool:
@@ -460,6 +462,7 @@ func update_building(delta: float) -> void:
 ## Walk up to the kill and gut it (the hunters' "erlegen"/"ausbeinen" animation), then
 ## carry the meat home.
 func butcher(carcass: Unit, delta: float) -> void:
+	carcass.animal.keep()
 	if unit.unit_type.anim_index("butcher") < 0:
 		_carry_meat(carcass)
 		return
@@ -480,7 +483,7 @@ func butcher(carcass: Unit, delta: float) -> void:
 
 func _carry_meat(carcass: Unit) -> void:
 	carrying = "food"
-	carried = carcass.animal.cut_meat(MEAT_PER_TRIP)
+	carried = carcass.animal.cut_meat(unit.unit_type.carry)
 	_carcass = carcass if carcass.animal.has_meat() else null
 	unit.target = null
 	hunting = false

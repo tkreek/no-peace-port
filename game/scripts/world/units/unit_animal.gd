@@ -6,7 +6,7 @@ extends UnitPart
 
 ## Food from a hunted animal, by object name prefix: buffalo, cow, horse.
 const MEAT := {"Tier_B": 150, "Tier_K": 100, "Tier_P": 60}
-const CARCASS_SECONDS := 120.0  # an animal with meat left stays this long
+const CARCASS_SECONDS := 120.0  # a carcass with meat left that nobody comes back to stays this long
 ## Cattle: cows graze up to 25 gold of value; driven alive to an animal-processing building
 ## they are paid out (the Native facility pays food as well).
 const COW_DIR := "global/gfx/animals/kuh"
@@ -86,6 +86,13 @@ func cut_meat(wanted: int) -> int:
 		hunted = true
 		unit._corpse_timer = Unit.CORPSE_SECONDS
 	return cut
+
+
+## A hunter is at work on this carcass or on his way back to it: it stays until picked clean.
+func keep() -> void:
+	if not unit.is_alive() and has_meat():
+		unit._corpse_timer = 0.0
+		unit.modulate.a = 1.0
 
 
 ## How long the body lies before it fades.

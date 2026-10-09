@@ -109,8 +109,13 @@ func _scenario_hunt() -> void:
 	var food: int = main.players[1].resources.food
 	buffalo.died.connect(func(_u: Unit) -> void:
 		print("buffalo dies: plays %s, drawn above the ground %s" % [buffalo._action, buffalo.z_index > main.terrain.z_index]))
+	var vanished_with_meat := false
 	for i in 18:
 		await get_tree().create_timer(5.0).timeout
+		if is_instance_valid(buffalo) and not buffalo.is_alive() and buffalo.animal.has_meat() and buffalo.modulate.a < 1.0:
+			vanished_with_meat = true
+		if i == 15:
+			print("carcass faded with meat left: %s" % vanished_with_meat)
 		print("t=%ds buffalo alive=%s meat_left=%d visible=%s food +%d hunters=%s" % [(i + 1) * 5, buffalo.is_alive() if is_instance_valid(buffalo) else false,
 				buffalo.animal.meat_left if is_instance_valid(buffalo) else -9, is_instance_valid(buffalo),
 				main.players[1].resources.food - food, hunters.map(func(h: Unit) -> String: return "%d/%s/%d" % [h.state, h._action, h.work.carried])])

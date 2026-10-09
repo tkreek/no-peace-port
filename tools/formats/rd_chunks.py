@@ -5,6 +5,7 @@ Then chunks: char[8] name (NUL-padded), u32 next_chunk_offset (absolute), u32 pa
 if packed: u32 unpacked_size + LZW stream (MSB-first, 9..13 bit codes, early change, 256=clear, 257=end).
 """
 import struct
+import zlib
 
 
 MAX_BITS = 13
@@ -52,7 +53,7 @@ def read_chunks(path):
         body = data[pos + 16:next_offset]
         if packed:
             size = struct.unpack_from("<I", body)[0]
-            body = lzw_decompress(body[4:], size)
+            body = lzw_decompress(body[4:], size) if packed == 1 else zlib.decompress(body[4:])
             if len(body) != size:
                 raise ValueError(f"{path}:{name}: unpacked {len(body)} of {size} bytes")
         chunks.append((name, body))

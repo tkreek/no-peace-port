@@ -4,7 +4,8 @@ extends RefCounted
 ##
 ## Header "RDCHUNK.VERSION\0", u32 version, u32 0, "RDLF", u32 ?. From 0x20, chunks:
 ## char[8] name, u32 next_chunk_offset (absolute), u32 packed,
-## then (if packed) u32 unpacked_size + LZW data, else raw data.
+## then (if packed) u32 unpacked_size + data: packed 1 = LZW (.alf, base game),
+## packed 2 = zlib (.ulf, expansion maps).
 ##
 ## Known chunks: SPIELER (players), LVL_INFO (name, size, start resources),
 ## LVMATRIX (u32 per cell: low 16 bits = 32x32 terrain atlas tile), BITARRAY,
@@ -53,8 +54,10 @@ static func from_bytes(bytes: PackedByteArray) -> AlfMap:
 		var next := bytes.decode_u32(pos + 8)
 		var packed := bytes.decode_u32(pos + 12)
 		var body := bytes.slice(pos + 16, next)
-		if packed != 0:
+		if packed == 1:
 			body = Lzw.decompress(body.slice(4), body.decode_u32(0))
+		elif packed == 2:
+			body = body.slice(4).decompress(body.decode_u32(0), FileAccess.COMPRESSION_DEFLATE)
 		if not map.chunks.has(name):
 			map.chunks[name] = body
 		if next <= pos:

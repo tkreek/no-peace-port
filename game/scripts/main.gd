@@ -49,7 +49,12 @@ func _ready() -> void:
 		_selftest()
 		return
 	var map_arg := GameData.cmdline_option("map", DEFAULT_MAP)
-	var map_path := map_arg if map_arg.is_absolute_path() else GameData.maps_dir().path_join(map_arg)
+	var map_path := map_arg
+	if not map_arg.is_absolute_path():
+		map_path = GameData.maps_dir().path_join(map_arg)
+		for candidate in GameData.map_files():
+			if candidate.get_file() == map_arg:
+				map_path = candidate
 	var map := AlfMap.load_from_file(map_path)
 	if map == null:
 		_show_message("Could not load map %s" % map_path)
@@ -395,12 +400,12 @@ func _selftest() -> void:
 	print("sounds: %d ok, %d failed %s" % [result[0], result[1].size(), result[1]])
 	var maps := 0
 	var bad := PackedStringArray()
-	for file in DirAccess.get_files_at(GameData.maps_dir()):
-		var map := AlfMap.load_from_file(GameData.maps_dir().path_join(file))
-		if map and map.columns > 0 and map.grid_size != Vector2i.ZERO:
+	for path in GameData.map_files():
+		var map := AlfMap.load_from_file(path)
+		if map and map.columns > 0 and map.grid_size != Vector2i.ZERO and not map.placements.is_empty():
 			maps += 1
 		else:
-			bad.append(file)
+			bad.append(path.get_file())
 	print("maps: %d ok, %d failed %s" % [maps, bad.size(), bad])
 	print("object types: %d" % ObjectTypes.count())
 	if GameData.cmdline_option("selftest") == "stats":

@@ -21,17 +21,37 @@ included in this repository.
    Without `--install-dir` the game looks in `../original/install/Programm` (the dev checkout layout)
    or `user://settings.cfg` `[paths] install_dir`.
 
+## Enhanced graphics (optional)
+
+The upscaled sprite set is built once from your install with Real-ESRGAN (about 2 hours on an
+RTX 4060 Ti, ~900 MB):
+
+```bash
+python3 -m venv tools/.venv && tools/.venv/bin/pip install numpy pillow
+# put the realesrgan-ncnn-vulkan release in tools/bin/realesrgan/
+tools/.venv/bin/python tools/upscale/hd_sprites.py original/install/Programm original/hd
+```
+
+The game uses `original/hd` automatically (or `--hd-dir=`, or `[paths] hd_dir` in
+`user://settings.cfg`); `--graphics=classic` forces the original pixels.
+
 ## Options (after `--`)
 
 - `--map=<file in Levels/ or absolute path>`: default `[2 Players] - close combat.alf`.
 - `--biome=steppe|wiese`: override the biome detected from the map's objects.
 - `--camera=x,y`, `--zoom=z`.
 - `--screenshot=<png> --frames=<n>`: render, save a frame and quit (used for automated checks).
+- `--scenario=battle|economy|build`, `--ai-vs-ai=1`, `--report-after=<frames>` (with `--fixed-fps 30`):
+  scripted test setups and headless stockpile reports.
+- `--selftest=1`: decode every sound and map and report.
 
 ## Controls
 
 - WASD / arrows / screen edge / middle-drag: pan. Mouse wheel: zoom.
-- Left click / drag: select. Shift adds. Right click: move in formation.
+- Left click / drag: select units; click a building to select it. Shift adds.
+- Right click: move in formation, attack a unit or building, gather from a tree or gold mine.
+- Workers: build menu in the bottom bar; left click places, right click / Esc cancels, Shift keeps placing.
+- Buildings: train units from the bottom bar (needs housing; houses and HQs provide it).
 - Ctrl+0–9: assign control group, 0–9: recall. H: halt.
 
 ## Layout
@@ -39,5 +59,10 @@ included in this repository.
 - `scripts/formats/`: readers for the original formats (RDA archives, LZW, `.alf` maps, sprites,
   palettes, `.bob` animations, the `BobListe.blf` object table). See `docs/technical/file-formats.md`.
 - `scripts/core/game_data.gd`: autoload that finds the installation and serves archive files.
-- `scripts/world/`: terrain renderer, units, map objects, camera, selection.
+- `scripts/world/`: terrain renderer, units (combat, gathering, building), map objects
+  (construction, training), navigation, camera, selection, placement.
+- `scripts/game/`: players (stockpiles, housing) and the AI opponent.
+- `scripts/ui/`: HUD, minimap, command thumbnails.
+- `data/stats.json`: unit and structure stats extracted from the manual
+  (`tools/data/extract_manual_stats.py`).
 - `shaders/`: GPU terrain compositing and team-colour palette lookup.

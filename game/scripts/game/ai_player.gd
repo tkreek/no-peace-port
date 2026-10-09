@@ -136,9 +136,12 @@ func _next_structure(buildings: Array) -> int:
 	var owned := {}
 	for b: MapObject in buildings:
 		owned[b.guid] = owned.get(b.guid, 0) + 1
-	var house := _faction_structure_named(["House", "Sleeping tepee", "Residence", "Bunkhouse"])
-	if house >= 0 and owned.get(house, 0) == 0 and _affordable(house):
+	var house := _faction_structure_named(["House", "Sleeping tepee", "Boarding house"])
+	var room := player.population_cap() - player.population() - player.queued_units()
+	if house >= 0 and room < 4 and _affordable(house):
 		return house
+	if room < 1:
+		return -1  # save up for housing first
 	var production := buildings.filter(func(b: MapObject) -> bool: return _produces_army(b.guid)).size()
 	if production >= MAX_PRODUCTION_BUILDINGS:
 		return -1

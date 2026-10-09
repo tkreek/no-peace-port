@@ -30,6 +30,7 @@ var build_controller: BuildController
 var biome := "steppe"
 var _commands := GridContainer.new()
 var _command_signature := ""
+var _population_label: Label
 var _status_sheet: RdSprite
 var _icon_sheet: RdSprite
 var _icon_material: Material
@@ -87,6 +88,16 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	_health_bar.add_theme_stylebox_override("fill", _flat(Color(0.35, 0.75, 0.2)))
 	_left.add_child(_health_bar)
 
+	var pop_icon := TextureRect.new()
+	pop_icon.texture = _atlas(_icon_sheet, 5)
+	pop_icon.material = _icon_material
+	pop_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pop_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pop_icon.tooltip_text = GameData.text(77, "Population")
+	_resources.add_child(pop_icon)
+	pop_icon.set_instance_shader_parameter("palette_row", 0)
+	_population_label = _label(18)
+	_resources.add_child(_population_label)
 	player.resources_changed.connect(_refresh_resources)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -94,6 +105,7 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 
 
 func _process(_delta: float) -> void:
+	_population_label.text = "%d / %d" % [player.population(), player.population_cap()]
 	_refresh_selection()
 	_refresh_commands()
 
@@ -136,7 +148,7 @@ func _layout() -> void:
 			child.custom_minimum_size = Vector2(22, 22) * ui_scale
 		else:
 			child.add_theme_font_size_override("font_size", int(18 * ui_scale))
-			child.custom_minimum_size.x = 64 * ui_scale
+			child.custom_minimum_size.x = (90 if child == _population_label else 64) * ui_scale
 
 	# Command buttons fill the plank area between the selection panel and the minimap.
 	var button_size := 50.0 * ui_scale

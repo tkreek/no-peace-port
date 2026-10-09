@@ -37,6 +37,36 @@ func color() -> Color:
 	return TEAM_COLORS[index] if index < TEAM_COLORS.size() else Color.WHITE
 
 
+## Living units of this player.
+func population() -> int:
+	var count := 0
+	for unit in Unit.all_units:
+		if unit.team == index and unit.is_alive():
+			count += 1
+	return count
+
+
+## Housing from completed buildings ("Residence for N units" in the manual).
+func population_cap() -> int:
+	var cap := 0
+	for object in MapObject.all_objects:
+		if object.owner_index == index and object.complete and object.is_alive():
+			cap += int(GameData.stats(object.guid).get("housing", 0))
+	return cap
+
+
+func queued_units() -> int:
+	var count := 0
+	for object in MapObject.all_objects:
+		if object.owner_index == index:
+			count += object.queue.size()
+	return count
+
+
+func has_room() -> bool:
+	return population() + queued_units() < population_cap()
+
+
 func has_building(guid: int) -> bool:
 	for object in MapObject.all_objects:
 		if object.owner_index == index and object.guid == guid and object.complete and object.is_alive():

@@ -6,7 +6,8 @@
   "cost": {
    "wood": 500
   },
-  "health": 4000
+  "health": 4000,
+  "housing": 12
  },
  "101": {
   "name": "Sleeping tepee",
@@ -15,7 +16,8 @@
   "cost": {
    "wood": 150
   },
-  "health": 500
+  "health": 500,
+  "housing": 8
  },
  "102": {
   "name": "Animal processing",
@@ -310,7 +312,8 @@
   "cost": {
    "wood": 500
   },
-  "health": 4000
+  "health": 4000,
+  "housing": 12
  },
  "201": {
   "name": "House",
@@ -319,7 +322,8 @@
   "cost": {
    "wood": 150
   },
-  "health": 900
+  "health": 900,
+  "housing": 8
  },
  "202": {
   "name": "Butcher shop",
@@ -649,7 +653,8 @@
   "cost": {
    "wood": 500
   },
-  "health": 4000
+  "health": 4000,
+  "housing": 12
  },
  "301": {
   "name": "Boarding house",
@@ -658,7 +663,8 @@
   "cost": {
    "wood": 150
   },
-  "health": 600
+  "health": 600,
+  "housing": 8
  },
  "302": {
   "name": "Butcher shop",
@@ -948,7 +954,8 @@
   "cost": {
    "wood": 500
   },
-  "health": 4000
+  "health": 4000,
+  "housing": 12
  },
  "401": {
   "name": "House",
@@ -957,7 +964,8 @@
   "cost": {
    "wood": 150
   },
-  "health": 750
+  "health": 750,
+  "housing": 8
  },
  "402": {
   "name": "Stockyard",

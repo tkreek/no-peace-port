@@ -189,7 +189,7 @@ func enqueue(unit_guid: int) -> bool:
 	var cost: Dictionary = GameData.stats(unit_guid).get("cost", {}).duplicate()
 	cost.erase("population")
 	cost.erase("horses")
-	if player == null or not player.spend(cost):
+	if player == null or not player.has_room() or not player.spend(cost):
 		return false
 	queue.append(unit_guid)
 	return true

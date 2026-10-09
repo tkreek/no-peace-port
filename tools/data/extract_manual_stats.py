@@ -125,6 +125,9 @@ def main():
                 entry["produced_at"] = next((g for n, g in
                                              {normalize(texts[x]): x for x in range(100, 450) if x in texts}.items()
                                              if n == place), f["Place of production"])
+            residence = re.search(r"Residence for\s+(\d+)\s+units", f.get("Function", ""))
+            if residence:
+                entry["housing"] = int(residence.group(1))
             if "Prerequisites" in f and f["Prerequisites"].lower() != "none":
                 entry["prerequisites"] = f["Prerequisites"]
             stats[guid] = entry

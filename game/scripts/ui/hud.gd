@@ -342,6 +342,8 @@ func _unit_detail(unit: Unit) -> String:
 		lines.append("Sight %d   Speed %d" % [unit.sight(), unit.move_speed()])
 	if unit.carried > 0:
 		lines.append("Carrying %d %s" % [unit.carried, unit.carrying])
+	if unit.is_boat():
+		lines.append("Passengers %d / %d" % [unit.passengers.size(), unit.boat_capacity()])
 	if not unit.packed_tepee.is_empty():
 		lines.append("Carrying a packed %s" % String(GameData.stats(int(unit.packed_tepee.guid)).get("name", "tepee")).to_lower())
 	if unit.is_cow():
@@ -624,7 +626,7 @@ func _refresh_commands() -> void:
 			farmers.size() > 0, building.get_instance_id() if building else 0,
 			building.complete if building else false, _build_menu, fighters.size() > 0, stances.keys(),
 			units.size() > 0, formations.keys(), selection.pending,
-			building.garrison.size() if building else 0, units.map(func(u: Unit) -> bool: return u.packed_tepee.is_empty())]
+			building.garrison.size() if building else 0, units.map(func(u: Unit) -> String: return "%s%d" % [u.packed_tepee.is_empty(), u.passengers.size()])]
 	if signature == _command_signature:
 		_update_affordability()
 		return
@@ -691,6 +693,10 @@ func _refresh_commands() -> void:
 					else "Camouflage: blend into the landscape until given another order", func() -> void:
 				for u: Unit in hiders:
 					u.conceal())
+		if units.all(func(u: Unit) -> bool: return u.is_boat()):
+			if units.any(func(u: Unit) -> bool: return not u.passengers.is_empty()):
+				_add_icon_command(_extra_icons, ICON_LEAVE, "Unload (U): put the passengers ashore at the nearest bank\n(or right-click the land where they should go)",
+						unload_boats)
 		if units.all(func(u: Unit) -> bool: return u.can_pack()):
 			_add_icon_command(_extra_icons, ICON_ENTER, "Pack tepee (G): click one of your tepees",
 					func() -> void: selection.begin_targeting("pack"), selection.pending == "pack")
@@ -750,6 +756,12 @@ func unpack_tepee() -> void:
 			return
 
 
+func unload_boats() -> void:
+	for u: Unit in selection.selection:
+		if is_instance_valid(u) and u.is_boat():
+			u.unload_at(u.position)
+
+
 func _all_travois() -> bool:
 	var units := selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
 	return not units.is_empty() and units.all(func(u: Unit) -> bool: return u.can_pack())
@@ -804,6 +816,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		var building := selection.selected_building
 		if is_instance_valid(building) and building.owner_index == player.index:
 			building.demolish()
+	elif key == KEY_U and selection.selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_boat()):
+		unload_boats()
 	elif key == KEY_G and _all_travois():
 		selection.begin_targeting("pack")
 	elif key == KEY_L and _all_travois():
@@ -1232,6 +1246,8 @@ func _unavailable_reason(guid: int, cost: Dictionary) -> String:
 		return "Build a %s first (each allows %d fields)" % [store, MapObject.FIELDS_PER_STORE] if store \
 				else "Needs a food store"
 	var stats := GameData.stats(guid)
+	if guid in MapObject.SHIPYARDS and not NavGrid.current.has_water:
+		return "Needs water (this map has none)"
 	if guid == MapObject.HORSE_GUID and int(player.resources.get("horses", 0)) + player.queued_horses() >= player.horse_capacity():
 		return "No room for more horses (%d per corral, hacienda or ranch)" % MapObject.HORSES_PER_BUILDING
 	if stats.get("kind") == "upgrade" and not player.can_research(guid):

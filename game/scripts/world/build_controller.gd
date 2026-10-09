@@ -69,6 +69,8 @@ func can_place(at: Vector2) -> bool:
 			return false
 	if GameData.guid_for_type(placing_type.id) == MapObject.FIELD_GUID and MapObject.field_allowance(player.index) <= 0:
 		return false
+	if GameData.guid_for_type(placing_type.id) in MapObject.SHIPYARDS and not MapObject.by_water(placing_type, at):
+		return false
 	return _unpacker != null or player.can_afford(_cost())
 
 

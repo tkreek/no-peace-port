@@ -54,6 +54,24 @@ const HORSES_PER_BUILDING := 5
 const GOLD_MINE_GUID := 700  # selection sound "sound goldmine"
 const FIELDS_PER_STORE := 5
 const DISTILLERY_GUID := 308
+## Wharves and the boathouse launch boats, so they go up at the water's edge.
+const SHIPYARDS := [218, 418, 315]
+const SHORE_REACH := 3  # cells of water at most this far from the footprint
+
+
+## Whether a footprint of `type` at `at` touches water (for shipyards).
+static func by_water(type: ObjectTypes.ObjectType, at: Vector2) -> bool:
+	var nav := NavGrid.current
+	if nav == null or not nav.has_water:
+		return false
+	var rect := footprint_rect_for(type, at).grow(SHORE_REACH * NavGrid.CELL)
+	var low := nav.cell_of(rect.position)
+	var high := nav.cell_of(rect.end)
+	for y in range(low.y, high.y + 1):
+		for x in range(low.x, high.x + 1):
+			if nav.is_deep_water(Vector2i(x, y)):
+				return true
+	return false
 
 ## Trees: standing, felled (a trunk lying on the ground while its wood is cut up) and
 ## removed (a stump). The tree bobs hold these as frames 12 and 13 (anim pairs 24/25, 26/27).

@@ -56,7 +56,8 @@ static func save(main: Node, path := QUICK) -> bool:
 				"health": unit.health, "stance": unit.stance, "formation": unit.formation, "carried": unit.carried,
 				"carrying": unit.carrying, "cattle": unit.cattle_value, "magic": unit.magic_energy,
 				"gather": _key(source) if is_instance_valid(source) and source.resource != "" else "",
-				"gather_resource": unit.gather_resource, "packed_tepee": unit.packed_tepee})
+				"gather_resource": unit.gather_resource, "packed_tepee": unit.packed_tepee,
+				"vessel": unit_ids[unit.vessel] if unit.state == Unit.State.QUARTERED and unit_ids.has(unit.vessel) else -1})
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		return false
@@ -160,6 +161,11 @@ static func restore(main: Node, data: Dictionary) -> void:
 		units[int(entry.id)] = unit
 		if entry.gather != "" and by_key.has(entry.gather):
 			unit.gather.call_deferred(by_key[entry.gather])
+	for entry in data.units:
+		var boat: Unit = units.get(int(entry.get("vessel", -1)))
+		if boat and units.has(int(entry.id)):
+			units[int(entry.id)].vessel = boat
+			boat.take_aboard(units[int(entry.id)])
 	for pair in garrisons:
 		for id in pair[1]:
 			if units.has(int(id)):

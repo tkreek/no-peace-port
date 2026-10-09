@@ -790,6 +790,182 @@ func _update_pack(delta: float) -> void:
 		_unpack_site = null
 
 
+## Water (manual 5): riverboats and rafts keep to the water, the canoe "can move across
+## water and land", and Native infantry and travois swim once Swim is researched. Boats
+## carry units across; those aboard shoot from the deck. When a boat sinks, its passengers
+## drown unless they can swim.
+const BOATS := [254, 454, 364]  # Mexican and American riverboats, the outlaws' raft
+const CANOE := 154
+const SWIM_UPGRADES := [914, 995]  # the base game's and the expansion's Swim
+const BOAT_CAPACITY := {254: 10, 454: 10, 364: 8}  # the raft "transports up to 8 units"
+const BOARD_REACH := 72.0
+const LANDING_REACH := 7  # cells from the boat to dry land when unloading
+var passengers: Array[Unit] = []
+var vessel: Unit  ## the boat this unit is heading for or sitting in
+var _unload_at := Vector2.INF  ## where the passengers go once the boat reaches the shore
+var _deck_scan := 0.0
+var _swim_sound := 0
+
+
+func is_boat() -> bool:
+	return unit_type.guid() in BOATS
+
+
+func boat_capacity() -> int:
+	return BOAT_CAPACITY.get(unit_type.guid(), 0)
+
+
+func can_swim() -> bool:
+	if team <= 0 or unit_type.mounted or unit_type.anim_index("swim") < 0:
+		return false
+	var player: Player = Player.by_index.get(team)
+	return player != null and SWIM_UPGRADES.any(func(u: int) -> bool: return player.researched.has(u))
+
+
+func nav_layer() -> NavGrid.Layer:
+	if is_boat():
+		return NavGrid.Layer.WATER
+	if unit_type.guid() == CANOE or can_swim():
+		return NavGrid.Layer.AMPHIBIOUS
+	return NavGrid.Layer.GROUND
+
+
+func on_water() -> bool:
+	return NavGrid.current != null and NavGrid.current.is_deep_water(NavGrid.current.cell_of(position))
+
+
+## Walk to the shore by the boat and climb aboard (the boat comes to meet them, see
+## SelectionController.order_board).
+func board(boat: Unit) -> void:
+	if not is_alive() or boat == null or not boat.is_boat() or boat.team != team or is_boat() \
+			or boat.passengers.size() >= boat.boat_capacity():
+		return
+	_clear_orders()
+	vessel = boat
+	state = State.MOVING
+	path = _find_path(boat.position)
+
+
+func _update_board() -> void:
+	if not is_instance_valid(vessel) or not vessel.is_alive() or vessel.passengers.size() >= vessel.boat_capacity():
+		vessel = null
+		if state == State.MOVING and path.is_empty():
+			state = State.IDLE
+		return
+	if position.distance_to(vessel.position) <= BOARD_REACH:
+		vessel.take_aboard(self)
+		return
+	var now := Time.get_ticks_msec()
+	if path.is_empty() or now - _last_repath > REPATH_MS * 2:
+		_last_repath = now
+		path = _find_path(vessel.position)
+	state = State.MOVING if not path.is_empty() else State.IDLE
+
+
+func take_aboard(unit: Unit) -> bool:
+	if passengers.size() >= boat_capacity() or unit.team != team:
+		unit.vessel = null
+		return false
+	passengers.append(unit)
+	unit.path.clear()
+	unit.target = null
+	unit.state = State.QUARTERED
+	unit.inside = true
+	unit.selected = false
+	unit.position = position
+	return true
+
+
+## Sail to the shore nearest `point` and put the passengers ashore there.
+func unload_at(point: Vector2) -> void:
+	if not is_boat() or passengers.is_empty():
+		return
+	var nav := NavGrid.current
+	var landing := point
+	if nav:
+		var cell := nav.nearest_passable(nav.cell_of(point), 40, NavGrid.Layer.WATER)
+		if cell.x >= 0:
+			landing = nav.center_of(cell)
+	move_to(landing)
+	_unload_at = point
+	if path.is_empty():
+		_disembark()
+
+
+## Put everyone ashore on the dry land nearest the boat; false when there is none close.
+func _disembark() -> bool:
+	var nav := NavGrid.current
+	if nav == null:
+		return false
+	var land := nav.nearest_passable(nav.cell_of(position), LANDING_REACH, NavGrid.Layer.GROUND)
+	if land.x < 0:
+		return false
+	var goal := _unload_at
+	_unload_at = Vector2.INF
+	var i := 0
+	for unit in passengers.duplicate():
+		passengers.erase(unit)
+		if not is_instance_valid(unit) or not unit.is_alive():
+			continue
+		var spot := nav.center_of(nav.nearest_walkable(land + Vector2i(i % 3 - 1, i / 3), 6))
+		unit.vessel = null
+		unit.leave_quarters(spot)
+		if goal != Vector2.INF and goal.distance_to(spot) > 40.0:
+			unit.move_to(goal + Vector2((i % 3 - 1) * 26, (i / 3) * 24))
+		i += 1
+	return true
+
+
+func _update_boat(delta: float) -> void:
+	for unit in passengers.duplicate():
+		if not is_instance_valid(unit):
+			passengers.erase(unit)
+		else:
+			unit.position = position
+	if _unload_at != Vector2.INF and state == State.IDLE and not _disembark():
+		# No dry land at hand: put in at the nearest shore instead.
+		var nav := NavGrid.current
+		var land := nav.nearest_passable(nav.cell_of(position), 40, NavGrid.Layer.GROUND)
+		var water := nav.nearest_passable(land, 8, NavGrid.Layer.WATER) if land.x >= 0 else Vector2i(-1, -1)
+		var goal := _unload_at
+		if water.x >= 0 and nav.center_of(water).distance_to(position) > 8.0:
+			move_to(nav.center_of(water))
+			_unload_at = goal
+		else:
+			_unload_at = Vector2.INF
+	# Those aboard shoot from the deck at the nearest enemy each can reach.
+	_deck_scan -= delta
+	if _deck_scan > 0.0 or passengers.is_empty():
+		return
+	_deck_scan = 0.25
+	for unit in passengers:
+		if not unit.unit_type.ranged or unit.unit_type.attack_anims.is_empty() or not unit.ready_to_fire():
+			continue
+		var best: Unit = null
+		var best_distance := unit.attack_range()
+		for other in all_units:
+			if other.is_alive() and not other.inside and is_enemy_of(other):
+				var d := position.distance_to(other.position)
+				if d < best_distance:
+					best = other
+					best_distance = d
+		if best:
+			unit.fire_from_quarters(best, position)
+
+
+## The boat goes down: swimmers make for the shore, the rest drown.
+func _sink() -> void:
+	for unit in passengers:
+		if not is_instance_valid(unit) or not unit.is_alive():
+			continue
+		unit.vessel = null
+		unit.leave_quarters(position + Vector2(randf_range(-16, 16), randf_range(-10, 10)))
+		if not unit.can_swim():
+			unit.health = 0.0
+			unit._die()
+	passengers.clear()
+
+
 ## Native Americans heal over time with herb blends; outlaws once Self-healing is researched.
 const SELF_HEALING_UPGRADE := 957
 const SELF_HEAL_PER_SECOND := 0.6
@@ -929,6 +1105,9 @@ func _clear_orders() -> void:
 	uncover()
 	_mount_target = null
 	_pack_target = null
+	_unload_at = Vector2.INF
+	if state != State.QUARTERED:
+		vessel = null
 	if is_instance_valid(_unpack_site) and not _unpack_site.complete:
 		_unpack_site.vanish()  # the tepee stays on the travois
 	_unpack_site = null
@@ -1152,6 +1331,12 @@ func _process(delta: float) -> void:
 		_update_steal(delta)
 	if (_pack_target != null or _unpack_site != null) and (state == State.IDLE or state == State.MOVING):
 		_update_pack(delta)
+	if vessel != null and (state == State.IDLE or state == State.MOVING):
+		_update_board()
+		if state == State.QUARTERED:
+			return
+	if not passengers.is_empty() or _unload_at != Vector2.INF:
+		_update_boat(delta)
 	if heal_target != null and (state == State.IDLE or state == State.MOVING):
 		_update_heal(delta)
 		_advance(delta)
@@ -1389,6 +1574,8 @@ func deal_damage(victim: Node2D, damage: float, horse_too := false) -> void:
 
 
 func _die() -> void:
+	if not passengers.is_empty():
+		_sink()
 	state = State.DEAD
 	target = null
 	path.clear()
@@ -1767,7 +1954,7 @@ func _nearest_enemy(radius: float) -> Unit:
 
 func _find_path(destination: Vector2) -> PackedVector2Array:
 	if NavGrid.current:
-		return NavGrid.current.find_path(position, destination)
+		return NavGrid.current.find_path(position, destination, nav_layer() if NavGrid.current.has_water else NavGrid.Layer.GROUND)
 	return PackedVector2Array([destination])
 
 
@@ -1796,7 +1983,7 @@ func _separate(delta: float) -> void:
 			push += offset / distance * (SEPARATION_RADIUS - distance)
 	if push != Vector2.ZERO:
 		var next := position + push.limit_length(20.0) * delta * 3.0
-		if NavGrid.current == null or NavGrid.current.is_walkable(NavGrid.current.cell_of(next)):
+		if NavGrid.current == null or NavGrid.current.is_walkable(NavGrid.current.cell_of(next), nav_layer()):
 			position = next
 
 
@@ -1807,7 +1994,16 @@ func face(vector: Vector2) -> void:
 
 # ------------------------------------------------------------------ animation
 
+## On deep water swimmers swim and the canoe paddles (its land sheets show it carried).
+const WATER_ACTIONS := {"walk": ["swim", "paddle"], "idle": ["swim", "idle_water"], "die": ["die_water"]}
+
+
 func play(action: String) -> void:
+	if WATER_ACTIONS.has(action) and NavGrid.current and NavGrid.current.has_water and on_water():
+		for wet in WATER_ACTIONS[action]:
+			if unit_type.anim_index(wet) >= 0:
+				action = wet
+				break
 	if action == _action:
 		return
 	var index := unit_type.anim_index(action)

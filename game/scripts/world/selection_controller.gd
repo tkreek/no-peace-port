@@ -165,6 +165,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				_dragging = false
 				queue_redraw()
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and not selection.is_empty():
+			if _water_order(world):
+				return
 			var enemy: Node2D = _unit_at(world, false)
 			if enemy == null:
 				enemy = _enemy_building_at(world)
@@ -245,6 +247,49 @@ func _unhandled_input(event: InputEvent) -> void:
 					camera.position = _centre(members)
 		elif event.keycode == KEY_PERIOD:
 			_select_idle_worker()
+
+
+## Boats: right-click one of ours with land units selected to board it; a loaded boat
+## right-clicked onto land sails to the shore there and puts its passengers ashore.
+func _water_order(world: Vector2) -> bool:
+	var units := selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+	var boat := _unit_at(world)
+	var walkers := units.filter(func(u: Unit) -> bool: return not u.is_boat() and u.unit_type.guid() != Unit.CANOE)
+	if boat and boat.is_boat() and not walkers.is_empty():
+		order_board(boat, walkers)
+		return true
+	var loaded := units.filter(func(u: Unit) -> bool: return u.is_boat() and not u.passengers.is_empty())
+	var nav := NavGrid.current
+	if not loaded.is_empty() and nav and nav.is_walkable(nav.cell_of(world)) and not nav.is_water(nav.cell_of(world)):
+		for u: Unit in loaded:
+			u.unload_at(world)
+		for u: Unit in units:
+			if u not in loaded:
+				u.move_to(world)
+		OrderMarker.spawn(units_root, world, player_team)
+		Sound.play_event(loaded[0].unit_type.guid(), Sound.Event.ORDER)
+		return true
+	return false
+
+
+## The units walk to the shore by the boat and climb aboard; the boat, if idle, comes to the
+## water's edge nearest them.
+func order_board(boat: Unit, walkers: Array) -> void:
+	var room := boat.boat_capacity() - boat.passengers.size()
+	if room <= 0:
+		Sound.play_sound(80)
+		return
+	boat.flash(Color(0.5, 0.9, 1.0))
+	Sound.play_event(walkers[0].unit_type.guid(), Sound.Event.ORDER)
+	var nav := NavGrid.current
+	if nav and boat.state == Unit.State.IDLE:
+		var centre := _centre(walkers)
+		var shore := nav.nearest_passable(nav.cell_of(centre), 40, NavGrid.Layer.WATER)
+		if shore.x >= 0 and nav.center_of(shore).distance_to(boat.position) > Unit.BOARD_REACH:
+			boat.move_to(nav.center_of(shore))
+	walkers.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.distance_to(boat.position) < b.position.distance_to(boat.position))
+	for unit: Unit in walkers.slice(0, room):
+		unit.board(boat)
 
 
 func _draw() -> void:

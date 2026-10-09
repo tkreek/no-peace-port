@@ -25,6 +25,10 @@ const ACTION_STEMS := {
 	"butcher": ["erlegen", "ausbeinen"],
 	"heal": ["heilen", "tanzen"],
 	"hide": ["tarnen", "einbuddeln"],
+	"swim": ["swim"],
+	"paddle": ["paddeln"],
+	"idle_water": ["stehen_wasser"],
+	"die_water": ["destroy_wasser"],
 }
 ## Projectile sheets in a unit's folder (arrows, knives, tomahawks, cannonballs, dynamite).
 const PROJECTILE_STEMS := ["pfeil", "messer", "tomahawk", "kugel", "dynamit"]

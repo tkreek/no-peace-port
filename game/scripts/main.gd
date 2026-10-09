@@ -284,12 +284,20 @@ func _on_unit_trained(building: MapObject, unit_guid: int) -> void:
 	var rect := building.footprint_rect()
 	var exit := Vector2(rect.get_center().x, rect.end.y + 12)
 	var cell := nav.nearest_walkable(nav.cell_of(exit))
+	if unit_guid in Unit.BOATS:
+		# Boats are launched onto the water by the wharf or boathouse.
+		var water := nav.nearest_passable(nav.cell_of(rect.get_center()), 30, NavGrid.Layer.WATER)
+		if water.x < 0:
+			return
+		cell = water
 	var unit := Unit.new()
 	unit.position = (Vector2(cell) + Vector2(0.5, 0.5)) * NavGrid.CELL
 	units_root.add_child(unit)
 	unit.setup(unit_type, building.owner_index)
 	if building.rally_point != Vector2.INF:
 		unit.move_to(building.rally_point + Vector2(randf_range(-24, 24), randf_range(-16, 16)))
+	elif unit.is_boat():
+		pass
 	else:
 		unit.move_to(unit.position + Vector2(randf_range(-40, 40), 50))
 

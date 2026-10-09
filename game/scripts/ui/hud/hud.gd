@@ -1,15 +1,22 @@
 class_name Hud
 extends CanvasLayer
-## In-game interface built from the original wooden status bar, laid out for widescreen:
-## the selection panel on the left (SelectionPanel), the command buttons on the planks in
-## the middle (CommandPanel), the minimap panel on the right and the resource strip along
-## the top. Scales with the window height and the interface-size setting. Esc opens the
-## game menu (GameMenu).
+## In-game interface built from the original wooden status bar, as the original lays it out
+## at high resolutions: the bar's two boards at the bottom left, the selection on the
+## nailed board (SelectionPanel) and the command buttons on the long one (CommandPanel),
+## the minimap panel at the bottom right, the map open in between, and a strip with the
+## stockpiles at the top left. Scales with the window height and the interface-size
+## setting. Esc opens the game menu (GameMenu).
 
 const STATUS_SHEET := "interface/hud/bar/sheet_1"
 const MINIMAP_PANEL := "interface/hud/bar/bar_right.png"
 const MINIMAP_HOLE := Rect2(83, 15, 164, 160)  # magenta window in leisterechts.pic
 const BAR_HEIGHT := 167.0
+## The status bar's boards (original px): the nailed one for the selection, then the long
+## one for the commands.
+const SELECTION_BOARD := Rect2(0, 0, 186, 167)
+const COMMAND_BOARD := Rect2(186, 0, 376, 167)
+## Bar height relative to a 1080-line screen (the original's bar takes about a seventh of it).
+const SIZE := 1.0
 const MAP_MODE_ICONS := [13, 15, 17]  # KleineIcons: landscape, field, armed men
 const MAP_MODE_NAMES := ["Regular map (Alt+N)", "Economic map (Alt+R)", "Military map (Alt+C)"]
 const ICON_IDLE := 19  # KleineIcons: a lone cowboy
@@ -30,9 +37,6 @@ var selected: SelectionPanel
 var menu := GameMenu.new(self)
 
 var _left := TextureRect.new()
-## The plank between the panels and the top bar: one board stretched along its grain
-## (the original 800x600 bar had room for exactly one), its nailed end kept as is.
-var _middle := NinePatchRect.new()
 var _right := TextureRect.new()
 var _top := NinePatchRect.new()
 var _resources := HBoxContainer.new()
@@ -61,13 +65,12 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	for panel: TextureRect in [_left, _right]:
 		panel.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		panel.stretch_mode = TextureRect.STRETCH_SCALE
-	for panel: Control in [_middle, _left, _right, _top]:
+	for panel: Control in [_left, _right, _top]:
 		panel.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		panel.mouse_filter = Control.MOUSE_FILTER_STOP
 		root.add_child(panel)
-	for plank: NinePatchRect in [_middle, _top]:
-		plank.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
-		plank.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+	_top.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+	_top.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 	_right.texture = _minimap_panel_texture()
 	_setup_minimap(map, camera, objects, terrain_colors)
 	_setup_resources()
@@ -153,35 +156,36 @@ func warn_population_limit() -> void:
 
 ## Screen area covered by the HUD (for camera bounds and clicks).
 func blocks_point(screen_point: Vector2) -> bool:
-	for panel: Control in [_left, _middle, _right, _top]:
+	for panel: Control in [_left, _right, _top]:
 		if panel.get_global_rect().has_point(screen_point):
 			return true
 	return false
 
 
-## Where the command buttons go: the middle plank.
+## Where the command buttons go: the long board.
 func command_area() -> Rect2:
-	return Rect2(_middle.position, _middle.size)
+	return Rect2(_left.position + COMMAND_BOARD.position * ui_scale, COMMAND_BOARD.size * ui_scale)
+
+
+## Where the selection shows: the nailed board.
+func selection_area() -> Rect2:
+	return Rect2(SELECTION_BOARD.position * ui_scale, SELECTION_BOARD.size * ui_scale)
 
 
 func _layout() -> void:
 	var view := get_viewport().get_visible_rect().size
 	_scale_setting = Settings.value("ui_scale")
-	ui_scale = clampf(minf(view.y / 1080.0, view.x / 1920.0) * 1.15 * _scale_setting, 0.6, 3.0)
+	ui_scale = clampf(minf(view.y / 1080.0, view.x / 1920.0) * SIZE * _scale_setting, 0.5, 3.0)
 	var bar_h := BAR_HEIGHT * ui_scale
 	var left_size := HudStyle.frame_size(_status_sheet, 0) * ui_scale
 	_left.texture = _status_frame(0, 1.0)
-	_middle.texture = _status_frame(1, ui_scale)
 	_top.texture = _status_frame(1, ui_scale)
-	_middle.patch_margin_left = int(30 * ui_scale)  # the nailed end
 	_top.patch_margin_left = 0
 	var right_size := Vector2(256, 184) * ui_scale
 	_left.position = Vector2(0, view.y - bar_h)
 	_left.size = left_size
 	_right.position = view - right_size
 	_right.size = right_size
-	_middle.position = Vector2(left_size.x, view.y - bar_h)
-	_middle.size = Vector2(maxf(0.0, view.x - left_size.x - right_size.x), bar_h)
 	minimap.position = _right.position + MINIMAP_HOLE.position * ui_scale
 	minimap.size = MINIMAP_HOLE.size * ui_scale
 	for i in 2:
@@ -190,11 +194,9 @@ func _layout() -> void:
 		button.position = _right.position + Vector2(22, 34 + i * 62) * ui_scale
 
 	var top_h := 30.0 * ui_scale
-	_top.position = Vector2.ZERO
-	_top.size = Vector2(view.x, top_h)
 	_top.region_rect = Rect2(Vector2.ZERO, Vector2(_top.texture.get_width(), minf(top_h, _top.texture.get_height())))
 	_resources.position = Vector2(12, 3) * ui_scale
-	_resources.size = Vector2(view.x - 24 * ui_scale, top_h - 6 * ui_scale)
+	_resources.size = Vector2(0, top_h - 6 * ui_scale)
 	_resources.add_theme_constant_override("separation", int(8 * ui_scale))
 	for child in _resources.get_children():
 		if child is TextureRect:
@@ -209,6 +211,10 @@ func _layout() -> void:
 			elif child == _resource_labels.get("horses"):
 				width = 70
 			child.custom_minimum_size.x = width * ui_scale
+	# The strip is only as long as the stockpiles need.
+	_resources.reset_size()
+	_top.position = Vector2.ZERO
+	_top.size = Vector2(minf(view.x, _resources.get_combined_minimum_size().x + 30 * ui_scale), top_h)
 	commands.layout(command_area())
 	selected.layout()
 

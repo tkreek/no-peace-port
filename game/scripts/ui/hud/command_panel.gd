@@ -63,15 +63,26 @@ func _init(owner: Hud, parent: Control) -> void:
 
 
 ## The buttons fill the plank `area` between the selection panel and the minimap.
+## Fill the board with the buttons: as large as the original's while they fit in its rows,
+## smaller for long lists (the build menus).
 func layout(area: Rect2) -> void:
 	var scale := hud.ui_scale
-	var button_size := 50.0 * scale
 	var spacing := 4.0 * scale
-	grid.position = area.position + Vector2(10, 14) * scale
-	grid.columns = maxi(1, int((area.size.x - 20 * scale + spacing) / (button_size + spacing)))
+	var inner := Rect2(area.position + Vector2(10, 14) * scale, area.size - Vector2(18, 24) * scale)
+	var buttons := grid.get_children().filter(func(c: Node) -> bool: return not c.is_queued_for_deletion())
+	var button_size := 0.0
+	var columns := 1
+	for candidate in [50.0, 44.0, 38.0, 32.0]:
+		button_size = candidate * scale
+		columns = maxi(1, int((inner.size.x + spacing) / (button_size + spacing)))
+		var rows := maxi(1, int((inner.size.y + spacing) / (button_size + spacing)))
+		if columns * rows >= buttons.size():
+			break
+	grid.position = inner.position
+	grid.columns = columns
 	grid.add_theme_constant_override("h_separation", int(spacing))
 	grid.add_theme_constant_override("v_separation", int(spacing))
-	for button in grid.get_children():
+	for button: Control in buttons:
 		button.custom_minimum_size = Vector2(button_size, button_size)
 
 

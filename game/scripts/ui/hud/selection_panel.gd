@@ -7,10 +7,10 @@ extends RefCounted
 
 const TREE_PORTRAIT := "portraits/other/z_04_tree.png"
 const MINE_PORTRAIT := "portraits/other/z_05_gold_mine.png"
-const PORTRAIT_SIZE := 72.0
+const PORTRAIT_SIZE := 56.0
 const CARD_SIZE := 44.0
 const CARD_STEP := 15.0  # queued units overlap like a hand of cards
-const GROUP_ICON := 34.0
+const GROUP_ICON := 30.0
 const STANCE_NAMES := {Unit.Stance.AGGRESSIVE: "Act aggressively", Unit.Stance.DEFENSIVE: "Act defensively",
 		Unit.Stance.HOLD: "Hold ground", Unit.Stance.PASSIVE: "Passive"}
 ## Status icons (HudStyle.STATUS_ICONS) for the stats, as in the original status menu.
@@ -27,7 +27,7 @@ var hud: Hud
 var _panel: Control  # the left plank everything sits on
 var _title := HudStyle.label(22)
 var _info := VBoxContainer.new()  # the stat icons, then any further detail as text
-var _stats := HFlowContainer.new()
+var _stats := GridContainer.new()  # two stats a row, as in the original
 var _stats_signature := ""
 var _detail := HudStyle.label(16)
 var _health_bar := HudStyle.progress_bar(Color(0.35, 0.75, 0.2))
@@ -46,6 +46,7 @@ func _init(owner: Hud, panel: Control) -> void:
 	for item: Control in [_title, _info, _health_bar]:
 		panel.add_child(item)
 	_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_stats.columns = 2
 	_info.add_child(_stats)
 	_info.add_child(_detail)
 	_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -58,36 +59,44 @@ func _init(owner: Hud, panel: Control) -> void:
 		panel.add_child(box)
 
 
+## Everything stays on the bar's nailed board (Hud.selection_area): the name and energy at
+## the top, the portrait in the top right corner, the stat icons below; a building's queue
+## and a group's portraits in the lower part.
 func layout() -> void:
 	var scale := hud.ui_scale
-	var pad := Vector2(28, 22) * scale
-	_portrait.position = pad + Vector2(0, 4) * scale
+	var area := hud.selection_area()
 	_portrait.size = Vector2(PORTRAIT_SIZE, PORTRAIT_SIZE) * scale
+	_portrait.position = area.position + Vector2(area.size.x - (PORTRAIT_SIZE + 10) * scale, 14 * scale)
 	_layout_text(_portrait.texture != null)
-	_title.add_theme_font_size_override("font_size", int(22 * scale))
-	_detail.add_theme_font_size_override("font_size", int(13 * scale))
+	_title.add_theme_font_size_override("font_size", int(17 * scale))
+	_detail.add_theme_font_size_override("font_size", int(12 * scale))
 	_detail.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info.add_theme_constant_override("separation", int(2 * scale))
-	_stats.add_theme_constant_override("h_separation", int(12 * scale))
-	_stats.add_theme_constant_override("v_separation", int(1 * scale))
+	_stats.add_theme_constant_override("h_separation", int(8 * scale))
+	_stats.add_theme_constant_override("v_separation", int(0 * scale))
 	_stats_signature = ""
-	_group_box.position = pad + Vector2(0, 2) * scale
+	_group_box.position = area.position + Vector2(10, 14) * scale
 	_queue_signature = ""
 	_group_signature = ""
 
 
-## Title, energy bar and details sit beside the portrait when there is one.
+## Name, energy bar and stats fill the board left of the portrait.
 func _layout_text(with_portrait: bool) -> void:
 	var scale := hud.ui_scale
-	var pad := Vector2(28, 22) * scale
-	var x := (PORTRAIT_SIZE + 10) * scale if with_portrait else 0.0
+	var area := hud.selection_area()
+	var pad := Vector2(10, 12) * scale
+	var width := area.size.x - pad.x * 2 - ((PORTRAIT_SIZE + 6) * scale if with_portrait else 0.0)
 	_portrait.visible = with_portrait
-	_title.position = pad + Vector2(x, 0)
-	_health_bar.position = pad + Vector2(x, 34 * scale)
-	_health_bar.size = Vector2(maxf(80 * scale, _panel.size.x - pad.x * 2 - x - 20 * scale), 8 * scale)
-	_info.position = pad + Vector2(x, 44 * scale)
-	_info.size = Vector2(maxf(80 * scale, _panel.size.x - pad.x * 2 - x - 20 * scale), 0)
-	_queue_box.position = pad + Vector2(0, 86) * scale
+	_title.position = area.position + pad
+	_title.size.x = width
+	_title.clip_text = true
+	_health_bar.position = area.position + pad + Vector2(0, 23 * scale)
+	_health_bar.size = Vector2(width, 5 * scale)
+	_info.position = area.position + pad + Vector2(0, 32 * scale)
+	_info.size = Vector2(width, 0)
+	_stats.custom_minimum_size.x = width
+	_queue_box.position = area.position + Vector2(10, 98) * scale
 
 
 func refresh() -> void:
@@ -136,8 +145,10 @@ func _unit_stats(unit: Unit) -> Array:
 	if not unit.unit_type.attack_anims.is_empty():
 		var bonus := int(unit.bonus("attack"))
 		var attack := "%d" % unit.unit_type.damage + (" +%d" % bonus if bonus > 0 else "")
-		var tip := "Attack force%s\nDamage per blow now %d (morale and experience included)" % [
-				" (+%d from upgrades)" % bonus if bonus > 0 else "", unit.attack_damage()]
+		var weapon := "Range %d" % unit.attack_range() if unit.unit_type.ranged else "Melee"
+		var tip := "Attack force%s\nDamage per blow now %d (morale and experience included)\n%s · reload %.1f s · speed %d" % [
+				" (+%d from upgrades)" % bonus if bonus > 0 else "", unit.attack_damage(), weapon,
+				unit.unit_type.reload_ms / 1000.0, unit.move_speed()]
 		stats.append([ICON_RIFLE if unit.unit_type.ranged else ICON_FIST, attack, tip])
 	if unit.team > 0:
 		stats.append([ICON_MORALE, "%d%%" % roundi(unit.morale() * 100), "Morale"])
@@ -152,13 +163,10 @@ func _unit_stats(unit: Unit) -> Array:
 	return stats
 
 
-## What the icons don't say: the weapon's reach and pace, speed and stance, special states.
+## What the icons don't say: special states (the weapon's reach and pace are in the attack
+## icon's tooltip, the stance on the command buttons).
 func _unit_detail(unit: Unit) -> String:
 	var lines := PackedStringArray()
-	if not unit.unit_type.attack_anims.is_empty():
-		var weapon := "Range %d" % unit.attack_range() if unit.unit_type.ranged else "Melee"
-		lines.append("%s · reload %.1f s · speed %d\n%s" % [weapon, unit.unit_type.reload_ms / 1000.0,
-				unit.move_speed(), STANCE_NAMES[unit.stance]])
 	if unit.work.carried > 0 and not Player.RESOURCES.has(unit.work.carrying):
 		lines.append("Carrying %d %s" % [unit.work.carried, unit.work.carrying])
 	if not unit.tepees.packed.is_empty():
@@ -196,9 +204,9 @@ func _show_stats(stats: Array) -> void:
 			var pair := HBoxContainer.new()
 			pair.add_theme_constant_override("separation", int(3 * scale))
 			var icon := HudStyle.status_icon(entry[0])
-			icon.custom_minimum_size = Vector2(18, 18) * scale
+			icon.custom_minimum_size = Vector2(15, 15) * scale
 			pair.add_child(icon)
-			var value := HudStyle.label(int(14 * scale))
+			var value := HudStyle.label(int(13 * scale))
 			value.name = "Value"
 			pair.add_child(value)
 			_stats.add_child(pair)
@@ -320,7 +328,7 @@ func _refresh_group(units: Array) -> void:
 		for child in _group_box.get_children():
 			child.queue_free()
 		var size := GROUP_ICON * scale
-		var columns := maxi(1, int((_panel.size.x - 50 * scale) / (size + 2)))
+		var columns := maxi(1, int((hud.selection_area().size.x - 20 * scale) / (size + 2)))
 		for i in units.size():
 			var unit: Unit = units[i]
 			var card := _card(unit.unit_type.guid(), size, unit.unit_type.type_id)

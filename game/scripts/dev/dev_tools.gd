@@ -81,7 +81,9 @@ func screenshot(path: String) -> void:
 	Unit.debug_paths = GameData.cmdline_option("debug-paths") != ""
 	if GameData.cmdline_option("scenario") == "":
 		# Exercise the move order so walking animations show up in the capture.
-		main.selection._select(main.units_root.get_children().filter(func(u: Node) -> bool: return u is Unit and u.team == 1), false)
+		var ours := main.units_root.get_children().filter(func(u: Node) -> bool: return u is Unit and u.team == 1)
+		var count := GameData.cmdline_option("select", "0").to_int()  # --select=n: only the first n
+		main.selection._select(ours.slice(0, count) if count > 0 else ours, false)
 		main.selection._order_move(main._vector_option("order", main.camera.position + Vector2(-200, -120)))
 	for i in GameData.cmdline_option("frames", "90").to_int():
 		await get_tree().process_frame

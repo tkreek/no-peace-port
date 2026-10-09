@@ -18,6 +18,15 @@ static func normalize(name: String) -> String:
 	return name.replace("\\", "/").trim_prefix("./").to_lower()
 
 
+## Archive names are Windows-1252/Latin-1 (e.g. "gebäude_icons").
+static func latin1(bytes: PackedByteArray) -> String:
+	var chars := PackedInt32Array()
+	chars.resize(bytes.size())
+	for i in bytes.size():
+		chars[i] = bytes[i]
+	return chars.to_byte_array().get_string_from_utf32()
+
+
 func open(archive_path: String) -> Error:
 	path = archive_path
 	_file = FileAccess.open(archive_path, FileAccess.READ)
@@ -33,7 +42,7 @@ func open(archive_path: String) -> Error:
 		_file.seek(12 + i * RECORD_SIZE)
 		var raw := _file.get_buffer(NAME_SIZE)
 		var end := raw.find(0)
-		names.append(raw.slice(0, end if end >= 0 else NAME_SIZE).get_string_from_ascii())
+		names.append(latin1(raw.slice(0, end if end >= 0 else NAME_SIZE)))
 		offsets.append(_file.get_32())
 	var length := _file.get_length()
 	for i in count:

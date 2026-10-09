@@ -321,13 +321,24 @@ func _add_command(type_id: int, guid: int, action: Callable) -> void:
 	button.tooltip_text = "%s\n%s" % [stats.get("name", "?"), ", ".join(cost)]
 	button.set_meta("guid", guid)
 	button.pressed.connect(action)
-	var thumb := Thumbnail.for_type(type_id, player.index)
+	var thumb := Thumbnail.portrait(guid)
+	var inset := 0
+	if thumb == null:
+		thumb = Thumbnail.for_type(type_id, player.index)
+		inset = 3
+	if thumb and thumb.has_meta("portrait"):
+		# The parchment portrait is the button; just brighten it on hover.
+		var none := StyleBoxEmpty.new()
+		for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+			button.add_theme_stylebox_override(state, none)
+		button.mouse_entered.connect(func() -> void: thumb.self_modulate = Color(1.15, 1.1, 1.0))
+		button.mouse_exited.connect(func() -> void: thumb.self_modulate = Color.WHITE)
 	if thumb:
 		thumb.set_anchors_preset(Control.PRESET_FULL_RECT)
-		thumb.offset_left = 3
-		thumb.offset_top = 3
-		thumb.offset_right = -3
-		thumb.offset_bottom = -3
+		thumb.offset_left = inset
+		thumb.offset_top = inset
+		thumb.offset_right = -inset
+		thumb.offset_bottom = -inset
 		button.add_child(thumb)
 	_commands.add_child(button)
 

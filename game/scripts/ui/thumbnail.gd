@@ -3,6 +3,37 @@ extends TextureRect
 ## A command-button picture made from an object's own sprite (finished building or a unit
 ## facing the viewer), drawn with its team colours.
 
+## The original portrait (expansion Potraits/*.bmp) for a GUID, or null.
+static func portrait(guid: int) -> Thumbnail:
+	var path: String = GameData.stats(guid).get("icon", "")
+	if path.is_empty() or not GameData.exists(path):
+		return null
+	var bytes := GameData.read(path)
+	if bytes.size() < 54:
+		return null
+	# Some original BMPs carry wrong size fields in their headers; the pixel data is intact.
+	var data_offset := bytes.decode_u32(10)
+	bytes.encode_u32(2, bytes.size())
+	bytes.encode_u32(34, bytes.size() - data_offset)
+	var image := Image.new()
+	if image.load_bmp_from_buffer(bytes) != OK:
+		return null
+	image.convert(Image.FORMAT_RGBA8)
+	for y in image.get_height():
+		for x in image.get_width():
+			var c := image.get_pixel(x, y)
+			if c.r8 > 240 and c.g8 < 20 and c.b8 > 240:  # magenta colour key
+				image.set_pixel(x, y, Color(0, 0, 0, 0))
+	var thumb := Thumbnail.new()
+	thumb.set_meta("portrait", true)
+	thumb.texture = ImageTexture.create_from_image(image)
+	thumb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	thumb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	thumb.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return thumb
+
+
 static func for_type(type_id: int, team: int) -> Thumbnail:
 	var type := ObjectTypes.get_type(type_id)
 	if type == null:
@@ -42,4 +73,5 @@ static func for_type(type_id: int, team: int) -> Thumbnail:
 
 
 func _ready() -> void:
-	set_instance_shader_parameter("palette_row", get_meta("palette_row", 1))
+	if material:
+		set_instance_shader_parameter("palette_row", get_meta("palette_row", 1))

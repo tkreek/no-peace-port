@@ -25,8 +25,7 @@ static func save(main: Node, path := QUICK) -> bool:
 		var ai_state := {}
 		for ai: AiPlayer in main.ais:
 			if ai.player == p:
-				ai_state = {"elapsed": ai._elapsed, "wave": ai._attack_wave, "last_attack": ai._last_attack,
-						"difficulty": ai.difficulty}
+				ai_state = ai.save_state()
 		data.players.append({"index": index, "faction": p.faction, "resources": p.resources,
 				"researched": p.researched.keys(), "prices": p.trade_prices, "surrendered": p.surrendered, "ai": ai_state})
 	var unit_ids := {}
@@ -82,10 +81,7 @@ static func restore(main: Node, data: Dictionary) -> void:
 		p.surrendered = bool(entry.surrendered)
 		for ai: AiPlayer in main.ais:
 			if ai.player == p and not entry.ai.is_empty():
-				ai._elapsed = float(entry.ai.elapsed)
-				ai._attack_wave = int(entry.ai.wave)
-				ai._last_attack = float(entry.ai.last_attack)
-				ai.difficulty = int(entry.ai.difficulty)
+				ai.restore_state(entry.ai)
 		p.resources_changed.emit()
 	# Clear what the map and the start set up, keep the scenery.
 	for unit in Unit.all_units.duplicate():

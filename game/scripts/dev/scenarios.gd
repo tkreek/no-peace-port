@@ -50,14 +50,11 @@ func _scenario_research() -> void:
 	for object in MapObject.all_objects:
 		if object.is_building() and object.owner_index == 1:
 			hq = object
-	var ai := AiPlayer.new()
-	ai.biome = main.terrain.biome
 	var type := ObjectTypes.get_type(GameData.type_for_guid(211, main.terrain.biome))
 	var factory := MapObject.new()
 	factory.setup(type, 1)
-	factory.position = ai._find_spot(type, hq.position)
+	factory.position = AiBuilder.find_spot(type, hq.position)
 	main.units_root.add_child(factory)
-	ai.free()
 	main.players[1].resources.gold = 5000
 	main.players[1].resources.food = 5000
 	main.selection.select_building(factory)
@@ -80,8 +77,6 @@ func _scenario_menus() -> void:
 	for object in MapObject.all_objects:
 		if object.is_building() and object.owner_index == 1:
 			hq = object
-	var ai := AiPlayer.new()
-	ai.biome = main.terrain.biome
 	for guid in GameData.stats_guids():
 		var stats := GameData.stats(guid)
 		if stats.get("faction") != main.players[1].faction or stats.get("kind") != "structure":
@@ -92,7 +87,7 @@ func _scenario_menus() -> void:
 		if building.production.trainable_units().is_empty():
 			building.free()
 			continue
-		building.position = ai._find_spot(type, hq.position)
+		building.position = AiBuilder.find_spot(type, hq.position)
 		main.units_root.add_child(building)
 		main.selection.select_building(building)
 		main.hud.commands.signature = ""
@@ -106,7 +101,6 @@ func _scenario_menus() -> void:
 		for unit_guid in building.production.trainable_units():
 			queued.append("%s:%s" % [GameData.stats(unit_guid).get("name"), building.production.enqueue(unit_guid)])
 		print("%s: %s | enqueue %s" % [stats.name, names, queued])
-	ai.free()
 	for kind in ["builders", "farmers"]:
 		var units := main.units_root.get_children().filter(func(n: Node) -> bool:
 			return n is Unit and n.team == 1 and (n.unit_type.anim_index("build") >= 0 if kind == "builders" else n.unit_type.is_farmer()))
@@ -149,10 +143,8 @@ func _scenario_select() -> void:
 				if guid == 211:
 					guid = [211, 411, 115, 314][["mex", "usa", "ind", "des"].find(main.players[1].faction)]
 			var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
-			var ai := AiPlayer.new()
 			var site := MapObject.new()
-			site.position = ai._find_spot(type, hq.position)
-			ai.free()
+			site.position = AiBuilder.find_spot(type, hq.position)
 			site.setup(type, 1, 0, GameData.cmdline_option("pick") == "site")
 			main.units_root.add_child(site)
 			if GameData.cmdline_option("pick") == "site":
@@ -173,10 +165,8 @@ func _scenario_quarters() -> void:
 			hq = object
 	var tower_guid: int = {"mex": 213, "usa": 413, "des": 313, "ind": 111}[main.players[1].faction]
 	var type := ObjectTypes.get_type(GameData.type_for_guid(tower_guid, main.terrain.biome))
-	var ai := AiPlayer.new()
 	var tower := MapObject.new()
-	tower.position = ai._find_spot(type, hq.position)
-	ai.free()
+	tower.position = AiBuilder.find_spot(type, hq.position)
 	tower.setup(type, 1)
 	main.units_root.add_child(tower)
 	main.nav.block_footprint(type, tower.position)
@@ -244,10 +234,8 @@ func _scenario_fields() -> void:
 		if GameData.stats(guid).get("faction") == main.players[1].faction:
 			store_guid = guid
 	var store_type := ObjectTypes.get_type(GameData.type_for_guid(store_guid, main.terrain.biome))
-	var ai := AiPlayer.new()
 	var store := MapObject.new()
-	store.position = ai._find_spot(store_type, hq.position)
-	ai.free()
+	store.position = AiBuilder.find_spot(store_type, hq.position)
 	store.setup(store_type, 1)
 	main.units_root.add_child(store)
 	main.nav.block_footprint(store_type, store.position)
@@ -333,17 +321,15 @@ func _scenario_damage() -> void:
 			hq = object
 	var guid: int = {"mex": 208, "usa": 408, "ind": 108, "des": 308}[main.players[1].faction]
 	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
-	var ai := AiPlayer.new()
 	var built: Array[MapObject] = []
 	for ratio in [0.6, 0.25, 0.0]:
 		var b := MapObject.new()
-		b.position = ai._find_spot(type, hq.position + Vector2(-500, 300))
+		b.position = AiBuilder.find_spot(type, hq.position + Vector2(-500, 300))
 		b.setup(type, 1)
 		main.units_root.add_child(b)
 		main.nav.block_footprint(type, b.position)
 		b.take_damage(b.max_health * (1.0 - ratio) + (1.0 if ratio == 0.0 else 0.0))
 		built.append(b)
-	ai.free()
 	main.camera.position = built[1].position + Vector2(0, -60)
 	if GameData.cmdline_option("repair") != "":
 		var builders := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.anim_index("build") >= 0)
@@ -367,10 +353,8 @@ func _scenario_gold() -> void:
 	var store_guid: int = {"mex": 206, "usa": 419, "ind": 104, "des": 304}[main.players[1].faction]
 	var wagon_guid: int = {"mex": 255, "usa": 455, "ind": 155, "des": 355}[main.players[1].faction]
 	var type := ObjectTypes.get_type(GameData.type_for_guid(store_guid, main.terrain.biome))
-	var ai := AiPlayer.new()
 	var store := MapObject.new()
-	store.position = ai._find_spot(type, mine.position, 100)
-	ai.free()
+	store.position = AiBuilder.find_spot(type, mine.position, 100)
 	store.setup(type, 1)
 	main.units_root.add_child(store)
 	main.nav.block_footprint(type, store.position)
@@ -415,10 +399,8 @@ func _scenario_trade() -> void:
 			hq = object
 	var guid: int = {"mex": 210, "usa": 410, "ind": 106, "des": 310}[main.players[1].faction]
 	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
-	var ai := AiPlayer.new()
 	var post := MapObject.new()
-	post.position = ai._find_spot(type, hq.position)
-	ai.free()
+	post.position = AiBuilder.find_spot(type, hq.position)
 	post.setup(type, 1)
 	main.units_root.add_child(post)
 	var p: Player = main.players[1]
@@ -439,10 +421,8 @@ func _scenario_rob() -> void:
 			hq = object
 	var enemy_store := 419 if main.players[2].faction == "usa" else 206
 	var type := ObjectTypes.get_type(GameData.type_for_guid(enemy_store, main.terrain.biome))
-	var ai := AiPlayer.new()
 	var store := MapObject.new()
-	store.position = ai._find_spot(type, hq.position + Vector2(300, 300))
-	ai.free()
+	store.position = AiBuilder.find_spot(type, hq.position + Vector2(300, 300))
 	store.setup(type, 2)
 	main.units_root.add_child(store)
 	main.nav.block_footprint(type, store.position)
@@ -544,10 +524,8 @@ func _scenario_cattle() -> void:
 		if object.is_building() and object.owner_index == 1:
 			hq = object
 	var type := ObjectTypes.get_type(GameData.type_for_guid(402, main.terrain.biome))
-	var ai := AiPlayer.new()
 	var yard := MapObject.new()
-	yard.position = ai._find_spot(type, hq.position)
-	ai.free()
+	yard.position = AiBuilder.find_spot(type, hq.position)
 	yard.setup(type, 1)
 	main.units_root.add_child(yard)
 	main.nav.block_footprint(type, yard.position)
@@ -743,15 +721,12 @@ func _scenario_food() -> void:
 	for object in MapObject.all_objects:
 		if object.is_building() and object.owner_index == 1:
 			hq = object
-	var ai := AiPlayer.new()
-	ai.biome = main.terrain.biome
 	var finca_type := ObjectTypes.get_type(GameData.type_for_guid(208, main.terrain.biome))
 	var finca := MapObject.new()
-	finca.position = ai._find_spot(finca_type, hq.position)
+	finca.position = AiBuilder.find_spot(finca_type, hq.position)
 	finca.setup(finca_type, 1)
 	main.units_root.add_child(finca)
 	main.nav.block_footprint(finca_type, finca.position)
-	ai.free()
 	main._spawn_squad(253, 1, finca.position + Vector2(0, 120), 3)
 	main._spawn_squad(261, 1, hq.position + Vector2(0, 160), 2)
 	var field_type := ObjectTypes.get_type(GameData.type_for_guid(MapObject.FIELD_GUID, main.terrain.biome))
@@ -785,10 +760,8 @@ func _nearest_mine(from: Vector2) -> MapObject:
 func _scenario_horses() -> void:
 	var hq: MapObject = main.players[1].main_building()
 	var type := ObjectTypes.get_type(GameData.type_for_guid(405, main.terrain.biome))
-	var ai := AiPlayer.new()
 	var ranch := MapObject.new()
-	ranch.position = ai._find_spot(type, hq.position)
-	ai.free()
+	ranch.position = AiBuilder.find_spot(type, hq.position)
 	ranch.setup(type, 1)
 	main.units_root.add_child(ranch)
 	main.nav.block_footprint(type, ranch.position)
@@ -911,15 +884,13 @@ func _scenario_fire() -> void:
 func _scenario_tepee() -> void:
 	var hq: MapObject = main.players[1].main_building()
 	var type := ObjectTypes.get_type(GameData.type_for_guid(101, main.terrain.biome))
-	var ai := AiPlayer.new()
 	var tepee := MapObject.new()
-	tepee.position = ai._find_spot(type, hq.position)
+	tepee.position = AiBuilder.find_spot(type, hq.position)
 	tepee.setup(type, 1)
 	main.units_root.add_child(tepee)
 	main.nav.block_footprint(type, tepee.position)
 	tepee.take_damage(tepee.max_health * 0.3)
-	var target := ai._find_spot(type, hq.position + Vector2(-400, 300))
-	ai.free()
+	var target := AiBuilder.find_spot(type, hq.position + Vector2(-400, 300))
 	main._spawn_squad(UnitTepees.TRAVOIS, 1, tepee.position + Vector2(0, 160), 1)
 	var travois: Unit = Unit.all_units.filter(func(u: Unit) -> bool: return u.unit_type.guid() == UnitTepees.TRAVOIS)[0]
 	var cap: int = main.players[1].population_cap()
@@ -950,17 +921,15 @@ func _scenario_boats() -> void:
 	var wharf_guid: int = {"mex": 218, "usa": 418, "des": 315, "ind": -1}[faction]
 	var boat_guid: int = {"mex": 254, "usa": 454, "des": 364, "ind": -1}[faction]
 	var type := ObjectTypes.get_type(GameData.type_for_guid(wharf_guid, main.terrain.biome))
-	var ai := AiPlayer.new()
 	var spot := Vector2.INF
 	for radius in range(200, 2400, 48):
 		for step in 24:
 			var at: Vector2 = (hq.position + Vector2(radius, 0).rotated(step * TAU / 24.0)).snapped(Vector2(16, 16))
-			if ai._footprint_free(type, at, nav) and MapObject.by_water(type, at):
+			if AiBuilder.footprint_free(type, at, nav) and MapObject.by_water(type, at):
 				spot = at
 				break
 		if spot != Vector2.INF:
 			break
-	ai.free()
 	print("wharf spot %s (%d px from HQ)" % [spot, spot.distance_to(hq.position) if spot != Vector2.INF else -1])
 	var wharf := MapObject.new()
 	wharf.position = spot

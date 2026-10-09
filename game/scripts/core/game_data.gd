@@ -264,6 +264,10 @@ func _load_tables() -> void:
 		_stats[MapObject.STAGECOACH_UPGRADE] = {"kind": "upgrade", "faction": "usa", "name": "Stagecoach",
 				"produced_at": 409, "cost": {"food": 150, "wood": 150, "gold": 250}, "effects": {},
 				"function": "Allows stagecoaches to be built", "applies_to": "Stagecoaches", "applies_to_guids": [456]}
+	# Making a rifle at the weapons factory (manual 4.3; GUID 710 "Guns" has no editor entry).
+	_stats[MapObject.GUN_GUID] = {"kind": "gun", "name": "Rifle",
+			"faction": "", "build_time": 12, "cost": {"wood": 40, "gold": 40},
+			"function": "Makes a rifle for the units that need one", "icon_frame": 52}
 	# Raising a horse (manual: corral, hacienda, ranch; "costs food"; no editor entry).
 	_stats[MapObject.HORSE_GUID] = {"kind": "horse", "name": "Horse", "faction": "", "build_time": 20,
 			"cost": {"food": 50}, "icon": "Potraits/Sonstige_icons/z02_pferd.bmp",

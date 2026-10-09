@@ -834,6 +834,11 @@ func on_water() -> bool:
 	return NavGrid.current != null and NavGrid.current.is_deep_water(NavGrid.current.cell_of(position))
 
 
+## The canoe "can attack and defend itself on water"; carried over land it cannot fight.
+func can_fight_here() -> bool:
+	return unit_type.guid() != CANOE or on_water()
+
+
 ## Walk to the shore by the boat and climb aboard (the boat comes to meet them, see
 ## SelectionController.order_board).
 func board(boat: Unit) -> void:
@@ -911,7 +916,12 @@ func _disembark() -> bool:
 		unit.vessel = null
 		unit.leave_quarters(spot)
 		if goal != Vector2.INF and goal.distance_to(spot) > 40.0:
-			unit.move_to(goal + Vector2((i % 3 - 1) * 26, (i / 3) * 24))
+			# Landing troops fight their way to where they were sent.
+			var at := goal + Vector2((i % 3 - 1) * 26, (i / 3) * 24)
+			if unit.unit_type.attack_anims.is_empty():
+				unit.move_to(at)
+			else:
+				unit.attack_move(at)
 		i += 1
 	return true
 
@@ -1179,7 +1189,8 @@ func move_to(destination: Vector2, keep_orders := false) -> void:
 
 ## Fight `enemy`. `ordered` when the player gave the order (ignores the stance's limits).
 func attack(enemy: Node2D, ordered := false) -> void:
-	if not is_alive() or enemy == null or not enemy.is_alive() or unit_type.attack_anims.is_empty():
+	if not is_alive() or enemy == null or not enemy.is_alive() or unit_type.attack_anims.is_empty() \
+			or not can_fight_here():
 		return
 	if state != State.ATTACKING:
 		guard_position = position if state != State.MOVING else guard_position
@@ -1363,7 +1374,7 @@ func _process(delta: float) -> void:
 				_scan_timer -= delta
 				if _scan_timer <= 0.0:
 					_scan_timer = SCAN_INTERVAL
-					var enemy := _nearest_target(sight())
+					var enemy := _nearest_target(sight()) if can_fight_here() else null
 					if enemy:
 						var resume := guard_position
 						attack(enemy)
@@ -1465,6 +1476,10 @@ func _update_follow() -> void:
 
 
 func _update_attack(delta: float) -> void:
+	if _attack_step < 0 and not can_fight_here():
+		target = null
+		state = State.IDLE
+		return
 	if hunting and is_instance_valid(target) and target is Unit and not target.is_alive() and _attack_step < 0:
 		_butcher(target, delta)
 		return

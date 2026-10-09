@@ -792,9 +792,12 @@
   "name": "Explosives hut",
   "faction": "des",
   "kind": "structure",
-  "cost": {},
+  "cost": {
+   "wood": 400,
+   "gold": 300
+  },
   "health": 1100,
-  "prerequisites": "Base, drugstore Cost 400 wood units, 300 gold units"
+  "prerequisites": "Base, drugstore"
  },
  "315": {
   "name": "Boathouse",

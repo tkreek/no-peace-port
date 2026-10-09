@@ -7,6 +7,14 @@ extends Node
 ## ahead of its population, farms and hunts. Army: builds the structures that train soldiers,
 ## trains a mixed force, defends its base and attacks in growing waves. The four difficulty
 ## levels of the original (very easy .. difficult) set its pace and ambition.
+##
+## Later in the game it spends what piles up: more production, towers (pitfalls for the
+## Native Americans), a trading post, a second mine. It catches wild horses, raises and
+## sells cattle, empties abandoned warehouses, has its medicine men and priests cast, its
+## scouts hide, its robbers rob and its thieves steal. Waves gather before they set out,
+## march in formation and send the badly wounded home; a home guard stays behind on the
+## defensive. When the enemy cannot be reached on foot it ferries its troops by boat, or
+## (the Native Americans) learns to swim.
 
 const DIFFICULTY := [
 	# think s, workers, production buildings, first attack s, wave size, research, building sites at once
@@ -15,6 +23,25 @@ const DIFFICULTY := [
 	{"think": 1.5, "workers": 16, "production": 3, "first_attack": 330.0, "wave": 8, "research": true, "sites": 2},
 	{"think": 1.0, "workers": 22, "production": 4, "first_attack": 240.0, "wave": 10, "research": true, "sites": 2},
 ]
+const TOWERS := [213, 413, 313]  # Mexican tower, American watchtower, outlaw lookout
+const TOWER_TARGET := [0, 1, 2, 3]  # per difficulty
+const PITFALL_TARGET := [0, 1, 2, 3]
+const RICH_WOOD := 1200
+const RICH_OTHER := 1500  # gold and food together
+const RETREAT_BELOW := 0.3  # energy share at which a unit in a wave turns back
+const RETREAT_SECONDS := 60.0  # time at home before it rejoins
+const GUARD_SHARE := 0.2
+const GATHER_SECONDS := 30.0
+const GATHER_DISTANCE := 380.0  # the assembly point, out from the HQ toward the enemy
+const COW_TARGET := 4
+const COW_SELL_VALUE := 18.0
+const BOAT_TARGET := 2
+const MAX_WOOD_STORES := 4
+const FOREST_TREES := 10  # a wood store only by a forest this big
+const FOOD_SURPLUS := 2500  # distilleries rest above this
+const CANOE_TARGET := 3  # canoes fight only on the water
+const SWIM := 914
+const CAMOUFLAGE_SCHOOL := 112
 const WOOD_SHARE := 0.6
 const FIELD_TARGET := 4
 const FAR_FROM_HQ := 380.0  # a resource this far away gets its own drop-off building
@@ -31,6 +58,18 @@ var _last_attack := -1000.0
 var _failed := {}  # structure GUID -> when it last found no room
 var _home := Vector2.ZERO
 var _lost_since := -1.0
+## The current wave: "home" (building up), "gathering" at the assembly point, "attacking".
+var _wave_state := "home"
+var _wave: Array = []
+var _wave_size := 0
+var _wave_target := Vector2.INF
+var _gather_point := Vector2.INF
+var _gather_started := 0.0
+var _guard := {}  # instance id -> true: stays home on the defensive
+var _retreating := {}  # instance id -> when it turned back
+var _land_route := true  # can the army walk to the enemy?
+var _route_checked := -1000.0
+var _ferry_started := 0.0
 const SURRENDER_GRACE := 20.0  # seconds to start rebuilding before giving up
 
 
@@ -98,14 +137,21 @@ func _think() -> void:
 	_train_civilians(hq, workers, units)
 	_haul_gold(transports)
 	_build(workers, hq)
+	_build_extras(workers, hq)
 	_train_army()
-	if _level().research:
+	_train_specialists()
+	if _level().research or _rich() or not _land_route:
 		_research()
+	_trade()
+	_use_horses(units)
+	_cattle(units)
+	_magic(units, army)
 	_command_army(army, hq)
 
 
 func _is_soldier(u: Unit) -> bool:
-	return not u.unit_type.attack_anims.is_empty() and not u.unit_type.can_gather("wood") \
+	return not u.inside and not u.unit_type.attack_anims.is_empty() and not u.unit_type.can_gather("wood") \
+			and u.unit_type.guid() != Unit.CANOE \
 			and not u.unit_type.can_gather("food") and not u.unit_type.is_transport() \
 			and not (u.unit_type.is_hunter() and u.hunting)
 
@@ -144,6 +190,24 @@ func _faction_guid(candidates: Array) -> int:
 func _assign_workers(workers: Array) -> void:
 	var on_wood := workers.filter(func(u: Unit) -> bool:
 		return is_instance_valid(u.gather_source) and u.gather_source.resource == "wood").size()
+	var share := _wood_share()
+	# Every half minute, move workers over when the stock leans too far one way.
+	if _elapsed - _rebalanced > 30.0:
+		_rebalanced = _elapsed
+		var wanted := ceili(workers.size() * share)
+		var from := "wood" if on_wood > wanted + 1 else ("gold" if on_wood < wanted - 1 else "")
+		if from != "":
+			var excess := absi(on_wood - wanted) - 1
+			for worker: Unit in workers:
+				if excess <= 0:
+					break
+				if worker.state == Unit.State.GATHERING and is_instance_valid(worker.gather_source) \
+						and worker.gather_source.resource == from and worker.carried == 0:
+					var source := _gold_source_for(worker, workers) if from == "wood" else worker._nearest_source("wood")
+					if source:
+						worker.gather(source)
+						on_wood += -1 if from == "wood" else 1
+						excess -= 1
 	for worker: Unit in workers:
 		if worker.state != Unit.State.IDLE:
 			continue
@@ -151,17 +215,43 @@ func _assign_workers(workers: Array) -> void:
 		if site:
 			worker.build(site)
 			continue
-		var gold := int(player.resources.get("gold", 0)) + player.warehoused_gold()
-		var wood := int(player.resources.get("wood", 0))
-		var share := WOOD_SHARE if gold < wood * 3 + 500 else 0.85
 		var want_wood := on_wood < ceili(workers.size() * share)
-		var source := worker._nearest_source("wood" if want_wood else "gold")
+		var source := worker._nearest_source("wood") if want_wood else _gold_source_for(worker, workers)
 		if source == null:
-			source = worker._nearest_source("gold" if want_wood else "wood")
+			source = _gold_source_for(worker, workers) if want_wood else worker._nearest_source("wood")
 		if source:
 			worker.gather(source)
 			if source.resource == "wood":
 				on_wood += 1
+
+
+## The share of workers on wood: 60% when wood and gold stand even, fewer as wood piles up
+## beside little gold, more when gold is plentiful.
+func _wood_share() -> float:
+	var gold := int(player.resources.get("gold", 0)) + player.warehoused_gold()
+	var wood := int(player.resources.get("wood", 0))
+	return clampf(WOOD_SHARE - (wood - gold) / 4000.0, 0.25, 0.85)
+
+
+var _rebalanced := 0.0
+
+
+## Miners spread over the mines that have somewhere to take the gold (the HQ or a gold
+## warehouse close by): the one with the fewest miners, the nearest of those.
+func _gold_source_for(worker: Unit, workers: Array) -> MapObject:
+	var served := MapObject.all_objects.filter(func(o: MapObject) -> bool:
+		return o.resource == "gold" and o.amount > 0 and not _no_drop_off_near("gold", o.position))
+	if served.is_empty():
+		return worker._nearest_source("gold")
+	var miners := {}
+	for other: Unit in workers:
+		if is_instance_valid(other.gather_source) and other.gather_source in served:
+			miners[other.gather_source] = miners.get(other.gather_source, 0) + 1
+	served.sort_custom(func(a: MapObject, b: MapObject) -> bool:
+		if miners.get(a, 0) != miners.get(b, 0):
+			return miners.get(a, 0) < miners.get(b, 0)
+		return worker.position.distance_to(a.position) < worker.position.distance_to(b.position))
+	return served[0]
 
 
 ## Workers up to the difficulty's target, and women for the fields.
@@ -185,25 +275,47 @@ func _train_civilians(hq: MapObject, workers: Array, units: Array) -> void:
 
 
 ## Wagons shuttle from the fullest gold warehouse; one is trained when gold piles up there.
+## Spare wagons empty abandoned warehouses nearby.
 func _haul_gold(transports: Array) -> void:
 	var warehouses := _my_buildings().filter(func(b: MapObject) -> bool: return b.is_gold_warehouse() and b.complete)
-	if warehouses.is_empty():
+	var abandoned := MapObject.all_objects.filter(func(o: MapObject) -> bool:
+		return o.is_abandoned_store() and o.loot > 0 and o.position.distance_to(_home) < 1800.0 and not _enemy_near(o.position, 600.0))
+	if warehouses.is_empty() and abandoned.is_empty():
 		return
+	if warehouses.is_empty():
+		for wagon: Unit in transports:
+			if wagon.state == Unit.State.IDLE and wagon.packed_tepee.is_empty():
+				abandoned.sort_custom(func(a: MapObject, b: MapObject) -> bool: return a.position.distance_to(wagon.position) < b.position.distance_to(wagon.position))
+				wagon.haul(abandoned[0])
+		if transports.is_empty():
+			_train_transport()
+		return
+	var on_abandoned := transports.filter(func(w: Unit) -> bool:
+		return is_instance_valid(w.gather_source) and w.gather_source.is_abandoned_store()).size()
 	for wagon: Unit in transports:
-		if wagon.state == Unit.State.IDLE:
-			warehouses.sort_custom(func(a: MapObject, b: MapObject) -> bool: return a.stored_gold > b.stored_gold)
-			wagon.haul(warehouses[0])
+		if wagon.state != Unit.State.IDLE or not wagon.packed_tepee.is_empty():
+			continue
+		if not abandoned.is_empty() and on_abandoned == 0 and transports.size() > warehouses.size():
+			wagon.haul(abandoned[0])
+			on_abandoned += 1
+			continue
+		warehouses.sort_custom(func(a: MapObject, b: MapObject) -> bool: return a.stored_gold > b.stored_gold)
+		wagon.haul(warehouses[0])
 	var waiting := 0
 	for w: MapObject in warehouses:
 		waiting += w.stored_gold
-	if transports.size() < warehouses.size() and waiting >= 60:
-		for building: MapObject in _my_buildings():
-			if not building.complete or not building.queue.is_empty():
-				continue
-			for guid in building.trainable_units():
-				var unit_type := _unit_type_for(guid)
-				if unit_type and unit_type.is_transport() and building.enqueue(guid):
-					return
+	if transports.size() < warehouses.size() + (1 if not abandoned.is_empty() else 0) and waiting >= 60:
+		_train_transport()
+
+
+func _train_transport() -> void:
+	for building: MapObject in _my_buildings():
+		if not building.complete or not building.queue.is_empty():
+			continue
+		for guid in building.trainable_units():
+			var unit_type := _unit_type_for(guid)
+			if unit_type and unit_type.is_transport() and building.enqueue(guid):
+				return
 
 
 ## Keep a grain store with a few fields and put idle women to work on them.
@@ -253,8 +365,12 @@ func _farm(units: Array, hq: MapObject) -> void:
 		unit.gather(least)
 
 
-## Outlaws turn wood into liquor: keep a distillery per few workers while food runs low.
+## Outlaws turn wood into liquor: keep a distillery per few workers while food runs low,
+## and let them rest while food piles up.
 func _distil(units: Array, hq: MapObject) -> void:
+	var food_now := int(player.resources.get("food", 0))
+	for still: MapObject in _my_buildings().filter(func(b: MapObject) -> bool: return b.guid == MapObject.DISTILLERY_GUID):
+		still.distilling = food_now < FOOD_SURPLUS
 	var distilleries := _my_buildings().filter(func(b: MapObject) -> bool: return b.guid == MapObject.DISTILLERY_GUID).size()
 	var wanted := 1 + _my_units().size() / 12
 	var food := int(player.resources.get("food", 0))
@@ -288,14 +404,16 @@ func _build(workers: Array, hq: MapObject) -> void:
 	# Housing.
 	var house := _house_guid()
 	var room := player.population_cap() - player.population() - player.queued_units()
-	if house >= 0 and room < 4 and _affordable(house) and _place(house, hq.position, workers):
+	if house >= 0 and room < (8 if _rich() else 4) and _affordable(house) and _place(house, hq.position, workers):
 		return
 	if room < 1:
 		return
 	# A wood store at the nearest forest, a gold warehouse at the nearest mine.
 	var wood_store := _faction_guid(MapObject.DROP_OFFS.wood)
 	var forest := _nearest_resource("wood", hq.position)
-	if wood_store >= 0 and forest and _no_drop_off_near("wood", forest.position) and _worth_trying(wood_store) \
+	var wood_stores := buildings.filter(func(b: MapObject) -> bool: return b.guid == wood_store).size()
+	if wood_store >= 0 and forest and wood_stores < MAX_WOOD_STORES and _trees_near(forest.position) >= FOREST_TREES \
+			and _no_drop_off_near("wood", forest.position) and _worth_trying(wood_store) \
 			and forest.position.distance_to(hq.position) > FAR_FROM_HQ and _affordable(wood_store) \
 			and _place(wood_store, forest.position, workers, 110, FAR_FROM_HQ * 0.8):
 		return
@@ -307,7 +425,7 @@ func _build(workers: Array, hq: MapObject) -> void:
 		return
 	# Soldiers, once most of the workforce is in place (the first one a little earlier).
 	var production := buildings.filter(func(b: MapObject) -> bool: return _produces_army(b.guid)).size()
-	if production >= _level().production:
+	if production >= _production_limit():
 		return
 	if production > 0 and not _workers_ready(_my_units()):
 		return
@@ -318,15 +436,36 @@ func _build(workers: Array, hq: MapObject) -> void:
 		var stats := GameData.stats(guid)
 		if stats.get("faction") != player.faction or stats.get("kind") != "structure":
 			continue
-		if owned.has(guid) or not player.meets_prerequisites(guid):
+		# A second of a kind only when rich, and only of what trains soldiers.
+		if (owned.has(guid) and (not _rich() or not _produces_army(guid))) or not player.meets_prerequisites(guid):
 			continue
+		if guid in MapObject.SHIPYARDS or guid == MapObject.PITFALL_GUID:
+			continue  # see _build_extras
 		# Structures that train soldiers, and those that unlock one (the fort before barracks).
 		if _produces_army(guid) or _unlocks_army(guid, owned):
 			options.append(guid)
-	options.sort_custom(func(a: int, b: int) -> bool: return _total_cost(a) < _total_cost(b))
+	options.sort_custom(func(a: int, b: int) -> bool:
+		if owned.has(a) != owned.has(b):
+			return not owned.has(a)  # new kinds first
+		return _total_cost(a) < _total_cost(b))
 	for guid in options:
 		if _affordable(guid) and _place(guid, hq.position, workers):
 			return
+
+
+## More production when stock piles up (one more when rich, two when very rich).
+func _production_limit() -> int:
+	var limit: int = _level().production
+	if _rich():
+		limit += 1
+	if int(player.resources.get("wood", 0)) > RICH_WOOD * 3 and int(player.resources.get("gold", 0)) > RICH_OTHER:
+		limit += 1
+	return limit
+
+
+func _rich() -> bool:
+	return int(player.resources.get("wood", 0)) >= RICH_WOOD \
+			and int(player.resources.get("gold", 0)) + int(player.resources.get("food", 0)) >= RICH_OTHER
 
 
 func _unlocks_army(structure: int, owned: Dictionary) -> bool:
@@ -362,6 +501,14 @@ func _nearest_resource(resource: String, from: Vector2) -> MapObject:
 	return best
 
 
+func _trees_near(at: Vector2) -> int:
+	var count := 0
+	for object in MapObject.all_objects:
+		if object.resource == "wood" and object.amount > 0 and object.position.distance_to(at) < 260.0:
+			count += 1
+	return count
+
+
 func _no_drop_off_near(resource: String, at: Vector2) -> bool:
 	for object in MapObject.all_objects:
 		if object.owner_index == player.index and object.is_building() \
@@ -391,7 +538,8 @@ func _place(guid: int, around: Vector2, builders: Array, min_radius := 220, max_
 		site.free()
 		return false
 	units_root.add_child(site)
-	NavGrid.current.block_footprint(type, spot)
+	if not site.is_trap():
+		NavGrid.current.block_footprint(type, spot)
 	site.unit_trained.connect(get_parent()._on_unit_trained)
 	if OS.is_debug_build() and GameData.cmdline_option("trace-ai") != "":
 		print("t=%ds AI %d builds %s (workers %d, units %d/%d, wood %d)" % [_elapsed, player.index, GameData.stats(guid).get("name"),
@@ -412,7 +560,7 @@ func _produces_army(structure_guid: int) -> bool:
 	for guid in GameData.stats_guids():
 		var stats := GameData.stats(guid)
 		if stats.get("kind") == "unit" and int(stats.get("produced_at", -1)) == structure_guid \
-				and stats.get("damage", 0) >= 5:
+				and stats.get("damage", 0) >= 5 and guid not in Player.COMMANDERS and guid != Unit.CANOE:
 			return true
 	return false
 
@@ -433,9 +581,12 @@ func _total_cost(guid: int) -> int:
 ## Search outward from `around` for a free footprint.
 func _find_spot(type: ObjectTypes.ObjectType, around: Vector2, min_radius := 220) -> Vector2:
 	var nav := NavGrid.current
-	for radius in range(min_radius, 900, 32):
-		for step in 12:
-			var spot := around + Vector2(radius, 0).rotated(step * TAU / 12.0 + radius * 0.37)
+	# Ever wider rings, sampled about every 48 px along each (bases hemmed in by cliffs
+	# and water need the search to reach well out).
+	for radius in range(min_radius, 1500, 32):
+		var steps := maxi(12, int(TAU * radius / 48.0))
+		for step in steps:
+			var spot := around + Vector2(radius, 0).rotated(step * TAU / steps + radius * 0.37)
 			spot = (spot / NavGrid.CELL).round() * NavGrid.CELL
 			if _footprint_free(type, spot, nav):
 				return spot
@@ -456,6 +607,205 @@ func _footprint_free(type: ObjectTypes.ObjectType, at: Vector2, nav: NavGrid) ->
 	return true
 
 
+
+# ------------------------------------------------------------------ later game
+
+## Once the core is in place and stock piles up: towers toward the enemy (the Native
+## Americans dig pitfalls instead), a trading post, a gold warehouse by a second mine, and
+## a wharf or boathouse when the enemy is across the water.
+func _build_extras(workers: Array, hq: MapObject) -> void:
+	if workers.size() < 3 or _sites() >= _level().sites or not _workers_ready(_my_units()):
+		return
+	var buildings := _my_buildings()
+	var count := func(guids: Array) -> int:
+		return buildings.filter(func(b: MapObject) -> bool: return b.guid in guids).size()
+	var toward := (_enemy_base() - hq.position).normalized() if _enemy_base() != Vector2.INF else Vector2.DOWN
+	# Across the water: a shipyard first.
+	var shipyard := _faction_guid(MapObject.SHIPYARDS)
+	if not _land_route and shipyard >= 0 and count.call([shipyard]) == 0 and _affordable(shipyard) \
+			and _worth_trying(shipyard) and _place_by_water(shipyard, hq.position, workers):
+		return
+	if player.faction == "ind" and not _land_route and not player.researched.has(SWIM) \
+			and count.call([CAMOUFLAGE_SCHOOL]) == 0:
+		_build_with_prerequisites(CAMOUFLAGE_SCHOOL, hq.position, workers)
+		return
+	if not _rich():
+		return
+	var tower := _faction_guid(TOWERS)
+	if tower >= 0 and count.call([tower]) < TOWER_TARGET[difficulty] and player.meets_prerequisites(tower) \
+			and _affordable(tower) and _worth_trying(tower) \
+			and _place(tower, hq.position + toward.rotated(randf_range(-0.8, 0.8)) * 300.0, workers, 0, 260.0):
+		return
+	if player.faction == "ind" and count.call([MapObject.PITFALL_GUID]) < PITFALL_TARGET[difficulty] \
+			and player.meets_prerequisites(MapObject.PITFALL_GUID) and _affordable(MapObject.PITFALL_GUID) \
+			and _worth_trying(MapObject.PITFALL_GUID) \
+			and _place(MapObject.PITFALL_GUID, hq.position + toward.rotated(randf_range(-0.5, 0.5)) * 520.0, workers, 0, 200.0):
+		return
+	var post := _faction_guid(MapObject.TRADE_BUILDINGS)
+	if post >= 0 and count.call([post]) == 0 and _build_with_prerequisites(post, hq.position, workers):
+		return
+	# A second mine with its own warehouse, so the miners spread out.
+	var gold_store := _faction_guid(Array(MapObject.DROP_OFFS.gold).filter(func(g: int) -> bool: return g not in MapObject.MAIN_BUILDINGS))
+	var served := 0
+	var next_mine: MapObject = null
+	var mines := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.resource == "gold" and o.amount > 300)
+	mines.sort_custom(func(a: MapObject, b: MapObject) -> bool: return a.position.distance_to(hq.position) < b.position.distance_to(hq.position))
+	for mine: MapObject in mines:
+		if not _no_drop_off_near("gold", mine.position):
+			served += 1
+		elif next_mine == null and mine.position.distance_to(hq.position) < 2600.0 and not _enemy_near(mine.position, 700.0):
+			next_mine = mine
+	if served < 2 and next_mine and gold_store >= 0 and _affordable(gold_store) and _worth_trying(gold_store) \
+			and player.meets_prerequisites(gold_store):
+		_place(gold_store, next_mine.position, workers, 110, FAR_FROM_HQ * 0.8)
+
+
+## Build `guid`, or first whichever structure it still requires; true when a site went up.
+func _build_with_prerequisites(guid: int, around: Vector2, workers: Array, depth := 0) -> bool:
+	if depth > 2:
+		return false
+	for required in GameData.prerequisites(guid):
+		if not player.has_building(required):
+			if _my_buildings().any(func(b: MapObject) -> bool: return b.guid == required):
+				return false  # going up already
+			return _build_with_prerequisites(required, around, workers, depth + 1)
+	return _affordable(guid) and _worth_trying(guid) and _place(guid, around, workers)
+
+
+func _enemy_near(at: Vector2, radius: float) -> bool:
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index > 0 and object.owner_index != player.index \
+				and object.position.distance_to(at) < radius:
+			return true
+	return false
+
+
+## A shipyard at the nearest stretch of shore to `around`.
+func _place_by_water(guid: int, around: Vector2, builders: Array) -> bool:
+	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, biome))
+	if type == null:
+		return false
+	var nav := NavGrid.current
+	for radius in range(160, 2400, 48):
+		for step in 24:
+			var spot := (around + Vector2(radius, 0).rotated(step * TAU / 24.0)).snapped(Vector2(NavGrid.CELL, NavGrid.CELL))
+			if _footprint_free(type, spot, nav) and MapObject.by_water(type, spot):
+				return _place(guid, spot, builders, 0, 64.0)
+	_failed[guid] = _elapsed
+	return false
+
+
+## Healers, casters and boats, which the army trainer leaves out (they don't fight).
+func _train_specialists() -> void:
+	var units := _my_units()
+	var soldiers := units.filter(_is_soldier).size()
+	for building: MapObject in _my_buildings():
+		if not building.complete or building.queue.size() >= 1:
+			continue
+		for guid in building.trainable_units():
+			var unit_type := _unit_type_for(guid)
+			if unit_type == null or not unit_type.attack_anims.is_empty() or guid in Player.COMMANDERS:
+				continue
+			var have := units.filter(func(u: Unit) -> bool: return u.unit_type.guid() == guid).size()
+			var wanted := 0
+			if guid in Unit.BOATS:
+				wanted = BOAT_TARGET if not _land_route else 0
+			elif Unit.CASTERS.has(guid):
+				wanted = 1 if soldiers >= 6 else 0
+			elif unit_type.anim_index("heal") >= 0 and not unit_type.is_transport():
+				wanted = soldiers / 8
+			if have < wanted and building.enqueue(guid):
+				return
+
+
+## The trading post evens out the stock: sell what piles up when gold runs short, buy wood
+## or food when they run out and gold is plentiful, and guns for the riflemen.
+func _trade() -> void:
+	var post: MapObject = null
+	for building: MapObject in _my_buildings():
+		if building.guid in MapObject.TRADE_BUILDINGS and building.complete and building.queue.size() < 3:
+			post = building
+	if post == null:
+		return
+	var r := player.resources
+	var gold := int(r.get("gold", 0))
+	var trade := -1
+	if int(r.get("guns", 0)) < 4 and gold > 500:
+		trade = 4  # buy guns
+	elif gold < 400 and maxi(int(r.get("food", 0)), int(r.get("wood", 0))) > 1500:
+		trade = 1 if int(r.get("food", 0)) > int(r.get("wood", 0)) else 3  # sell food / wood
+	elif int(r.get("wood", 0)) < 250 and gold > 1200:
+		trade = 2  # buy wood
+	elif int(r.get("food", 0)) < 250 and gold > 1200:
+		trade = 0  # buy food
+	elif gold < 1500 and int(r.get("food", 0)) > FOOD_SURPLUS:
+		trade = 1  # surplus food for gold
+	elif gold < 1500 and int(r.get("wood", 0)) > 3000:
+		trade = 3
+	if trade >= 0:
+		post.enqueue(MapObject.TRADE_GUID + trade)
+
+
+## Idle soldiers who can ride catch wild horses near them.
+func _use_horses(units: Array) -> void:
+	for unit: Unit in units:
+		if unit.state != Unit.State.IDLE or not unit.can_mount() or unit._mount_target != null:
+			continue
+		for other in Unit.all_units:
+			if other.is_horse() and other.is_alive() and (other.team == 0 or other.team == player.index) \
+					and other.position.distance_to(unit.position) < 600.0:
+				unit.mount(other)
+				break
+
+
+## Raise a few cows where the people can (hacienda, ranch) and drive the grown ones to the
+## butcher; herders bring in strays.
+func _cattle(units: Array) -> void:
+	var processing: MapObject = null
+	for building: MapObject in _my_buildings():
+		if building.guid in MapObject.ANIMAL_PROCESSING and building.complete:
+			processing = building
+	var cows := units.filter(func(u: Unit) -> bool: return u.is_cow())
+	if processing:
+		for cow: Unit in cows:
+			if cow.state == Unit.State.IDLE and cow.cattle_value >= COW_SELL_VALUE:
+				cow.deliver(processing)
+	if cows.size() >= COW_TARGET or int(player.resources.get("food", 0)) < 600:
+		return
+	for building: MapObject in _my_buildings():
+		if building.guid in MapObject.COW_BUILDINGS and building.complete and building.queue.is_empty():
+			building.enqueue(MapObject.COW_GUID)
+			return
+
+
+## Medicine men dance (lightning on enemies fighting ours, a shield for a hurt soldier,
+## rain on our fields); priests convert enemy soldiers who come close.
+func _magic(units: Array, army: Array) -> void:
+	for caster: Unit in units:
+		if caster.state != Unit.State.IDLE or caster._spell >= 0:
+			continue
+		var spells := caster.known_spells()
+		if spells.is_empty():
+			continue
+		var enemy := caster._nearest_enemy(700.0)
+		if 919 in spells and enemy and caster.magic_energy >= Unit.SPELLS[919].cost:
+			caster.cast(919, enemy.position)
+		elif 948 in spells and enemy and caster._convertible(enemy) and caster.magic_energy >= Unit.SPELLS[948].cost:
+			caster.cast(948, enemy.position, enemy)
+		elif 922 in spells and caster.magic_energy >= Unit.SPELLS[922].cost:
+			for soldier: Unit in army:
+				if soldier.state == Unit.State.ATTACKING and soldier.health < soldier.max_health * 0.6 \
+						and soldier.shield_time <= 0.0 and soldier.position.distance_to(caster.position) < 600.0:
+					caster.cast(922, soldier.position, soldier)
+					break
+		elif 921 in spells and caster.magic_energy >= caster.magic_pool() * 0.9:
+			for field in MapObject.all_objects:
+				if field.is_field() and field.owner_index == player.index and field.field_state == MapObject.Field.GROWING \
+						and not field._rained:
+					caster.cast(921, field.position)
+					break
+
+
 # ------------------------------------------------------------------ army
 
 func _train_army() -> void:
@@ -467,8 +817,15 @@ func _train_army() -> void:
 				and int(player.resources.get("horses", 0)) < player.horse_capacity() and randf() < 0.5:
 			if building.enqueue(MapObject.HORSE_GUID):
 				continue
+		# Rifles for the infantry, while gold allows.
+		if building.guid in MapObject.GUN_FACTORIES and int(player.resources.get("guns", 0)) < 8 \
+				and int(player.resources.get("gold", 0)) > 250 and building.enqueue(MapObject.GUN_GUID):
+			continue
+		var canoes := _my_units().filter(func(u: Unit) -> bool: return u.unit_type.guid() == Unit.CANOE).size()
+		var want_canoes := NavGrid.current != null and NavGrid.current.has_water and canoes < CANOE_TARGET
 		var options := Array(building.trainable_units()).filter(func(guid: int) -> bool:
-			return GameData.stats(guid).get("damage", 0) >= 5 and guid not in Player.COMMANDERS)
+			return GameData.stats(guid).get("damage", 0) >= 5 and guid not in Player.COMMANDERS \
+					and (guid != Unit.CANOE or want_canoes))
 		options.shuffle()
 		for guid in options:
 			if building.enqueue(guid):
@@ -477,6 +834,12 @@ func _train_army() -> void:
 
 ## Spend spare food and gold on upgrades, one at a time.
 func _research() -> void:
+	# Across the water the Native Americans learn to swim first.
+	if player.faction == "ind" and not _land_route and player.can_research(SWIM):
+		for building: MapObject in _my_buildings():
+			if building.queue.is_empty() and SWIM in building.researchable_upgrades():
+				building.enqueue(SWIM)
+				return
 	if int(player.resources.get("gold", 0)) < 600 or int(player.resources.get("food", 0)) < 800:
 		return
 	for building: MapObject in _my_buildings():
@@ -489,26 +852,276 @@ func _research() -> void:
 
 
 ## Defend against anything near the base; otherwise attack in growing waves once the
-## difficulty's first-attack time has passed.
+## difficulty's first-attack time has passed. A wave gathers at an assembly point first,
+## then marches in formation; the badly wounded turn back. A home guard stays behind.
 func _command_army(army: Array, hq: MapObject) -> void:
+	_check_route()
+	_retreat_wounded(army)
+	var ready := army.filter(func(u: Unit) -> bool: return not _retreating.has(u.get_instance_id()))
+	_keep_guard(ready, hq)
 	var intruder := _intruder(hq)
 	if intruder:
-		for unit: Unit in army:
-			if unit.state == Unit.State.IDLE or unit.state == Unit.State.MOVING:
+		for unit: Unit in ready:
+			if (unit.state == Unit.State.IDLE or unit.state == Unit.State.MOVING) \
+					and (_wave_state != "attacking" or unit not in _wave):
 				unit.attack_move(intruder.position)
+		if _wave_state == "gathering":
+			_wave_state = "home"  # stay and fight
 		return
+	_raid(ready.filter(func(u: Unit) -> bool: return not _guard.has(u.get_instance_id())))
+	match _wave_state:
+		"home":
+			_form_wave(ready, hq)
+		"gathering":
+			_gather_wave()
+		"attacking":
+			_reinforce(ready)
+			_press_attack()
+
+
+## While a wave is out, fresh troops at home follow it once there are enough of them.
+func _reinforce(army: Array) -> void:
+	if not _land_route:
+		return
+	var free := army.filter(func(u: Unit) -> bool:
+		return not _guard.has(u.get_instance_id()) and u not in _wave and u.state == Unit.State.IDLE)
+	if free.size() < maxi(4, _level().wave / 2):
+		return
+	for unit: Unit in free:
+		unit.set_stance(Unit.Stance.AGGRESSIVE)
+		unit.attack_move(_wave_target + Vector2(randf_range(-80, 80), randf_range(-80, 80)))
+	_wave.append_array(free)
+
+
+func _check_route() -> void:
+	if _elapsed - _route_checked < 120.0:
+		return
+	_route_checked = _elapsed
+	if GameData.cmdline_option("ai-ferry") != "":
+		_land_route = false  # test: behave as if the enemy were across the water
+		return
+	var target := _enemy_base()
+	if target == Vector2.INF or NavGrid.current == null or not NavGrid.current.has_water:
+		_land_route = true
+		return
+	var path := NavGrid.current.find_path(_home, target)
+	_land_route = not path.is_empty() and path[path.size() - 1].distance_to(target) < 320.0
+
+
+## Units below RETREAT_BELOW energy leave the wave and go home for a while.
+func _retreat_wounded(army: Array) -> void:
+	for unit: Unit in army:
+		var id := unit.get_instance_id()
+		if _retreating.has(id):
+			if _elapsed - float(_retreating[id]) > RETREAT_SECONDS or unit.health >= unit.max_health * 0.8:
+				_retreating.erase(id)
+			continue
+		if unit.health < unit.max_health * RETREAT_BELOW and unit.position.distance_to(_home) > 600.0 \
+				and unit.state != Unit.State.QUARTERED:
+			_retreating[id] = _elapsed
+			_wave.erase(unit)
+			unit.move_to(_home + Vector2(randf_range(-80, 80), randf_range(60, 140)))
+
+
+## A fifth of the army (at least two) stays home on the defensive; ranged guards man the
+## towers and the Native scouts lie in wait camouflaged.
+func _keep_guard(army: Array, hq: MapObject) -> void:
+	for id in _guard.keys():
+		if not is_instance_valid(instance_from_id(id)):
+			_guard.erase(id)
+	var wanted := maxi(2, int(army.size() * GUARD_SHARE)) if army.size() >= 4 else 0
+	for unit: Unit in army:
+		if _guard.size() >= wanted:
+			break
+		if not _guard.has(unit.get_instance_id()) and unit not in _wave:
+			_guard[unit.get_instance_id()] = true
+			unit.set_stance(Unit.Stance.DEFENSIVE)
+	var towers := _my_buildings().filter(func(b: MapObject) -> bool: return b.capacity() > 0 and b.complete \
+			and b.guid not in MapObject.MAIN_BUILDINGS)
+	var toward := (_enemy_base() - hq.position).normalized() if _enemy_base() != Vector2.INF else Vector2.DOWN
+	for unit: Unit in army:
+		if not _guard.has(unit.get_instance_id()) or unit.state != Unit.State.IDLE:
+			continue
+		for tower: MapObject in towers:
+			if unit.unit_type.ranged and tower.has_room_for(unit):
+				unit.take_quarters(tower)
+				break
+		if unit.state == Unit.State.IDLE and unit.quarters == null:
+			if unit.position.distance_to(hq.position) > 500.0:
+				unit.move_to(hq.position + toward * 220.0 + Vector2(randf_range(-90, 90), randf_range(-60, 60)))
+			elif unit.can_hide() and not unit.concealed:
+				unit.conceal()
+
+
+func _form_wave(army: Array, hq: MapObject) -> void:
+	var free := army.filter(func(u: Unit) -> bool: return not _guard.has(u.get_instance_id()))
 	var wave_size: int = _level().wave + _attack_wave * 2
-	if _elapsed < _level().first_attack or army.size() < wave_size or _elapsed - _last_attack < 60.0:
+	if _elapsed < _level().first_attack or free.size() < wave_size or _elapsed - _last_attack < 60.0:
 		return
 	var target := _enemy_base()
 	if target == Vector2.INF:
 		return
+	_wave = free
+	_wave_size = free.size()
+	_wave_target = target
+	var toward := (target - hq.position).normalized()
+	_gather_point = hq.position + toward * GATHER_DISTANCE
+	if not _land_route:
+		_gather_point = _shore_near(hq.position)
+		_ferry_started = _elapsed
+	_gather_started = _elapsed
+	_wave_state = "gathering"
+	for unit: Unit in _wave:
+		unit.set_stance(Unit.Stance.AGGRESSIVE)
+		unit.uncover()
+	_march(_gather_point, false)
+
+
+## Wait at the assembly point until most of the wave is there (or long enough), then go.
+## Across the water the boats take them: board, then sail for the enemy's shore.
+func _gather_wave() -> void:
+	_wave = _wave.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+	if _wave.is_empty():
+		_wave_state = "home"
+		return
+	if not _land_route and not _can_cross_alone():
+		_ferry()
+		return
+	var there := _wave.filter(func(u: Unit) -> bool: return u.position.distance_to(_gather_point) < 220.0).size()
+	if there < _wave.size() * 0.75 and _elapsed - _gather_started < GATHER_SECONDS:
+		return
 	_attack_wave += 1
 	_last_attack = _elapsed
+	_wave_state = "attacking"
 	if GameData.cmdline_option("trace-ai") != "":
-		print("t=%ds AI %d attacks with %d units (wave %d)" % [_elapsed, player.index, army.size(), _attack_wave])
+		print("t=%ds AI %d attacks with %d units (wave %d%s)" % [_elapsed, player.index, _wave.size(), _attack_wave,
+				"" if _land_route else ", swimming"])
+	_march(_wave_target, true)
+
+
+## The Native Americans swim once they know how (mounted units stay behind).
+func _can_cross_alone() -> bool:
+	if player.faction != "ind":
+		return false
+	var swimmers := _wave.filter(func(u: Unit) -> bool: return u.nav_layer() != NavGrid.Layer.GROUND)
+	if swimmers.size() < _level().wave / 2:
+		return false
+	_wave = swimmers
+	return true
+
+
+func _ferry() -> void:
+	var boats := _my_units().filter(func(u: Unit) -> bool: return u.is_boat())
+	if boats.is_empty():
+		if _elapsed - _ferry_started > 240.0:
+			_wave_state = "home"  # no boats came: try again later
+		return
+	var aboard := 0
+	for boat: Unit in boats:
+		aboard += boat.passengers.size()
+	var waiting := _wave.filter(func(u: Unit) -> bool: return not u.inside)
+	for boat: Unit in boats:
+		if boat.state == Unit.State.IDLE and boat.passengers.size() < boat.boat_capacity() \
+				and boat.position.distance_to(_gather_point) > 200.0 and boat.passengers.is_empty():
+			boat.move_to(_gather_point)
+		var room := boat.boat_capacity() - boat.passengers.size()
+		for unit: Unit in waiting.duplicate():
+			if room <= 0:
+				break
+			if unit.vessel == null and unit.state == Unit.State.IDLE:
+				unit.board(boat)
+				waiting.erase(unit)
+				room -= 1
+	var full := boats.all(func(b: Unit) -> bool: return b.passengers.size() >= b.boat_capacity())
+	if aboard > 0 and (waiting.is_empty() or full or _elapsed - _ferry_started > 90.0):
+		_attack_wave += 1
+		_last_attack = _elapsed
+		_wave_state = "attacking"
+		if GameData.cmdline_option("trace-ai") != "":
+			print("t=%ds AI %d ferries %d units (wave %d)" % [_elapsed, player.index, aboard, _attack_wave])
+		var landing := _shore_near(_wave_target)
+		for boat: Unit in boats:
+			if not boat.passengers.is_empty():
+				boat.unload_at(landing)
+		_wave = _wave.filter(func(u: Unit) -> bool: return u.inside)
+		_wave_size = _wave.size()
+
+
+## The wave presses on to the next enemy building once its target falls; when it has
+## melted away the survivors come home.
+func _press_attack() -> void:
+	_wave = _wave.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+	if _wave.size() < maxi(1, _wave_size / 4):
+		for unit: Unit in _wave:
+			if not unit.inside:
+				unit.move_to(_home + Vector2(randf_range(-80, 80), randf_range(60, 140)))
+		_wave_state = "home"
+		return
+	var target := _enemy_base()
+	if target == Vector2.INF:
+		return
+	if target.distance_to(_wave_target) > 64.0:
+		_wave_target = target
+		_march(target, true)
+		return
+	for unit: Unit in _wave:
+		if unit.state == Unit.State.IDLE and not unit.inside:
+			unit.attack_move(target + Vector2(randf_range(-60, 60), randf_range(-60, 60)))
+	# Boats that have put their troops ashore go back for more.
+	for boat: Unit in _my_units().filter(func(u: Unit) -> bool: return u.is_boat() and u.passengers.is_empty()):
+		if boat.state == Unit.State.IDLE and boat.position.distance_to(_home) > 900.0:
+			boat.move_to(_shore_near(_home))
+
+
+## Move the wave to `point` in a double line facing it.
+func _march(point: Vector2, fighting: bool) -> void:
+	var units := _wave.filter(func(u: Unit) -> bool: return not u.inside)
+	if units.is_empty():
+		return
+	var centre := SelectionController._centre(units)
+	var facing := (point - centre).normalized()
+	if facing == Vector2.ZERO:
+		facing = Vector2.DOWN
+	var side := facing.orthogonal()
+	units.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.dot(side) < b.position.dot(side))
+	var slots := SelectionController.formation_slots(units.size(), Unit.Formation.DOUBLE_LINE)
+	for i in units.size():
+		var unit: Unit = units[i]
+		unit.formation = Unit.Formation.DOUBLE_LINE
+		var spot := point + (side * slots[i].x - facing * slots[i].y) * SelectionController.FORMATION_SPACING
+		if fighting:
+			unit.attack_move(spot)
+		else:
+			unit.move_to(spot)
+
+
+## The water's edge nearest `point` (on the water), or the point itself on a dry map.
+func _shore_near(point: Vector2) -> Vector2:
+	var nav := NavGrid.current
+	if nav == null or not nav.has_water:
+		return point
+	var cell := nav.nearest_passable(nav.cell_of(point), 60, NavGrid.Layer.WATER)
+	return nav.center_of(cell) if cell.x >= 0 else point
+
+
+## Robbers rob enemy banks, missions and gold warehouses in reach; thieves steal the enemy's
+## wagons when they see one.
+func _raid(army: Array) -> void:
 	for unit: Unit in army:
-		unit.attack_move(target + Vector2(randf_range(-60, 60), randf_range(-60, 60)))
+		if unit.state != Unit.State.IDLE and unit.state != Unit.State.MOVING:
+			continue
+		if unit.can_steal():
+			for other in Unit.all_units:
+				if other.is_alive() and other.team > 0 and other.team != player.index and other.unit_type.is_transport() \
+						and other.position.distance_to(unit.position) < unit.sight():
+					unit.steal(other)
+					break
+		if unit.can_rob() and unit.state != Unit.State.GATHERING:
+			for object in MapObject.all_objects:
+				if object.is_building() and object.owner_index > 0 and object.owner_index != player.index \
+						and object.is_alive() and Unit.loot_of(object) > 0 and object.position.distance_to(unit.position) < 900.0:
+					unit.rob(object)
+					break
 
 
 func _intruder(hq: MapObject) -> Unit:

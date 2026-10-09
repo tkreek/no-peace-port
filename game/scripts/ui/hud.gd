@@ -375,9 +375,12 @@ func _object_detail(object: MapObject) -> String:
 				object.max_health, owner_note]
 	if not object.queue.is_empty():
 		var current := GameData.stats(object.queue[0])
-		var doing: String = {"upgrade": "Researching", "trade": "Trading", "horse": "Raising"}.get(current.get("kind"), "Training")
+		var doing: String = {"upgrade": "Researching", "trade": "Trading", "horse": "Raising", "gun": "Making"}.get(current.get("kind"), "Training")
 		return "%s %s — %d%%" % [doing,
 				current.get("name", "?"), int(object.train_progress * 100)]
+	if object.guid == MapObject.DISTILLERY_GUID:
+		owner_note += "\n" + ("Distilling %d wood into %d food every %d s" % [MapObject.DISTILL_WOOD, MapObject.DISTILL_FOOD,
+				MapObject.DISTILL_SECONDS] if object.distilling else "Resting")
 	var housing := int(GameData.stats(object.guid).get("housing", 0))
 	var quartered := "\nQuartered %d / %d" % [object.garrison.size(), object.capacity()] if object.capacity() > 0 else ""
 	if object.is_abandoned_store():
@@ -719,6 +722,12 @@ func _refresh_commands() -> void:
 				var button: Button = _commands.get_child(_commands.get_child_count() - 1)
 				button.set_meta("guid", guid)
 				button.set_meta("trade", trade)
+			elif guid == MapObject.GUN_GUID:
+				_add_icon_command(_command_icons, int(GameData.stats(guid).icon_frame), "Make a rifle\n%s" % _cost_text(guid), func() -> void:
+					if not building.enqueue(guid):
+						Sound.play_sound(80))
+				var gun_button: Button = _commands.get_child(_commands.get_child_count() - 1)
+				gun_button.set_meta("guid", guid)
 			elif guid == MapObject.HORSE_GUID or guid == MapObject.COW_GUID:
 				_add_command(-1, guid, func() -> void:
 					if not building.enqueue(guid):
@@ -731,6 +740,12 @@ func _refresh_commands() -> void:
 			var ready := Time.get_ticks_msec() >= building.look_ready_at
 			_add_spell_command(MapObject.LIFT_FOG_UPGRADE, "Look over the land: click a spot to lift the fog there for a while" +
 					("" if ready else "\n(recovering)"), "look")
+		if building.guid == MapObject.DISTILLERY_GUID:
+			_add_icon_command(_command_icons, ICON_STOP, "Stop distilling (keeps the wood)" if building.distilling \
+					else "Start distilling again (%d wood into %d food every %d s)" % [MapObject.DISTILL_WOOD, MapObject.DISTILL_FOOD,
+					MapObject.DISTILL_SECONDS], func() -> void:
+						building.distilling = not building.distilling
+						_command_signature = "", not building.distilling)
 		if not building.trainable_units().is_empty():
 			_add_icon_command(_extra_icons, ICON_RALLY, "Specify assembly location (I)",
 					func() -> void: selection.begin_targeting("rally"), selection.pending == "rally")
@@ -906,6 +921,15 @@ func _faction_guids(kind: String) -> Array:
 			out.append(guid)
 	out.sort()
 	return out
+
+
+func _cost_text(guid: int) -> String:
+	var parts := PackedStringArray()
+	var cost: Dictionary = GameData.stats(guid).get("cost", {})
+	for key in cost:
+		if key != "population":
+			parts.append("%d %s" % [cost[key], key])
+	return ", ".join(parts)
 
 
 func _add_command(type_id: int, guid: int, action: Callable) -> void:

@@ -38,6 +38,9 @@ const STAGECOACH := 456
 ## Cattle (manual 2.5): raised at the hacienda and ranch, sold alive at animal processing.
 const COW_GUID := 9002
 const COW_BUILDINGS := [205, 405]
+## Guns (manual 4.3): "Americans and Mexicans produce guns in their weapons factories".
+const GUN_GUID := 9003
+const GUN_FACTORIES := [211, 411]
 const ANIMAL_PROCESSING := [102, 202, 302, 402]
 ## The trading buildings (Native and Mexican trading post, outlaw drugstore, American
 ## general store) and their six trades.
@@ -612,6 +615,7 @@ func restore_state(entry: Dictionary) -> void:
 	trap_kills = int(entry.trap_kills)
 	loot_kind = entry.get("loot_kind", "")
 	loot = int(entry.get("loot", 0))
+	distilling = bool(entry.get("distilling", true))
 	if float(entry.get("burning", 0.0)) > 0.0:
 		ignite.call_deferred(float(entry.burning))
 	if is_field():
@@ -777,6 +781,8 @@ func trainable_units() -> PackedInt32Array:
 		out.append(HORSE_GUID)
 	if guid in COW_BUILDINGS:
 		out.append(COW_GUID)
+	if guid in GUN_FACTORIES:
+		out.append(GUN_GUID)
 	if guid in TRADE_BUILDINGS:
 		for i in TRADES.size():
 			out.append(TRADE_GUID + i)
@@ -851,8 +857,8 @@ func enqueue(unit_guid: int) -> bool:
 		_trade_terms.append(paid)
 		queue.append(unit_guid)
 		return true
-	if unit_guid == COW_GUID:
-		if not player.spend(GameData.stats(COW_GUID).cost):
+	if unit_guid == COW_GUID or unit_guid == GUN_GUID:
+		if not player.spend(GameData.stats(unit_guid).cost):
 			return false
 		queue.append(unit_guid)
 		return true
@@ -939,10 +945,10 @@ func _process(delta: float) -> void:
 					trader.add("gold", trader.sell_price(trade.good))
 				trader.move_price(trade.good, trade.buy)
 			return
-		if unit_guid == HORSE_GUID:
+		if unit_guid == HORSE_GUID or unit_guid == GUN_GUID:
 			var owner_player: Player = Player.by_index.get(owner_index)
 			if owner_player:
-				owner_player.add("horses", 1)
+				owner_player.add("horses" if unit_guid == HORSE_GUID else "guns", 1)
 			Sound.play_event(guid, Sound.Event.UNIT_READY, position, 0)
 			return
 		Sound.play_event(guid, Sound.Event.UNIT_READY, position, 0)
@@ -978,9 +984,13 @@ func _earn(delta: float) -> void:
 		player.add("gold", INCOME_GOLD)
 
 
+## Its owner can let a distillery rest, keeping the wood.
+var distilling := true
+
+
 func _distill(delta: float) -> void:
 	var player: Player = Player.by_index.get(owner_index)
-	if player == null or int(player.resources.get("wood", 0)) < DISTILL_WOOD:
+	if player == null or not distilling or int(player.resources.get("wood", 0)) < DISTILL_WOOD:
 		return
 	_distill_timer += delta
 	if _distill_timer >= DISTILL_SECONDS:

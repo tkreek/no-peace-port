@@ -119,6 +119,11 @@ def entries(block):
                 current[1][f] = line.split(":", 1)[1].strip()
                 last = f
                 break
+            # The explosives hut's entry drops the colon ("Cost 400 wood units").
+            if f == "Cost" and re.match(r"^cost \d", line.lower()):
+                current[1][f] = line[len("cost"):].strip()
+                last = f
+                break
         else:
             if current[1] and last in ("Cost", "Function", "Prerequisites", "Applies to") \
                     and not line.startswith("•") and not re.match(r"^\d+$", line):

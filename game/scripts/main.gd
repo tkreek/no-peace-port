@@ -415,6 +415,16 @@ func _print_report(frame: int) -> void:
 	print("  carcasses: %s" % [carcasses.map(func(u: Unit) -> int: return u.meat_left)])
 	for index in players:
 		print("frame %d (%ds) player %d: %s units=%d" % [frame, int(game_time), index, players[index].resources, alive.get(index, 0)])
+		if frame % 1800 == 0 and frame > 0:
+			var kinds := {}
+			for node in units_root.get_children():
+				if node is Unit and node.is_alive() and node.team == index:
+					kinds[node.display_name()] = kinds.get(node.display_name(), 0) + 1
+			var buildings := {}
+			for object in MapObject.all_objects:
+				if object.is_building() and object.owner_index == index and object.is_alive():
+					buildings[object.display_name()] = buildings.get(object.display_name(), 0) + 1
+			print("    units %s\n    buildings %s" % [kinds, buildings])
 
 
 func _vector_option(name: String, default: Vector2) -> Vector2:

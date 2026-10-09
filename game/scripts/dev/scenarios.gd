@@ -1069,3 +1069,20 @@ func _scenario_swim() -> void:
 	print("swam: %s" % seen_swimming)
 	if GameData.cmdline_option("screenshot") == "":
 		get_tree().quit()
+
+
+## The outlaws' expanded build menu beside the buildings it offers (picture check).
+func _scenario_icons() -> void:
+	var hq: MapObject = main.players[1].main_building()
+	var x := -360.0
+	for guid in GameData.cmdline_option("guids", "310,311,313").split(","):
+		var type := ObjectTypes.get_type(GameData.type_for_guid(guid.to_int(), main.terrain.biome))
+		var b := MapObject.new()
+		b.position = hq.position + Vector2(x, 330)
+		b.setup(type, 1)
+		main.units_root.add_child(b)
+		x += 260.0
+	main.camera.position = hq.position + Vector2(-100, 260)
+	var builders := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.anim_index("build") >= 0)
+	main.selection._select(builders, false)
+	main.hud._open_build_menu("expanded")

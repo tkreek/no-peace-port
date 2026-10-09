@@ -121,6 +121,10 @@ func _ready() -> void:
 		_scenario_fields.call_deferred()
 	if GameData.cmdline_option("scenario") == "hunt":
 		_scenario_hunt.call_deferred()
+	if GameData.cmdline_option("scenario") == "picking":
+		_scenario_picking.call_deferred()
+	if GameData.cmdline_option("scenario") == "damage":
+		_scenario_damage.call_deferred()
 	if GameData.cmdline_option("scenario") == "orders":
 		_scenario_orders.call_deferred()
 	var report := GameData.cmdline_option("report-after")
@@ -602,6 +606,48 @@ func _scenario_hunt() -> void:
 	get_tree().quit()
 
 
+## Where clicks land on the HQ: roof, walls, empty corners of its footprint, beside it.
+func _scenario_picking() -> void:
+	await get_tree().process_frame
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	var picture := hq.visual_rect()
+	var foot := hq.footprint_rect()
+	var probes := {"roof (picture centre, upper third)": Vector2(picture.get_center().x, picture.position.y + picture.size.y * 0.3),
+		"walls centre": hq.work_rect().get_center(),
+		"picture top-left corner": picture.position + Vector2(4, 4),
+		"footprint bottom-left corner": Vector2(foot.position.x + 2, foot.end.y - 2),
+		"40px right of picture": Vector2(picture.end.x + 40, picture.get_center().y)}
+	for label in probes:
+		print("%-36s -> %s" % [label, selection._building_at(probes[label]) == hq])
+	get_tree().quit()
+
+
+## Three of the people's grain stores side by side at 60%, 25% and 0% energy.
+func _scenario_damage() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	var guid: int = {"mex": 208, "usa": 408, "ind": 108, "des": 308}[players[1].faction]
+	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, terrain.biome))
+	var ai := AiPlayer.new()
+	var built: Array[MapObject] = []
+	for ratio in [0.6, 0.25, 0.0]:
+		var b := MapObject.new()
+		b.position = ai._find_spot(type, hq.position + Vector2(-500, 300))
+		b.setup(type, 1)
+		units_root.add_child(b)
+		nav.block_footprint(type, b.position)
+		b.take_damage(b.max_health * (1.0 - ratio) + (1.0 if ratio == 0.0 else 0.0))
+		built.append(b)
+	ai.free()
+	camera.position = built[1].position + Vector2(0, -60)
+	print("damage: ", built.map(func(b: MapObject) -> String: return "%d%% anim %d fires %d" % [int(100 * b.health / b.max_health), b._body_anim, b._fires.size()]))
+
+
 ## Formations, patrol, follow and a rally point, with positions printed as they play out.
 func _scenario_orders() -> void:
 	var hq: MapObject = null
@@ -835,6 +881,7 @@ func _setup_screenshot() -> void:
 	for i in GameData.cmdline_option("frames", "90").to_int():
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
+	print("fps %d, %d units, %d objects" % [Engine.get_frames_per_second(), Unit.all_units.size(), MapObject.all_objects.size()])
 	get_viewport().get_texture().get_image().save_png(path)
 	get_tree().quit()
 

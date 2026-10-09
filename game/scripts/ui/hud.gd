@@ -120,6 +120,15 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	_left.stretch_mode = TextureRect.STRETCH_SCALE
 	_right.stretch_mode = TextureRect.STRETCH_SCALE
 	_right.texture = _minimap_panel_texture()
+	# The frame sits over the minimap; clicks in its window belong to the map.
+	_right.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouse:
+			var local: Vector2 = _right.get_global_transform() * event.position - minimap.global_position
+			if Rect2(Vector2.ZERO, minimap.size).has_point(local) or minimap.is_dragging():
+				var forwarded: InputEvent = event.duplicate()
+				forwarded.position = local
+				minimap.handle_input(forwarded)
+				_right.accept_event())
 
 	minimap.setup(map, camera, objects, terrain_colors)
 	_root.add_child(minimap)

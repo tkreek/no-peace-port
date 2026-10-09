@@ -113,6 +113,10 @@ func take_damage(amount: float, _attacker: Node2D = null) -> void:
 	_overlay.queue_redraw()
 	if health <= 0.0:
 		_destroy()
+		return
+	_update_fires()
+	if health < max_health * BURNT_BELOW and _body_anim != BURNT_ANIM:
+		_refresh_sprites()
 
 
 func capacity() -> int:
@@ -201,8 +205,14 @@ func _destroy() -> void:
 		NavGrid.current.unblock_footprint(object_type, position)
 	selected = false
 	destroyed.emit(self)
+	_update_fires()
+	_refresh_sprites()  # the rubble, where the building has one
 	var tween := create_tween()
-	tween.tween_property(self, "modulate", Color(0.3, 0.25, 0.2, 0.0), 2.5)
+	if _body_anim == RUBBLE_ANIM:
+		tween.tween_interval(RUBBLE_SECONDS)
+		tween.tween_property(self, "modulate", Color(1, 1, 1, 0.0), 3.0)
+	else:
+		tween.tween_property(self, "modulate", Color(0.3, 0.25, 0.2, 0.0), 2.5)
 	tween.tween_callback(queue_free)
 
 
@@ -279,6 +289,16 @@ func display_name() -> String:
 ## Footprint rectangle in world space (for arrival checks and placement).
 func footprint_rect() -> Rect2:
 	return footprint_rect_for(object_type, position)
+
+
+## Whether a click at `point` (world) lands on this object: on a solid pixel of its picture
+## (walls, roof, canopy), or on its walls' ground area.
+func hit(point: Vector2) -> bool:
+	if work_rect().grow(4).has_point(point):
+		return true
+	if _body == null or _body.texture == null or not visual_rect().has_point(point):
+		return false
+	return _body.is_pixel_opaque(_body.to_local(point))
 
 
 ## Where the object's current picture is drawn, in world coordinates (canopy, roof...).
@@ -396,12 +416,40 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 		return false
 	# Only buildings (training, distilling) and fields (growing) need a per-frame update.
 	set_process(is_building() or is_field())
-	var team_row := owner if type.kind == ObjectTypes.Kind.BUILDING and owner > 0 else 0
-	_body.set_instance_shader_parameter("palette_row", mini(team_row, _bob.palettes.size() - 1))
+	_team_row = mini(owner if type.kind == ObjectTypes.Kind.BUILDING and owner > 0 else 0, _bob.palettes.size() - 1)
+	_body.set_instance_shader_parameter("palette_row", _palette_row(_body_anim))
 	return true
 
 
+## Palette row for a sheet: the team's colours, or the sheet's own table (burnt walls,
+## rubble, windmill) which the palette texture holds as a further row.
+func _palette_row(anim_index: int) -> int:
+	if anim_index < 0 or anim_index >= _bob.anims.size():
+		return _team_row
+	var own := _bob.palettes_for_sheet(_bob.anims[anim_index].sub_sprite)
+	if own.size() == 1 and own[0] != _bob.palettes[0]:
+		return maxi(0, Array(_bob.palettes).find(own[0]))
+	return _team_row
+
+
 var _build_sound_played := false
+var _team_row := 0
+var _body_anim := -1
+## Building anims shared by every building descriptor (body/shadow pairs).
+const BURNT_ANIM := 7  # the burnt-out building, shown below a third of its energy
+const RUBBLE_ANIM := 9
+const AMBIENT_ANIM := 11  # a moving part (windmill sails...) and 12 its shadow
+const BURNT_BELOW := 0.33
+const FIRE_BELOW := 0.66
+const RUBBLE_SECONDS := 25.0
+const FIRE_BOB := "global/gfx/feuer/fire.bob"
+## fire.bob: 0 large, 1 medium, 2 small flames; 3-5 clouds; 6 smoke column.
+const FIRE_STAGES := [[], [2, 6], [2, 1, 0, 6]]
+var _fires: Array[OrderMarker] = []
+var _fire_stage := 0
+var _ambient: Sprite2D
+var _ambient_step := 0
+var _ambient_time := 0.0
 ## Units quartered inside (forts, towers): safe from attack and shooting out at enemies.
 var garrison: Array[Unit] = []
 const GARRISON_RANGE_BONUS := 60.0  # firing from the walls / platform reaches further
@@ -527,6 +575,8 @@ func _process(delta: float) -> void:
 			var owner_player: Player = Player.by_index.get(owner_index)
 			amount = FIELD_YIELD + (int(owner_player.bonus(-1, "field_yield")) if owner_player else 0)
 		_refresh_sprites()
+	if _ambient:
+		_advance_ambient(delta)
 	if not garrison.is_empty():
 		_update_garrison(delta)
 	if guid == DISTILLERY_GUID and complete:
@@ -600,20 +650,94 @@ func _refresh_sprites() -> bool:
 		shadow_anim = -1
 	elif is_building():
 		# Construction stages are the frames of anim 0 (shadow anim 1); 2/3 hold the finished frame.
-		if not complete:
+		if not complete and health > 0.0:
 			body_anim = 0
 			var stages := _bob.anims[0].frames.size()
 			frame_hint = mini(stages - 1, int(build_progress * stages))
 		else:
 			body_anim = 2 if _bob.anims.size() > 3 else 0
+		if health <= 0.0 and _has_sheet(RUBBLE_ANIM):
+			body_anim = RUBBLE_ANIM
+		elif complete and health < max_health * BURNT_BELOW and _has_sheet(BURNT_ANIM):
+			body_anim = BURNT_ANIM
 		shadow_anim = _bob.shadow_for(body_anim)
 	elif shadow_anim == body_anim:
 		shadow_anim = _bob.shadow_for(body_anim)
 	if not _show(_body, body_anim, frame_hint):
 		return false
 	_body.material = SpriteMaterials.body(_body.get_meta("sheet"), _palette, _ramps)
+	if body_anim != _body_anim:
+		_body_anim = body_anim
+		_body.set_instance_shader_parameter("palette_row", _palette_row(body_anim))
+	if is_building():
+		_update_ambient()
 	_shadow.visible = shadow_anim >= 0 and shadow_anim < _bob.anims.size() and _show(_shadow, shadow_anim, frame_hint)
 	return true
+
+
+func _has_sheet(anim_index: int) -> bool:
+	return anim_index < _bob.anims.size() and not _bob.sub_sprite_is_shadow[_bob.anims[anim_index].sub_sprite]
+
+
+## Flames and smoke grow as the building loses energy (none above two thirds).
+func _update_fires() -> void:
+	var ratio := health / max_health if max_health > 0.0 else 1.0
+	var stage := 0
+	if complete and health > 0.0:
+		stage = 2 if ratio < BURNT_BELOW else (1 if ratio < FIRE_BELOW else 0)
+	if stage == _fire_stage:
+		return
+	if stage > _fire_stage:
+		Sound.play_event(guid, Sound.Event.BURNING, position, 0, get_instance_id(), Sound.WORK_RANGE)
+	_fire_stage = stage
+	for fire in _fires:
+		if is_instance_valid(fire):
+			fire.queue_free()
+	_fires.clear()
+	var walls := work_rect()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = get_instance_id()
+	var picture := visual_rect()
+	for anim in FIRE_STAGES[stage]:
+		# Somewhere on the building itself: a solid pixel in the upper part of its picture.
+		var spot := walls.get_center()
+		for attempt in 16:
+			var candidate := Vector2(rng.randf_range(picture.position.x + picture.size.x * 0.2, picture.end.x - picture.size.x * 0.2),
+					rng.randf_range(picture.position.y + picture.size.y * 0.25, picture.position.y + picture.size.y * 0.7))
+			if _body.is_pixel_opaque(_body.to_local(candidate)):
+				spot = candidate
+				break
+		_fires.append(OrderMarker.effect_loop(self, spot - position, FIRE_BOB, anim))
+
+
+## Buildings with a moving part (the farm's windmill...) run it once they are finished.
+func _update_ambient() -> void:
+	var wanted := complete and health >= max_health * BURNT_BELOW and _has_sheet(AMBIENT_ANIM) \
+			and _bob.anims[AMBIENT_ANIM].frames.size() > 1
+	if not wanted:
+		if _ambient:
+			_ambient.queue_free()
+			_ambient = null
+		return
+	if _ambient == null:
+		_ambient = Sprite2D.new()
+		_ambient.centered = false
+		_ambient.region_enabled = true
+		add_child(_ambient)
+		move_child(_ambient, _body.get_index() + 1)
+		_ambient_step = 0
+		_show(_ambient, AMBIENT_ANIM, 0)
+		_ambient.material = SpriteMaterials.body(_ambient.get_meta("sheet"), _palette, _ramps)
+		_ambient.set_instance_shader_parameter("palette_row", _palette_row(AMBIENT_ANIM))
+
+
+func _advance_ambient(delta: float) -> void:
+	var anim := _bob.anims[AMBIENT_ANIM]
+	_ambient_time += delta * 1000.0
+	if _ambient_time >= anim.durations_ms[_ambient_step]:
+		_ambient_time = 0.0
+		_ambient_step = (_ambient_step + 1) % anim.frames.size()
+		_show(_ambient, AMBIENT_ANIM, _ambient_step)
 
 
 func _show(sprite: Sprite2D, anim_index: int, frame_hint: int) -> bool:

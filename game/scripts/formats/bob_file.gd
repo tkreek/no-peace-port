@@ -73,6 +73,75 @@ static func parse(text: String) -> BobFile:
 	return bob
 
 
+## The colour tables a sheet is drawn with: its own extra table if it has one, else the
+## base palette and its team variants. Extra tables (anything but the base palette and its
+## "_Farbumwandlung_N_" variants) belong to the sheet named like them (fire: feuer_*.spx use
+## feuer_gross.ftb), else, for buildings' unnamed sheets, to the next picture sheet in order
+## (ground plate, damaged/rubble, animated part). Mirrors tools/upscale/hd_sprites.py.
+func palettes_for_sheet(sub: int) -> PackedStringArray:
+	if _sheet_palettes.is_empty():
+		_assign_sheet_palettes()
+	var own: String = _sheet_palettes.get(sub, "")
+	return PackedStringArray([own]) if not own.is_empty() else team_palettes()
+
+
+func team_palettes() -> PackedStringArray:
+	var out := PackedStringArray()
+	for i in palettes.size():
+		if i == 0 or palettes[i].to_lower().contains("farbumwandlung"):
+			out.append(palettes[i])
+	return out
+
+
+var _sheet_palettes := {}  # sheet index -> its own palette file
+
+
+func _assign_sheet_palettes() -> void:
+	_sheet_palettes[-1] = ""  # mark as computed
+	var named := PackedStringArray()
+	var unused := PackedStringArray()
+	for i in palettes.size():
+		if not palettes[i].to_lower().contains("farbumwandlung"):
+			named.append(palettes[i])
+			if i > 0:
+				unused.append(palettes[i])
+	if unused.is_empty():
+		return
+	var pictures: Array[int] = []
+	for i in sub_sprites.size():
+		if not sub_sprite_is_shadow[i]:
+			pictures.append(i)
+	var matched := {}
+	for sub in pictures:
+		var stem := sub_sprites[sub].to_lower().get_basename()
+		var best := ""
+		var best_len := 0
+		for p in named:
+			var n := _common_prefix(stem, p.to_lower())
+			if n > best_len:
+				best = p
+				best_len = n
+		if best_len >= 4:
+			matched[sub] = true
+			if best != palettes[0]:
+				_sheet_palettes[sub] = best
+				var at := unused.find(best)
+				if at >= 0:
+					unused.remove_at(at)
+	for k in range(1, pictures.size()):
+		var sub := pictures[k]
+		if not matched.has(sub) and not unused.is_empty():
+			_sheet_palettes[sub] = unused[0]
+			unused.remove_at(0)
+
+
+static func _common_prefix(a: String, b: String) -> int:
+	var n := 0
+	while n < mini(a.length(), b.length()) and a[n] == b[n]:
+		n += 1
+	return n
+
+
 ## Index of the first animation whose sprite file name contains `stem` (body, not shadow).
 func find_anim(stem: String) -> int:
 	for i in anims.size():

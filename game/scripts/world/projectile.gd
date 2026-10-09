@@ -5,8 +5,8 @@ extends Node2D
 ## deals the damage when it lands; cannonballs and dynamite burst into the original
 ## explosion animation and hurt everyone close by.
 
-const SPEED := {"kugel": 520.0, "dynamit": 300.0, "tomahawk": 380.0, "messer": 460.0}
-const DEFAULT_SPEED := 560.0
+const SPEED := {"kugel": 1100.0, "dynamit": 480.0, "tomahawk": 620.0, "messer": 720.0}
+const DEFAULT_SPEED := 900.0  # arrows
 const ARC := {"kugel": 0.18, "dynamit": 0.3, "tomahawk": 0.12, "messer": 0.06}
 const EXPLOSION_BOB := "global/gfx/explosion/explosiv.bob"
 const SPLASH_RADIUS := 40.0

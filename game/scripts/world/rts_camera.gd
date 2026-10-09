@@ -4,8 +4,10 @@ extends Camera2D
 
 @export var pan_speed := 900.0
 @export var edge_margin := 6
-@export var min_zoom := 0.75  # wide enough to see a base and its approaches
-@export var max_zoom := 1.75  # close enough for detail without blowing the art up
+## Zoom levels are relative to a 1080-line screen, so a bigger monitor shows the same
+## stretch of map at the same level rather than more of it.
+@export var min_zoom := 0.85  # wide enough to see a base and its approaches
+@export var max_zoom := 1.6  # close enough for detail without blowing the art up
 @export var zoom_step := 1.15
 
 var bounds := Rect2()
@@ -20,7 +22,11 @@ func _ready() -> void:
 
 func set_zoom_level(value: float) -> void:
 	_target_zoom = clampf(value, min_zoom, max_zoom)
-	zoom = Vector2(_target_zoom, _target_zoom)
+	zoom = Vector2(_target_zoom, _target_zoom) * screen_scale()
+
+
+func screen_scale() -> float:
+	return maxf(1.0, get_viewport_rect().size.y / 1080.0)
 
 
 func _process(delta: float) -> void:
@@ -38,7 +44,7 @@ func _process(delta: float) -> void:
 		if mouse.y < edge_margin: input.y = -1
 		elif mouse.y > size.y - edge_margin: input.y = 1
 	position += input.limit_length(1.0) * pan_speed * delta / zoom.x
-	var z := lerpf(zoom.x, _target_zoom, minf(1.0, delta * 12.0))
+	var z := lerpf(zoom.x, _target_zoom * screen_scale(), minf(1.0, delta * 12.0))
 	zoom = Vector2(z, z)
 	_clamp()
 

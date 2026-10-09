@@ -40,11 +40,20 @@ static func flag(parent: Node, at: Vector2, team: int) -> OrderMarker:
 	var marker := OrderMarker.new()
 	marker.position = at
 	parent.add_child(marker)
-	marker._setup(FLAG_BOB, 0, team, true)
+	marker._setup(FLAG_BOB, 0, team, true, true)
 	return marker
 
 
-func _setup(bob_path: String, anim: int, team: int, loop: bool) -> void:
+## A looping effect (fire, smoke) that stays until freed.
+static func effect_loop(parent: Node, at: Vector2, bob_path: String, anim: int) -> OrderMarker:
+	var marker := OrderMarker.new()
+	marker.position = at
+	parent.add_child(marker)
+	marker._setup(bob_path, anim, 0, true)
+	return marker
+
+
+func _setup(bob_path: String, anim: int, team: int, loop: bool, with_shadow := false) -> void:
 	_bob_path = bob_path
 	_anim = anim
 	looping = loop
@@ -53,8 +62,9 @@ func _setup(bob_path: String, anim: int, team: int, loop: bool) -> void:
 		queue_free()
 		return
 	z_index = 5  # over units and scenery
-	var palette := GameData.load_palette_texture(bob_path.get_base_dir(), _bob.palettes)
-	if looping and _bob.anims.size() > anim + 1:
+	var palette := GameData.load_palette_texture(bob_path.get_base_dir(),
+			_bob.palettes_for_sheet(_bob.anims[anim].sub_sprite))
+	if with_shadow and _bob.anims.size() > anim + 1:
 		_shadow = Sprite2D.new()
 		_shadow.centered = false
 		_shadow.region_enabled = true

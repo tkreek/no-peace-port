@@ -187,6 +187,39 @@ class Job:
         self.team = None
 
 
+def palettes_for_sheets(palette_files, sprites):
+    """Extra colour tables (other than the base palette and its team variants
+    "..._Farbumwandlung_N_") belong to particular picture sheets: one named like the sheet
+    (fire: feuer_*.spx use feuer_gross.ftb, wolke_* wolke_gross.ftb), else, for buildings'
+    unnamed sheets, the next picture sheet in order (ground plate, damaged/rubble, animated
+    part). Returns {sheet file: palette file}; other sheets use the base/team palettes."""
+    extras = [p for p in palette_files[1:] if "farbumwandlung" not in p.lower()]
+    if not extras:
+        return {}
+    named = [p for p in palette_files if "farbumwandlung" not in p.lower()]
+    pictures = [s["file"] for s in sprites if not s["shadow"]]
+    out, unused = {}, list(extras)
+    for sheet in pictures:
+        stem = sheet.lower().rsplit(".", 1)[0]
+        best = max(named, key=lambda p: _common_prefix(stem, p.lower()))
+        if _common_prefix(stem, best.lower()) >= 4:
+            if best != palette_files[0]:
+                out[sheet] = best
+                if best in unused:
+                    unused.remove(best)
+    for sheet in pictures[1:]:
+        if sheet not in out and unused and not any(_common_prefix(sheet.lower(), p.lower()) >= 4 for p in named):
+            out[sheet] = unused.pop(0)
+    return out
+
+
+def _common_prefix(a, b):
+    n = 0
+    while n < min(len(a), len(b)) and a[n] == b[n]:
+        n += 1
+    return n
+
+
 def build_paletted(files, path, palette, team_indices, team_keys):
     shadow, frames = decode_rdsx(files.read(path))
     if shadow:
@@ -327,7 +360,10 @@ def main():
         palettes_files, sprites = read_bob(files.read(bob_path).decode("latin1"))
         palettes = [read_palette(files.read(f"{directory}/{p}")) for p in palettes_files
                     if files.exists(f"{directory}/{p}")]
-        indices, keys, ramps = team_ramps(palettes) if len(palettes) >= 9 else (None, None, None)
+        indices, keys, ramps = team_ramps(palettes[:9]) if len(palettes) >= 9 else (None, None, None)
+        sheet_palettes = {sheet: read_palette(files.read(f"{directory}/{name}"))
+                          for sheet, name in palettes_for_sheets(palettes_files, sprites).items()
+                          if files.exists(f"{directory}/{name}")}
         if ramps is not None:
             out = os.path.join(args.out_dir, bob_path + ".ramps.png")
             os.makedirs(os.path.dirname(out), exist_ok=True)
@@ -343,7 +379,11 @@ def main():
                 if path.endswith(".spr"):
                     pending.append(build_truecolor(files, path))
                 elif palettes:
-                    pending.append(build_paletted(files, path, palettes[0], indices, keys))
+                    own = sheet_palettes.get(sprite["file"])
+                    if own is not None:  # a sheet with its own colour table: no team colours
+                        pending.append(build_paletted(files, path, own, None, None))
+                    else:
+                        pending.append(build_paletted(files, path, palettes[0], indices, keys))
             except Exception as error:  # keep going; report at the end
                 print(f"skip {path}: {error}", flush=True)
             if len(pending) >= args.batch:

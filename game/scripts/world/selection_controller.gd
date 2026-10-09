@@ -187,8 +187,7 @@ func _resource_at(point: Vector2) -> MapObject:
 		var footprint := object.footprint_rect()
 		var hit := object.work_rect().grow(6).has_point(point)
 		if object.is_tree():
-			var canopy := object.visual_rect()
-			hit = hit or canopy.grow_individual(-canopy.size.x * 0.2, -4, -canopy.size.x * 0.2, 0).has_point(point)
+			hit = object.hit(point)  # trunk or a solid pixel of the canopy
 		elif object.is_field():
 			hit = footprint.has_point(point)
 		else:
@@ -256,11 +255,8 @@ func order_gather(source: MapObject) -> void:
 
 
 func _enemy_building_at(point: Vector2) -> MapObject:
-	for object in MapObject.all_objects:
-		if object.is_building() and object.owner_index > 0 and object.owner_index != player_team \
-				and object.is_alive() and object.visible and object.footprint_rect().has_point(point):
-			return object
-	return null
+	return _front_most(point, func(o: MapObject) -> bool:
+		return o.is_building() and o.owner_index > 0 and o.owner_index != player_team and o.is_alive())
 
 
 func order_attack(enemy: Node2D) -> void:
@@ -290,16 +286,18 @@ func _unit_at(point: Vector2, own := true) -> Unit:
 
 
 func _building_at(point: Vector2) -> MapObject:
+	return _front_most(point, func(o: MapObject) -> bool: return o.is_building() and o.owner_index == player_team)
+
+
+## The object under the cursor that passes `test`, judged by its picture; when pictures
+## overlap the one drawn in front (lowest on screen) wins.
+func _front_most(point: Vector2, test: Callable) -> MapObject:
+	var best: MapObject = null
 	for object in MapObject.all_objects:
-		if object.is_building() and object.owner_index == player_team and _click_rect(object).has_point(point):
-			return object
-	return null
-
-
-## Buildings stand taller than their ground footprint; accept clicks on the walls and roof too.
-static func _click_rect(object: MapObject) -> Rect2:
-	var rect := object.footprint_rect()
-	return rect.grow_individual(8, rect.size.y * 0.6, 8, 8)
+		if test.call(object) and object.visible and object.hit(point) \
+				and (best == null or object.position.y > best.position.y):
+			best = object
+	return best
 
 
 func select_building(building: MapObject) -> void:
@@ -316,11 +314,9 @@ func select_building(building: MapObject) -> void:
 
 ## Something to look at that isn't ours: an enemy building in sight or a resource.
 func _object_at(point: Vector2) -> MapObject:
-	for object in MapObject.all_objects:
-		if object.is_building() and object.owner_index != player_team and object.visible \
-				and object.is_alive() and _click_rect(object).has_point(point):
-			return object
-	return _resource_at(point)
+	var enemy := _front_most(point, func(o: MapObject) -> bool:
+		return o.is_building() and o.owner_index != player_team and o.is_alive())
+	return enemy if enemy else _resource_at(point)
 
 
 ## Select exactly these units (e.g. from the HUD's group portraits).

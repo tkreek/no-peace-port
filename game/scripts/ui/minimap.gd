@@ -44,18 +44,24 @@ func _draw() -> void:
 	draw_rect(Rect2((camera.position - view / 2.0) * to_mini, view * to_mini), Color(1, 1, 1, 0.9), false, 1.0)
 
 
+func is_dragging() -> bool:
+	return _dragging
+
+
+## Input from the HUD frame drawn over the minimap (positions in minimap coordinates).
+func handle_input(event: InputEvent) -> void:
+	_gui_input(event)
+
+
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
 		move_ordered.emit(_to_world(event.position))
-		accept_event()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		_dragging = event.pressed
 		if event.pressed:
 			camera.position = _to_world(event.position)
-		accept_event()
 	elif event is InputEventMouseMotion and _dragging:
-		camera.position = _to_world(event.position)
-		accept_event()
+		camera.position = _to_world(event.position.clamp(Vector2.ZERO, size))
 
 
 func _to_world(local: Vector2) -> Vector2:

@@ -251,6 +251,9 @@ func _load_tables() -> void:
 		var trade: Dictionary = MapObject.TRADES[i]
 		_stats[MapObject.TRADE_GUID + i] = {"kind": "trade", "name": "%s %s" % ["Buy" if trade.buy else "Sell", trade.good],
 				"faction": "", "build_time": 6, "cost": {}, "icon_frame": trade.icon}
+	_stats[MapObject.COW_GUID] = {"kind": "cow", "name": "Cow", "faction": "", "build_time": 15,
+			"cost": {"food": 40}, "icon": "Potraits/Sonstige_icons/z08_kuh.bmp",
+			"function": "Raises a cow; it gains up to 25 gold of value while grazing"}
 	# Raising a horse (manual: corral, hacienda, ranch; "costs food"; no editor entry).
 	_stats[MapObject.HORSE_GUID] = {"kind": "horse", "name": "Horse", "faction": "", "build_time": 20,
 			"cost": {"food": 50}, "icon": "Potraits/Sonstige_icons/z02_pferd.bmp",

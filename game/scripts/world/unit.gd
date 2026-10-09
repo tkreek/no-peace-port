@@ -507,6 +507,52 @@ func _apply_spell(spell: int, at: Vector2) -> void:
 				_spell_unit.change_team(team)
 
 
+## Cattle (manual 2.5): cows graze up to 25 gold of value; driven alive to an animal-
+## processing building they are paid out (the Native facility pays food as well). Herders
+## take over wild or enemy cows by coming close.
+const COW_DIR := "global/gfx/animals/kuh"
+const COW_MAX_VALUE := 25.0
+const COW_GRAZE_SECONDS := 200.0  # from nothing to full value
+const HERDERS := [463, 464, 263, 264, 156, 157, 353, 354]
+var cattle_value := 0.0
+var _deliver_to: MapObject
+var _herd_scan := 0.0
+
+
+func is_cow() -> bool:
+	return unit_type.directory.to_lower().ends_with("animals/kuh")
+
+
+func deliver(building: MapObject) -> void:
+	if not is_cow() or team <= 0:
+		return
+	move_to(building.work_rect().get_center())
+	_deliver_to = building
+
+
+func _update_cow(delta: float) -> void:
+	if team > 0 and state == State.IDLE:
+		cattle_value = minf(COW_MAX_VALUE, cattle_value + COW_MAX_VALUE / COW_GRAZE_SECONDS * delta)
+	if is_instance_valid(_deliver_to) and _deliver_to.work_rect().grow(REACH * 3).has_point(position):
+		var player: Player = Player.by_index.get(team)
+		if player:
+			player.add("gold", int(cattle_value))
+			if _deliver_to.guid == 102:
+				player.add("food", int(cattle_value) * 2)
+		Sound.play_event(_deliver_to.guid, Sound.Event.SELECT, _deliver_to.position, 0)
+		queue_free()
+
+
+func _herd(delta: float) -> void:
+	_herd_scan -= delta
+	if _herd_scan > 0.0:
+		return
+	_herd_scan = 0.5
+	for other in all_units:
+		if other.is_alive() and other.is_cow() and other.team != team and other.position.distance_to(position) < 60.0:
+			other.change_team(team)
+
+
 ## Native Americans heal over time with herb blends; outlaws once Self-healing is researched.
 const SELF_HEALING_UPGRADE := 957
 const SELF_HEAL_PER_SECOND := 0.6
@@ -608,6 +654,9 @@ func _may_engage(enemy: Node2D) -> bool:
 
 
 func is_enemy_of(other: Unit) -> bool:
+	var other_player: Player = Player.by_index.get(other.team)
+	if other_player and other_player.surrendered:
+		return false  # laid down their arms
 	if other.state == State.QUARTERED:
 		return false  # out of reach behind the walls
 	if other.concealed and not other.detected_by(team):
@@ -693,6 +742,7 @@ func fire_from_quarters(enemy: Node2D, from: Vector2) -> void:
 func move_to(destination: Vector2, keep_orders := false) -> void:
 	if not is_alive():
 		return
+	_deliver_to = null
 	if not keep_orders:
 		_clear_orders()
 	attack_moving = false
@@ -828,6 +878,10 @@ func _process(delta: float) -> void:
 			_body.self_modulate = Color.WHITE
 	if shield_time > 0.0:
 		shield_time -= delta
+	if is_cow():
+		_update_cow(delta)
+	elif team > 0 and unit_type.guid() in HERDERS:
+		_herd(delta)
 	if CASTERS.has(unit_type.guid()):
 		magic_energy = minf(magic_pool(), magic_energy + MAGIC_REGEN * delta)
 	if _spell >= 0 and (state == State.IDLE or state == State.MOVING):

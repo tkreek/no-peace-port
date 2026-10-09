@@ -29,6 +29,37 @@ var _elapsed := 0.0
 var _attack_wave := 0
 var _last_attack := -1000.0
 var _failed := {}  # structure GUID -> when it last found no room
+var _home := Vector2.ZERO
+var _lost_since := -1.0
+const SURRENDER_GRACE := 20.0  # seconds to start rebuilding before giving up
+
+
+## The main building has fallen: rebuild it if there are builders and the means, keep the
+## workers at it, and surrender when that is no longer possible.
+func _without_main_building() -> void:
+	if _lost_since < 0.0:
+		_lost_since = _elapsed
+	var main := _faction_guid(MapObject.MAIN_BUILDINGS)
+	var units := _my_units()
+	var builders := units.filter(func(u: Unit) -> bool: return u.unit_type.can_build(main))
+	var rebuilding := _my_buildings().any(func(b: MapObject) -> bool: return b.guid == main)
+	if rebuilding:
+		_assign_workers(builders)
+		return
+	if not builders.is_empty() and _affordable(main) and _place(main, _home, builders, 0):
+		return
+	if _elapsed - _lost_since >= SURRENDER_GRACE:
+		_surrender()
+
+
+func _surrender() -> void:
+	player.surrendered = true
+	for unit: Unit in _my_units():
+		unit.stance = Unit.Stance.PASSIVE
+		unit.stop()
+	var main := get_parent()
+	if main and main.has_method("on_surrender"):
+		main.on_surrender(player)
 
 
 func _process(delta: float) -> void:
@@ -45,9 +76,14 @@ func _level() -> Dictionary:
 
 
 func _think() -> void:
+	if player.surrendered:
+		return
 	var hq := _hq()
 	if hq == null:
+		_without_main_building()
 		return
+	_home = hq.position
+	_lost_since = -1.0
 	var units := _my_units()
 	var workers := units.filter(func(u: Unit) -> bool:
 		return u.unit_type.can_gather("wood") and u.unit_type.anim_index("build") >= 0)

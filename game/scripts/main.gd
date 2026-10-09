@@ -140,6 +140,10 @@ func _ready() -> void:
 		_scenario_pitfall.call_deferred()
 	if GameData.cmdline_option("scenario") == "magic":
 		_scenario_magic.call_deferred()
+	if GameData.cmdline_option("scenario") == "cattle":
+		_scenario_cattle.call_deferred()
+	if GameData.cmdline_option("scenario") == "surrender":
+		_scenario_surrender.call_deferred()
 	if GameData.cmdline_option("scenario") == "orders":
 		_scenario_orders.call_deferred()
 	# --time-scale=N runs the simulation N times faster (long AI tests).
@@ -266,10 +270,13 @@ func _check_victory() -> void:
 					alive[index] = true
 		_:
 			for node in units_root.get_children():
-				if (node is Unit and node.is_alive()) or (node is MapObject and node.is_building() and node.is_alive()):
+				if (node is Unit and node.is_alive() and not node.is_cow()) or (node is MapObject and node.is_building() and node.is_alive()):
 					var owner: int = node.team if node is Unit else node.owner_index
 					if owner > 0:
 						alive[owner] = true
+	for index in players:
+		if players[index].surrendered:
+			alive.erase(index)
 	var human_alive: bool = alive.has(1)
 	var others_alive := alive.keys().any(func(k: int) -> bool: return k != 1)
 	if human_alive and others_alive:
@@ -281,17 +288,27 @@ func _check_victory() -> void:
 	hud.show_banner(GameData.text(1 if won else 2, "Victory!" if won else "Defeat"))
 
 
+## An AI player gave up (its main building gone and no way to rebuild it).
+func on_surrender(player: Player) -> void:
+	print("SURRENDER: player %d (%s)" % [player.index, player.faction])
+	hud.notify("The %s surrender!" % Match.faction_name(player.faction))
+	_check_victory()
+
+
 func _on_building_placed(site: MapObject) -> void:
 	site.unit_trained.connect(_on_unit_trained)
 
 
 ## A building finished training a unit: it steps out in front (below) of the footprint.
 func _on_unit_trained(building: MapObject, unit_guid: int) -> void:
-	var type_id := GameData.type_for_guid(unit_guid, terrain.biome)
-	var type := ObjectTypes.get_type(type_id)
-	if type == null:
-		return
-	var unit_type := UnitType.for_guid(unit_guid)
+	var unit_type: UnitType = null
+	if unit_guid == MapObject.COW_GUID:
+		unit_type = UnitType.load_type(Unit.COW_DIR)  # a calf raised at the ranch or hacienda
+	else:
+		var type := ObjectTypes.get_type(GameData.type_for_guid(unit_guid, terrain.biome))
+		if type == null:
+			return
+		unit_type = UnitType.for_guid(unit_guid)
 	if unit_type == null:
 		return
 	var rect := building.footprint_rect()
@@ -866,6 +883,51 @@ func _scenario_magic() -> void:
 		caster.cast(948, foes[0].position, foes[0])
 		await get_tree().create_timer(8.0).timeout
 		print("conversion: target now team %d" % foes[0].team)
+	get_tree().quit()
+
+
+## A cowboy takes over a wild cow; it grazes, then is driven to the stockyard and sold.
+func _scenario_cattle() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	var type := ObjectTypes.get_type(GameData.type_for_guid(402, terrain.biome))
+	var ai := AiPlayer.new()
+	var yard := MapObject.new()
+	yard.position = ai._find_spot(type, hq.position)
+	ai.free()
+	yard.setup(type, 1)
+	units_root.add_child(yard)
+	nav.block_footprint(type, yard.position)
+	_spawn_squad(Unit.COW_DIR, 0, hq.position + Vector2(-260, 240), 1)
+	_spawn_squad(463, 1, hq.position + Vector2(0, 240), 1)
+	var cow: Unit = units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.is_cow() and n.position.distance_to(hq.position + Vector2(-260, 240)) < 60)[0]
+	var cowboy: Unit = units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == 463)[0]
+	cowboy.move_to(cow.position + Vector2(20, 0))
+	await get_tree().create_timer(8.0).timeout
+	print("cow team %d after the cowboy came by" % cow.team)
+	await get_tree().create_timer(40.0).timeout
+	var gold: int = players[1].resources.gold
+	print("cow worth %.1f gold after grazing" % cow.cattle_value)
+	cow.deliver(yard)
+	await get_tree().create_timer(15.0).timeout
+	print("sold: cow gone %s, gold +%d; stockyard trains: %s" % [not is_instance_valid(cow), players[1].resources.gold - gold,
+			Array(MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.guid == 405).map(func(o: MapObject) -> Array: return Array(o.trainable_units())))])
+	get_tree().quit()
+
+
+## The computer's main building burns down; with its builders gone too it gives up.
+func _scenario_surrender() -> void:
+	await get_tree().create_timer(2.0).timeout
+	if GameData.cmdline_option("keep-builders") == "":
+		for n in units_root.get_children():
+			if n is Unit and n.team == 2 and n.unit_type.can_build():
+				n.take_damage(10000.0)
+	players[2].main_building().take_damage(100000.0)
+	await get_tree().create_timer(30.0).timeout
+	print("player 2 surrendered: %s; game over: %s; rebuilding: %s" % [players[2].surrendered, _game_over,
+			MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.owner_index == 2 and o.guid in MapObject.MAIN_BUILDINGS and o.is_alive()).map(func(o: MapObject) -> String: return "%d%%" % int(o.build_progress * 100))])
 	get_tree().quit()
 
 

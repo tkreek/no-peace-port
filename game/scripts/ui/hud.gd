@@ -322,6 +322,8 @@ func _unit_detail(unit: Unit) -> String:
 		lines.append("Sight %d   Speed %d" % [unit.sight(), unit.move_speed()])
 	if unit.carried > 0:
 		lines.append("Carrying %d %s" % [unit.carried, unit.carrying])
+	if unit.is_cow():
+		lines.append("Worth %d gold (up to %d)" % [unit.cattle_value, Unit.COW_MAX_VALUE])
 	if Unit.CASTERS.has(unit.unit_type.guid()):
 		lines.append("Magic %d / %d" % [unit.magic_energy, unit.magic_pool()])
 	if unit.shield_time > 0.0:
@@ -664,7 +666,7 @@ func _refresh_commands() -> void:
 				var button: Button = _commands.get_child(_commands.get_child_count() - 1)
 				button.set_meta("guid", guid)
 				button.set_meta("trade", trade)
-			elif guid == MapObject.HORSE_GUID:
+			elif guid == MapObject.HORSE_GUID or guid == MapObject.COW_GUID:
 				_add_command(-1, guid, func() -> void:
 					if not building.enqueue(guid):
 						Sound.play_sound(80))
@@ -1003,6 +1005,22 @@ func _menu_panel(title: String, entries: Array) -> Control:
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.position = get_viewport().get_visible_rect().size / 2.0 - panel.get_combined_minimum_size() / 2.0
 	return shade
+
+
+## A message across the top of the screen for a few seconds (surrenders, warnings).
+func notify(text: String) -> void:
+	var label := _label(28)
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", int(28 * ui_scale))
+	label.add_theme_constant_override("outline_size", int(6 * ui_scale))
+	_root.add_child(label)
+	var view := get_viewport().get_visible_rect().size
+	label.position = Vector2(view.x / 2.0 - label.get_minimum_size().x / 2.0, 60 * ui_scale)
+	var tween := label.create_tween()
+	tween.tween_interval(4.0)
+	tween.tween_property(label, "modulate:a", 0.0, 1.5)
+	tween.tween_callback(label.queue_free)
 
 
 ## Large centred message (victory / defeat).

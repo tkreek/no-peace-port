@@ -28,6 +28,10 @@ const FIELD_GUID := 149
 ## Horses are raised at the corral (Native, outlaw), hacienda and ranch, which shelter five
 ## each ("zero of five possible horses"); mounted units cost one.
 const HORSE_GUID := 9001
+## Cattle (manual 2.5): raised at the hacienda and ranch, sold alive at animal processing.
+const COW_GUID := 9002
+const COW_BUILDINGS := [205, 405]
+const ANIMAL_PROCESSING := [102, 202, 302, 402]
 ## The trading buildings (Native and Mexican trading post, outlaw drugstore, American
 ## general store) and their six trades.
 const TRADE_BUILDINGS := [106, 210, 310, 410]
@@ -636,6 +640,8 @@ func trainable_units() -> PackedInt32Array:
 		return out
 	if guid in HORSE_BUILDINGS:
 		out.append(HORSE_GUID)
+	if guid in COW_BUILDINGS:
+		out.append(COW_GUID)
 	if guid in TRADE_BUILDINGS:
 		for i in TRADES.size():
 			out.append(TRADE_GUID + i)
@@ -705,6 +711,11 @@ func enqueue(unit_guid: int) -> bool:
 		if not player.spend(paid):
 			return false
 		_trade_terms.append(paid)
+		queue.append(unit_guid)
+		return true
+	if unit_guid == COW_GUID:
+		if not player.spend(GameData.stats(COW_GUID).cost):
+			return false
 		queue.append(unit_guid)
 		return true
 	if unit_guid == HORSE_GUID:

@@ -159,6 +159,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			var site := _building_at(world)
 			if site and (not site.complete or site.needs_repair()) and selection.any(func(u: Unit) -> bool: return _is_builder(u, site.guid)):
 				order_build(site)
+			elif site and site.guid in MapObject.ANIMAL_PROCESSING and site.complete \
+					and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_cow()):
+				for cow: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_cow()):
+					cow.deliver(site)
+				site.flash()
 			elif site and site.is_gold_warehouse() and site.complete and selection.any(_is_transport):
 				order_haul(site)
 			elif site and site.capacity() > 0 and selection.any(_can_quarter):

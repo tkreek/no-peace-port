@@ -24,6 +24,7 @@ var index := 1
 var faction := ""
 var resources := {}
 var researched := {}  # upgrade GUID -> true
+var surrendered := false  ## gave up: out of the game, its units lay down their arms
 
 const UPGRADE_READY_SOUNDS := {"des": 13, "ind": 31, "mex": 46, "usa": 131}
 

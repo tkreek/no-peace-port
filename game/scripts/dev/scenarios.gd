@@ -578,7 +578,8 @@ func _scenario_surrender() -> void:
 	await get_tree().create_timer(30.0).timeout
 	print("player 2 surrendered: %s; game over: %s; rebuilding: %s" % [main.players[2].surrendered, main._game_over,
 			MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.owner_index == 2 and o.guid in MapObject.MAIN_BUILDINGS and o.is_alive()).map(func(o: MapObject) -> String: return "%d%%" % int(o.build_progress * 100))])
-	get_tree().quit()
+	if GameData.cmdline_option("screenshot") == "":
+		get_tree().quit()
 
 
 ## Play a little, save, load the save in a fresh scene and compare.

@@ -312,7 +312,8 @@ func _refresh_selection() -> void:
 
 ## Everything worth knowing about one unit: energy, weapon, range, reload, sight, speed.
 func _unit_detail(unit: Unit) -> String:
-	var lines := PackedStringArray(["Energy %d / %d   Morale %d%%" % [unit.health, unit.max_health, roundi(unit.morale() * 100)]])
+	var lines := PackedStringArray(["Energy %d / %d   Morale %d%%   Experience %d%%" % [unit.health, unit.max_health,
+			roundi(unit.morale() * 100), roundi(unit.experience * 100)]])
 	if not unit.unit_type.attack_anims.is_empty():
 		var weapon := "Range %d" % unit.attack_range() if unit.unit_type.ranged else "Melee"
 		lines.append("Damage %d   %s" % [unit.attack_damage(), weapon])
@@ -1066,6 +1067,35 @@ func _menu_panel(title: String, entries: Array) -> Control:
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.position = get_viewport().get_visible_rect().size / 2.0 - panel.get_combined_minimum_size() / 2.0
 	return shade
+
+
+## The statistics after a game (manual 7.7): per people, what it built, trained, gathered,
+## killed and destroyed, and a total score.
+func show_statistics(players: Dictionary) -> void:
+	var grid := GridContainer.new()
+	grid.columns = 7
+	grid.add_theme_constant_override("h_separation", int(18 * ui_scale))
+	grid.add_theme_constant_override("v_separation", int(6 * ui_scale))
+	for heading in ["People", "Buildings", "Units", "Resources", "Kills", "Razed", "Score"]:
+		grid.add_child(MenuStyle.label(heading, int(16 * ui_scale), MenuStyle.TEXT_DIM))
+	for index in players:
+		var p: Player = players[index]
+		var name := Match.faction_name(p.faction) + (" (you)" if index == player.index else "")
+		var row := [name, p.stats.built, p.stats.produced, p.stats.gathered, p.stats.kills, p.stats.razed, p.score()]
+		for i in row.size():
+			var label := MenuStyle.label(str(row[i]), int(16 * ui_scale), p.color() if i == 0 else MenuStyle.TEXT)
+			grid.add_child(label)
+	var panel := PanelContainer.new()
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(0.18, 0.1, 0.05, 0.92)
+	box.border_color = Color(0.62, 0.43, 0.2)
+	box.set_border_width_all(2)
+	box.set_content_margin_all(18 * ui_scale)
+	panel.add_theme_stylebox_override("panel", box)
+	panel.add_child(grid)
+	_root.add_child(panel)
+	var view := get_viewport().get_visible_rect().size
+	panel.position = Vector2(view.x / 2.0 - panel.get_combined_minimum_size().x / 2.0, view.y * 0.58)
 
 
 ## A message across the top of the screen for a few seconds (surrenders, warnings).

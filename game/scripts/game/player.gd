@@ -24,7 +24,13 @@ var index := 1
 var faction := ""
 var resources := {}
 var researched := {}  # upgrade GUID -> true
-var surrendered := false  ## gave up: out of the game, its units lay down their arms
+var surrendered := false
+## For the statistics screen after the game (manual 7.7).
+var stats := {"built": 0, "produced": 0, "gathered": 0, "kills": 0, "razed": 0}
+
+
+func score() -> int:
+	return stats.built * 50 + stats.produced * 20 + stats.gathered / 10 + stats.kills * 30 + stats.razed * 100  ## gave up: out of the game, its units lay down their arms
 
 const UPGRADE_READY_SOUNDS := {"des": 13, "ind": 31, "mex": 46, "usa": 131}
 

@@ -149,7 +149,22 @@ func refresh_upgrades() -> void:
 
 
 func attack_damage() -> float:
-	return (unit_type.damage + _bonus("attack")) * morale()
+	return (unit_type.damage + _bonus("attack")) * morale() * effectiveness()
+
+
+## Experience (manual 4.4): from 0%, earned by doing the job well (kills for fighters,
+## loads delivered for workers); it makes a unit up to a fifth more effective.
+const EXPERIENCE_PER_KILL := 0.1
+const EXPERIENCE_PER_LOAD := 0.01
+var experience := 0.0
+
+
+func gain_experience(amount_gained: float) -> void:
+	experience = minf(1.0, experience + amount_gained)
+
+
+func effectiveness() -> float:
+	return 1.0 + 0.2 * experience
 
 
 ## Spear fighters and whip crackers are "very effective against mounted units"; flaming
@@ -855,6 +870,11 @@ func take_damage(amount: float, attacker: Node2D = null) -> void:
 	health = maxf(0.0, health - amount)
 	_overlay.queue_redraw()
 	if health <= 0.0:
+		if attacker is Unit and is_instance_valid(attacker) and team > 0:
+			attacker.gain_experience(EXPERIENCE_PER_KILL)
+			var victor: Player = Player.by_index.get(attacker.team)
+			if victor:
+				victor.stats.kills += 1
 		_die()
 	elif state == State.IDLE and attacker and attacker.is_alive() and _may_engage(attacker):
 		attack(attacker)  # fight back
@@ -1159,7 +1179,7 @@ func _update_gather(delta: float) -> void:
 				var faster := _bonus("chop_pct") if gather_source.resource == "wood" else _bonus("mine_pct")
 				if gather_source.resource == "food":
 					faster = 0.0
-				_work_timer = WORK_SECONDS.get(gather_source.resource, 4.0) / (1.0 + faster / 100.0) / morale()
+				_work_timer = WORK_SECONDS.get(gather_source.resource, 4.0) / (1.0 + faster / 100.0) / morale() / effectiveness()
 				face(gather_source.work_rect().get_center() - position)
 				if gather_source.resource == "gold":
 					inside = true  # workers go inside the mine
@@ -1211,6 +1231,8 @@ func _update_gather(delta: float) -> void:
 						_drop_off.store_gold(carried)  # usable once a wagon brings it to the HQ
 					else:
 						player.add(carrying, carried)
+					player.stats.gathered += carried
+					gain_experience(EXPERIENCE_PER_LOAD)
 				carried = 0
 				carrying = ""  # walk back empty-handed
 				if gather_resource == "meat":

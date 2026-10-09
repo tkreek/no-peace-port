@@ -249,6 +249,7 @@ func _check_victory() -> void:
 	print("GAME OVER: ", "player 1 wins" if won else "player 1 lost")
 	Sound.play_mission_result(won)
 	hud.show_banner(GameData.text(1 if won else 2, "Victory!" if won else "Defeat"))
+	hud.show_statistics(players)
 
 
 ## An AI player gave up (its main building gone and no way to rebuild it).

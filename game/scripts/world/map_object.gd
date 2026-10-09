@@ -125,12 +125,16 @@ func is_alive() -> bool:
 	return not is_building() or health > 0.0
 
 
-func take_damage(amount: float, _attacker: Node2D = null) -> void:
+func take_damage(amount: float, attacker: Node2D = null) -> void:
 	if not is_building() or health <= 0.0:
 		return
 	health = maxf(0.0, health - amount)
 	_overlay.queue_redraw()
 	if health <= 0.0:
+		if attacker is Unit and is_instance_valid(attacker):
+			var victor: Player = Player.by_index.get(attacker.team)
+			if victor:
+				victor.stats.razed += 1
 		_destroy()
 		return
 	_update_fires()
@@ -636,6 +640,9 @@ func add_build_work(seconds: float) -> bool:
 		accepts = _drop_off_for(guid)
 		_refresh_sprites()
 		Sound.play_event(guid, Sound.Event.FINISHED, position, 0)
+		var builder_player: Player = Player.by_index.get(owner_index)
+		if builder_player:
+			builder_player.stats.built += 1
 		construction_finished.emit(self)
 	return complete
 
@@ -840,6 +847,9 @@ func _process(delta: float) -> void:
 			Sound.play_event(guid, Sound.Event.UNIT_READY, position, 0)
 			return
 		Sound.play_event(guid, Sound.Event.UNIT_READY, position, 0)
+		var trainer: Player = Player.by_index.get(owner_index)
+		if trainer:
+			trainer.stats.produced += 1
 		unit_trained.emit(self, unit_guid)
 	if selected:
 		_overlay.queue_redraw()

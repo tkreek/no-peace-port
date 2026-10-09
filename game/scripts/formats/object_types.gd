@@ -51,7 +51,7 @@ static func count() -> int:
 
 
 static func _load() -> void:
-	var d := GameData.read(PATH)
+	var d := GameData.read(GameData.table_path(PATH))
 	if d.slice(0, 4).get_string_from_ascii() != "RDBF":
 		push_error("BobListe.blf missing or invalid")
 		return

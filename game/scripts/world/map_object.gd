@@ -207,7 +207,9 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 func add_build_work(seconds: float) -> bool:
 	if complete:
 		return true
-	var total := maxf(10.0, max_health * BUILD_WORK_PER_HEALTH)
+	# Worker-seconds: the original production time (one worker), else scaled by energy.
+	var total := float(GameData.stats(guid).get("build_time", max_health * BUILD_WORK_PER_HEALTH))
+	total = maxf(5.0, total)
 	build_progress = minf(1.0, build_progress + seconds / total)
 	health = maxf(health, max_health * (0.1 + 0.9 * build_progress))
 	_refresh_sprites()
@@ -262,6 +264,7 @@ func _process(delta: float) -> void:
 	var seconds: float = TRAIN_SECONDS.default
 	if GameData.stats(unit_guid).get("damage", 0) <= 4:
 		seconds = TRAIN_SECONDS.worker
+	seconds = float(GameData.stats(unit_guid).get("build_time", seconds))
 	train_progress += delta / seconds
 	if train_progress >= 1.0:
 		train_progress = 0.0

@@ -86,17 +86,23 @@ static func load_type(dir: String) -> UnitType:
 	return unit_type
 
 
+## Combat and movement values from the unit's stats. Defaults.dat gives tiers that index
+## DEFS.INI's tables (sight and ranges in pixels; attack rates in 1/100 s for melee and
+## ms for ranged; walk speed in the original's units, ~0.6 px/s each).
 func _setup_combat() -> void:
 	var stats := GameData.stats(guid())
 	health = stats.get("health", health)
 	damage = stats.get("damage", damage)
-	sight = GameData.def_value("Sichtweite1", 320)
+	sight = GameData.def_value("Sichtweite%d" % int(stats.get("sight_tier", 1)), 320)
+	speed = GameData.def_value("LaufenSpeed%d" % int(stats.get("speed_tier", 2)), 100) * 0.6
 	# Ranged units have a firing sheet: its body blocks are aim, fire, reload (in file order).
 	var shoot := anim_index("shoot")
 	if shoot >= 0:
 		ranged = true
-		attack_range = GameData.def_value("ReichweiteFernwaffe2", 200)
-		reload_ms = 2500
+		if stats.has("ranged"):
+			damage = maxi(1, int(stats.ranged))
+		attack_range = GameData.def_value("ReichweiteFernwaffe%d" % int(stats.get("range_tier", 2)), 200)
+		reload_ms = GameData.def_value("KampffrequenzFern%d" % int(stats.get("ranged_rate_tier", 2)), 4000)
 		var sheet := bob.anims[shoot].sub_sprite
 		for i in bob.anims.size():
 			if bob.anims[i].sub_sprite == sheet:
@@ -106,8 +112,10 @@ func _setup_combat() -> void:
 		var melee := anim_index("melee")
 		if melee >= 0:
 			attack_anims.append(melee)
+		if int(stats.get("melee", 0)) > 0:
+			damage = int(stats.melee)
 		attack_range = 36.0
-		reload_ms = 1500
+		reload_ms = GameData.def_value("KampffrequenzNah%d" % int(stats.get("melee_rate_tier", 1)), 300) * 10
 
 
 ## Animation index for an action name, or -1.

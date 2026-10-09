@@ -5,11 +5,25 @@ extends Node
 ##
 ## Install dir resolution: --install-dir=<path> on the command line, then
 ## user://settings.cfg [paths] install_dir, then ../original/install/Programm (dev checkout).
+## The expansion pack (america5..9.rda) is found in the install dir itself (a normal
+## installation), or --addon-dir / [paths] addon_dir / ../original/expansion/install/Programm.
+## Its archives take priority, and its data tables (global/guids2) replace the base ones.
 
 const ARCHIVES := ["america0.rda", "america1.rda", "america2.rda", "america3.rda", "america4.rda"]
+const ADDON_ARCHIVES := ["america5.rda", "america6.rda", "america7.rda", "america8.rda", "america9.rda"]
+## Base data file -> expansion replacement.
+const ADDON_TABLES := {
+	"BobListe.blf": "global/guids2/BobListe2.blf",
+	"global/guids/GUIDS.INI": "global/guids2/GUIDS.INI",
+	"global/guids/Guids2.ini": "global/guids2/Guids2.ini",
+	"global/guids/DEFS.INI": "global/guids2/DEFS.INI",
+	"global/guids/rules.def": "global/guids2/rules.def",
+}
 const SETTINGS_PATH := "user://settings.cfg"
 
 var install_dir := ""
+var addon_dir := ""
+var has_expansion := false
 ## Folder with the upscaled set from tools/upscale/hd_sprites.py; empty = classic graphics only.
 var enhanced_dir := ""
 var archives: Array[RdaArchive] = []
@@ -19,12 +33,26 @@ var _palette_cache := {}
 var _texts := {}       # text id -> String (TEXTE.eng, text2.eng)
 var _guids := {}       # object type id -> GUID (GUIDS.INI steppe + Guids2.ini meadow)
 var _defs := {}        # DEFS.INI key -> value
-var _stats := {}       # GUID -> stats from res://data/stats.json (extracted from the manual)
+var _stats := {}
+## Expansion units' production places (from the expansion manual), filled in by GUID.
+const EXPANSION_PRODUCTION := {
+	172: 103,  # tomahawk thrower: training tepee
+	266: 221,  # armoured stagecoach: wood mill (coach factory)
+	369: 318,  # saboteur: restaurant
+	468: 427,  # pioneer: boot camp
+}       # GUID -> stats from res://data/stats.json (extracted from the manual)
 
 
 func _ready() -> void:
 	install_dir = _resolve_install_dir()
+	addon_dir = _resolve_addon_dir()
 	enhanced_dir = _resolve_enhanced_dir()
+	if not addon_dir.is_empty():
+		for name in ADDON_ARCHIVES:
+			var archive := RdaArchive.new()
+			if archive.open(addon_dir.path_join(name)) == OK:
+				archives.append(archive)
+		has_expansion = not archives.is_empty()
 	for name in ARCHIVES:
 		var archive := RdaArchive.new()
 		if archive.open(install_dir.path_join(name)) == OK:
@@ -54,6 +82,28 @@ func _resolve_install_dir() -> String:
 	if config.load(SETTINGS_PATH) == OK and config.has_section_key("paths", "install_dir"):
 		return config.get_value("paths", "install_dir")
 	return ProjectSettings.globalize_path("res://").path_join("../original/install/Programm").simplify_path()
+
+
+func _resolve_addon_dir() -> String:
+	if cmdline_option("expansion") == "off":
+		return ""
+	if FileAccess.file_exists(install_dir.path_join("america5.rda")):
+		return install_dir
+	var dir := cmdline_option("addon-dir")
+	if dir.is_empty():
+		var config := ConfigFile.new()
+		if config.load(SETTINGS_PATH) == OK and config.has_section_key("paths", "addon_dir"):
+			dir = config.get_value("paths", "addon_dir")
+		else:
+			dir = ProjectSettings.globalize_path("res://").path_join("../original/expansion/install/Programm").simplify_path()
+	return dir if FileAccess.file_exists(dir.path_join("america5.rda")) else ""
+
+
+## A data table, from the expansion when it replaces it.
+func table_path(base_path: String) -> String:
+	if has_expansion and ADDON_TABLES.has(base_path) and exists(ADDON_TABLES[base_path]):
+		return ADDON_TABLES[base_path]
+	return base_path
 
 
 func _resolve_enhanced_dir() -> String:
@@ -138,21 +188,34 @@ func load_ramps(bob_path: String) -> Texture2D:
 
 
 func _load_tables() -> void:
-	var stats_json = JSON.parse_string(FileAccess.get_file_as_string("res://data/stats.json"))
-	if stats_json is Dictionary:
-		for key in stats_json:
-			_stats[int(key)] = stats_json[key]
-	for file in ["global/guids/TEXTE.eng", "global/guids/text2.eng"]:
+	for file in ["global/guids2/texte-Add-on.eng", "global/guids2/text2-Add-on.eng",
+			"global/guids/TEXTE.eng", "global/guids/text2.eng"]:
 		for line in read_latin1(file).split("\n"):
 			var id := line.get_slice("=", 0).strip_edges()
 			if "=" in line and id.is_valid_int() and not _texts.has(id.to_int()):
 				_texts[id.to_int()] = line.substr(line.find("=") + 1).strip_edges()
-	for file in ["global/guids/GUIDS.INI", "global/guids/Guids2.ini"]:
+	var stats_json = JSON.parse_string(FileAccess.get_file_as_string("res://data/stats.json"))
+	if stats_json is Dictionary:
+		for key in stats_json:
+			_stats[int(key)] = stats_json[key]
+	# The editor's Defaults.dat (expansion) holds the real values; the manual data still
+	# supplies production places and prerequisite names.
+	var defaults := DefaultsData.load()
+	for guid in defaults:
+		var entry: Dictionary = defaults[guid]
+		if entry.kind in ["unit", "hero", "structure"]:
+			_stats[guid] = DefaultsData.to_stats(entry, _stats.get(guid, {}))
+			if _texts.has(guid):
+				_stats[guid].name = _texts[guid]
+	for guid in EXPANSION_PRODUCTION:
+		if _stats.has(guid):
+			_stats[guid].produced_at = EXPANSION_PRODUCTION[guid]
+	for file in [table_path("global/guids/GUIDS.INI"), table_path("global/guids/Guids2.ini")]:
 		for line in read_latin1(file).split("\n"):
 			var parts := line.strip_edges().split("=")
 			if parts.size() == 2 and parts[0].is_valid_int() and parts[1].is_valid_int():
 				_guids[parts[0].to_int()] = parts[1].to_int()
-	for line in read_latin1("global/guids/DEFS.INI").split("\n"):
+	for line in read_latin1(table_path("global/guids/DEFS.INI")).split("\n"):
 		var clean := line.get_slice("//", 0).strip_edges()
 		if "=" in clean:
 			_defs[clean.get_slice("=", 0).strip_edges()] = clean.get_slice("=", 1).strip_edges()
@@ -239,3 +302,15 @@ func def_value(key: String, fallback := 0) -> int:
 
 func maps_dir() -> String:
 	return install_dir.path_join("Levels")
+
+
+## Skirmish maps from both installs: base .alf and expansion .ulf.
+func map_files() -> PackedStringArray:
+	var out := PackedStringArray()
+	for dir in [install_dir.path_join("Levels"), addon_dir.path_join("Levels") if not addon_dir.is_empty() else ""]:
+		if dir.is_empty() or not DirAccess.dir_exists_absolute(dir):
+			continue
+		for file in DirAccess.get_files_at(dir):
+			if file.get_extension().to_lower() in ["alf", "ulf"]:
+				out.append(dir.path_join(file))
+	return out

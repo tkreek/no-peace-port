@@ -403,6 +403,13 @@ func _selftest() -> void:
 			bad.append(file)
 	print("maps: %d ok, %d failed %s" % [maps, bad.size(), bad])
 	print("object types: %d" % ObjectTypes.count())
+	if GameData.cmdline_option("selftest") == "stats":
+		var d := DefaultsData.load()
+		print("defaults entries: ", d.size(), " sample: ", d.get(258), " raw bytes: ", GameData.read("Defaults.dat").size())
+		for guid in GameData.stats_guids():
+			var st := GameData.stats(guid)
+			if st.get("kind") in ["unit", "structure"]:
+				print("  %d %s %s %s hp=%s dmg=%s cost=%s at=%s types=%s" % [guid, st.get("faction"), st.get("kind"), st.get("name"), st.get("health"), st.get("damage"), st.get("cost"), st.get("produced_at"), st.get("types")])
 	get_tree().quit()
 
 

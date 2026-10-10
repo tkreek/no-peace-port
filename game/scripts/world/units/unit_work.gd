@@ -406,6 +406,9 @@ func _update_rob(delta: float) -> void:
 				phase = Phase.WORKING
 				_work_timer = ROB_SECONDS
 				unit.inside = true
+				var victim: Player = Player.by_index.get(building.owner_index)
+				if victim:
+					victim.alert(Player.ROBBED_ALERT, building.position)
 		Phase.WORKING:
 			_work_timer -= delta
 			if _work_timer > 0.0:

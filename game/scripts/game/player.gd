@@ -3,6 +3,10 @@ extends RefCounted
 ## One side in a match: team colour slot, faction and stockpile.
 
 signal resources_changed
+## A warning for whoever plays this side: the alert's GUID (guidliste.ini 8xx, which is
+## also its message text and its sound) and where it happened (INF when nowhere).
+signal alerted(guid: int, at: Vector2)
+signal researched_upgrade(upgrade: int)
 
 ## Team colours (the most saturated entry of each original team palette), for UI and minimap.
 const TEAM_COLORS := [
@@ -32,7 +36,6 @@ var stats := {"built": 0, "produced": 0, "gathered": 0, "kills": 0, "razed": 0}
 func score() -> int:
 	return stats.built * 50 + stats.produced * 20 + stats.gathered / 10 + stats.kills * 30 + stats.razed * 100  ## gave up: out of the game, its units lay down their arms
 
-const UPGRADE_READY_SOUNDS := {"des": 13, "ind": 31, "mex": 46, "usa": 131}
 
 
 func _init(player_index: int, faction_name: String) -> void:
@@ -173,6 +176,66 @@ func main_building() -> MapObject:
 	return null
 
 
+# ------------------------------------------------------------------ alerts
+
+## The original's warnings: what ran short, and per people what is under attack.
+const SHORTAGE_ALERTS := {"food": 800, "wood": 801, "horses": 802, "gold": 803, "guns": 804}
+const FIELD_HARVESTED_ALERT := 806
+const ROBBED_ALERT := 852
+const PEOPLE_ATTACKED_ALERT := 850
+const SETTLEMENT_ATTACKED_ALERT := 851
+## faction -> {"leader", "main", or a unit or building GUID -> alert}.
+const ATTACK_ALERTS := {
+	"ind": {"leader": 860, "main": 861, 155: 862},
+	"mex": {"leader": 870, "main": 871, 255: 872, 216: 873, 211: 874},
+	"des": {"leader": 880, "main": 881, 355: 882},
+	"usa": {"leader": 890, "main": 891, 455: 892, 456: 893, 416: 894, 411: 895},
+}
+## The same warning is not repeated for this long, and attack warnings keep this far apart.
+const ALERT_REPEAT_MS := 20000
+const ATTACK_ALERT_GAP_MS := 4000
+var _alerted_at := {}  # alert GUID -> msec
+var _attack_alerted_at := -100000
+
+
+func alert(guid: int, at := Vector2.INF, repeat_ms := ALERT_REPEAT_MS) -> void:
+	var now := Time.get_ticks_msec()
+	if now - int(_alerted_at.get(guid, -100000)) < repeat_ms:
+		return
+	_alerted_at[guid] = now
+	alerted.emit(guid, at)
+
+
+## `victim` (a unit or building of this people) was hit by `attacker`.
+func alert_attacked(victim: Node2D, attacker: Node2D) -> void:
+	if not is_instance_valid(attacker) or not attacker is Unit or attacker.team <= 0 or attacker.team == index:
+		return
+	var now := Time.get_ticks_msec()
+	if now - _attack_alerted_at < ATTACK_ALERT_GAP_MS:
+		return
+	var alerts: Dictionary = ATTACK_ALERTS.get(faction, {})
+	var guid := -1
+	if victim is Unit:
+		var kind: int = victim.unit_type.guid()
+		guid = alerts.get("leader", -1) if kind in COMMANDERS else alerts.get(kind, PEOPLE_ATTACKED_ALERT)
+	elif victim is MapObject:
+		guid = alerts.get("main", -1) if victim.guid in MapObject.MAIN_BUILDINGS else alerts.get(victim.guid, SETTLEMENT_ATTACKED_ALERT)
+	if guid < 0 or now - int(_alerted_at.get(guid, -100000)) < ALERT_REPEAT_MS:
+		return
+	_attack_alerted_at = now
+	alert(guid, victim.position)
+
+
+## Warn which resource `cost` lacks; false when it can be paid.
+func alert_shortage(cost: Dictionary) -> bool:
+	for key in cost:
+		if int(resources.get(key, 0)) < int(cost[key]):
+			if SHORTAGE_ALERTS.has(key):
+				alert(SHORTAGE_ALERTS[key], Vector2.INF, 1500)
+			return true
+	return false
+
+
 ## Upgrades: is `upgrade` available to research now (level order + tech-tree rules)?
 func can_research(upgrade: int) -> bool:
 	if researched.has(upgrade) or is_researching(upgrade):
@@ -215,7 +278,7 @@ func complete_research(upgrade: int) -> void:
 		for object in MapObject.structures:
 			if object.owner_index == index and object.is_building():
 				object.condition.refresh_upgrades()
-	Sound.play_sound(UPGRADE_READY_SOUNDS.get(faction, 46))
+	researched_upgrade.emit(upgrade)
 	resources_changed.emit()
 
 

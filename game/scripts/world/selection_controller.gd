@@ -6,6 +6,8 @@ extends Node2D
 const CLICK_RADIUS := 22.0
 const DRAG_THRESHOLD := 6.0
 const FORMATION_SPACING := 26.0
+## Mexican and American forts: the call to take refuge in the fort ("ins Fort fliehen").
+const FORT_CALLS := {217: "mexicans_into_fort_flee", 417: "americans_into_fort_flee"}
 
 @export var player_team := 1
 
@@ -413,7 +415,10 @@ func order_quarters(building: MapObject) -> void:
 		Sound.play_sound(80)
 		return
 	building.flash()
-	Sound.play_event(units[0].unit_type.guid(), Sound.Event.ORDER)
+	if FORT_CALLS.has(building.guid):
+		Sound.play_named(FORT_CALLS[building.guid])
+	else:
+		Sound.play_event(units[0].unit_type.guid(), Sound.Event.ORDER)
 	for unit: Unit in units:
 		if room <= 0:
 			break

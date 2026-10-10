@@ -45,7 +45,10 @@ func update(_delta: float) -> bool:
 	if not approach(horse.position, 36.0):
 		return false
 	clear_orders()
-	if become(GameData.mounted_of(unit.unit_type.guid())):
+	var rider := become(GameData.mounted_of(unit.unit_type.guid()))
+	if rider:
+		# The mounted unit's "order" line is the rider's call as he swings up.
+		Sound.play_event(rider.unit_type.guid(), Sound.Event.ORDER, rider.position, 0)
 		Unit.all_units.erase(horse)
 		horse.queue_free()
 	return false

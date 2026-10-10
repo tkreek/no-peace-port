@@ -24,6 +24,9 @@ const ICON_IDLE := 19  # KleineIcons: a lone cowboy
 ## ("sound bevölkerungslimit erreicht.wav", text 807).
 const HOUSING_FULL_SOUND := 76
 const POPULATION_LIMIT_SOUND := 52
+## "Blöder Sound wenn ne Message kommt!" (guidliste.ini): the chime under other messages.
+const MESSAGE_SOUND_GUID := 899
+const UPGRADE_READY_SOUNDS := {"des": 13, "ind": 31, "mex": 46, "usa": 131}
 
 var player: Player
 var selection: SelectionController
@@ -75,6 +78,8 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	selected = SelectionPanel.new(self, _left)
 	commands = CommandPanel.new(self, root)
 	player.resources_changed.connect(_refresh_resources)
+	player.alerted.connect(_on_alert)
+	player.researched_upgrade.connect(_on_upgrade_ready)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	_refresh_resources()
@@ -146,10 +151,24 @@ func warn_population_limit() -> void:
 	population_warnings += 1
 	if Match.population_limit <= player.population_cap():
 		Sound.play_sound(POPULATION_LIMIT_SOUND)
-		notify(GameData.text(807, "We've reached our population limit"))
+		notify(GameData.text(807, "We've reached our population limit"), false)
 	else:
 		Sound.play_sound(HOUSING_FULL_SOUND)
-		notify(GameData.text(805, "We don't have enough living space"))
+		notify(GameData.text(805, "We don't have enough living space"), false)
+
+
+## Each upgrade has its own "ready" sound in the table (the people's fanfare, and for the
+## Mexicans' Steal the gunslinger's reply); later upgrades borrow the people's.
+func _on_upgrade_ready(upgrade: int) -> void:
+	if Sound.play_event(upgrade, Sound.Event.UNIT_READY) == 0.0:
+		Sound.play_sound(UPGRADE_READY_SOUNDS.get(player.faction, 46))
+
+
+## One of the original's spoken warnings (under attack, out of wood, a field harvested):
+## its recording and its line of text share the alert's GUID.
+func _on_alert(guid: int, _at: Vector2) -> void:
+	Sound.play_event(guid, Sound.Event.SELECT)
+	notify(GameData.text(guid), false)
 
 
 ## Screen area covered by the HUD (for camera bounds and clicks).
@@ -286,8 +305,13 @@ func show_statistics(players: Dictionary) -> void:
 	menu.show_statistics(players)
 
 
-## A message across the top of the screen for a few seconds (surrenders, warnings).
-func notify(text: String) -> void:
+## A message across the top of the screen for a few seconds (surrenders, warnings), with
+## the message chime unless the message comes with a sound of its own.
+func notify(text: String, chime := true) -> void:
+	if chime:
+		Sound.play_event(MESSAGE_SOUND_GUID, Sound.Event.SELECT)
+	if text == "":
+		return
 	var label := HudStyle.label(int(28 * ui_scale))
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

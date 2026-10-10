@@ -98,6 +98,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _place(at: Vector2, keep_placing: bool) -> void:
 	var unpacker := _unpacker
+	if unpacker == null and player.alert_shortage(_cost()):
+		return
 	if not can_place(at) or (unpacker == null and not player.spend(_cost())):
 		Sound.play_sound(CANNOT_BUILD_SOUND)
 		return

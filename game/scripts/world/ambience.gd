@@ -2,7 +2,7 @@ class_name Ambience
 extends Node2D
 ## Life in the background: now and then a flock of gulls circles over water in view, and
 ## an eagle sails across the land, each with its shadow on the ground (effects/gulls,
-## effects/eagle).
+## effects/eagle); and a river in view is heard flowing ("Sound Fluß").
 
 const GULLS := "effects/gulls/gulls.anims.json"
 const EAGLE := "effects/eagle/eagle.anims.json"
@@ -12,10 +12,15 @@ const GULL_SECONDS := 30.0
 const MAX_FLOCKS := 2
 const EAGLE_SPEED := 110.0
 const GULL_DRIFT := 12.0
+const RIVER_CHECK := 2.0  # seconds between looks for the water nearest the middle of the view
+const RIVER_VOLUME := 0.45
+const RIVER_REACH := 1400.0
 
 var camera: Camera2D
 var _gull_wait := 8.0
 var _eagle_wait := 30.0
+var _river_wait := 1.0
+var _river: AudioStreamPlayer2D
 var _rng := RandomNumberGenerator.new()
 
 
@@ -29,7 +34,11 @@ func _process(delta: float) -> void:
 		return
 	_gull_wait -= delta
 	_eagle_wait -= delta
+	_river_wait -= delta
 	var view := _view()
+	if _river_wait <= 0.0:
+		_river_wait = RIVER_CHECK
+		_place_river(view)
 	if _gull_wait <= 0.0:
 		_gull_wait = _rng.randf_range(GULL_PAUSE.x, GULL_PAUSE.y)
 		var flocks := get_children().filter(func(n: Node) -> bool: return n is Flyer and n.set_path == GULLS)
@@ -57,16 +66,45 @@ func _view() -> Rect2:
 	return Rect2(camera.get_screen_center_position() - size / 2.0, size)
 
 
+## The river's sound follows the water nearest the middle of the view, and falls silent
+## when no water is in view.
+func _place_river(view: Rect2) -> void:
+	var water := _water_in(view, 32, view.get_center())
+	if water == Vector2.INF:
+		if _river:
+			_river.stop()
+		return
+	if _river == null:
+		_river = Sound.work_emitter("river")
+		if _river == null:
+			return
+		_river.max_distance = RIVER_REACH
+		_river.volume_db += linear_to_db(RIVER_VOLUME)
+		_river.finished.connect(_river.play)
+		_river.position = water
+		add_child(_river)
+	if _river.playing:
+		_river.create_tween().tween_property(_river, "position", water, RIVER_CHECK)
+	else:
+		_river.position = water
+		_river.play()
+
+
 ## A spot of open water in view (a few random tries), or INF.
-func _water_in(view: Rect2) -> Vector2:
+## With `near`, the one closest to it of all the tries.
+func _water_in(view: Rect2, tries := 24, near := Vector2.INF) -> Vector2:
 	var nav := NavGrid.current
 	if not nav.has_water:
 		return Vector2.INF
-	for i in 24:
+	var best := Vector2.INF
+	for i in tries:
 		var p := view.position + Vector2(_rng.randf(), _rng.randf()) * view.size
 		if nav.is_deep_water(nav.cell_of(p)):
-			return p
-	return Vector2.INF
+			if near == Vector2.INF:
+				return p
+			if best == Vector2.INF or p.distance_squared_to(near) < best.distance_squared_to(near):
+				best = p
+	return best
 
 
 ## A bird (or flock) and its shadow, flying for a while and fading in and out.

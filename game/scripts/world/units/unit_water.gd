@@ -18,6 +18,9 @@ const ENLARGE_COACH := 971
 const COACH_CAPACITY := 2
 const ENLARGED_COACH_CAPACITY := 4
 const BOARD_REACH := 72.0
+## Strokes of the same kind of swimmer keep this far apart (the recordings last about
+## 0.8 s), so a band crossing together splashes steadily rather than in a din.
+const SWIM_SOUND_MS := 600
 const LANDING_REACH := 7  # cells from the boat to dry land when unloading
 ## On deep water swimmers swim and the canoe paddles (its land sheets show it carried).
 const WATER_ACTIONS := {"walk": ["swim", "paddle"], "idle": ["swim", "idle_water"], "die": ["die_water"]}
@@ -74,6 +77,13 @@ func on_water() -> bool:
 ## The canoe "can attack and defend itself on water"; carried over land it cannot fight.
 func can_fight_here() -> bool:
 	return unit.unit_type.guid() != CANOE or on_water()
+
+
+## Swimmers and the canoe splash along as they cross deep water (event "swim"); called
+## with each step the unit takes.
+func splash() -> void:
+	if not _boat and NavGrid.current and NavGrid.current.has_water and on_water():
+		Sound.play_event(unit.unit_type.guid(), Sound.Event.SWIM, unit.position, SWIM_SOUND_MS)
 
 
 ## The sheet to show on water for a walk, idle or death animation.

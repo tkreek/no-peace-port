@@ -27,6 +27,17 @@ const CAST_SECONDS := 2.0
 const SHIELD_SECONDS := 30.0
 const HEAL_PER_SECOND := 4.0
 const HEAL_REACH := 40.0
+const MEDICINE_MAN := 164
+## The sound table's "special action" events: the medicine man's four chants (event 3 is
+## his dance), the nurse's, nun's and barber's healing, the priest's conversion; and the
+## spells' weather on the cloud (GUID 490: rain, thunder, hail) and the eagle's cry
+## (483, its "order").
+const CHANTS := [Sound.Event.SPECIAL_1, Sound.Event.SPECIAL_2, Sound.Event.SPECIAL_4, Sound.Event.SPECIAL_5]
+const DANCE := Sound.Event.SPECIAL_3
+const CLOUD := 490
+const SPELL_SOUNDS := {919: Sound.Event.SPECIAL_2, 920: Sound.Event.SPECIAL_3, 921: Sound.Event.SPECIAL_1}
+const EAGLE := 483
+const EAGLE_EYE := 918
 
 var magic_energy := MAGIC_POOL
 var shield_time := 0.0
@@ -37,6 +48,7 @@ var _spell_unit: Unit
 var _cast_timer := 0.0
 var _caster := false
 var _healer := false
+var _heal_sound_wait := 0.0  ## until the healer's next sound (s)
 
 
 func _init(owner: Unit) -> void:
@@ -131,6 +143,9 @@ func _update_spell(delta: float) -> void:
 	unit.state = Unit.State.IDLE
 	unit.face(at - unit.position)
 	unit.play_repeating("heal")  # the medicine man dances, the priest prays
+	if _cast_timer == 0.0:
+		var guid := unit.unit_type.guid()
+		Sound.play_event(guid, DANCE if guid == MEDICINE_MAN else Sound.Event.SPECIAL_1, unit.position, 0)
 	_cast_timer += delta
 	var cast_time := CAST_SECONDS / (1.0 + unit.bonus("convert_pct") / 100.0)  # Power: faster conversion
 	if _cast_timer < cast_time:
@@ -144,6 +159,10 @@ func _update_spell(delta: float) -> void:
 func _apply_spell(which: int, at: Vector2) -> void:
 	var parent := unit.get_parent()
 	var team := unit.team
+	if SPELL_SOUNDS.has(which):
+		Sound.play_event(CLOUD, SPELL_SOUNDS[which], at, 0)
+	elif which == EAGLE_EYE:
+		Sound.play_event(EAGLE, Sound.Event.ORDER, at, 0)
 	match which:
 		918:
 			if FogOfWar.current and FogOfWar.current.player_team == team:
@@ -209,6 +228,12 @@ func _update_heal(delta: float) -> void:
 	unit.state = Unit.State.IDLE
 	unit.face(heal_target.position - unit.position)
 	unit.play_repeating("heal")
+	_heal_sound_wait -= delta
+	if _heal_sound_wait <= 0.0:
+		# A pause after each sound; the medicine man sings one of his chants.
+		var guid := unit.unit_type.guid()
+		var event: int = CHANTS.pick_random() if guid == MEDICINE_MAN else Sound.Event.SPECIAL_1
+		_heal_sound_wait = Sound.play_event(guid, event, unit.position, 0) + 1.5
 	# Healing energy and Regeneration upgrades: half as much healing again each.
 	var better := 1.0 + (unit.bonus("heal_pct") + unit.bonus("heal_regen_pct")) / 100.0
 	heal_target.heal(HEAL_PER_SECOND * better * delta)

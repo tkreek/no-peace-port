@@ -56,6 +56,9 @@ var ramps: Texture2D
 ## A walk speed of 100 (workers, foot soldiers) covers 100 px a second: measured from a
 ## recording of the original, where workers cross about 100 px of the map each second.
 const PX_PER_SPEED := 1.0
+## Fighting keeps pace with the walking (which went from 0.6 to 1 px/s per speed point):
+## the pause between attacks from DEFS.INI's rates is shortened in proportion.
+const RELOAD_SCALE := 0.6
 var speed := 100.0
 var type_id := -1  ## object type id (BobListe.blf), for names and stats
 var mounted := false  ## uses the riding sheets and the "+Pferd" type's stats
@@ -151,10 +154,10 @@ func _setup_combat() -> void:
 	if ranged:
 		attack_range = GameData.def_tier("ranged_range", int(stats.get("range_tier", 2)), 200)
 		min_range = GameData.def_tier("min_range", maxi(0, int(stats.get("min_range_tier", 0))), 0)
-		reload_ms = GameData.def_tier("ranged_rate", int(stats.get("ranged_rate_tier", 2)), 4000)
+		reload_ms = int(GameData.def_tier("ranged_rate", int(stats.get("ranged_rate_tier", 2)), 4000) * RELOAD_SCALE)
 	else:
 		attack_range = 36.0
-		reload_ms = GameData.def_tier("melee_rate", int(stats.get("melee_rate_tier", 1)), 300) * 10
+		reload_ms = int(GameData.def_tier("melee_rate", int(stats.get("melee_rate_tier", 1)), 300) * 10 * RELOAD_SCALE)
 	if attack >= 0:
 		# Attack sheets hold one to three blocks (aim, fire, reload) played in file order.
 		var sheet := bob.anims[attack].sub_sprite

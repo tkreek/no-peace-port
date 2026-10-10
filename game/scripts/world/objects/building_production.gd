@@ -296,7 +296,8 @@ func _train(delta: float) -> void:
 				player.add("gold", player.sell_price(trade.good))
 			player.move_price(trade.good, trade.buy)
 		return
-	Sound.play_event(building.guid, Sound.Event.UNIT_READY, building.position, 0)
+	if building.owner_index == Orders.local_player:  # the new unit announces itself, ours only
+		Sound.play_event(item, Sound.Event.UNIT_READY, building.position, 0)
 	if item == HORSE_GUID or item == GUN_GUID:
 		if player:
 			player.add("horses" if item == HORSE_GUID else "guns", 1)

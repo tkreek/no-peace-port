@@ -20,7 +20,7 @@ const ENLARGED_COACH_CAPACITY := 4
 const BOARD_REACH := 72.0
 ## Strokes of the same kind of swimmer keep this far apart (the recordings last about
 ## 0.8 s), so a band crossing together splashes steadily rather than in a din.
-const SWIM_SOUND_MS := 600
+const SWIM_SOUND_MS := 1000  # the original repeats it every second in the water
 const LANDING_REACH := 7  # cells from the boat to dry land when unloading
 ## On deep water swimmers swim and the canoe paddles (its land sheets show it carried).
 const WATER_ACTIONS := {"walk": ["swim", "paddle"], "idle": ["swim", "idle_water"], "die": ["die_water"]}

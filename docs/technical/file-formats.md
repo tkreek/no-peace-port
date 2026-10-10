@@ -167,6 +167,34 @@ one is packed and wrapped in a try-and-buy layer). Addresses are that file's.
   doubled most units' HP (54 of 87; heroes unchanged) but kept every attack value, so
   fights take about twice as many hits.
 
+## Sound in the executable
+
+From `AmericaAddOn.exe` (addresses are that file's). It loads the expansion's
+`sfx/sfxguids.dat` (0x41ffc0): sounds `{u32 id, u32 flags (low byte volume), char[100] file}`,
+then per GUID `{u32 guid, u32 count, u32 event[20], u32 sound[20]}`.
+
+- Lookup (0x420250 by object, 0x4202c0 by GUID): the first entry for the event plays;
+  with none, nothing does. There are no random variants and no stand-ins.
+- Select (0x46999c): event 100, or 107 (construction) for a building not yet finished.
+  Order (0x41a631): 101 from the unit given the order, for the local player only.
+- Blows: fighters play 103 on every attack, hand to hand too (0x436cc0); workers 104
+  (0x419b85), which no entry has, so they hit silently. Projectiles play their own 103
+  where they land.
+- Chop 105 on each stroke; swim 106 every 1000 ms in deep water (0x417cc3); death 102.
+- Buildings: 150 finished and 153 unit ready (played by the new unit) for the local player
+  only; 151 every 4100 ms while burning; 152 when destroyed. Nothing plays while building.
+- Medicine man (0x433c00-0x433e14), on casting: Eagle eye 122 (dance), Lightning 123,
+  Hail 121, Rain 124, Protective dance 120; he heals in silence. The eagle (483) plays its
+  101 as it appears; the weather cloud (490) rain 120, thunder 121, hail 122. The nurse
+  and nun play 120 as they start on a patient, the priest 120 as he converts.
+- Alerts (0x434cb0, 0x4353b0) play GUID 8xx's event 100, as the table has it: 806 (field
+  harvested) `field_plot`, 852 (gold warehouse robbed) `attack_general`, 892 (covered wagon
+  attacked) the priest's `convert`. Attack alerts by victim: chiefs/commanders 860/870/880/890,
+  main buildings 861/871/881/891, wagons 862/872/882/892/893, mission 873, weapons factories
+  874/895, bank 894, other buildings 851, other units 850.
+- Played by id: diplomacy messages (alliance or enmity: 58, `field_harvested.wav`; "is giving
+  the signal": 143).
+
 ## TODO
 - `.alf` `BITARRAY`/`PINSMATR`, `EIGENSCH` property ids, triggers and scripts.
 - Fonts, `.pk`.

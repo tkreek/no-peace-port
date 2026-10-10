@@ -755,7 +755,9 @@ func _continue_attack() -> void:
 func _strike() -> void:
 	if target == null or not is_instance_valid(target) or not target.is_alive():
 		return
-	var event := Sound.Event.SHOOT if unit_type.ranged else Sound.Event.MELEE
+	# The original's fighters (DefaultsData.WORKERS aside) sound every blow as "shoot", hand to
+	# hand too; workers as "melee", which no sound table entry has.
+	var event := Sound.Event.MELEE if DefaultsData.WORKERS.has(unit_type.guid()) else Sound.Event.SHOOT
 	Sound.play_event(unit_type.guid(), event, position, 60)
 	# Ranged hits are not certain; distance makes them less likely.
 	var hit := true

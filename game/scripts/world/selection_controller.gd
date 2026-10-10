@@ -546,7 +546,8 @@ func select_building(building: MapObject) -> void:
 	elif building.is_mine():
 		Sound.play_event(MapObject.GOLD_MINE_GUID, Sound.Event.SELECT)
 	else:
-		Sound.play_event(building.guid, Sound.Event.SELECT)
+		# An unfinished building answers a click with its construction sound.
+		Sound.play_event(building.guid, Sound.Event.SELECT if building.complete else Sound.Event.BUILD)
 
 
 ## Something to look at that isn't ours: an enemy building in sight or a resource.

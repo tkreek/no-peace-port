@@ -25,6 +25,7 @@ const BURN_SECONDS := 20.0
 const BURN_DAMAGE := 3.0  # energy per second
 const SPREAD_REACH := 48.0  # between the walls of neighbouring buildings (their margins keep 32 apart)
 const SPREAD_CHANCE := 0.06  # per second, for each neighbour
+const BURN_SOUND_SECONDS := 4.1  # the fire is heard again this often while it burns (as in the original)
 
 var building: MapObject
 var burning := 0.0  ## seconds the fire still burns
@@ -32,7 +33,7 @@ var _fires: Array[OrderMarker] = []
 var _fire_stage := 0
 var _flame: OrderMarker
 var _burn_tick := 0.0
-var _build_sound_played := false
+var _burn_sound := 0.0  ## until the fire is heard again (s)
 var _repair_debt := 0.0
 
 
@@ -56,9 +57,6 @@ func _total_work() -> float:
 func add_build_work(seconds: float) -> bool:
 	if building.complete:
 		return true
-	if not _build_sound_played:
-		_build_sound_played = true  # the construction sound plays once, when work begins
-		Sound.play_event(building.guid, Sound.Event.BUILD, building.position, 0, building.get_instance_id(), Sound.WORK_RANGE)
 	# Worker-seconds: the original production time (one worker), else scaled by energy.
 	building.build_progress = minf(1.0, building.build_progress + seconds / _total_work())
 	building.health = maxf(building.health, building.max_health * (0.1 + 0.9 * building.build_progress))
@@ -77,7 +75,8 @@ func _finish() -> void:
 	building.build_progress = 1.0
 	building.accepts = MapObject.drop_off_for(building.guid)
 	building.refresh_sprites()
-	Sound.play_event(building.guid, Sound.Event.FINISHED, building.position, 0)
+	if building.owner_index == Orders.local_player:  # only our own, as in the original
+		Sound.play_event(building.guid, Sound.Event.FINISHED, building.position, 0)
 	building.construction_finished.emit(building)
 
 
@@ -182,7 +181,6 @@ func ignite(seconds := BURN_SECONDS) -> void:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = building.get_instance_id() + 7
 		_flame = OrderMarker.effect_loop(building, building.fire_spot(rng) - building.position, FIRE_BOB, 1)
-		Sound.play_event(building.guid, Sound.Event.BURNING, building.position, 0, building.get_instance_id(), Sound.WORK_RANGE)
 
 
 func extinguish() -> void:
@@ -194,6 +192,10 @@ func extinguish() -> void:
 
 func burn(delta: float) -> void:
 	burning -= delta
+	_burn_sound -= delta
+	if _burn_sound <= 0.0:
+		_burn_sound = BURN_SOUND_SECONDS
+		Sound.play_event(building.guid, Sound.Event.BURNING, building.position, 0, building.get_instance_id(), Sound.WORK_RANGE)
 	_burn_tick += delta
 	if _burn_tick >= 1.0:
 		_burn_tick -= 1.0

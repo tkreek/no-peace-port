@@ -10,18 +10,10 @@ enum Event {
 	FINISHED = 150, BURNING = 151, RUBBLE = 152, UNIT_READY = 153,
 }
 
-## Where the original table is wrong or has a gap, "guid:event" -> the file to play
-## instead. Alerts (guidliste.ini 8xx) use their event "select": the covered wagon's
-## points at the priest's chant, the harvested field's and the robbed gold warehouse's
-## at a click and the general alarm while their own recordings go unused. The outlaws'
-## wagon and the cannons are silent when ordered (the one trot recording no other wagon
-## uses, and "cannon_move"); the barber heals and the canoe paddles without a sound of
-## their own.
-const TABLE_FIXES := {
-	"892:100": "transport_wagon_is_attacked", "806:100": "field_harvested", "852:100": "gold_store_is_robbed",
-	"355:101": "horse_trot_6", "265:101": "cannon_move", "465:101": "cannon_move",
-	"353:120": "outlaws_barber_heal", "354:120": "outlaws_barber_heal", "154:106": "natives_canoe_swims",
-}
+## How AmericaAddOn.exe uses the table (its lookup, 0x420250): an object plays the sound of
+## the first entry for the event and nothing when it has none: no variants picked at random,
+## no stand-ins. Who plays what, and when, is in docs/technical/file-formats.md ("Sound in
+## the executable").
 
 const SOUND_TABLE := "data/sounds.json"
 const MAX_VOICES := 24
@@ -44,7 +36,6 @@ var _sounds := {}       # sound id -> {path, volume}
 var _events := {}       # guid -> {event id -> PackedInt32Array of sound ids}
 var _streams := {}      # path -> AudioStream
 var _last_played := {}  # "guid:event" -> msec, to avoid stacking identical sounds
-var _named := {}        # file name fragment -> sound id (-1 when none)
 var _channels := {}     # Channel -> AudioStreamPlayer
 var _in_world := {}     # sound id -> AudioStreamPlayer2D playing it in the world
 var _music := AudioStreamPlayer.new()
@@ -100,31 +91,12 @@ func play_alert(guid: int, event := Event.SELECT) -> float:
 	return play_sound(options[randi() % options.size()], null, HEARING_RANGE, Channel.ALERT)
 
 
-## The sounds an object may make for `event` (one is picked at random).
+## The sound an object makes for `event` (its table's first entry for it), or none.
 func event_sounds(guid: int, event: int) -> PackedInt32Array:
-	var fix: String = TABLE_FIXES.get("%d:%d" % [guid, event], "")
-	if fix != "":
-		var fixed := _sound_id(fix)
-		if fixed >= 0:
-			return PackedInt32Array([fixed])
 	var table: Dictionary = _events.get(guid, {})
-	# The table files every blow under "shoot" (spears and knives "stab"), none under
-	# "melee"; heroes who have no "select" list it among their "order" lines.
-	if event == Event.MELEE and not table.has(event):
-		event = Event.SHOOT
-	elif event == Event.SELECT and not table.has(event):
-		event = Event.ORDER
-	var options := PackedInt32Array()
 	for id in table.get(event, PackedInt32Array()):
-		if _sounds.has(id):
-			options.append(id)
-	# The original table points the Mexican woman's axe at a sound that does not exist;
-	# every people's woodcutters use the same "chop_wood".
-	if options.is_empty() and event == Event.CHOP:
-		var axe := _sound_id("chop_wood")
-		if axe >= 0:
-			options.append(axe)
-	return options
+		return PackedInt32Array([id]) if _sounds.has(id) else PackedInt32Array()
+	return PackedInt32Array()
 
 
 ## A positional player for a looping work sound (e.g. a worked gold mine), not yet started.
@@ -142,18 +114,6 @@ func work_emitter(fragment: String) -> AudioStreamPlayer2D:
 			p2d.volume_db = linear_to_db(volume * sfx_volume * 0.8)
 			return p2d
 	return null
-
-
-func _sound_id(fragment: String) -> int:
-	if _named.has(fragment):
-		return _named[fragment]
-	var found := -1
-	for id in _sounds:
-		if String(_sounds[id].path).to_lower().contains(fragment):
-			found = id
-			break
-	_named[fragment] = found
-	return found
 
 
 ## Play the first sound whose file name contains `fragment` (e.g. "chop_wood"), or with

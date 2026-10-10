@@ -43,6 +43,8 @@ const GROUND_ANIM := 4
 const GROUND_Z := FIELD_Z - 1
 
 static var all_objects: Array[MapObject] = []
+var _sim_on := false
+var _sim_listed := false
 ## Buildings and fields: the few hundred objects worth scanning (all_objects also holds the
 ## thousands of trees, rocks and mines).
 static var structures: Array[MapObject] = []
@@ -179,6 +181,7 @@ func forget() -> void:
 ## tree; only buildings and fields need it (trees, mines and rocks are thousands strong).
 func _ready() -> void:
 	set_process(_flash_time > 0.0 or (not is_ghost and (is_building() or is_field())))
+	Sim.set_active(self, not is_ghost and (is_building() or is_field()))
 
 
 # ------------------------------------------------------------------ what it is
@@ -247,10 +250,21 @@ func _process(delta: float) -> void:
 		if _flash_time <= 0.0:
 			_body.self_modulate = Color.WHITE
 			set_process(is_building() or is_field())
-	if is_field():
-		stock.grow(delta)
 	if _ambient:
 		_advance_ambient(delta)
+	if not _is_building:
+		return
+	if complete:
+		if guid in BuildingProduction.GUN_FACTORIES and (_ambient != null) != _ambient_wanted():
+			_update_ambient()
+		if selected and not production.queue.is_empty():
+			_overlay.queue_redraw()
+
+
+## One step of the game (Sim): fields grow, buildings defend, burn and produce.
+func sim_tick(delta: float) -> void:
+	if is_field():
+		stock.grow(delta)
 	if not _is_building:
 		return
 	defence.update(delta)
@@ -258,10 +272,6 @@ func _process(delta: float) -> void:
 		condition.burn(delta)
 	if complete:
 		production.update(delta)
-		if guid in BuildingProduction.GUN_FACTORIES and (_ambient != null) != _ambient_wanted():
-			_update_ambient()
-		if selected and not production.queue.is_empty():
-			_overlay.queue_redraw()
 
 
 # ------------------------------------------------------------------ where it stands

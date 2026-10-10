@@ -239,7 +239,7 @@ func _add_building_commands(building: MapObject) -> void:
 			if type_id >= 0:
 				_add_card(type_id, guid, enqueue.bind(guid))
 	if building.guid == BuildingProduction.SALOON and hud.player.researched.has(BuildingProduction.LIFT_FOG_UPGRADE):
-		var ready := Time.get_ticks_msec() >= production.look_ready_at
+		var ready := Sim.msec() >= production.look_ready_at
 		_add_spell(BuildingProduction.LIFT_FOG_UPGRADE, "Look over the land: click a spot to lift the fog there for a while" +
 				("" if ready else "\n(recovering)"), "look")
 	var spirit := production.spirit_level()

@@ -172,12 +172,12 @@ func _build_extras(workers: Array, hq: MapObject) -> void:
 	var tower := ai.faction_guid(TOWERS)
 	if tower >= 0 and count.call([tower]) < TOWER_TARGET[ai.difficulty] and player.meets_prerequisites(tower) \
 			and ai.affordable(tower) and _worth_trying(tower) \
-			and place(tower, hq.position + toward.rotated(randf_range(-0.8, 0.8)) * 300.0, workers, 0, 260.0):
+			and place(tower, hq.position + toward.rotated(Sim.randf_range(-0.8, 0.8)) * 300.0, workers, 0, 260.0):
 		return
 	var pit := MapObject.PITFALL_GUID
 	if player.faction == "ind" and count.call([pit]) < PITFALL_TARGET[ai.difficulty] and player.meets_prerequisites(pit) \
 			and ai.affordable(pit) and _worth_trying(pit) \
-			and place(pit, hq.position + toward.rotated(randf_range(-0.5, 0.5)) * 520.0, workers, 0, 200.0):
+			and place(pit, hq.position + toward.rotated(Sim.randf_range(-0.5, 0.5)) * 520.0, workers, 0, 200.0):
 		return
 	var post := ai.faction_guid(BuildingProduction.TRADE_BUILDINGS)
 	if post >= 0 and count.call([post]) == 0 and build_with_prerequisites(post, hq.position, workers):

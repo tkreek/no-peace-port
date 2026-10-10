@@ -114,8 +114,8 @@ func _give_targeted(world: Vector2) -> void:
 				return
 		"look":
 			var saloon := selected_building
-			if is_instance_valid(saloon) and saloon.guid == BuildingProduction.SALOON and Time.get_ticks_msec() >= saloon.production.look_ready_at:
-				saloon.production.look_ready_at = Time.get_ticks_msec() + BuildingProduction.LOOK_RECHARGE * 1000.0
+			if is_instance_valid(saloon) and saloon.guid == BuildingProduction.SALOON and Sim.msec() >= saloon.production.look_ready_at:
+				saloon.production.look_ready_at = Sim.msec() + BuildingProduction.LOOK_RECHARGE * 1000.0
 				if FogOfWar.current:
 					FogOfWar.current.reveal_for(world, 450.0, 20.0)
 		"rally":

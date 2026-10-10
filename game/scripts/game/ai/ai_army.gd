@@ -62,7 +62,7 @@ func _train() -> void:
 			continue
 		# Raise horses for the mounted units while there is room and food to spare.
 		if building.guid in BuildingProduction.HORSE_BUILDINGS and int(player.resources.get("food", 0)) > 400 \
-				and int(player.resources.get("horses", 0)) < player.horse_capacity() and randf() < 0.5 \
+				and int(player.resources.get("horses", 0)) < player.horse_capacity() and Sim.randf() < 0.5 \
 				and production.enqueue(BuildingProduction.HORSE_GUID):
 			continue
 		# Rifles for the infantry, while gold allows.
@@ -72,7 +72,7 @@ func _train() -> void:
 		var options := Array(production.trainable_units()).filter(func(guid: int) -> bool:
 			return GameData.stats(guid).get("damage", 0) >= 5 and guid not in Player.COMMANDERS \
 					and (guid != UnitWater.CANOE or want_canoes))
-		options.shuffle()
+		Sim.shuffle(options)
 		for guid in options:
 			if production.enqueue(guid):
 				break
@@ -115,7 +115,7 @@ func _research() -> void:
 			continue
 		var options := building.production.researchable_upgrades()
 		if not options.is_empty():
-			building.production.enqueue(options[randi() % options.size()])
+			building.production.enqueue(Sim.pick(options))
 			return
 
 
@@ -216,7 +216,7 @@ func _retreat_wounded(soldiers: Array) -> void:
 
 
 func _near_home() -> Vector2:
-	return ai.home + Vector2(randf_range(-80, 80), randf_range(60, 140))
+	return ai.home + Vector2(Sim.randf_range(-80, 80), Sim.randf_range(60, 140))
 
 
 ## A fifth of the army (at least two) stays home on the defensive; ranged guards man the
@@ -245,7 +245,7 @@ func _keep_guard(soldiers: Array, hq: MapObject) -> void:
 				break
 		if unit.state == Unit.State.IDLE and unit.quarters == null:
 			if unit.position.distance_to(hq.position) > 500.0:
-				unit.move_to(hq.position + toward * 220.0 + Vector2(randf_range(-90, 90), randf_range(-60, 60)))
+				unit.move_to(hq.position + toward * 220.0 + Vector2(Sim.randf_range(-90, 90), Sim.randf_range(-60, 60)))
 			elif unit.stealth.can_hide() and not unit.stealth.concealed:
 				unit.conceal()
 
@@ -307,14 +307,14 @@ func _reinforce(soldiers: Array) -> void:
 		return
 	for unit: Unit in free:
 		unit.set_stance(Unit.Stance.AGGRESSIVE)
-		unit.attack_move(_wave_target + Vector2(randf_range(-80, 80), randf_range(-80, 80)))
+		unit.attack_move(_wave_target + Vector2(Sim.randf_range(-80, 80), Sim.randf_range(-80, 80)))
 	_wave.append_array(free)
 
 
 ## The wave presses on to the next enemy building once its target falls; when it has
 ## melted away the survivors come home.
 func _press_attack() -> void:
-	_wave = _wave.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+	_wave = _wave.filter(func(u: Object) -> bool: return is_instance_valid(u) and u.is_alive())
 	if _wave.size() < maxi(1, _wave_size / 4):
 		for unit: Unit in _wave:
 			if not unit.inside:
@@ -330,7 +330,7 @@ func _press_attack() -> void:
 		return
 	for unit: Unit in _wave:
 		if unit.state == Unit.State.IDLE and not unit.inside:
-			unit.attack_move(target + Vector2(randf_range(-60, 60), randf_range(-60, 60)))
+			unit.attack_move(target + Vector2(Sim.randf_range(-60, 60), Sim.randf_range(-60, 60)))
 	# Boats that have put their troops ashore go back for more.
 	for boat: Unit in ai.my_units().filter(func(u: Unit) -> bool: return u.water.is_boat() and u.water.passengers.is_empty()):
 		if boat.state == Unit.State.IDLE and boat.position.distance_to(ai.home) > 900.0:

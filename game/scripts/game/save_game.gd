@@ -14,6 +14,7 @@ static func save(main: Node, path := QUICK) -> bool:
 	DirAccess.make_dir_recursive_absolute(DIR)
 	var data := {
 		"version": VERSION, "map": main.map_path, "biome": main.terrain.biome, "game_time": main.game_time,
+		"tick": Sim.tick, "rng": str(Sim.rng.state),  # the game's clock and randomness (Sim), to carry on alike
 		"camera": [main.camera.position.x, main.camera.position.y],
 		"match": {"game_type": Match.game_type, "population_limit": Match.population_limit, "speed": Match.speed,
 				"difficulty": Match.difficulty},
@@ -67,6 +68,9 @@ static func read(path := QUICK) -> Dictionary:
 ## Bring a freshly set-up match (map, terrain, forests, players) to the saved state.
 static func restore(main: Node, data: Dictionary) -> void:
 	main.game_time = float(data.get("game_time", 0.0))
+	if data.has("tick"):
+		Sim.tick = int(data.tick)
+		Sim.rng.state = String(data.rng).to_int()
 	for entry in data.players:
 		var p: Player = main.players.get(int(entry.index))
 		if p == null:

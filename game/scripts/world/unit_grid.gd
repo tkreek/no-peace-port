@@ -1,13 +1,13 @@
 class_name UnitGrid
 extends RefCounted
-## Units bucketed into 128 px cells, rebuilt at most once a frame, so that "who is near
+## Units bucketed into 128 px cells, rebuilt at most once a game step (Sim), so that "who is near
 ## here" looks at a few cells instead of every unit on the map. Answers are candidates:
 ## callers still check the exact distance.
 
 const CELL := 128.0
 
 static var _cells := {}  # packed cell key -> Array of units
-static var _frame := -1
+static var _tick := -1
 
 
 static func _key(x: int, y: int) -> int:
@@ -15,10 +15,9 @@ static func _key(x: int, y: int) -> int:
 
 
 static func _refresh() -> void:
-	var frame := Engine.get_process_frames()
-	if frame == _frame:
+	if Sim.tick == _tick:
 		return
-	_frame = frame
+	_tick = Sim.tick
 	_cells.clear()
 	for unit in Unit.all_units:
 		var key := _key(floori(unit.position.x / CELL), floori(unit.position.y / CELL))
@@ -45,6 +44,6 @@ static func near(at: Vector2, radius: float) -> Array:
 	return out
 
 
-## Drop the cached cells (a unit was added or removed mid-frame and must be seen at once).
+## Drop the cached cells (a unit was added or removed mid-step and must be seen at once).
 static func invalidate() -> void:
-	_frame = -1
+	_tick = -1

@@ -36,7 +36,7 @@ func approach(point: Vector2, reach: float, repath_ms := Unit.REPATH_MS) -> bool
 	if unit.position.distance_to(point) <= reach:
 		unit.path.clear()
 		return true
-	var now := Time.get_ticks_msec()
+	var now := Sim.msec()
 	if unit.path.is_empty() or now - unit._last_repath > repath_ms:
 		unit._last_repath = now
 		unit.path = unit.find_path(point)

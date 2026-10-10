@@ -54,6 +54,7 @@ var _start_type := -1
 
 
 func _ready() -> void:
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF  # nothing here runs on game steps
 	if not GameData.is_ready():
 		return
 	_start_type = ObjectTypes.named(START_NAME)

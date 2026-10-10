@@ -51,7 +51,7 @@ static func launch(shooter: Unit, target: Node2D, damage: float, hit: bool) -> v
 		p._from = shooter.position + barrel * MUZZLE.x + Vector2(0, MUZZLE.y)
 	p._to = shooter.aim_point(target)
 	if not hit:
-		p._to += Vector2(randf_range(-30, 30), randf_range(-20, 20))
+		p._to += Vector2(Sim.randf_range(-30, 30), Sim.randf_range(-20, 20))
 	p._duration = maxf(0.12, p._from.distance_to(p._to) / SPEED.get(p._kind, DEFAULT_SPEED))
 	p.position = p._from
 	p.z_index = 4
@@ -72,7 +72,16 @@ func _setup(team: int) -> void:
 	_apply(_to - _from)
 
 
-func _process(delta: float) -> void:
+var _sim_on := false
+var _sim_listed := false
+
+
+func _enter_tree() -> void:
+	Sim.activate(self)
+
+
+## One step of the game (Sim).
+func sim_tick(delta: float) -> void:
 	# Follow a moving target so a hit lands where the target now stands.
 	if _hit and _kind not in STRAIGHT and is_instance_valid(_target) and _target.is_alive() and _attacker and is_instance_valid(_attacker):
 		_to = _attacker.aim_point(_target) if _target is MapObject else _target.position + Vector2(0, -16)

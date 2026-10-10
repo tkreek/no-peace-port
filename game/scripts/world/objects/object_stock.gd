@@ -88,7 +88,7 @@ func harvest(wanted: int) -> int:
 		resource = ""
 		var tween := object.create_tween()
 		tween.tween_property(object, "modulate:a", 0.0, 1.5)
-		tween.tween_callback(object.queue_free)
+		Sim.after(1.5, object.queue_free)
 	return taken
 
 

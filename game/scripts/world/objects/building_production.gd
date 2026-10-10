@@ -66,7 +66,7 @@ var queue: PackedInt32Array = []  ## unit, upgrade or trade GUIDs waiting their 
 var progress := 0.0  ## 0..1 for queue[0]
 var rally_point := Vector2.INF  ## where trained units gather; INF = just outside
 var distilling := true  ## its owner can let a distillery rest, keeping the wood
-var look_ready_at := 0.0  ## msec when the saloon can look again
+var look_ready_at := 0.0  ## game msec (Sim.msec) when the saloon can look again
 var spirit_energy := SPIRIT_COST  ## the tepee of the ancestors' magic energy
 var _trade_terms: Array[Dictionary] = []  # what each queued trade was paid with, in order
 var _income_timer := 0.0

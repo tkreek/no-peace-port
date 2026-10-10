@@ -16,6 +16,12 @@ var _target_zoom := 1.0
 var _dragging := false
 
 
+func _init() -> void:
+	# The camera follows the mouse and keys every frame; physics interpolation (which smooths
+	# the game's fixed steps) would otherwise force it onto the steps.
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+
+
 func _ready() -> void:
 	_target_zoom = zoom.x
 

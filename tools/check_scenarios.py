@@ -41,7 +41,7 @@ CHECKS = {
     "gold": ([], 2700, [r"mine entrance timbered in \d+\.\ds, gold before it: false", r"gold \+[1-9]\d*"]),
     "woodcut": ([], 1900, [r"wood\+[1-9]"]),
     "unhorse": (["--faction=usa", "--enemy=mex"], 0, [r"gauchos on foot alive \d+ dead [1-9]", r"horses alive [1-9]"]),
-    "fire": (["--faction=ind", "--enemy=usa"], 0, [r"\"\d+% burning\", \"\d+% burning\""]),
+    "fire": (["--faction=ind", "--enemy=usa", "--seed=5"], 0, [r"\"\d+% burning\", \"\d+% burning\""]),
     "tepee": (["--faction=ind"], 0, [r"tepee gone true", r"\"up 70%\""]),
     "boats": (["--faction=usa", "--time-scale=4", ISLANDS], 0, [r"clicked boat selected true; sailed [1-9]\d* px, \d{1,2} px short",
                                                                   r"aboard 4 / 4", r"passengers 0, soldiers ashore"]),

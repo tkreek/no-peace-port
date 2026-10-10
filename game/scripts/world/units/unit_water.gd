@@ -257,7 +257,7 @@ func sink() -> void:
 			continue
 		passenger.water.vessel = null
 		passenger.water._refresh_busy()
-		passenger.leave_quarters(unit.position + Vector2(randf_range(-16, 16), randf_range(-10, 10)))
+		passenger.leave_quarters(unit.position + Vector2(Sim.randf_range(-16, 16), Sim.randf_range(-10, 10)))
 		if not passenger.water.can_swim():
 			passenger.health = 0.0
 			passenger.die()

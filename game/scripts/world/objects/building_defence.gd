@@ -36,7 +36,7 @@ func enter(unit: Unit) -> bool:
 		return false
 	garrison.append(unit)
 	unit.enter_quarters(building)
-	building.set_process(true)
+	Sim.activate(building)
 	building.redraw_overlay()
 	return true
 
@@ -50,7 +50,7 @@ func release(which: Unit = null) -> void:
 		if not is_instance_valid(unit) or not unit.is_alive():
 			continue
 		var rect := building.footprint_rect()
-		var spot := Vector2(rect.get_center().x + randf_range(-24, 24), rect.end.y + 8)
+		var spot := Vector2(rect.get_center().x + Sim.randf_range(-24, 24), rect.end.y + 8)
 		if NavGrid.current:
 			var cell := NavGrid.current.nearest_walkable(NavGrid.current.cell_of(spot))
 			spot = (Vector2(cell) + Vector2(0.5, 0.5)) * NavGrid.CELL

@@ -172,7 +172,7 @@ func ignite(seconds := BURN_SECONDS) -> void:
 	if building.is_trap() or building.health <= 0.0:
 		return
 	burning = maxf(burning, seconds)
-	building.set_process(true)
+	Sim.activate(building)
 	if not is_instance_valid(_flame):
 		var rng := RandomNumberGenerator.new()
 		rng.seed = building.get_instance_id() + 7
@@ -196,7 +196,7 @@ func burn(delta: float) -> void:
 		var walls := building.work_rect().grow(SPREAD_REACH)
 		for other in MapObject.structures:
 			if other != building and other.is_building() and other.condition.burning <= 0.0 and other.is_alive() \
-					and walls.intersects(other.work_rect()) and randf() < SPREAD_CHANCE:
+					and walls.intersects(other.work_rect()) and Sim.randf() < SPREAD_CHANCE:
 				other.condition.ignite()
 	if burning <= 0.0 or building.health <= 0.0:
 		extinguish()
@@ -240,7 +240,7 @@ func destroy() -> void:
 		tween.tween_property(building, "modulate", Color(1, 1, 1, 0.0), 3.0)
 	else:
 		tween.tween_property(building, "modulate", Color(0.3, 0.25, 0.2, 0.0), 2.5)
-	tween.tween_callback(building.queue_free)
+	Sim.after(RUBBLE_SECONDS + 3.0 if rubble else 2.5, building.queue_free)  # gone on the same step everywhere
 
 
 func _smoulder() -> void:

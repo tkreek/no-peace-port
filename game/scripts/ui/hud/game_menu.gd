@@ -81,7 +81,7 @@ func show_options() -> void:
 
 func to_main_menu() -> void:
 	hud.get_tree().paused = false
-	Engine.time_scale = 1.0
+	Sim.set_speed(1.0)
 	Match.configured = false
 	Match.editor_map = ""
 	hud.get_tree().change_scene_to_file("res://scenes/menu.tscn")
@@ -90,7 +90,7 @@ func to_main_menu() -> void:
 ## Leave a test game for the map editor, which reopens the map.
 func to_editor() -> void:
 	hud.get_tree().paused = false
-	Engine.time_scale = 1.0
+	Sim.set_speed(1.0)
 	Match.configured = false
 	hud.get_tree().change_scene_to_file("res://scenes/editor.tscn")
 

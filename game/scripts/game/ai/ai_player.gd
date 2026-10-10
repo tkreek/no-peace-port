@@ -34,7 +34,16 @@ var _buildings_cache: Array = []
 var _cache_valid := false
 
 
-func _process(delta: float) -> void:
+var _sim_on := false
+var _sim_listed := false
+
+
+func _enter_tree() -> void:
+	Sim.activate(self)
+
+
+## One step of the game (Sim).
+func sim_tick(delta: float) -> void:
 	elapsed += delta
 	_timer -= delta
 	if _timer > 0.0:

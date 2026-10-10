@@ -15,6 +15,7 @@ extends Node2D
 ##   --ai=off  no computer opponent (for isolated tests)
 ##   --ai-vs-ai=1  computer controls player 1 as well
 ##   --report-after=<frames>  print stockpiles every 300 frames, then quit (use --fixed-fps)
+##   --seed=n  the game's randomness; --checksum-every=<s>  print a state fingerprint (Sim)
 ##   --camera=x,y  --zoom=z  --order=x,y (screenshot move target)  --debug-paths=1
 
 const DEFAULT_MAP := "[2 Players] - close combat.ulf"
@@ -73,6 +74,11 @@ func _ready() -> void:
 	if map == null:
 		_show_message("Could not load map %s" % map_path)
 		return
+	# The game's randomness: --seed=n for a repeatable run (scenarios default to 1).
+	var default_seed := "1" if GameData.cmdline_option("scenario") != "" else str(randi())
+	Sim.reset(GameData.cmdline_option("seed", default_seed).to_int())
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF  # the camera and interface move per frame
+	units_root.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON  # the game moves per step
 
 	add_child(terrain)
 	terrain.setup(map, loading.get("biome", GameData.cmdline_option("biome", map.guess_biome())))
@@ -123,9 +129,10 @@ func _ready() -> void:
 			_setup_player(player, start_positions.get(player, _fallback_start(player, size)))
 	camera.position = _vector_option("camera", start_positions.get(1, size / 2.0))
 	# --time-scale=N runs the simulation N times faster (long AI tests).
-	Engine.time_scale = clampf(GameData.cmdline_option("time-scale", "1").to_float(), 0.1, 8.0)
+	var speed := clampf(GameData.cmdline_option("time-scale", "1").to_float(), 0.1, 8.0)
 	if Match.configured:
-		Engine.time_scale *= Match.speed  # the setup screen's game speed
+		speed *= Match.speed  # the setup screen's game speed
+	Sim.set_speed(speed)
 	var report := GameData.cmdline_option("report-after")
 	if report != "":
 		DevTools.attach(self).report_after(report.to_int())
@@ -155,11 +162,6 @@ func _ready() -> void:
 			ai.difficulty = Match.difficulty if Match.configured else GameData.cmdline_option("difficulty", "2").to_int()
 			add_child(ai)
 			ais.append(ai)
-	var check := Timer.new()
-	check.wait_time = 2.0
-	check.autostart = true
-	check.timeout.connect(_check_victory)
-	add_child(check)
 	if not loading.is_empty():
 		SaveGame.restore(self, loading)
 		loaded_game = true
@@ -313,11 +315,11 @@ func _on_unit_trained(building: MapObject, unit_guid: int) -> void:
 	units_root.add_child(unit)
 	unit.setup(unit_type, building.owner_index)
 	if building.production.rally_point != Vector2.INF:
-		unit.move_to(building.production.rally_point + Vector2(randf_range(-24, 24), randf_range(-16, 16)))
+		unit.move_to(building.production.rally_point + Vector2(Sim.randf_range(-24, 24), Sim.randf_range(-16, 16)))
 	elif unit.water.is_boat():
 		pass
 	else:
-		unit.move_to(unit.position + Vector2(randf_range(-40, 40), 50))
+		unit.move_to(unit.position + Vector2(Sim.randf_range(-40, 40), 50))
 
 
 ## Start point when the map has no Editor_Start for a player: spread around the map.
@@ -389,11 +391,24 @@ func _spawn_squad(what: Variant, team: int, centre: Vector2, count: int) -> void
 		unit.direction = 5 if team == 1 else 1
 
 
-var game_time := 0.0  # simulated seconds since the match began
+## Simulated seconds since the match began.
+var game_time: float:
+	get:
+		return Sim.time()
+	set(value):
+		Sim.tick = roundi(value * Sim.RATE)
+const VICTORY_CHECK_TICKS := Sim.RATE * 2
+## --checksum-every=<seconds>: print the state's fingerprint (compare runs for determinism).
+var _checksum_ticks := roundi(GameData.cmdline_option("checksum-every", "0").to_float() * Sim.RATE)
 
 
-func _process(delta: float) -> void:
-	game_time += delta
+## The game advances one fixed step per physics frame (Sim).
+func _physics_process(_delta: float) -> void:
+	Sim.step()
+	if Sim.tick % VICTORY_CHECK_TICKS == 0:
+		_check_victory()
+	if _checksum_ticks > 0 and Sim.tick % _checksum_ticks == 0:
+		print("tick %d checksum %s" % [Sim.tick, Sim.checksum()])
 
 
 func _vector_option(name: String, default: Vector2) -> Vector2:

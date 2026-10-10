@@ -31,6 +31,8 @@ const FOLLOW_DISTANCE := 48.0
 
 static var debug_paths := false
 static var all_units: Array[Unit] = []
+var _sim_on := false
+var _sim_listed := false
 
 var team := 1
 var max_health := 100.0
@@ -69,7 +71,7 @@ var _ordered := false  ## the current target was picked by the player, not by th
 var _attack_step := -1  # position in unit_type.attack_anims, -1 = not in an attack
 var _released := false  # the shot of this attack has left early (UnitType.release_frame)
 var _cooldown := 0.0
-var _scan_timer := randf() * SCAN_INTERVAL
+var _scan_timer := Sim.randf() * SCAN_INTERVAL
 var _last_repath := 0
 var _corpse_timer := 0.0
 var _remains: UnitRemains
@@ -93,11 +95,13 @@ func setup(type: UnitType, team_index: int) -> void:
 	ring_on_top = water.is_boat()
 	_parts = [riding, animal, magic, work, tepees, water, stealth, saboteur]
 	all_units.append(self)
+	Sim.activate(self)
 	play("idle")
 
 
 func _exit_tree() -> void:
 	all_units.erase(self)
+	UnitGrid.invalidate()  # never hand out a unit that is gone
 
 
 func is_alive() -> bool:
@@ -193,7 +197,7 @@ const MORALE_MAX := 1.2
 const LEADER_REACH := 1200.0  # beyond this the leader's presence no longer helps
 const HOME_REACH := 2400.0  # the leader's own morale is lowest this far from home
 var _morale := 1.0
-var _morale_timer := 0.0
+var _morale_timer := -1.0
 ## The warrior spirit (BuildingProduction.invoke_spirit): extra morale for a while, shown
 ## by an aura round the unit.
 const AURA := "effects/aura/aura.anims.json"
@@ -224,7 +228,7 @@ func _fade_spirit(delta: float) -> void:
 func _base_morale() -> float:
 	if team <= 0:
 		return 1.0
-	var now := Time.get_ticks_msec() / 1000.0
+	var now := Sim.time()
 	if now - _morale_timer < 0.5:
 		return _morale
 	_morale_timer = now
@@ -468,12 +472,14 @@ func enter_quarters(building: MapObject) -> void:
 	inside = true
 	selected = false
 	position = building.work_rect().get_center()
+	reset_physics_interpolation()  # a jump, not a walk
 
 
 func leave_quarters(at: Vector2) -> void:
 	quarters = null
 	inside = false
 	position = at
+	reset_physics_interpolation()
 	state = State.IDLE
 	guard_position = at
 	play("idle")
@@ -489,7 +495,7 @@ func fire_from_quarters(enemy: Node2D, from: Vector2, reach: float) -> void:
 	_cooldown = unit_type.reload_ms / 1000.0
 	Sound.play_event(unit_type.guid(), Sound.Event.SHOOT, from, 60)
 	var accuracy := clampf(1.1 - from.distance_to(enemy.position) / (reach * 1.6), 0.4, 0.95)
-	if randf() <= accuracy:
+	if Sim.randf() <= accuracy:
 		enemy.take_damage(attack_damage(), self)
 
 
@@ -538,9 +544,10 @@ func die() -> void:
 	died.emit(self)
 
 
-# ------------------------------------------------------------------ the frame
+# ------------------------------------------------------------------ the step
 
-func _process(delta: float) -> void:
+## One step of the game (Sim).
+func sim_tick(delta: float) -> void:
 	_cooldown = maxf(0.0, _cooldown - delta)
 	if _spirit_left > 0.0:
 		_fade_spirit(delta)
@@ -625,7 +632,7 @@ func _update_follow() -> void:
 			path.clear()
 			state = State.IDLE
 		return
-	var now := Time.get_ticks_msec()
+	var now := Sim.msec()
 	if state == State.IDLE or now - _last_repath > REPATH_MS:
 		_last_repath = now
 		path = find_path(follow_target.position)
@@ -690,7 +697,7 @@ func _update_attack(delta: float) -> void:
 				state = State.IDLE
 			return
 	if to_target.length() > attack_range():
-		var now := Time.get_ticks_msec()
+		var now := Sim.msec()
 		if path.is_empty() or now - _last_repath > REPATH_MS:
 			_last_repath = now
 			path = find_path(target.position)
@@ -736,7 +743,7 @@ func _strike() -> void:
 	var hit := true
 	if unit_type.ranged:
 		var accuracy := clampf(1.1 - position.distance_to(aim_point(target)) / (attack_range() * 1.6), 0.4, 0.95)
-		hit = randf() <= accuracy
+		hit = Sim.randf() <= accuracy
 	var damage := attack_damage() * damage_factor(target)
 	if unit_type.ranged and unit_type.projectile_anim >= 0:
 		Projectile.launch(self, target, damage, hit)  # damage lands with it

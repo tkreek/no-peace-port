@@ -37,7 +37,16 @@ static func spawn(parent: Node, at: Vector2, bob_path: String, duration: float, 
 	return weather
 
 
-func _process(delta: float) -> void:
+var _sim_on := false
+var _sim_listed := false
+
+
+func _enter_tree() -> void:
+	Sim.activate(self)
+
+
+## One step of the game (Sim).
+func sim_tick(delta: float) -> void:
 	_age += delta
 	if _tick.is_valid() and _age >= _next_tick:
 		_next_tick += 1.0

@@ -557,8 +557,8 @@ func _work_spot() -> Vector2:
 	if _field_spot == Vector2.INF or _field_spot_of != gather_source:
 		var size := gather_source.footprint_rect().size
 		# The furrows form a diamond around the field's position; keep inside its middle.
-		var u := randf_range(-0.3, 0.3)
-		var v := randf_range(-0.3, 0.3)
+		var u := Sim.randf_range(-0.3, 0.3)
+		var v := Sim.randf_range(-0.3, 0.3)
 		_field_spot = gather_source.position + Vector2((u - v) * size.x * 0.5, (u + v) * size.y * 0.5)
 		_field_spot_of = gather_source
 	return _field_spot

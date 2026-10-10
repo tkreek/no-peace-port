@@ -36,7 +36,7 @@ var _faction := OptionButton.new()
 
 
 func _ready() -> void:
-	Engine.time_scale = 1.0  # a finished match may have left its game speed behind
+	Sim.set_speed(1.0)  # a finished match may have left its game speed behind
 	theme = MenuStyle.theme()
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	if _skip_to_game():

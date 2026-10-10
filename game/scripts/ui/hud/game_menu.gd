@@ -19,6 +19,14 @@ func toggle() -> void:
 	if _panel:
 		_close()
 		return
+	if Net.active:
+		# The others play on: no pause, and nothing to save or restart alone.
+		_panel = _menu_panel(GameData.menu_text(50, "Settings"), [
+			[GameData.menu_text(57, "Continue"), toggle],
+			["Options", show_options],
+			["Leave the match", to_main_menu],
+		])
+		return
 	hud.get_tree().paused = true
 	_panel = _menu_panel(GameData.menu_text(50, "Settings"), [
 		[GameData.menu_text(57, "Continue"), toggle],
@@ -80,6 +88,7 @@ func show_options() -> void:
 
 
 func to_main_menu() -> void:
+	Net.end_match()
 	hud.get_tree().paused = false
 	Sim.set_speed(1.0)
 	Match.configured = false

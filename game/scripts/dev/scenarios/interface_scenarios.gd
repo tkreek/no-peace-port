@@ -338,14 +338,16 @@ func _scenario_inspect() -> void:
 ## --replay, which must end in the same game): workers gather and build houses, the main
 ## building trains, soldiers and workers are sent about, stances change.
 func _scenario_commands() -> void:
-	var hq: MapObject = main.players[1].main_building()
+	var hq: MapObject = main.players[main.me].main_building()
 	var picker := RandomNumberGenerator.new()
 	picker.seed = 3
-	var house_guid: int = {"mex": 201, "usa": 401, "des": 301, "ind": 101}[main.players[1].faction]
+	var house_guid: int = {"mex": 201, "usa": 401, "des": 301, "ind": 101}[main.players[main.me].faction]
 	var house := ObjectTypes.get_type(GameData.type_for_guid(house_guid, main.terrain.biome))
 	for round in 45:
-		await get_tree().create_timer(2.0).timeout
-		var own := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 1 and u.is_alive())
+		var due := Sim.tick + Sim.RATE * 2  # rounds go by game time (a network game may wait)
+		while Sim.tick < due:
+			await get_tree().physics_frame
+		var own := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == main.me and u.is_alive())
 		if own.is_empty() or not is_instance_valid(hq):
 			break
 		var some := own.slice(0, picker.randi_range(1, own.size()))

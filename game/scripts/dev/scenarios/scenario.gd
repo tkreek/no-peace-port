@@ -43,7 +43,7 @@ func _nearest_mine(from: Vector2) -> MapObject:
 
 ## Wait until the orders just given have been carried out (Orders: on a coming game step).
 func _orders_landed() -> void:
-	for i in Orders.delay + 1:
+	for i in Orders.delay + 2:
 		await get_tree().physics_frame
 
 

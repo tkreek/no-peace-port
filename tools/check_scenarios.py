@@ -79,6 +79,9 @@ CHECKS = {
     # Lockstep groundwork: a player's orders recorded at 60 fps, replayed without the interface
     # at 23 fps, must give the same game at every checksum (see run_replay).
     "replay": ([], 0, [r"replay: (1\d|[2-9]\d) of \1 checksums agree"]),
+    # Lockstep over the network: a host at 60 fps and a client at 23 fps each give their own
+    # people orders, with a computer player too; their checksums must agree (see run_network).
+    "network": ([], 0, [r"network: (1\d|[2-9]\d) of \1 checksums agree"]),
     # Six computer players for ten game minutes: no script errors, and the waves go out.
     "aigame": (["--ai-vs-ai=1", "--players=mex,usa,ind,des,mex,usa", "--time-scale=4", "--trace-ai=1",
                 "--map=[6 Players] - oasis.ulf"], 4500, [r"attacks with \d+ units"]),
@@ -101,6 +104,28 @@ def run_replay():
     return record + played + "\nreplay: %d of %d checksums agree\n" % (agree, len(shared))
 
 
+def run_network():
+    """Host and join a three-people match on this machine; compare the two games."""
+    port = str(47800 + os.getpid() % 100)
+    common = ["--scenario=commands", "--fog=off", "--checksum-every=5"]
+    host = subprocess.Popen(["godot", "--headless", "--fixed-fps", "60", "--path", GAME, "--",
+                             "--host=" + port, "--humans=2", "--players=mex,usa,ind"] + common,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    time.sleep(2)
+    client = subprocess.run(["godot", "--headless", "--fixed-fps", "23", "--path", GAME, "--",
+                             "--join=127.0.0.1:" + port] + common,
+                            capture_output=True, text=True, timeout=400).stdout
+    try:
+        hosted = host.communicate(timeout=60)[0]
+    except subprocess.TimeoutExpired:
+        host.kill()
+        hosted = host.communicate()[0]
+    sums = [dict(re.findall(r"tick (\d+) checksum (\w+)", out)) for out in (hosted, client)]
+    shared = [t for t in sums[0] if t in sums[1]]
+    agree = sum(sums[0][t] == sums[1][t] for t in shared)
+    return hosted + client + "\nnetwork: %d of %d checksums agree\n" % (agree, len(shared))
+
+
 def run(name):
     args, frames, expected = CHECKS[name]
     scenario = name.split("_")[0]
@@ -121,7 +146,7 @@ def run(name):
     command += os.environ.get("CHECK_ARGS", "").split()
     started = time.time()
     try:
-        out = run_replay() if name == "replay" else \
+        out = run_replay() if name == "replay" else run_network() if name == "network" else \
             subprocess.run(command, capture_output=True, text=True, timeout=400).stdout
     except subprocess.TimeoutExpired as e:
         out = (e.stdout or b"").decode() if isinstance(e.stdout, bytes) else (e.stdout or "")

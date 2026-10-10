@@ -40,6 +40,9 @@ var start_positions := {}  # player -> Vector2, from the map's Editor_Start mark
 var placed_owners := {}
 var map_path := ""
 var loaded_game := false
+## The people this machine plays (Match.local_player; player 1 unless in a network match).
+var me := 1
+var _waiting := 0  # physics frames spent waiting for others' orders
 
 ## Main building and a representative soldier per people (for --scenario=battle).
 const FACTIONS := {
@@ -80,6 +83,8 @@ func _ready() -> void:
 	# brings its own, and its orders instead of the player's.
 	var default_seed := "1" if GameData.cmdline_option("scenario") != "" else str(randi())
 	var replay := Orders.read_replay(GameData.cmdline_option("replay"))
+	if Match.configured and Match.seed_value != 0:
+		default_seed = str(Match.seed_value)  # a network match: the same everywhere
 	Sim.reset(int(replay.seed) if not replay.is_empty() else GameData.cmdline_option("seed", default_seed).to_int())
 	if not replay.is_empty():
 		Orders.play(replay)
@@ -101,6 +106,13 @@ func _ready() -> void:
 	ambience.camera = camera
 	add_child(ambience)
 
+	me = Match.local_player if Match.configured else 1
+	if Net.active:
+		Net.desynced.connect(func(tick: int) -> void: hud.notify("Out of sync with the other players (step %d)" % tick))
+		Net.player_left.connect(func(index: int) -> void:
+			if players.has(index):
+				hud.notify("The %s player has left" % Match.faction_name(players[index].faction)))
+		Net.connection_failed.connect(func(reason: String) -> void: hud.notify(reason))
 	var size := Vector2(map.pixel_size())
 	Player.by_index.clear()
 	var computer := {}  # player index -> true when AI controlled
@@ -133,7 +145,7 @@ func _ready() -> void:
 		players[player].set_start_resources(Match.start_resources(map.start_resources))
 		if loading.is_empty() and not placed_owners.has(player):
 			_setup_player(player, start_positions.get(player, _fallback_start(player, size)))
-	camera.position = _vector_option("camera", start_positions.get(1, size / 2.0))
+	camera.position = _vector_option("camera", start_positions.get(me, size / 2.0))
 	# --time-scale=N runs the simulation N times faster (long AI tests).
 	var speed := clampf(GameData.cmdline_option("time-scale", "1").to_float(), 0.1, 8.0)
 	if Match.configured:
@@ -145,12 +157,13 @@ func _ready() -> void:
 	camera.set_zoom_level(GameData.cmdline_option("zoom", "1").to_float())
 	fog.enabled = GameData.cmdline_option("fog", "on") != "off"
 	add_child(fog)
-	fog.setup(map, 1)
-	build_controller.player = players[1]
+	fog.setup(map, me)
+	build_controller.player = players[me]
 	build_controller.selection = selection
 	build_controller.objects_root = units_root
 	Orders.build_controller = build_controller
-	Orders.local_player = 1  # the interface gives player 1's orders
+	Orders.local_player = me  # the interface gives this people's orders
+	selection.player_team = me
 	add_child(build_controller)  # after the selection controller, so it sees clicks first
 	build_controller.placed.connect(_on_building_placed)
 	for object in MapObject.structures:
@@ -159,7 +172,7 @@ func _ready() -> void:
 	hud.build_controller = build_controller
 	hud.biome = terrain.biome
 	add_child(hud)
-	hud.setup(map, terrain.overview_image(), camera, units_root, players[1], selection)
+	hud.setup(map, terrain.overview_image(), camera, units_root, players[me], selection)
 	hud.minimap.move_ordered.connect(selection._order_move)
 	for index in players:
 		if computer.get(index, false):
@@ -175,7 +188,7 @@ func _ready() -> void:
 		loaded_game = true
 	if GameData.cmdline_option("scenario") != "":
 		Scenario.start(self, GameData.cmdline_option("scenario"))
-	Sound.play_music(players[1].faction)
+	Sound.play_music(players[me].faction)
 	DisplayServer.window_set_title("America — %s" % map.title)
 	if GameData.cmdline_option("screenshot") != "":
 		DevTools.attach(self).screenshot(GameData.cmdline_option("screenshot"))
@@ -279,13 +292,13 @@ func _check_victory() -> void:
 	for index in players:
 		if players[index].surrendered:
 			alive.erase(index)
-	var human_alive: bool = alive.has(1)
-	var others_alive := alive.keys().any(func(k: int) -> bool: return k != 1)
+	var human_alive: bool = alive.has(me)
+	var others_alive := alive.keys().any(func(k: int) -> bool: return k != me)
 	if human_alive and others_alive:
 		return
 	_game_over = true
 	var won := human_alive
-	print("GAME OVER: ", "player 1 wins" if won else "player 1 lost")
+	print("GAME OVER: ", "player %d %s" % [me, "wins" if won else "lost"])
 	Sound.play_mission_result(won)
 	hud.show_banner(GameData.text(1 if won else 2, "Victory!" if won else "Defeat"))
 	hud.show_statistics(players)
@@ -416,9 +429,17 @@ var _dump_tick := GameData.cmdline_option("dump-at", "-1").to_int()  # --dump-at
 var _checksum_ticks := roundi(GameData.cmdline_option("checksum-every", "0").to_float() * Sim.RATE)
 
 
-## The game advances one fixed step per physics frame (Sim).
+## The game advances one fixed step per physics frame (Sim); in a network match only once
+## every player's orders for it have arrived (Net), else this machine waits for them.
 func _physics_process(_delta: float) -> void:
+	if not Net.can_step(Sim.tick + 1):
+		_waiting += 1
+		if _waiting == Sim.RATE * 2:
+			hud.notify("Waiting for the other players…")
+		return
+	_waiting = 0
 	Sim.step()
+	Net.stepped(Sim.tick)
 	if Sim.tick % VICTORY_CHECK_TICKS == 0:
 		_check_victory()
 	if _checksum_ticks > 0 and Sim.tick % _checksum_ticks == 0:

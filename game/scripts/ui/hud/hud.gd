@@ -288,7 +288,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if event.ctrl_pressed or event.alt_pressed:
 		return
-	if key == KEY_F2:
+	if key == KEY_F2 and not Net.active:
 		menu.quick_save()
 		get_viewport().set_input_as_handled()
 	elif commands.handle_key(key):

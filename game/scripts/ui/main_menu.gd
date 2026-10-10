@@ -33,6 +33,13 @@ var _game_type := OptionButton.new()
 var _population := OptionButton.new()
 var _speed := OptionButton.new()
 var _faction := OptionButton.new()
+## The setup screen doubles as a network game's lobby (Net): the host chooses, others watch.
+var _lobby := false
+var _lobby_slots := GridContainer.new()  # the lobby's places, in _seats instead of _slots
+var _start_button: Button
+var _net_status := Label.new()
+var _name_edit := LineEdit.new()
+var _address_edit := LineEdit.new()
 
 
 func _ready() -> void:
@@ -51,6 +58,13 @@ func _ready() -> void:
 	_screens.main = _build_main()
 	_screens.setup = _build_setup()
 	_screens.settings = _build_settings()
+	_screens.network = _build_network()
+	Net.lobby_changed.connect(_on_lobby_changed)
+	Net.connection_failed.connect(func(reason: String) -> void:
+		_net_status.text = reason
+		if _lobby:
+			_leave_lobby()
+		_show("network"))
 	for screen in _screens.values():
 		_art.add_child(screen)
 	get_viewport().size_changed.connect(_fit)
@@ -64,12 +78,19 @@ func _ready() -> void:
 		_start()
 
 
-## --menu-shot=<png> [--menu-screen=setup]: capture a menu screen and quit (for checks).
+## --menu-shot=<png> [--menu-screen=setup|network|lobby]: capture a menu screen and quit
+## (for checks; "lobby" hosts a game and waits --menu-wait=<s> for others to join first).
 func _menu_screenshot() -> void:
 	var path := GameData.cmdline_option("menu-shot")
 	if path.is_empty():
 		return
-	_show(GameData.cmdline_option("menu-screen", "main"))
+	var screen := GameData.cmdline_option("menu-screen", "main")
+	if screen == "lobby":
+		Net.host()
+		_enter_lobby()
+		await get_tree().create_timer(GameData.cmdline_option("menu-wait", "0").to_float()).timeout
+	else:
+		_show(screen)
 	if GameData.cmdline_option("menu-map") != "":
 		_map_list.select(clampi(GameData.cmdline_option("menu-map").to_int(), 0, _maps.size() - 1))
 		_on_map_selected(_map_list.get_selected_items()[0])
@@ -86,6 +107,8 @@ func _menu_screenshot() -> void:
 ## Development options (map, scenario, screenshot, selftest) start the game directly,
 ## --editor the map editor.
 func _skip_to_game() -> bool:
+	if GameData.cmdline_option("host") != "" or GameData.cmdline_option("join") != "":
+		return true  # a network test: Net starts the match once everyone is in
 	if GameData.cmdline_option("editor") != "" or GameData.cmdline_option("editor-selftest") != "":
 		get_tree().change_scene_to_file.call_deferred("res://scenes/editor.tscn")
 		return true
@@ -156,6 +179,7 @@ func _build_main() -> Control:
 	column.add_theme_constant_override("separation", 14)
 	screen.add_child(column)
 	column.add_child(_glow_button("Skirmish", func() -> void: _show("setup")))
+	column.add_child(_glow_button("Multiplayer", func() -> void: _show("network")))
 	if FileAccess.file_exists(SaveGame.QUICK):
 		column.add_child(_glow_button("Load game", func() -> void:
 			var data := SaveGame.read()
@@ -352,11 +376,26 @@ func _build_setup() -> Control:
 	_fill_factions(_faction, 0)
 	_slots.add_child(you)
 	_seats.add_child(_slots)
+	_lobby_slots.columns = 2
+	_lobby_slots.add_theme_constant_override("h_separation", 12)
+	_lobby_slots.add_theme_constant_override("v_separation", 3)
+	_lobby_slots.visible = false
+	_seats.add_child(_lobby_slots)
 
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 24)
-	buttons.add_child(_small_button(GameData.menu_text(16, "Back"), func() -> void: _show("main")))
-	buttons.add_child(_small_button(GameData.menu_text(15, "Start"), _start))
+	buttons.add_child(_small_button(GameData.menu_text(16, "Back"), func() -> void:
+		if _lobby:
+			_leave_lobby()
+			_show("network")
+		else:
+			_show("main")))
+	_start_button = _small_button(GameData.menu_text(15, "Start"), func() -> void:
+		if _lobby:
+			Net.start_match()
+		else:
+			_start())
+	buttons.add_child(_start_button)
 	buttons.reset_size()
 	buttons.position = Vector2(ART_SIZE.x * 0.5 - buttons.size.x * 0.5, 560)
 	screen.add_child(buttons)
@@ -485,6 +524,10 @@ func _on_map_selected(index: int) -> void:
 		_preview.texture = ImageTexture.create_from_image(_preview_image(alf))
 		_map_info.text = "%d players · %d × %d · %s" % [map.players, alf.columns, alf.rows,
 				"forest" if alf.guess_biome() == "wiese" else "prairie"]
+	if _lobby:
+		if Net.is_host and Net.map_path != map.path:
+			Net.set_map(map.path, map.players)
+		return
 	# One seat per possible opponent; the first is a computer player by default.
 	for child in _slots.get_children():
 		if not child.has_meta("you"):
@@ -531,6 +574,144 @@ func _start() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
+
+
+# ------------------------------------------------------------------ network games
+
+func _build_network() -> Control:
+	var screen := Control.new()
+	screen.size = ART_SIZE
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _box(Color(0.1, 0.05, 0.02, 0.88), 6, 16))
+	panel.position = Vector2(230, 200)
+	panel.custom_minimum_size.x = 340
+	screen.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 8)
+	panel.add_child(column)
+	column.add_child(MenuStyle.label("Multiplayer", 20))
+	for row in [["Your name", _name_edit, Net.my_name], ["Host address", _address_edit, Net.last_address]]:
+		var line := HBoxContainer.new()
+		line.add_child(_fixed_label(row[0], 100))
+		var edit: LineEdit = row[1]
+		edit.text = row[2]
+		edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		MenuStyle.style(edit, 13)
+		edit.add_theme_stylebox_override("normal", _box(Color(0.16, 0.09, 0.04, 0.9), 2, 4))
+		line.add_child(edit)
+		column.add_child(line)
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 12)
+	buttons.add_child(_small_button("Host a game", func() -> void:
+		_remember_names()
+		var problem := Net.host()
+		_net_status.text = problem
+		if problem == "":
+			_enter_lobby()))
+	buttons.add_child(_small_button("Join", func() -> void:
+		_remember_names()
+		var parts := Net.last_address.split(":")
+		var problem := Net.join(parts[0], parts[1].to_int() if parts.size() > 1 else Net.PORT)
+		_net_status.text = problem if problem != "" else "Connecting to %s…" % Net.last_address))
+	column.add_child(buttons)
+	MenuStyle.style(_net_status, 12, MenuStyle.TEXT_DIM)
+	_net_status.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_net_status.custom_minimum_size.x = 300
+	_net_status.text = "Everyone needs the game and its assets. The host's port %d (UDP) must be reachable." % Net.PORT
+	column.add_child(_net_status)
+	var back := _small_button(GameData.menu_text(16, "Back"), func() -> void: _show("main"))
+	back.position = Vector2(ART_SIZE.x * 0.5 - 75, 560)
+	screen.add_child(back)
+	return screen
+
+
+func _remember_names() -> void:
+	Net.my_name = _name_edit.text.strip_edges() if _name_edit.text.strip_edges() != "" else "Player"
+	Net.last_address = _address_edit.text.strip_edges()
+	Net.save_prefs()
+
+
+func _enter_lobby() -> void:
+	_lobby = true
+	_slots.visible = false
+	_lobby_slots.visible = true
+	_show("setup")
+	_start_button.visible = Net.is_host
+	_map_list.mouse_filter = Control.MOUSE_FILTER_STOP if Net.is_host else Control.MOUSE_FILTER_IGNORE
+	for option: OptionButton in [_supply, _difficulty, _game_type, _population, _speed]:
+		option.disabled = not Net.is_host
+		if Net.is_host and not option.item_selected.is_connected(_push_settings):
+			option.item_selected.connect(_push_settings)
+	if Net.is_host:
+		_on_map_selected(_map_list.get_selected_items()[0] if _map_list.is_anything_selected() else 0)
+		_push_settings()
+	_on_lobby_changed()
+
+
+func _leave_lobby() -> void:
+	Net.leave()
+	_lobby = false
+	_slots.visible = true
+	_lobby_slots.visible = false
+	_start_button.visible = true
+	_map_list.mouse_filter = Control.MOUSE_FILTER_STOP
+	for option: OptionButton in [_supply, _difficulty, _game_type, _population, _speed]:
+		option.disabled = false
+	if _map_list.is_anything_selected():
+		_on_map_selected(_map_list.get_selected_items()[0])
+
+
+func _push_settings(_index := 0) -> void:
+	Net.set_settings({"supply": _supply.selected, "difficulty": _difficulty.selected,
+			"game_type": _game_type.selected, "population_limit": Match.POPULATION_LIMITS[_population.selected],
+			"speed": Match.SPEEDS[_speed.selected]})
+
+
+## The lobby changed (or we just joined it): show the host's map, settings and places.
+func _on_lobby_changed() -> void:
+	if not _lobby:
+		if not Net.is_host and Net.is_connected_to_game() and not Net.slots.is_empty():
+			_enter_lobby()  # joined: the host's first word is the lobby
+		return
+	if not Net.is_host:
+		for i in _maps.size():
+			if _maps[i].path.get_file() == Net.map_path.get_file() and not _map_list.is_selected(i):
+				_map_list.select(i)
+				_on_map_selected(i)
+		var settings := Net.settings
+		_supply.select(int(settings.get("supply", 0)))
+		_difficulty.select(int(settings.get("difficulty", 2)))
+		_game_type.select(int(settings.get("game_type", 0)))
+		_population.select(maxi(0, Match.POPULATION_LIMITS.find(int(settings.get("population_limit", 100)))))
+		_speed.select(maxi(0, Match.SPEEDS.find(float(settings.get("speed", 1.0)))))
+	for child in _lobby_slots.get_children():
+		_lobby_slots.remove_child(child)
+		child.queue_free()
+	for i in Net.slots.size():
+		var cell := HBoxContainer.new()
+		cell.add_theme_constant_override("separation", 4)
+		cell.add_child(_fixed_label(Net.slot_caption(i), 64))
+		var faction := OptionButton.new()
+		_fill_factions(faction, maxi(0, Match.FACTIONS.find(Net.slots[i].faction)))
+		_style_option(faction, 11)
+		faction.custom_minimum_size.x = 104
+		faction.disabled = not Net.is_host
+		cell.add_child(faction)
+		var kind := OptionButton.new()
+		kind.add_item("Player")
+		kind.add_item("Computer")
+		kind.select(0 if Net.slots[i].kind == "human" else 1)
+		_style_option(kind, 11)
+		kind.custom_minimum_size.x = 78
+		kind.disabled = not Net.is_host or i == 0  # the host plays the first people
+		cell.add_child(kind)
+		var index := i
+		var changed := func(_selected: int) -> void:
+			Net.set_slot(index, Match.FACTIONS[faction.selected], "human" if kind.selected == 0 else "ai")
+		faction.item_selected.connect(changed)
+		kind.item_selected.connect(changed)
+		_lobby_slots.add_child(cell)
+	_seats.reset_size()
 
 
 func _show_loading() -> void:

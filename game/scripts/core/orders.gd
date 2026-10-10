@@ -12,8 +12,9 @@ extends RefCounted
 ##   "place"    put down a site: [type id, spot, keep placing, travois or null], builders in "ids"
 ## Feedback (sounds, flashes, markers) stays with the interface, at once.
 
-## Steps between giving an order and carrying it out (a network game needs more).
-static var delay := 1
+## Steps between the one after giving an order and carrying it out: none alone, Net.DELAY
+## in a network game (where the orders must reach everyone first).
+static var delay := 0
 
 ## What a unit order may call ("" on the unit itself, or the name of one of its parts).
 const UNIT_ORDERS := {
@@ -39,10 +40,14 @@ static var history: Array[Dictionary] = []
 ## While a replay plays, the interface's orders are ignored.
 static var replaying := false
 static var _pending: Array[Dictionary] = []
+static var _outgoing := {}  # step -> this machine's orders for it, until Net sends them
+static var _count := 0  # orders given this match (their "n": the order within a step)
 
 
 static func reset() -> void:
 	_pending.clear()
+	_outgoing.clear()
+	_count = 0
 	history.clear()
 	replaying = false
 
@@ -74,18 +79,40 @@ static func place(type_id: int, at: Vector2, keep_placing: bool, unpacker: Unit,
 static func give(order: Dictionary) -> void:
 	if replaying:
 		return
-	order["t"] = Sim.tick + delay
+	_count += 1
+	order["t"] = Sim.tick + 1 + delay
 	order["p"] = local_player
+	order["n"] = _count
 	order["a"] = order.a.map(_pack)
 	queue(order)
+	if delay > 0:
+		var due: Array = _outgoing.get(order.t, [])
+		due.append(order)
+		_outgoing[order.t] = due
 
 
-## Queue an order as it is (from a replay, or from another machine).
+## This machine's orders for step `tick`, handed over once (Net sends them).
+static func sealed(tick: int) -> Array:
+	var due: Array = _outgoing.get(tick, [])
+	_outgoing.erase(tick)
+	return due
+
+
+## Queue an order as it is (from a replay, or from another machine). Within a step they go
+## by people and then in the order given, however they arrived.
 static func queue(order: Dictionary) -> void:
 	var at := _pending.size()
-	while at > 0 and int(_pending[at - 1].t) > int(order.t):
+	while at > 0 and _after(_pending[at - 1], order):
 		at -= 1
 	_pending.insert(at, order)
+
+
+static func _after(a: Dictionary, b: Dictionary) -> bool:
+	if int(a.t) != int(b.t):
+		return int(a.t) > int(b.t)
+	if int(a.p) != int(b.p):
+		return int(a.p) > int(b.p)
+	return int(a.get("n", 0)) > int(b.get("n", 0))
 
 
 static func _ids(nodes: Array) -> Array:

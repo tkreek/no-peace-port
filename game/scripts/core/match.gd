@@ -36,6 +36,10 @@ var speed := 1.0
 var supply := 0
 var difficulty := 2
 var map_path := ""
+## Which people this machine plays (1 alone; set by Net in a network match).
+var local_player := 1
+## The game's seed when it must be the same everywhere (Net), or 0 for a fresh one.
+var seed_value := 0
 ## One entry per player in start-point order: {"faction": "mex", "ai": false}
 var players: Array[Dictionary] = []
 ## A test game started from the map editor: the map to return to (no victory checks while
@@ -48,6 +52,8 @@ func setup(map: String, slots: Array[Dictionary]) -> void:
 	configured = true
 	map_path = map
 	players = slots
+	local_player = 1
+	seed_value = 0
 
 
 func faction_name(faction: String) -> String:

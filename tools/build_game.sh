@@ -7,7 +7,8 @@
 # Usage: tools/build_game.sh [linux|windows ...]   (default: both)
 #   COPY_ASSETS=1  copy the asset folder instead of linking it, so the build folder can be
 #                  zipped and moved to another machine. The copy stores colour pictures as
-#                  lossless WebP, about half the size (tools/pack_assets.py, needs ImageMagick).
+#                  lossless WebP, with the colour under transparent pixels kept only near
+#                  visible ones (tools/pack_assets.py --trim=8, needs ImageMagick).
 #   ZIP=1          also pack each build into build/america-remastered-<platform>.zip
 #                  (implies COPY_ASSETS=1).
 #
@@ -46,7 +47,7 @@ for platform in "${platforms[@]}"; do
 	if [ "$COPY_ASSETS" = 1 ]; then
 		# Packed once, then shared by each platform's copy.
 		if [ ! -d build/packed-assets ]; then
-			tools/pack_assets.py assets build/packed-assets.tmp
+			tools/pack_assets.py --trim=8 assets build/packed-assets.tmp
 			mv build/packed-assets.tmp build/packed-assets
 		fi
 		cp -r build/packed-assets "$out/assets"

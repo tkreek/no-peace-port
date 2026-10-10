@@ -152,7 +152,7 @@ func move_speed() -> float:
 	if tiers == 0:
 		return unit_type.speed
 	var tier := int(GameData.stats(unit_type.guid()).get("speed_tier", 2)) + tiers
-	return GameData.def_tier("walk_speed", mini(tier, 5), 100) * 0.6
+	return GameData.def_tier("walk_speed", mini(tier, 5), 100) * UnitType.PX_PER_SPEED
 
 
 ## Experience (manual 4.4): from 0%, earned by doing the job well (kills for fighters,

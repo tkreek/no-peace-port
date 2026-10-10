@@ -20,7 +20,7 @@ var hotspots := PackedVector2Array()
 
 static func load_sheet(base_path: String) -> RdSprite:
 	var meta = JSON.parse_string(FileAccess.get_file_as_string(base_path + ".json"))
-	var image := Image.load_from_file(base_path + ".png")
+	var image := Image.load_from_file(GameData.picture_file(base_path + ".png"))
 	if not meta is Dictionary or image == null:
 		return null
 	var sprite := RdSprite.new()
@@ -32,7 +32,7 @@ static func load_sheet(base_path: String) -> RdSprite:
 		sprite.rects.append(Rect2i(f[0], f[1], f[2], f[3]))
 		sprite.hotspots.append(Vector2(f[4], f[5]))
 	if meta.get("team", false):
-		var mask := Image.load_from_file(base_path + ".team.png")
+		var mask := Image.load_from_file(GameData.picture_file(base_path + ".team.png"))
 		if mask:
 			mask.generate_mipmaps()
 			sprite.team_mask = ImageTexture.create_from_image(mask)

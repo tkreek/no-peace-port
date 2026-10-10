@@ -68,7 +68,17 @@ func _resolve_assets_dir() -> String:
 
 ## Absolute path of an asset.
 func path(asset: String) -> String:
-	return assets_dir.path_join(asset)
+	return picture_file(assets_dir.path_join(asset))
+
+
+## A release build stores colour pictures as lossless .webp (tools/pack_assets.py): the
+## .webp beside a .png path that is missing.
+static func picture_file(file: String) -> String:
+	if file.ends_with(".png") and not FileAccess.file_exists(file):
+		var webp := file.get_basename() + ".webp"
+		if FileAccess.file_exists(webp):
+			return webp
+	return file
 
 
 func read(asset: String) -> PackedByteArray:

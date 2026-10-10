@@ -53,7 +53,10 @@ var directory := ""
 var set_path := ""  ## the animation set (.anims.json)
 var bob: BobFile
 var ramps: Texture2D
-var speed := 60.0
+## A walk speed of 100 (workers, foot soldiers) covers 100 px a second: measured from a
+## recording of the original, where workers cross about 100 px of the map each second.
+const PX_PER_SPEED := 1.0
+var speed := 100.0
 var type_id := -1  ## object type id (BobListe.blf), for names and stats
 var mounted := false  ## uses the riding sheets and the "+Pferd" type's stats
 var health := 50.0
@@ -131,7 +134,7 @@ static func load_type(dir: String, riding := false, forced_type_id := -1) -> Uni
 
 ## Combat and movement values from the unit's stats. Defaults.dat gives tiers that index
 ## DEFS.INI's tables (sight and ranges in pixels; attack rates in 1/100 s for melee and
-## ms for ranged; walk speed in the original's units, ~0.6 px/s each). A range tier of 0
+## ms for ranged; walk speed in px/s, PX_PER_SPEED each). A range tier of 0
 ## means the unit fights hand to hand, whatever its attack is called.
 func _setup_combat() -> void:
 	var stats := GameData.stats(guid())
@@ -140,7 +143,7 @@ func _setup_combat() -> void:
 		carry = int(stats.carry)
 	damage = stats.get("damage", damage)
 	sight = GameData.def_tier("sight_range", int(stats.get("sight_tier", 1)), 320)
-	speed = GameData.def_tier("walk_speed", int(stats.get("speed_tier", 2)), 100) * 0.6
+	speed = GameData.def_tier("walk_speed", int(stats.get("speed_tier", 2)), 100) * PX_PER_SPEED
 	ranged = int(stats.get("range_tier", 0)) >= 1 and int(stats.get("ranged", 0)) > 0
 	var attack := anim_index("shoot" if ranged else "melee")
 	if attack < 0 and ranged:

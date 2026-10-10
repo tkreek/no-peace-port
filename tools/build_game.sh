@@ -18,8 +18,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 GODOT=${GODOT:-godot}
-ZIP=${ZIP:-0}
-COPY_ASSETS=${COPY_ASSETS:-$ZIP}
+MAKE_ZIP=${ZIP:-0}
+unset ZIP  # zip itself reads $ZIP as options
+COPY_ASSETS=${COPY_ASSETS:-$MAKE_ZIP}
 platforms=("$@")
 [ ${#platforms[@]} -gt 0 ] || platforms=(linux windows)
 
@@ -54,7 +55,7 @@ for platform in "${platforms[@]}"; do
 	else
 		ln -s ../../assets "$out/assets"
 	fi
-	if [ "$ZIP" = 1 ]; then
+	if [ "$MAKE_ZIP" = 1 ]; then
 		rm -f "build/america-remastered-$platform.zip"
 		(cd build && mv "$platform" america-remastered \
 			&& zip -qr "america-remastered-$platform.zip" america-remastered; \

@@ -63,8 +63,9 @@ def main() -> None:
     with ThreadPoolExecutor(os.cpu_count()) as pool:
         for _ in pool.map(lambda job: to_webp(*job, trim), jobs):
             done += 1
-            print(f"\r{done}/{len(jobs)} pictures", end="", flush=True)
-    print()
+            if sys.stdout.isatty():
+                print(f"\r{done}/{len(jobs)} pictures", end="", flush=True)
+    print(f"\r{done}/{len(jobs)} pictures")
 
 
 if __name__ == "__main__":

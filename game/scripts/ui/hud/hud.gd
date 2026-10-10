@@ -150,24 +150,24 @@ func _check_population_limit(population: int) -> void:
 func warn_population_limit() -> void:
 	population_warnings += 1
 	if Match.population_limit <= player.population_cap():
-		Sound.play_sound(POPULATION_LIMIT_SOUND)
+		Sound.play_sound(POPULATION_LIMIT_SOUND, null, Sound.HEARING_RANGE, Sound.Channel.ALERT)
 		notify(GameData.text(807, "We've reached our population limit"), false)
 	else:
-		Sound.play_sound(HOUSING_FULL_SOUND)
+		Sound.play_sound(HOUSING_FULL_SOUND, null, Sound.HEARING_RANGE, Sound.Channel.ALERT)
 		notify(GameData.text(805, "We don't have enough living space"), false)
 
 
 ## Each upgrade has its own "ready" sound in the table (the people's fanfare, and for the
 ## Mexicans' Steal the gunslinger's reply); later upgrades borrow the people's.
 func _on_upgrade_ready(upgrade: int) -> void:
-	if Sound.play_event(upgrade, Sound.Event.UNIT_READY) == 0.0:
-		Sound.play_sound(UPGRADE_READY_SOUNDS.get(player.faction, 46))
+	if Sound.play_alert(upgrade, Sound.Event.UNIT_READY) == 0.0:
+		Sound.play_sound(UPGRADE_READY_SOUNDS.get(player.faction, 46), null, Sound.HEARING_RANGE, Sound.Channel.ALERT)
 
 
 ## One of the original's spoken warnings (under attack, out of wood, a field harvested):
 ## its recording and its line of text share the alert's GUID.
 func _on_alert(guid: int, _at: Vector2) -> void:
-	Sound.play_event(guid, Sound.Event.SELECT)
+	Sound.play_alert(guid)
 	notify(GameData.text(guid), false)
 
 
@@ -309,7 +309,7 @@ func show_statistics(players: Dictionary) -> void:
 ## the message chime unless the message comes with a sound of its own.
 func notify(text: String, chime := true) -> void:
 	if chime:
-		Sound.play_event(MESSAGE_SOUND_GUID, Sound.Event.SELECT)
+		Sound.play_alert(MESSAGE_SOUND_GUID)
 	if text == "":
 		return
 	var label := HudStyle.label(int(28 * ui_scale))

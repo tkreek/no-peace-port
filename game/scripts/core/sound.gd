@@ -25,6 +25,15 @@ const TABLE_FIXES := {
 
 const SOUND_TABLE := "data/sounds.json"
 const MAX_VOICES := 24
+## Copies of one recording heard at once in the world (more rifles or axes only make a
+## din); work going on (axes, building, fires) fewer. A new one nearer the view than the
+## farthest playing takes its place.
+const SAME_SOUND_LIMIT := 4
+const WORK_SOUND_LIMIT := 2
+## Interface sounds play on a channel, each cutting off the one before: clicks (selection
+## and order replies, "not possible") and alerts (warnings, fanfares, messages) apart, so
+## clicking about doesn't silence a warning.
+enum Channel { CLICK, ALERT }
 ## How far (px) world sounds carry by default, and work going on (axes, mines, building)
 ## that you hear beyond the screen edge and through the fog of war, fading with distance.
 const HEARING_RANGE := 1800.0
@@ -38,6 +47,8 @@ var _events := {}       # guid -> {event id -> PackedInt32Array of sound ids}
 var _streams := {}      # path -> AudioStream
 var _last_played := {}  # "guid:event" -> msec, to avoid stacking identical sounds
 var _named := {}        # file name fragment -> sound id (-1 when none)
+var _channels := {}     # Channel -> AudioStreamPlayer
+var _in_world := {}     # sound id -> AudioStreamPlayer2D playing it in the world
 var _music := AudioStreamPlayer.new()
 
 
@@ -81,6 +92,14 @@ func play_event(guid: int, event: int, at = null, cooldown_ms := 250, source := 
 		return 0.0
 	_last_played[key] = now
 	return play_sound(options[randi() % options.size()], at, reach)
+
+
+## An alert's sound (its event "select" unless told otherwise), on the alert channel.
+func play_alert(guid: int, event := Event.SELECT) -> float:
+	var options := event_sounds(guid, event)
+	if options.is_empty():
+		return 0.0
+	return play_sound(options[randi() % options.size()], null, HEARING_RANGE, Channel.ALERT)
 
 
 ## The sounds an object may make for `event` (one is picked at random).
@@ -152,34 +171,65 @@ func play_named(fragment: String, at = null, any := false) -> void:
 		play_sound(matches[randi() % matches.size()], at)
 
 
-## Returns how long the sound lasts (s), 0 when none played.
-func play_sound(sound_id: int, at = null, reach := HEARING_RANGE) -> float:
+## Returns how long the sound lasts (s), 0 when none played. Without a position it
+## plays on `channel`, cutting off what played there before.
+func play_sound(sound_id: int, at = null, reach := HEARING_RANGE, channel := Channel.CLICK) -> float:
 	var info: Dictionary = _sounds.get(sound_id, {})
 	if info.is_empty():
 		return 0.0
 	var stream := _stream(info.path)
-	if stream == null or get_child_count() > MAX_VOICES:
+	if stream == null:
 		return 0.0
 	var volume: float = info.volume / 200.0 if info.volume > 0 else 1.0
-	var player: Node
-	if at is Vector2:
-		var p2d := AudioStreamPlayer2D.new()
-		p2d.position = at
-		p2d.max_distance = reach
-		p2d.attenuation = 1.0
-		p2d.volume_db = linear_to_db(volume * sfx_volume)
-		p2d.stream = stream
-		get_tree().current_scene.add_child(p2d)
-		player = p2d
-	else:
-		var p := AudioStreamPlayer.new()
+	if not at is Vector2:
+		var p: AudioStreamPlayer = _channels.get(channel)
+		if p == null:
+			p = AudioStreamPlayer.new()
+			add_child(p)
+			_channels[channel] = p
+		p.stop()
 		p.volume_db = linear_to_db(volume * sfx_volume)
 		p.stream = stream
-		add_child(p)
-		player = p
-	player.finished.connect(player.queue_free)
-	player.play()
+		p.play()
+		return stream.get_length()
+	if not _make_room(sound_id, at, WORK_SOUND_LIMIT if reach >= WORK_RANGE else SAME_SOUND_LIMIT):
+		return 0.0
+	var p2d := AudioStreamPlayer2D.new()
+	p2d.position = at
+	p2d.max_distance = reach
+	p2d.attenuation = 1.0
+	p2d.volume_db = linear_to_db(volume * sfx_volume)
+	p2d.stream = stream
+	get_tree().current_scene.add_child(p2d)
+	p2d.finished.connect(p2d.queue_free)
+	p2d.play()
+	_in_world.get_or_add(sound_id, []).append(p2d)
 	return stream.get_length()
+
+
+## Whether one more copy of `sound_id` may play at `at`: under `limit` copies, or by
+## stopping the copy farthest from the view when that is farther than `at`; and under
+## MAX_VOICES in all.
+func _make_room(sound_id: int, at: Vector2, limit: int) -> bool:
+	var total := 0
+	for id in _in_world:
+		_in_world[id] = _in_world[id].filter(func(p: AudioStreamPlayer2D) -> bool: return is_instance_valid(p) and p.playing)
+		total += _in_world[id].size()
+	var same: Array = _in_world.get(sound_id, [])
+	if same.size() < limit:
+		return total < MAX_VOICES
+	var camera := get_viewport().get_camera_2d()
+	var view := camera.get_screen_center_position() if camera else at
+	var farthest: AudioStreamPlayer2D = null
+	for p: AudioStreamPlayer2D in same:
+		if farthest == null or p.position.distance_squared_to(view) > farthest.position.distance_squared_to(view):
+			farthest = p
+	if farthest.position.distance_squared_to(view) <= at.distance_squared_to(view):
+		return false
+	farthest.stop()
+	farthest.queue_free()
+	same.erase(farthest)
+	return true
 
 
 ## Something neutral (a stray cow or horse, an empty building) takes a people's colours

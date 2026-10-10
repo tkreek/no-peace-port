@@ -9,6 +9,7 @@ extends RefCounted
 const GARRISON_RANGE_FACTOR := 1.25
 const PITFALL_GUID := 114
 const PITFALL_KILLS := 3
+const EXIT_ROW := 5  # spots per row below the building for units leaving quarters
 
 var building: MapObject
 var garrison: Array[Unit] = []
@@ -41,20 +42,39 @@ func enter(unit: Unit) -> bool:
 	return true
 
 
-## Send quartered units back outside, below the building (all of them, or just `which`).
+## Send quartered units back outside, below the building (all of them, or just `which`),
+## each on a cell of its own: rows along the bottom wall, from the middle outwards.
 func release(which: Unit = null) -> void:
+	var taken := {}
+	var slot := 0
 	for unit in garrison.duplicate():
 		if which != null and unit != which:
 			continue
 		garrison.erase(unit)
 		if not is_instance_valid(unit) or not unit.is_alive():
 			continue
-		var rect := building.footprint_rect()
-		var spot := Vector2(rect.get_center().x + Sim.randf_range(-24, 24), rect.end.y + 8)
-		if NavGrid.current:
-			var cell := NavGrid.current.nearest_walkable(NavGrid.current.cell_of(spot))
-			spot = (Vector2(cell) + Vector2(0.5, 0.5)) * NavGrid.CELL
+		var spot := _exit_spot(slot, taken)
+		slot += 1
 		unit.leave_quarters(spot)
+
+
+func _exit_spot(slot: int, taken: Dictionary) -> Vector2:
+	var rect := building.footprint_rect()
+	var column := slot % EXIT_ROW
+	var offset := (column + 1) / 2 * (1 if column % 2 == 1 else -1)  # 0, +1, -1, +2, -2
+	var spot := Vector2(rect.get_center().x + offset * 24.0, rect.end.y + 8.0 + slot / EXIT_ROW * 22.0)
+	var nav := NavGrid.current
+	if nav == null:
+		return spot
+	var want := nav.cell_of(spot)
+	for r in 6:
+		for dy in range(-r, r + 1):
+			for dx in range(-r, r + 1):
+				var cell := want + Vector2i(dx, dy)
+				if maxi(absi(dx), absi(dy)) == r and nav.is_walkable(cell) and not taken.has(cell):
+					taken[cell] = true
+					return spot if cell == want else nav.center_of(cell)
+	return nav.center_of(nav.nearest_walkable(want))
 
 
 func update(delta: float) -> void:

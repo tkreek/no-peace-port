@@ -72,6 +72,10 @@ Any of `--map`, `--scenario`, `--screenshot`, `--report-after` skips the menu an
 - Left click / drag: select units; click a building to select it. Shift adds.
 - Right click: move in formation, attack a unit or building, gather from a tree or gold mine.
   Ctrl+right click on a rider: shoot the horse instead of the rider.
+- Shift+right click: chain tasks. Building, gathering, hauling, hunting and moving wait until
+  the one before is done (site built, source used up, spot reached); a gatherer given a
+  Shift task does it at once and goes back to gathering afterwards. One woman works a field;
+  others sent to it take free fields nearby.
 - Workers: build menu in the bottom bar; left click places, right click / Esc cancels, Shift keeps placing
   (the workers then build the sites in turn).
   Repair (R), then click a damaged building.
@@ -80,7 +84,7 @@ Any of `--map`, `--scenario`, `--screenshot`, `--report-after` skips the menu an
 - Boats: right-click your boat with land units selected to board it; right-click land with a
   loaded boat selected to put the passengers ashore there (U: at the nearest bank).
 - Travois: G packs a tepee (click it), L sets it up again where you click.
-- Ctrl+0–9: assign control group, 0–9: recall. X: stop. Q/E/H/Y: aggressive, defensive, hold
+- Ctrl+0–9 (top row or keypad): assign control group, 0–9: recall, twice: centre on it. X: stop. Q/E/H/Y: aggressive, defensive, hold
   ground, passive. Z: patrol, C: follow, G/L: into / out of quarters, I: assembly location.
 - Esc: in-game menu (save, load, options). Settings are also on the main menu.
 

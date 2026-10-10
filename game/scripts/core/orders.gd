@@ -22,7 +22,7 @@ const UNIT_ORDERS := {
 	"gather": "", "haul": "", "build": "", "hunt": "", "rob": "", "steal": "", "sabotage": "",
 	"mount": "", "dismount": "", "cast": "", "conceal": "", "board": "", "unload_at": "", "pack": "",
 	"take_quarters": "", "set_stance": "", "set_formation": "",
-	"queue_build": "work", "deliver": "animal", "stable": "animal",
+	"queue_build": "work", "queue_task": "work", "deliver": "animal", "stable": "animal",
 }
 ## What a building order may call, on which of its parts.
 const BUILDING_ORDERS := {

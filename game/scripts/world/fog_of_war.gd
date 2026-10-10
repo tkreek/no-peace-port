@@ -9,7 +9,9 @@ extends Node2D
 
 const CELL := AlfMap.CELL_SIZE
 const UPDATE_SECONDS := 0.2
-const BUILDING_SIGHT := 256.0
+## Buildings see as far as their sight tier in the original data says (walls 150 px, most
+## buildings 320, towers 450, forts 640); this for any without one.
+const BUILDING_SIGHT := 320.0
 const UNEXPLORED := 255
 const EXPLORED := 140
 const VISIBLE := 0
@@ -86,7 +88,7 @@ func update_now() -> void:
 			if object.is_building() and object.owner_index == player_team and object.is_alive():
 				var owner: Player = Player.by_index.get(player_team)
 				var sharper := owner.bonus(object.guid, "sight_pct") if owner else 0.0  # tower Sight upgrades
-				_reveal(object.footprint_rect().get_center(), BUILDING_SIGHT * (1.0 + sharper / 100.0))
+				_reveal(object.footprint_rect().get_center(), building_sight(object) * (1.0 + sharper / 100.0))
 		var now := Sim.msec()
 		_reveals = _reveals.filter(func(r: Dictionary) -> bool: return r.until > now)
 		for r in _reveals:
@@ -96,6 +98,11 @@ func update_now() -> void:
 	_explored_image.set_data(columns, rows, false, Image.FORMAT_L8, explored)
 	_explored_texture.update(_explored_image)
 	_apply_to_objects()
+
+
+static func building_sight(object: MapObject) -> float:
+	var tier := int(GameData.stats(object.guid).get("sight_tier", -1))
+	return GameData.def_tier("sight_range", tier, int(BUILDING_SIGHT)) if tier >= 0 else BUILDING_SIGHT
 
 
 ## Eagle eye: a spot kept in sight for a while.

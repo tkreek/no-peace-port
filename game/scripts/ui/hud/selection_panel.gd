@@ -20,7 +20,6 @@ const ICON_FIST := 9
 const ICON_MORALE := 12
 const ICON_EXPERIENCE := 10
 const ICON_MAGIC := 11
-const ICON_SIGHT := 13
 const ICON_PEOPLE := 5
 
 var hud: Hud
@@ -138,7 +137,7 @@ func refresh() -> void:
 
 
 ## A unit's status as icon and value pairs: energy, attack force (with the upgrades' bonus),
-## morale and experience as in the original status menu; then magic, sight, the load in
+## morale and experience as in the original status menu; then magic, the load in
 ## hand and the passengers aboard.
 func _unit_stats(unit: Unit) -> Array:
 	var stats := [[ICON_ENERGY, "%d/%d" % [unit.health, unit.max_health], "Energy"]]
@@ -155,7 +154,6 @@ func _unit_stats(unit: Unit) -> Array:
 		stats.append([ICON_EXPERIENCE, "%d%%" % roundi(unit.experience * 100), "Experience"])
 	if UnitMagic.CASTERS.has(unit.unit_type.guid()):
 		stats.append([ICON_MAGIC, "%d/%d" % [unit.magic.magic_energy, unit.magic.magic_pool()], "Magic energy"])
-	stats.append([ICON_SIGHT, "%d" % unit.sight(), "Sight"])
 	if unit.work.carried > 0 and Player.RESOURCES.has(unit.work.carrying):
 		stats.append([Player.RESOURCES[unit.work.carrying].icon, "%d" % unit.work.carried, "Carrying %s" % unit.work.carrying])
 	if unit.water.is_carrier():

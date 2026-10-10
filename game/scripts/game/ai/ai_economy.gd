@@ -8,7 +8,7 @@ extends RefCounted
 ## wild horses; cows are raised and sold.
 
 const WOOD_SHARE := 0.6
-const FIELD_TARGET := 4
+const FIELD_TARGET := 5
 const FOOD_SURPLUS := 2500  # distilleries rest above this
 const COW_TARGET := 4
 const COW_SELL_VALUE := 18.0
@@ -108,7 +108,7 @@ func _train_civilians(hq: MapObject, workers: Array, units: Array) -> void:
 	var fields := MapObject.structures.filter(func(o: MapObject) -> bool:
 		return o.is_field() and o.owner_index == ai.player.index).size()
 	var farmers := units.filter(func(u: Unit) -> bool: return u.unit_type.is_farmer()).size()
-	var want_farmer := farmers < fields * 2
+	var want_farmer := farmers < fields  # one to a field
 	if not want_farmer and workers.size() >= ai.level().workers:
 		return
 	for guid in hq.production.trainable_units():
@@ -194,15 +194,10 @@ func _farm(units: Array, hq: MapObject) -> void:
 	for unit: Unit in units:
 		if unit.state != Unit.State.IDLE or not unit.unit_type.is_farmer() or fields.is_empty():
 			continue
-		var counts := {}
-		for other: Unit in units:
-			if is_instance_valid(other.work.gather_source) and other.work.gather_source in fields:
-				counts[other.work.gather_source] = counts.get(other.work.gather_source, 0) + 1
-		var least: MapObject = fields[0]
 		for field: MapObject in fields:
-			if counts.get(field, 0) < counts.get(least, 0):
-				least = field
-		unit.gather(least)
+			if UnitWork.field_worker(field) == null:
+				unit.gather(field)  # one to a field
+				break
 
 
 ## Outlaws turn wood into liquor: keep a distillery per few workers while food runs low,

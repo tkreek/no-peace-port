@@ -9,6 +9,8 @@ const FORMATION_SPACING := 26.0
 ## Mexican and American forts: the call to take refuge in the fort ("ins Fort fliehen").
 const FORT_CALLS := {217: "mexicans_into_fort_flee", 417: "americans_into_fort_flee"}
 
+signal group_assigned(digit: int, count: int)
+
 @export var player_team := 1
 
 var units_root: Node2D
@@ -26,6 +28,7 @@ var _last_group_time := 0
 var _idle_index := 0
 var _double := false
 var _rally_flag: OrderMarker
+var _queueing := false  # the order being given has Shift held: it waits its turn (UnitWork.tasks)
 
 
 ## Wait for the next left click to give the command (right click cancels).
@@ -183,16 +186,17 @@ func _unhandled_input(event: InputEvent) -> void:
 				_dragging = false
 				queue_redraw()
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and not selection.is_empty():
-			order_at(world, event.ctrl_pressed)
+			order_at(world, event.ctrl_pressed, event.shift_pressed)
 	elif event is InputEventMouseMotion and _pressed:
 		_dragging = _dragging or _world_point(event.position).distance_to(_drag_start) > DRAG_THRESHOLD / get_viewport().get_canvas_transform().get_scale().x
 		queue_redraw()
 	elif event is InputEventKey and event.pressed and not event.echo:
-		var digit: int = event.keycode - KEY_0
-		if digit >= 0 and digit <= 9:
-			if event.ctrl_pressed:
+		var digit := _digit(event)
+		if digit >= 0:
+			if event.ctrl_pressed or event.meta_pressed:
 				if is_own_selection():
 					groups[digit] = selection.duplicate()
+					group_assigned.emit(digit, selection.size())
 			elif groups.has(digit):
 				var members: Array = groups[digit].filter(func(u) -> bool: return is_instance_valid(u) and u.is_alive())
 				# Pressing the number again centres the view on the group (manual 3.2).
@@ -206,12 +210,39 @@ func _unhandled_input(event: InputEvent) -> void:
 			_select_idle_worker()
 
 
+## The number key pressed (top row or keypad), -1 for none. The key's place on the
+## keyboard counts, so layouts whose top row isn't digits (AZERTY) and Ctrl, which some
+## systems let change the key's label, still give the group.
+static func _digit(event: InputEventKey) -> int:
+	for key in [event.physical_keycode, event.keycode]:
+		if key >= KEY_0 and key <= KEY_9:
+			return key - KEY_0
+		if key >= KEY_KP_0 and key <= KEY_KP_9:
+			return key - KEY_KP_0
+	return -1
+
+
 ## A right click at `world` with units selected: the order depends on what is there (board
 ## or unload a boat, build or repair, deliver cattle, haul, quarters, hunt, mount, steal,
-## rob, attack, gather) and otherwise a move. `ctrl` aims at a rider's horse.
-func order_at(world: Vector2, ctrl := false) -> void:
+## rob, attack, gather) and otherwise a move. `ctrl` aims at a rider's horse; with `queue`
+## (Shift) building, gathering, hauling, hunting and moving wait until what is under way is done.
+func order_at(world: Vector2, ctrl := false, queue := false) -> void:
 	if selection.is_empty() or not is_own_selection():
 		return
+	_queueing = queue
+	_order_at(world, ctrl)
+	_queueing = false
+
+
+## `units` do `method` with `target`, or add it to their tasks while Shift is held.
+func _give(units: Array, method: String, target: Variant) -> void:
+	if _queueing and method in UnitWork.QUEUEABLE:
+		Orders.units(units, "queue_task", [method, target])
+	else:
+		Orders.units(units, method, [target])
+
+
+func _order_at(world: Vector2, ctrl: bool) -> void:
 	if _water_order(world):
 		return
 	var enemy: Node2D = _unit_at(world, false)
@@ -238,7 +269,7 @@ func order_at(world: Vector2, ctrl := false) -> void:
 		order_quarters(site)
 	elif animal and animal.animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.may_hunt_horses()):
 		# Hunters (but not the Native Americans') shoot the horse for its meat.
-		Orders.units(selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.may_hunt_horses()), "hunt", [animal])
+		_give(selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.may_hunt_horses()), "hunt", animal)
 		animal.flash(Color(1.0, 0.35, 0.3))
 		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	elif animal and animal.animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.riding.can_mount()):
@@ -253,7 +284,7 @@ func order_at(world: Vector2, ctrl := false) -> void:
 		Orders.units(selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_horse()), "stable", [site])
 		site.flash()
 	elif animal and selection.any(func(u: Unit) -> bool: return u.unit_type.is_hunter()):
-		Orders.units(selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.unit_type.is_hunter()), "hunt", [animal])
+		_give(selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.unit_type.is_hunter()), "hunt", animal)
 		animal.flash(Color(1.0, 0.35, 0.3))  # marked as the target, like an attack order
 		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	elif enemy is MapObject and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.saboteur.can_sabotage(enemy)):
@@ -389,7 +420,7 @@ func order_haul(warehouse: MapObject) -> void:
 	var wagons := selection.filter(_is_transport)
 	warehouse.flash()
 	Sound.play_event(wagons[0].unit_type.guid(), Sound.Event.ORDER)
-	Orders.units(wagons, "haul", [warehouse])
+	_give(wagons, "haul", warehouse)
 
 
 ## Workers and women keep working; soldiers, hunters and commanders can take quarters
@@ -421,10 +452,10 @@ func order_build(site: MapObject) -> void:
 		return
 	site.flash()
 	Sound.play_event(builders[0].unit_type.guid(), Sound.Event.ORDER)
-	Orders.units(builders, "build", [site])
+	_give(builders, "build", site)
 	# Anyone else selected just walks over.
-	Orders.units(selection.filter(func(u: Unit) -> bool:
-		return is_instance_valid(u) and u.is_alive() and not _is_builder(u, site.guid)), "move_to", [site.position])
+	_give(selection.filter(func(u: Unit) -> bool:
+		return is_instance_valid(u) and u.is_alive() and not _is_builder(u, site.guid)), "move_to", site.position)
 
 
 func order_gather(source: MapObject) -> void:
@@ -434,7 +465,7 @@ func order_gather(source: MapObject) -> void:
 		return
 	source.flash()
 	Sound.play_event(gatherers[0].unit_type.guid(), Sound.Event.ORDER)
-	Orders.units(gatherers, "gather", [source])
+	_give(gatherers, "gather", source)
 
 
 func _enemy_building_at(point: Vector2) -> MapObject:
@@ -572,7 +603,7 @@ func _order_move(target: Vector2, shape := -1) -> void:
 	var slots := formation_slots(count, selection[0].formation if shape < 0 else shape)
 	for i in count:
 		var offset := (side * slots[i].x - facing * slots[i].y) * FORMATION_SPACING
-		Orders.unit(ordered[i], "move_to", [target + offset])
+		_give([ordered[i]], "move_to", target + offset)
 
 
 ## Re-form the selection on the spot in its new formation, facing down the screen.

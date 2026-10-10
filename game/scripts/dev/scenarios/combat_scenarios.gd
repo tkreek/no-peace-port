@@ -53,8 +53,11 @@ func _scenario_quarters() -> void:
 	main.selection.select_building(tower)
 	tower.defence.release()
 	await get_tree().process_frame
-	print("after release: quartered %d, outside %d" % [tower.defence.garrison.size(),
-			squad.filter(func(u: Unit) -> bool: return not u.inside).size()])
+	var spots := {}
+	for u: Unit in squad:
+		spots[main.nav.cell_of(u.position)] = true
+	print("after release: quartered %d, outside %d on %d cells" % [tower.defence.garrison.size(),
+			squad.filter(func(u: Unit) -> bool: return not u.inside).size(), spots.size()])
 	get_tree().quit()
 
 
@@ -336,10 +339,14 @@ func _scenario_remains() -> void:
 	var water := main.ambience._water_in(main.ambience._view())
 	if water != Vector2.INF:
 		main.ambience._add(Ambience.Flyer.new(Ambience.GULLS, water, Vector2.ZERO, 0, 40.0))
-	await get_tree().create_timer(GameData.cmdline_option("remains-wait", "14").to_float()).timeout
+	var plumes := func() -> int:
+		return house.get_children().filter(func(n: Node) -> bool: return n is OrderMarker).size() if is_instance_valid(house) else -1
+	await get_tree().create_timer(5.0).timeout
+	var smoking: int = plumes.call()
+	await get_tree().create_timer(GameData.cmdline_option("remains-wait", "14").to_float() - 5.0).timeout
 	print("remains: %s" % [dead.map(func(u: Unit) -> String:
 			return "%s step %d" % [u.unit_type.directory.get_file(), u._remains._step if u._remains else -1])])
-	print("smoke plumes: %d, flyers: %d" % [house.get_children().filter(func(n: Node) -> bool: return n is OrderMarker).size() if is_instance_valid(house) else -1,
+	print("smoke plumes: %d, after %ds %d, flyers: %d" % [smoking, GameData.cmdline_option("remains-wait", "14").to_int(), plumes.call(),
 			main.ambience.get_child_count()])
 	if GameData.cmdline_option("screenshot").is_empty():
 		get_tree().quit()

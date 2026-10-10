@@ -321,6 +321,9 @@ func _scenario_food() -> void:
 			elif node.unit_type.is_hunter():
 				node.hunt(node.work.nearest_animal())
 	print("food scenario: finca at %s, %d women farming" % [finca.position, i])
+	await get_tree().create_timer(2.0).timeout
+	print("workers per field %s" % [fields.map(func(f: MapObject) -> int:
+		return Unit.all_units.filter(func(u: Unit) -> bool: return u.work.gather_source == f and u.state == Unit.State.GATHERING).size())])
 
 
 ## A cowboy mounts a wild horse, dismounts, and the horse is led into a ranch.
@@ -362,10 +365,14 @@ func _scenario_abandoned() -> void:
 	var wagon: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == wagon_guid)[0]
 	var before: Dictionary = main.players[1].resources.duplicate()
 	wagon.haul(store)
+	var biggest := 0
 	for k in 12:
-		await get_tree().create_timer(10.0).timeout
+		for frame in 300:
+			await get_tree().physics_frame
+			biggest = maxi(biggest, wagon.work.carried)
 		print("  t=%d wagon state %d phase %d carrying %s %d path %d at %s" % [(k + 1) * 10, wagon.state, wagon.work.phase, wagon.work.carrying, wagon.work.carried, wagon.path.size(), wagon.position.round()])
-	print("store left %d; %s %d -> %d" % [store.stock.loot, store.stock.loot_kind, before[store.stock.loot_kind], main.players[1].resources[store.stock.loot_kind]])
+	print("store left %d; %s %d -> %d; loads of at most %d" % [store.stock.loot, store.stock.loot_kind, before[store.stock.loot_kind],
+			main.players[1].resources[store.stock.loot_kind], biggest])
 	get_tree().quit()
 
 
@@ -500,5 +507,43 @@ func _scenario_buildqueue() -> void:
 		if order.size() == sites.size():
 			break
 	print("sites placed %d, built in order %s, queued left %d" % [sites.size(), order == Array(sites),
-			builders.map(func(u: Unit) -> int: return u.work.build_queue.size()).reduce(func(a: int, b: int) -> int: return a + b, 0)])
+			builders.map(func(u: Unit) -> int: return u.work.tasks.size()).reduce(func(a: int, b: int) -> int: return a + b, 0)])
+	get_tree().quit()
+
+
+## Tasks chained with Shift+right click: an idle worker builds a house and then cuts wood;
+## a woodcutter sent to build a house goes back to her tree afterwards.
+func _scenario_chain() -> void:
+	var hq: MapObject = main.players[1].main_building()
+	main.players[1].resources.wood = 5000
+	main.players[1].resources.gold = 5000
+	var builders := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 1 and u.unit_type.can_build() and u.unit_type.can_gather("wood"))
+	var idle: Unit = builders[0]
+	var cutter: Unit = builders[1]
+	var trees := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.is_tree() and o.stock.amount > 0)
+	trees.sort_custom(func(a: MapObject, b: MapObject) -> bool: return a.position.distance_to(hq.position) < b.position.distance_to(hq.position))
+	cutter.gather(trees[0])
+	var guid: int = {"mex": 201, "usa": 401, "des": 301, "ind": 101}[main.players[1].faction]
+	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
+	var sites: Array[MapObject] = []
+	for radius in range(260, 900, 48):
+		for k in 16:
+			var spot := (hq.position + Vector2(radius, 0).rotated(k * TAU / 16.0)).snapped(Vector2(16, 16))
+			if sites.size() < 2 and main.build_controller.can_place_for(type, spot, 1, false):
+				sites.append(main.build_controller.place_site(1, type.id, spot, false, null, []))
+	await get_tree().create_timer(3.0).timeout
+	main.selection._select([idle], false)
+	main.selection.order_at(sites[0].position, false, true)
+	main.selection.order_at(trees[1].position, false, true)
+	main.selection._select([cutter], false)
+	main.selection.order_at(sites[1].position, false, true)
+	await _orders_landed()
+	print("queued: idle worker building %s with %d waiting; cutter building %s" % [idle.state == Unit.State.BUILDING or idle.state == Unit.State.MOVING,
+			idle.work.tasks.size(), cutter.work.build_site == sites[1]])
+	for i in 120:
+		await get_tree().create_timer(1.0).timeout
+		if sites.all(func(s: MapObject) -> bool: return s.complete) and idle.state == Unit.State.GATHERING and cutter.state == Unit.State.GATHERING:
+			break
+	print("chained: houses built %s; then wood: idle worker %s, cutter back at her tree %s" % [sites.all(func(s: MapObject) -> bool: return s.complete),
+			idle.work.gather_resource == "wood" and idle.state == Unit.State.GATHERING, cutter.work.gather_source == trees[0]])
 	get_tree().quit()

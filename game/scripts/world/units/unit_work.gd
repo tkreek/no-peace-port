@@ -22,13 +22,22 @@ const THIEVES := {156: 0, 157: 0, 263: 942, 264: 942, 463: 992, 464: 992, 353: 0
 		352: 0, 360: 0, 361: 0}
 const ROB_SECONDS := 4.0  # inside the building, filling the bags
 const STEAL_SECONDS := 4.0  # beside the vehicle before it changes hands
+## Orders given with Shift wait their turn: each is carried out once the one before is done
+## (the site built, the source used up, the spot reached).
+const QUEUEABLE := ["build", "gather", "haul", "hunt", "move_to"]
+## How far from the field she was sent to a worker looks for a free one (one to a field).
+const FIELD_SEARCH := 600.0
+## A wagon takes at most two guns from an abandoned store per trip.
+const GUNS_PER_LOAD := 2
 
 var carrying := ""  ## resource in hand ("" when empty-handed)
 var carried := 0
 var gather_resource := ""  ## what this unit is assigned to collect ("haul", "rob" and "meat" too)
 var gather_source: MapObject
 var build_site: MapObject
-var build_queue: Array[MapObject] = []  ## further sites to build in turn (placed with Shift)
+var tasks: Array = []  ## [method, target] pairs queued with Shift, carried out in turn
+var _resume: MapObject  # gathering (or hauling) interrupted by queued tasks: back to it after
+var _resume_resource := ""
 var hunting := false  ## the target is an animal; carry the meat home after the kill
 var phase := Phase.TO_SOURCE
 var _work_timer := 0.0
@@ -43,14 +52,63 @@ var _steal_time := 0.0
 
 func clear_orders() -> void:
 	_steal_target = null
-	build_queue.clear()
+	tasks.clear()
+	_resume = null
 	busy = false
+
+
+func _refresh_busy() -> void:
+	busy = _steal_target != null or not tasks.is_empty() or _resume != null
 
 
 func update(delta: float) -> bool:
 	if _steal_target != null and idle_or_moving():
 		_update_steal(delta)
+	elif unit.state == Unit.State.IDLE and (not tasks.is_empty() or _resume != null):
+		_next_task()
 	return false
+
+
+## A Shift order: `method` (one of QUEUEABLE) on `target` once the tasks before it are done;
+## at once if idle. Gathering never ends by itself, so it is put aside until they are.
+func queue_task(method: String, target: Variant) -> void:
+	if method not in QUEUEABLE or not unit.is_alive() or (target is Object and not is_instance_valid(target)):
+		return
+	tasks.append([method, target])
+	if unit.state == Unit.State.GATHERING and tasks.size() == 1 and _resume == null and is_instance_valid(gather_source):
+		var source := gather_source
+		var resource := gather_resource
+		_next_task()
+		_resume = source
+		_resume_resource = resource
+	elif unit.state == Unit.State.IDLE and tasks.size() == 1:
+		_next_task()
+	_refresh_busy()
+
+
+## Start the next queued task (the parts' orders clear the queue, so it is kept aside),
+## or once there are none go back to the gathering they interrupted.
+func _next_task() -> void:
+	var rest := tasks.duplicate()
+	var resume := _resume
+	var resource := _resume_resource
+	if rest.is_empty():
+		_resume = null
+		_refresh_busy()
+		if is_instance_valid(resume) and resume.is_alive() and resource in ["haul", "rob"]:
+			unit.call(resource, resume)
+		elif is_instance_valid(resume) and (resume.is_field() or resume.stock.amount > 0):
+			gather(resume)
+		elif resource not in ["", "haul", "rob", "meat"]:
+			gather(nearest_source(resource, 1200.0))
+		return
+	var task: Array = rest.pop_front()
+	if not (task[1] is Object) or is_instance_valid(task[1]):
+		unit.callv(task[0], [task[1]])
+	tasks.assign(rest)
+	_resume = resume
+	_resume_resource = resource
+	_refresh_busy()
 
 
 # ------------------------------------------------------------------ orders
@@ -59,6 +117,11 @@ func update(delta: float) -> bool:
 func gather(source: MapObject) -> void:
 	if not unit.is_alive() or source == null or not unit.unit_type.can_gather(source.stock.resource):
 		return
+	if source.is_field() and field_worker(source, unit) != null:
+		# One worker to a field: the others sent along take free fields nearby.
+		source = _free_field_near(source.position)
+		if source == null:
+			return
 	if carrying != "" and carrying != source.stock.resource:
 		carrying = ""
 		carried = 0
@@ -101,24 +164,9 @@ func build(site: MapObject) -> void:
 	unit.path = unit.find_path(site.position)
 
 
-## Build `site` after the sites already ordered (Shift-placing several buildings), or at
-## once if not building.
+## Build `site` after the tasks already ordered (Shift-placing several buildings).
 func queue_build(site: MapObject) -> void:
-	if unit.state == Unit.State.BUILDING and is_instance_valid(build_site) and build_site != site:
-		build_queue.append(site)
-	else:
-		build(site)
-
-
-## The site finished (or gone): go on to the next one still standing, if any.
-func _build_next() -> void:
-	var rest := build_queue.filter(func(s: MapObject) -> bool:
-		return is_instance_valid(s) and s.is_alive() and (not s.complete or s.condition.needs_repair()))
-	if rest.is_empty():
-		build_queue.clear()
-		return
-	build(rest.pop_front())
-	build_queue.assign(rest)
+	queue_task("build", site)
 
 
 ## Kill an animal and carry its meat to a butcher or the main building, then hunt again.
@@ -195,7 +243,7 @@ func steal(vehicle: Unit) -> void:
 	unit.clear_orders()
 	_steal_target = vehicle
 	_steal_time = 0.0
-	busy = true
+	_refresh_busy()
 	unit.state = Unit.State.MOVING
 	unit.path = unit.find_path(vehicle.position)
 
@@ -233,6 +281,14 @@ func idle_action() -> String:
 func _update_gather(delta: float) -> void:
 	match phase:
 		Phase.TO_SOURCE:
+			if not _source_valid() and not tasks.is_empty():
+				# Used up, and more is queued: hand in what is carried, then on to the next.
+				if carried > 0:
+					phase = Phase.TO_DROP_OFF
+					_route()
+				else:
+					unit.state = Unit.State.IDLE
+				return
 			if not _source_valid():
 				gather_source = nearest_source(_last_resource(), 1200.0)
 				if gather_source == null:
@@ -350,10 +406,11 @@ func _update_haul(delta: float) -> void:
 			_work_timer -= delta
 			_haul_wait += delta
 			# Leave with a full load, or whatever there is after a while.
-			if _work_timer > 0.0 or (gather_source.stock.haul_available() < unit.unit_type.carry and _haul_wait < 8.0 \
+			var load := GUNS_PER_LOAD if gather_source.stock.haul_kind() == "guns" else unit.unit_type.carry
+			if _work_timer > 0.0 or (gather_source.stock.haul_available() < load and _haul_wait < 8.0 \
 					and not gather_source.is_abandoned_store()):
 				return
-			carried = gather_source.stock.take_haul(unit.unit_type.carry)
+			carried = gather_source.stock.take_haul(load)
 			if carried <= 0 and gather_source.is_abandoned_store():
 				unit.stop()  # emptied
 				return
@@ -450,7 +507,7 @@ func _update_steal(delta: float) -> void:
 	var vehicle := _steal_target
 	if not is_instance_valid(vehicle) or not vehicle.is_alive() or vehicle.team == unit.team:
 		_steal_target = null
-		busy = false
+		_refresh_busy()
 		return
 	var distance := unit.position.distance_to(vehicle.position)
 	if distance > 160.0:
@@ -466,7 +523,7 @@ func _update_steal(delta: float) -> void:
 	if _steal_time >= STEAL_SECONDS:
 		vehicle.change_team(unit.team)
 		_steal_target = null
-		busy = false
+		_refresh_busy()
 
 
 ## The BUILDING state: walk to the site and hammer (or repair) until it is done.
@@ -474,8 +531,7 @@ func update_building(delta: float) -> void:
 	if build_site == null or not is_instance_valid(build_site) or not build_site.is_alive() \
 			or (build_site.complete and not build_site.condition.needs_repair()):
 		build_site = null
-		unit.state = Unit.State.IDLE
-		_build_next()
+		unit.state = Unit.State.IDLE  # the next queued task, if any, follows (update)
 		return
 	if not build_site.near_walls(unit.position, Unit.REACH):
 		if unit.path.is_empty():
@@ -567,6 +623,26 @@ func _work_spot() -> Vector2:
 	return _field_spot
 
 
+## Who works `field` (on it or on the way), other than `besides`; null when it is free.
+static func field_worker(field: MapObject, besides: Unit = null) -> Unit:
+	for other in Unit.all_units:
+		if other != besides and other.work.gather_source == field and other.state == Unit.State.GATHERING \
+				and other.is_alive():
+			return other
+	return null
+
+
+func _free_field_near(point: Vector2) -> MapObject:
+	var best: MapObject = null
+	var best_distance := FIELD_SEARCH
+	for object in MapObject.structures:
+		if object.is_field() and object.owner_index == unit.team and object.is_alive() \
+				and object.position.distance_to(point) < best_distance and field_worker(object, unit) == null:
+			best = object
+			best_distance = object.position.distance_to(point)
+	return best
+
+
 func _source_valid() -> bool:
 	if gather_source == null or not is_instance_valid(gather_source) or gather_source.stock.resource == "":
 		return false
@@ -584,7 +660,7 @@ func nearest_source(resource: String, max_distance := INF) -> MapObject:
 	var best_distance := max_distance
 	for object in MapObject.all_objects:
 		var usable := object.stock.resource == resource and (object.stock.amount > 0 or object.is_field())
-		if usable and object.is_field() and object.owner_index != unit.team:
+		if usable and object.is_field() and (object.owner_index != unit.team or field_worker(object, unit) != null):
 			usable = false
 		if usable:
 			var distance := unit.position.distance_to(object.position)

@@ -377,3 +377,27 @@ func _scenario_commands() -> void:
 				main.selection._select(some, false)
 				main.hud.commands.set_stance(picker.randi_range(0, 2))
 	get_tree().quit()
+
+
+## Control groups by keyboard: Ctrl+1 keeps the selection, 1 brings it back.
+func _scenario_groups() -> void:
+	await get_tree().create_timer(0.5).timeout
+	var own := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == main.me and u.is_alive())
+	main.selection._select(own.slice(0, 3), false)
+	await _key(KEY_1, true)
+	main.selection._select([], false)
+	await _key(KEY_1)
+	print("group 1 recalled: %d of 3" % main.selection.selection.size())
+	get_tree().quit()
+
+
+func _key(key: Key, ctrl := false) -> void:
+	for pressed in [true, false]:
+		var event := InputEventKey.new()
+		event.keycode = key
+		event.physical_keycode = key
+		event.ctrl_pressed = ctrl
+		event.pressed = pressed
+		Input.parse_input_event(event)
+		Input.flush_buffered_events()
+		await get_tree().process_frame

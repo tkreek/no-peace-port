@@ -11,7 +11,9 @@ const BURNT_BELOW := 0.33
 const FIRE_BELOW := 0.66
 const RUBBLE_SECONDS := 25.0
 const FIRE_BOB := "effects/fire/fire.anims.json"
-## Ruins smoulder while they lie (two or three plumes, by the building's size).
+## Ruins smoulder for a while after they fall (two or three plumes, by the building's
+## size), the smoke thinning away over the last two seconds.
+const SMOULDER_SECONDS := 10.0
 const SMOKE_BOB := "effects/smoke/smoke.anims.json"
 ## fire.bob: 0 large, 1 medium, 2 small flames; 3-5 clouds; 6 smoke column.
 const FIRE_STAGES := [[], [2, 6], [2, 1, 0, 6]]
@@ -251,7 +253,11 @@ func _smoulder() -> void:
 	rng.seed = building.get_instance_id() + 3
 	var plumes := 3 if building.footprint_rect().size.x > 128.0 else 2
 	for i in plumes:
-		OrderMarker.effect_loop(building, building.fire_spot(rng) - building.position, SMOKE_BOB, 0)
+		var plume := OrderMarker.effect_loop(building, building.fire_spot(rng) - building.position, SMOKE_BOB, 0)
+		var tween := plume.create_tween()
+		tween.tween_interval(SMOULDER_SECONDS - 2.0)
+		tween.tween_property(plume, "modulate:a", 0.0, 2.0)
+		tween.tween_callback(plume.queue_free)
 
 
 ## Packing (a Native tepee onto a travois) or a cancelled set-up: the building leaves

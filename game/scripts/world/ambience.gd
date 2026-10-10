@@ -1,16 +1,19 @@
 class_name Ambience
 extends Node2D
-## Life in the background: now and then a flock of gulls circles over water in view, and
-## an eagle sails across the land, each with its shadow on the ground (effects/gulls,
-## effects/eagle); and a river in view is heard flowing ("Sound Fluß").
+## Life in the background: now and then a flock of gulls circles over water in view, with
+## its shadow on the ground (effects/gulls), and a river in view is heard flowing ("Sound
+## Fluß"). The eagle (effects/eagle) is no background bird: it only flies for the medicine
+## man's Eagle eye, circling over the spot the spell lifts the fog from.
+
+static var current: Ambience
 
 const GULLS := "effects/gulls/gulls.anims.json"
 const EAGLE := "effects/eagle/eagle.anims.json"
 const GULL_PAUSE := Vector2(20.0, 45.0)  # seconds between flocks
-const EAGLE_PAUSE := Vector2(50.0, 110.0)
 const GULL_SECONDS := 30.0
 const MAX_FLOCKS := 2
-const EAGLE_SPEED := 110.0
+const EAGLE_CIRCLE := 110.0  # radius of the eagle's circle over an Eagle eye spot (px)
+const EAGLE_LAP := 9.0  # seconds per circle
 const GULL_DRIFT := 12.0
 const RIVER_CHECK := 2.0  # seconds between looks for the water nearest the middle of the view
 const RIVER_VOLUME := 0.45
@@ -18,7 +21,6 @@ const RIVER_REACH := 1400.0
 
 var camera: Camera2D
 var _gull_wait := 8.0
-var _eagle_wait := 30.0
 var _river_wait := 1.0
 var _river: AudioStreamPlayer2D
 var _rng := RandomNumberGenerator.new()
@@ -26,6 +28,7 @@ var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	z_index = 80  # above units and buildings, under the fog of war
+	current = self
 	_rng.randomize()
 
 
@@ -33,7 +36,6 @@ func _process(delta: float) -> void:
 	if camera == null or NavGrid.current == null:
 		return
 	_gull_wait -= delta
-	_eagle_wait -= delta
 	_river_wait -= delta
 	var view := _view()
 	if _river_wait <= 0.0:
@@ -46,19 +48,18 @@ func _process(delta: float) -> void:
 		if flocks.size() < MAX_FLOCKS and water != Vector2.INF:
 			var drift := Vector2.from_angle(_rng.randf() * TAU) * GULL_DRIFT
 			_add(Flyer.new(GULLS, water, drift, 0, GULL_SECONDS))
-	if _eagle_wait <= 0.0:
-		_eagle_wait = _rng.randf_range(EAGLE_PAUSE.x, EAGLE_PAUSE.y)
-		# In from one side of the view, out at the other.
-		var heading := Vector2.from_angle(_rng.randf() * TAU)
-		var start := view.get_center() - heading * (view.size.length() * 0.6) \
-				+ heading.orthogonal() * _rng.randf_range(-0.3, 0.3) * view.size.y
-		var direction := posmod(roundi((rad_to_deg(heading.angle()) - 45.0) / 45.0), 8)
-		_add(Flyer.new(EAGLE, start, heading * EAGLE_SPEED, direction, view.size.length() * 1.2 / EAGLE_SPEED))
 
 
 func _add(flyer: Flyer) -> void:
 	if flyer.ready_to_fly():
 		add_child(flyer)
+
+
+## Eagle eye: the eagle circles over `at` for `seconds`.
+func eagle_over(at: Vector2, seconds: float) -> void:
+	var flyer := Flyer.new(EAGLE, at, Vector2.ZERO, 0, seconds)
+	flyer.circle(EAGLE_CIRCLE, TAU / EAGLE_LAP)
+	_add(flyer)
 
 
 func _view() -> Rect2:
@@ -120,6 +121,10 @@ class Flyer:
 	var _bob: BobFile
 	var _velocity := Vector2.ZERO
 	var _direction := 0
+	var _centre := Vector2.ZERO  # circling: round this point (radius > 0)
+	var _radius := 0.0
+	var _turn := 0.0  # radians a second
+	var _angle := 0.0
 	var _life := 0.0
 	var _age := 0.0
 	var _step := 0
@@ -135,6 +140,18 @@ class Flyer:
 		_life = seconds
 		_bob = GameData.load_bob(path)
 
+	## Circle round the starting point instead of flying straight.
+	func circle(radius: float, radians_per_second: float) -> void:
+		_centre = position
+		_radius = radius
+		_turn = radians_per_second
+		_place_on_circle()
+
+	func _place_on_circle() -> void:
+		position = _centre + Vector2.from_angle(_angle) * _radius
+		var heading := Vector2.from_angle(_angle + PI / 2.0 * signf(_turn))
+		_direction = posmod(roundi((rad_to_deg(heading.angle()) - 45.0) / 45.0), 8)
+
 	func ready_to_fly() -> bool:
 		return _bob != null and _bob.anims.size() >= 2
 
@@ -149,7 +166,11 @@ class Flyer:
 
 	func _process(delta: float) -> void:
 		_age += delta
-		position += _velocity * delta
+		if _radius > 0.0:
+			_angle += _turn * delta
+			_place_on_circle()
+		else:
+			position += _velocity * delta
 		modulate.a = clampf(minf(_age, _life - _age) / FADE, 0.0, 1.0)
 		if _age >= _life:
 			queue_free()

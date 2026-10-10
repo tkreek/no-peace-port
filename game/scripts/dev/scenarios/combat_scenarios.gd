@@ -209,6 +209,11 @@ func _scenario_magic() -> void:
 	caster.stance = Unit.Stance.PASSIVE
 	main.camera.position = centre + Vector2(0, -120)
 	if caster_guid == 164:
+		caster.cast(918, centre + Vector2(300, 0))
+		await get_tree().create_timer(3.0).timeout
+		print("eagle eye: eagles circling %d" % main.ambience.get_children().filter(func(n: Node) -> bool:
+				return n is Ambience.Flyer and n.set_path == Ambience.EAGLE).size())
+		caster.magic.magic_energy = 100.0
 		caster.cast(919, foes[0].position)
 		await get_tree().create_timer(10.0).timeout
 		caster.magic.magic_energy = 100.0
@@ -316,7 +321,7 @@ func _scenario_fire() -> void:
 
 
 ## What the dead leave: a soldier, a cavalryman and a buffalo die in front of the camera and
-## their remains rot; a building falls and its ruins smoulder; gulls and an eagle fly over.
+## their remains rot; a building falls and its ruins smoulder; gulls fly over.
 ## --remains-wait=<s> sets how long to wait before reporting (default 14).
 func _scenario_remains() -> void:
 	var at: Vector2 = main.camera.position
@@ -335,7 +340,6 @@ func _scenario_remains() -> void:
 	if house:
 		house.health = 0.0
 		house.condition.destroy()
-	main.ambience._add(Ambience.Flyer.new(Ambience.EAGLE, at + Vector2(-300, -150), Vector2(60, 20), 7, 40.0))
 	var water := main.ambience._water_in(main.ambience._view())
 	if water != Vector2.INF:
 		main.ambience._add(Ambience.Flyer.new(Ambience.GULLS, water, Vector2.ZERO, 0, 40.0))

@@ -39,7 +39,7 @@ CHECKS = {
                                       r"chained: houses built true; then wood: idle worker true, cutter back at her tree true"]),
     "groups": ([], 0, [r"group 1 recalled: 3 of 3"]),
     "magic": ([], 0, [r"conversion: target now team 1"]),
-    "magic_ind": (["--faction=ind"], 0, [r"lightning: enemy energy", r"warrior shielded [1-9]"]),
+    "magic_ind": (["--faction=ind"], 0, [r"eagle eye: eagles circling 1", r"lightning: enemy energy", r"warrior shielded [1-9]"]),
     "inspect": ([], 120, [r"clicked 481: selected true, panel 'Buffalo' with 2 stats, 0 command buttons, ordered false",
                           r"clicked \d+: selected true, panel '\w+' with 4 stats, 0 command buttons, ordered false",
                           r"mount order rings the horse: true"]),
@@ -70,7 +70,7 @@ CHECKS = {
     "poplimit": ([], 0, [r"warned on filling 1, on a train order 1"]),
     "picking": ([], 0, [r"roof \(picture centre, upper third\) +-> true", r"walls centre +-> true",
                         r"open corner of the walls' box +-> false"]),
-    # The dead rot to bones, ruins smoulder, an eagle flies over.
+    # The dead rot to bones, ruins smoulder, gulls fly over.
     "remains": ([ISLANDS], 0, [r"remains: \[.*step [12].*step [12]", r"smoke plumes: [23], after 14s 0, flyers: [1-9]"]),
     # Expansion abilities: saboteurs empty and take a fort, the warrior spirit, the armored stagecoach.
     "saboteur": (["--faction=des"], 0, [r"saboteur: garrison \[5, 2, 0, 0\], fort now player 1"]),

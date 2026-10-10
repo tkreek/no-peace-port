@@ -3,7 +3,8 @@ extends UnitPart
 ## Magic (manual 3.8): the medicine man's dances and the priest's conversion, each paid
 ## from a pool of magic energy that refills over time (+50% with the Magic energy upgrade);
 ## the protective shield on whoever carries it; and healers (nurses, nuns, medicine men)
-## walking up to the wounded and tending them.
+## walking up to the wounded and tending them, each point of life restored paid from the
+## same kind of pool (Healing energy: half as big again; Regeneration: refills half as fast again).
 
 const SPELLS := {
 	918: {"name": "Eagle eye", "cost": 30, "target": "point", "range": 900.0,
@@ -26,6 +27,8 @@ const MAGIC_REGEN := 1.5  # per second
 const CAST_SECONDS := 2.0
 const SHIELD_SECONDS := 30.0
 const HEAL_PER_SECOND := 4.0
+const HEAL_COST := 1.0  # energy per point of life restored
+const HEAL_MIN_ENERGY := 15.0  # an exhausted healer waits for this much before tending anyone
 const HEAL_REACH := 40.0
 const MEDICINE_MAN := 164
 ## The sound table's "special action" events: the medicine man's four chants (event 3 is
@@ -38,6 +41,7 @@ const CLOUD := 490
 const SPELL_SOUNDS := {919: Sound.Event.SPECIAL_2, 920: Sound.Event.SPECIAL_3, 921: Sound.Event.SPECIAL_1}
 const EAGLE := 483
 const EAGLE_EYE := 918
+const EAGLE_EYE_SECONDS := 20.0
 
 var magic_energy := MAGIC_POOL
 var shield_time := 0.0
@@ -55,7 +59,7 @@ func _init(owner: Unit) -> void:
 	super(owner)
 	_caster = CASTERS.has(unit.unit_type.guid())
 	_healer = unit.unit_type.attack_anims.is_empty() and unit.unit_type.anim_index("heal") >= 0
-	busy = _caster
+	busy = _caster or _healer
 
 
 func is_healer() -> bool:
@@ -65,16 +69,17 @@ func is_healer() -> bool:
 func clear_orders() -> void:
 	spell = -1
 	heal_target = null
-	busy = _caster or shield_time > 0.0
+	busy = _caster or _healer or shield_time > 0.0
 
 
 func update(delta: float) -> bool:
 	if shield_time > 0.0:
 		shield_time -= delta
 		if shield_time <= 0.0:
-			busy = _caster or heal_target != null
-	if _caster:
-		magic_energy = minf(magic_pool(), magic_energy + MAGIC_REGEN * delta)
+			busy = _caster or _healer
+	if _caster or _healer:
+		var regen := 1.0 + unit.bonus("heal_regen_pct") / 100.0
+		magic_energy = minf(magic_pool(), magic_energy + MAGIC_REGEN * regen * delta)
 	if spell >= 0 and idle_or_moving():
 		_update_spell(delta)
 	if heal_target != null and idle_or_moving():
@@ -101,7 +106,12 @@ func known_spells() -> Array:
 func magic_pool() -> float:
 	var owner := player()
 	var boosted := owner != null and MAGIC_UPGRADES.any(func(u: int) -> bool: return owner.researched.has(u))
-	return MAGIC_POOL * (1.5 if boosted else 1.0)
+	return MAGIC_POOL * (1.5 if boosted else 1.0) * (1.0 + unit.bonus("heal_pct") / 100.0)
+
+
+## Healers and spell casters carry magic (or healing) energy.
+func has_energy() -> bool:
+	return _caster or _healer
 
 
 ## Walk within range of the target and cast `which` there (or on `on_unit`).
@@ -165,8 +175,11 @@ func _apply_spell(which: int, at: Vector2) -> void:
 		Sound.play_event(EAGLE, Sound.Event.ORDER, at, 0)
 	match which:
 		918:
-			if FogOfWar.current and FogOfWar.current.player_team == team:
-				FogOfWar.current.reveal_for(at, 450.0, 20.0)
+			var mine := FogOfWar.current == null or FogOfWar.current.player_team == team
+			if FogOfWar.current and mine:
+				FogOfWar.current.reveal_for(at, 450.0, EAGLE_EYE_SECONDS)
+			if mine and Ambience.current:
+				Ambience.current.eagle_over(at, EAGLE_EYE_SECONDS)
 		919:
 			Weather.spawn(parent, at, Weather.LIGHTNING_BOB, 6.0, func(where: Vector2) -> void:
 				for other: Unit in UnitGrid.near(where, 140.0):
@@ -194,9 +207,8 @@ func _apply_spell(which: int, at: Vector2) -> void:
 
 ## An idle healer looks for someone to tend (called from the unit's idle scan).
 func look_for_wounded() -> void:
-	heal_target = _nearest_wounded()
-	if heal_target:
-		busy = true
+	if magic_energy >= HEAL_MIN_ENERGY:
+		heal_target = _nearest_wounded()
 
 
 func _nearest_wounded() -> Unit:
@@ -217,7 +229,6 @@ func _update_heal(delta: float) -> void:
 	if not is_instance_valid(heal_target) or not heal_target.is_alive() or heal_target.inside \
 			or heal_target.health >= heal_target.max_health:
 		heal_target = null
-		busy = _caster or shield_time > 0.0
 		unit.state = Unit.State.IDLE
 		return
 	if not approach(heal_target.position, HEAL_REACH):
@@ -234,6 +245,10 @@ func _update_heal(delta: float) -> void:
 		var guid := unit.unit_type.guid()
 		var event: int = CHANTS.pick_random() if guid == MEDICINE_MAN else Sound.Event.SPECIAL_1
 		_heal_sound_wait = Sound.play_event(guid, event, unit.position, 0) + 1.5
-	# Healing energy and Regeneration upgrades: half as much healing again each.
-	var better := 1.0 + (unit.bonus("heal_pct") + unit.bonus("heal_regen_pct")) / 100.0
-	heal_target.heal(HEAL_PER_SECOND * better * delta)
+	var amount := minf(HEAL_PER_SECOND * delta, magic_energy / HEAL_COST)
+	if amount <= 0.0:
+		heal_target = null  # spent: rest until the energy comes back
+		unit.state = Unit.State.IDLE
+		return
+	magic_energy -= amount * HEAL_COST
+	heal_target.heal(amount)

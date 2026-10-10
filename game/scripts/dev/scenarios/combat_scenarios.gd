@@ -227,6 +227,46 @@ func _scenario_magic() -> void:
 	get_tree().quit()
 
 
+## A sandbox for trying the medicine man's spells by hand (run with --faction=ind; leave
+## the fog on to see Eagle eye lift it): two medicine men, selected, with every spell and
+## magic energy kept full; a friendly warrior to shield; passive enemy infantry above to
+## strike with lightning; a ripe field of ours on the left for the rain dance and an enemy
+## one on the right for the hail dance. --spells-refill=0 lets the energy run down.
+func _scenario_spells() -> void:
+	var centre := Vector2(main.terrain.map.pixel_size()) / 2.0
+	centre = (Vector2(main.nav.nearest_walkable(main.nav.cell_of(centre))) + Vector2(0.5, 0.5)) * NavGrid.CELL
+	for guid in UnitMagic.CASTERS[UnitMagic.MEDICINE_MAN] + UnitMagic.MAGIC_UPGRADES:
+		main.players[1].researched[guid] = true
+	var casters := _new_units(UnitMagic.MEDICINE_MAN, 1, centre, 2)
+	var friends := _new_units(152, 1, centre + Vector2(60, 40), 2)
+	var foes := _new_units(458, 2, centre + Vector2(0, -280), 5)
+	for u: Unit in casters + friends + foes:
+		u.stance = Unit.Stance.PASSIVE
+	var fields := {}
+	for side in [[1, Vector2(-320, 120)], [2, Vector2(320, 120)]]:
+		var field_type := ObjectTypes.get_type(GameData.type_for_guid(MapObject.FIELD_GUID, main.terrain.biome))
+		var field := MapObject.new()
+		field.position = (Vector2(main.nav.nearest_walkable(main.nav.cell_of(centre + side[1]))) + Vector2(0.5, 0.5)) * NavGrid.CELL
+		field.setup(field_type, side[0])
+		main.units_root.add_child(field)
+		field.stock.field_state = ObjectStock.Field.RIPE
+		field.stock.amount = ObjectStock.FIELD_YIELD
+		field.refresh_sprites()
+		fields[side[0]] = field
+	main.camera.position = centre
+	main.selection._select(casters, false)
+	print("spells ready: %d medicine men with %s; our field food %d, enemy field food %d, %d enemies" % [casters.size(),
+			", ".join(UnitMagic.CASTERS[UnitMagic.MEDICINE_MAN].map(func(s: int) -> String: return UnitMagic.SPELLS[s].name)),
+			fields[1].stock.amount, fields[2].stock.amount, foes.size()])
+	var refill := GameData.cmdline_option("spells-refill", "1") != "0"
+	while true:
+		await get_tree().create_timer(1.0).timeout
+		if refill:
+			for c: Unit in casters:
+				if c.is_alive():
+					c.magic.magic_energy = c.magic.magic_pool()
+
+
 ## The computer's main building burns down; with its builders gone too it gives up.
 func _scenario_surrender() -> void:
 	await get_tree().create_timer(2.0).timeout
@@ -443,3 +483,25 @@ func _scenario_coach() -> void:
 			guards.filter(func(u: Unit) -> bool: return not u.is_alive()).size()])
 	if GameData.cmdline_option("screenshot").is_empty():
 		get_tree().quit()
+
+
+## A nurse tends three badly wounded soldiers: each point of life costs her a point of
+## healing energy, and once it is spent she rests until it has come back.
+func _scenario_heal() -> void:
+	var at: Vector2 = main.players[1].main_building().position + Vector2(0, 260)
+	main._spawn_squad(457, 1, at, 1)
+	main._spawn_squad(main.FACTIONS[main.players[1].faction].army, 1, at + Vector2(60, 0), 3)
+	var nurse: Unit = Unit.all_units.filter(func(u: Unit) -> bool: return u.unit_type.guid() == 457)[0]
+	var wounded := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 1 and u != nurse and u.position.distance_to(at) < 150)
+	var lost := 0.0
+	for u: Unit in wounded:
+		u.health = u.max_health * 0.1
+		lost += u.max_health * 0.9
+	var start := nurse.magic.magic_energy
+	var life := func() -> float: return wounded.reduce(func(sum: float, u: Unit) -> float: return sum + u.health, 0.0)
+	var before: float = life.call()
+	await get_tree().create_timer(40.0).timeout
+	var healed: float = life.call() - before
+	print("heal: life lost %d; healed %d for %d energy, energy now %d" % [lost, healed,
+			start + UnitMagic.MAGIC_REGEN * 40.0 - nurse.magic.magic_energy, nurse.magic.magic_energy])
+	get_tree().quit()

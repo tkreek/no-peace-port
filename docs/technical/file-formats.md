@@ -131,7 +131,14 @@ stages and 2/3 for the finished building.
 - `GUIDS.INI` / `IDS.INI` / `Guids2.ini`: object type ID ↔ GUID ↔ graphics ID maps, grouped by
   faction (Native, Mexican, Desperado, USA buildings/units, heroes).
 - `rules.def` (`TTRL`): binary, TODO (likely the tech tree).
-- `Defaults.bin`: RDCHUNK file with `EINHEIT`/`EIGENSCH` chunks: default per-type properties (stats), TODO.
+- `Defaults.bin`: the stat table the game runs on. `"RDCHUNK\0"`, then chunks as in `.alf`
+  (`char[8] name; u32 next; u32 packed` (1 LZW in the base game, 2 zlib in the expansion's
+  `guids2/`); `u32 unpacked_size`). `EIGENSCH`: 5 blocks (scenery/animals, then the four
+  factions) of `u32 count` + `count × {i32 type_id, prop_id, value, value}`; type ids map to
+  GUIDs through `IDS.INI`, property ids are the editor's (`Einheiten.cfg`, `Gebaeude.cfg`).
+  The expansion's table equals the editor's `Defaults.dat` "+" properties exactly; it doubles
+  every regular unit's hit points over the base game's. `EINHEIT`: per-type availability and
+  prerequisites (tech tree).
 - `sfx/sfxguids.dat`: sound ID table, TODO.
 
 ## TODO

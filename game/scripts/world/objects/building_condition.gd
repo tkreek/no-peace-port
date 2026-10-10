@@ -133,6 +133,9 @@ func take_damage(amount: float, attacker: Node2D) -> void:
 	var was_burnt := burnt()
 	building.health = maxf(0.0, building.health - amount)
 	building.redraw_overlay()
+	var people: Player = Player.by_index.get(building.owner_index)
+	if people:
+		people.alert_attacked(building, attacker)
 	if building.health <= 0.0:
 		if attacker is Unit and is_instance_valid(attacker):
 			var victor: Player = Player.by_index.get(attacker.team)

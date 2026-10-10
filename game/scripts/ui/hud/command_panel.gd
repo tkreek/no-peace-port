@@ -218,9 +218,12 @@ func _add_building_commands(building: MapObject) -> void:
 	var enqueue := func(item: int) -> void:
 		if production.enqueue(item):
 			return
-		if GameData.stats(item).get("kind") == "unit" and not hud.player.has_room():
+		var stats := GameData.stats(item)
+		var cost: Dictionary = stats.get("cost", {}).duplicate()
+		cost.erase("population")
+		if stats.get("kind") == "unit" and not hud.player.has_room():
 			hud.warn_population_limit()
-		else:
+		elif BuildingProduction.is_trade(item) or not hud.player.alert_shortage(cost):
 			Sound.play_sound(CANNOT)
 	for guid in production.trainable_units():
 		if BuildingProduction.is_trade(guid):

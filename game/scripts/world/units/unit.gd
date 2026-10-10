@@ -306,6 +306,8 @@ func is_enemy_of(other: Unit) -> bool:
 func change_team(new_team: int) -> void:
 	stop()
 	selected = false
+	if team == 0 and new_team > 0:
+		Sound.play_neutral_taken(position)
 	team = new_team
 	set_palette_row(team)
 	flash(Color(1.0, 0.9, 0.4))
@@ -509,6 +511,9 @@ func take_damage(amount: float, attacker: Node2D = null, horse_too := false) -> 
 		amount *= 0.5  # the medicine man's protective shield
 	health = maxf(0.0, health - amount)
 	_overlay.queue_redraw()
+	var people: Player = Player.by_index.get(team)
+	if people:
+		people.alert_attacked(self, attacker)
 	if health <= 0.0:
 		if attacker is Unit and is_instance_valid(attacker) and team > 0:
 			attacker.gain_experience(EXPERIENCE_PER_KILL)
@@ -809,6 +814,7 @@ func follow_path(delta: float) -> void:
 	else:
 		face(to_point)
 		position += to_point.normalized() * step
+	water.splash()
 
 
 ## Idle units drift apart so groups don't stand inside each other.

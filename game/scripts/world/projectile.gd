@@ -123,7 +123,11 @@ func _land() -> void:
 		else:
 			_target.take_damage(_damage, null, explodes)
 	if explodes:
-		Sound.play_event(IMPACT_SOUND[_kind], Sound.Event.SHOOT, _to, 0)
+		var nav := NavGrid.current
+		if not _hit and nav and nav.has_water and nav.is_deep_water(nav.cell_of(_to)):
+			Sound.play_named("water_splash", _to, true)  # a miss goes into the river
+		else:
+			Sound.play_event(IMPACT_SOUND[_kind], Sound.Event.SHOOT, _to, 0)
 		OrderMarker.effect(get_parent(), _to, EXPLOSION_BOB, 0)
 		var team := _attacker.team if is_instance_valid(_attacker) else -1
 		for unit: Unit in UnitGrid.near(_to, SPLASH_RADIUS):

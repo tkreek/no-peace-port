@@ -73,6 +73,9 @@ func harvest(wanted: int) -> int:
 	if object.is_field():
 		if amount <= 0:
 			field_state = Field.FALLOW
+			var farmer: Player = Player.by_index.get(object.owner_index)
+			if farmer:
+				farmer.alert(Player.FIELD_HARVESTED_ALERT, object.position, 5000)
 		object.refresh_sprites()
 	if resource == "wood" and object.is_tree():
 		if amount <= 0:

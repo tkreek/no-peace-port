@@ -5,8 +5,9 @@
 # each with an assets/ folder beside the program. No Godot project or editor needed to run.
 #
 # Usage: tools/build_game.sh [linux|windows ...]   (default: both)
-#   COPY_ASSETS=1  copy the real asset folder instead of linking it, so the build folder
-#                  can be zipped and moved to another machine.
+#   COPY_ASSETS=1  copy the asset folder instead of linking it, so the build folder can be
+#                  zipped and moved to another machine. The copy stores colour pictures as
+#                  lossless WebP, about half the size (tools/pack_assets.py, needs ImageMagick).
 #   ZIP=1          also pack each build into build/america-remastered-<platform>.zip
 #                  (implies COPY_ASSETS=1).
 #
@@ -28,6 +29,10 @@ if [ ! -f "$templates/version.txt" ]; then
 	exit 1
 fi
 
+if [ "$COPY_ASSETS" = 1 ]; then
+	rm -rf build/packed-assets build/packed-assets.tmp
+fi
+
 for platform in "${platforms[@]}"; do
 	case "$platform" in
 		linux) preset=Linux; program=america-remastered.x86_64 ;;
@@ -39,7 +44,12 @@ for platform in "${platforms[@]}"; do
 	"$GODOT" --headless --path game --export-release "$preset" "../$out/$program"
 	rm -rf "$out/assets"
 	if [ "$COPY_ASSETS" = 1 ]; then
-		cp -r assets "$out/assets"
+		# Packed once, then shared by each platform's copy.
+		if [ ! -d build/packed-assets ]; then
+			tools/pack_assets.py assets build/packed-assets.tmp
+			mv build/packed-assets.tmp build/packed-assets
+		fi
+		cp -r build/packed-assets "$out/assets"
 	else
 		ln -s ../../assets "$out/assets"
 	fi

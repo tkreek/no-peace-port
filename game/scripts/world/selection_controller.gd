@@ -7,7 +7,6 @@ const CLICK_RADIUS := 22.0
 const DRAG_THRESHOLD := 6.0
 const FORMATION_SPACING := 26.0
 ## Mexican and American forts: the call to take refuge in the fort ("ins Fort fliehen").
-const FORT_CALLS := {217: "mexicans_into_fort_flee", 417: "americans_into_fort_flee"}
 
 signal group_assigned(digit: int, count: int)
 
@@ -119,7 +118,6 @@ func _give_targeted(world: Vector2) -> void:
 			if building and building.complete and building.condition.needs_repair():
 				order_build(building)
 			else:
-				Sound.play_sound(BuildController.CANNOT_BUILD_SOUND)
 				return
 		"look":
 			var saloon := selected_building
@@ -336,7 +334,6 @@ func _water_order(world: Vector2) -> bool:
 func order_board(boat: Unit, walkers: Array) -> void:
 	var room := boat.water.capacity() - boat.water.passengers.size()
 	if room <= 0:
-		Sound.play_sound(80)
 		return
 	boat.flash(Color(0.5, 0.9, 1.0))
 	Sound.play_event(walkers[0].unit_type.guid(), Sound.Event.ORDER)
@@ -435,13 +432,9 @@ func order_quarters(building: MapObject) -> void:
 	var units := selection.filter(_can_quarter)
 	var room := building.defence.capacity() - building.defence.garrison.size()
 	if units.is_empty() or room <= 0:
-		Sound.play_sound(80)
 		return
 	building.flash()
-	if FORT_CALLS.has(building.guid):
-		Sound.play_named(FORT_CALLS[building.guid])
-	else:
-		Sound.play_event(units[0].unit_type.guid(), Sound.Event.ORDER)
+	Sound.play_event(units[0].unit_type.guid(), Sound.Event.ORDER)
 	Orders.units(units.slice(0, room), "take_quarters", [building])
 
 
@@ -542,7 +535,7 @@ func select_building(building: MapObject) -> void:
 	selected_building = building
 	building.selected = true
 	if building.is_tree():
-		Sound.play_named("chop_wood")  # trees have no selection sound of their own
+		pass  # trees have no sound of their own
 	elif building.is_mine():
 		Sound.play_event(MapObject.GOLD_MINE_GUID, Sound.Event.SELECT)
 	else:

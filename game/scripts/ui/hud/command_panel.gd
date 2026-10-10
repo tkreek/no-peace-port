@@ -43,7 +43,6 @@ const EXPANDED_STRUCTURES := [110, 111, 112, 114, 115,  # campfire, totem, camou
 		210, 211, 212, 213, 215, 216, 217, 218,  # Mexican trading post, weapons, wall, tower, church, mission, fort, wharf
 		307, 310, 311, 312, 313, 314, 315,  # hotel, drugstore, cellar, barricade, lookout, explosives, boathouse
 		407, 411, 412, 413, 415, 416, 417, 418]  # sheriff, weapons, stockade, tower, church, bank, fort, wharf
-const CANNOT := 80  # the original "not possible" sound
 
 var hud: Hud
 var grid := GridContainer.new()
@@ -225,8 +224,8 @@ func _add_building_commands(building: MapObject) -> void:
 		cost.erase("population")
 		if stats.get("kind") == "unit" and not hud.player.has_room():
 			hud.warn_population_limit()
-		elif BuildingProduction.is_trade(item) or not hud.player.alert_shortage(cost):
-			Sound.play_sound(CANNOT)
+		else:
+			hud.player.alert_shortage(cost)  # the original's shortage warnings; nothing else sounds
 	for guid in production.trainable_units():
 		if BuildingProduction.is_trade(guid):
 			var trade: Dictionary = BuildingProduction.TRADES[guid - BuildingProduction.TRADE_GUID]
@@ -253,9 +252,7 @@ func _add_building_commands(building: MapObject) -> void:
 				"Invoke warrior spirit: every fighting unit gains %d%% morale for %d s\nCosts %d magic energy (see the tepee's energy)" % [
 				roundi(BuildingProduction.SPIRIT_BOOST[spirit - 1] * 100), BuildingProduction.SPIRIT_SECONDS,
 				BuildingProduction.SPIRIT_COST], "", func() -> void:
-					if production.spirit_energy < BuildingProduction.SPIRIT_COST:
-						Sound.play_sound(CANNOT)
-					else:
+					if production.spirit_energy >= BuildingProduction.SPIRIT_COST:  # else nothing, like the original
 						Orders.building(building, "invoke_spirit"))
 	if building.guid == BuildingProduction.DISTILLERY_GUID:
 		_add_icon(command_icons, ICON_STOP, "Stop distilling (keeps the wood)" if production.distilling \

@@ -145,8 +145,8 @@ func capture(new_owner: int) -> void:
 	if not _is_building or new_owner == owner_index:
 		return
 	var from_owner := owner_index
-	if from_owner == 0:
-		Sound.play_neutral_taken(position)
+	if new_owner == Orders.local_player:
+		Sound.play_gained()
 	defence.release()
 	production.cancel_all()
 	production.rally_point = Vector2.INF

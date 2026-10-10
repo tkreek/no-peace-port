@@ -309,8 +309,8 @@ func is_enemy_of(other: Unit) -> bool:
 func change_team(new_team: int) -> void:
 	stop()
 	selected = false
-	if team == 0 and new_team > 0:
-		Sound.play_neutral_taken(position)
+	if new_team == Orders.local_player and team != new_team:
+		Sound.play_gained()
 	team = new_team
 	set_palette_row(team)
 	flash(Color(1.0, 0.9, 0.4))

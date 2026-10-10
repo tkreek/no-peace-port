@@ -26,7 +26,6 @@ const HOUSING_FULL_SOUND := 76
 const POPULATION_LIMIT_SOUND := 52
 ## "Blöder Sound wenn ne Message kommt!" (guidliste.ini): the chime under other messages.
 const MESSAGE_SOUND_GUID := 899
-const UPGRADE_READY_SOUNDS := {"des": 13, "ind": 31, "mex": 46, "usa": 131}
 
 var player: Player
 var selection: SelectionController
@@ -79,7 +78,6 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	commands = CommandPanel.new(self, root)
 	player.resources_changed.connect(_refresh_resources)
 	player.alerted.connect(_on_alert)
-	player.researched_upgrade.connect(_on_upgrade_ready)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	_refresh_resources()
@@ -155,13 +153,6 @@ func warn_population_limit() -> void:
 	else:
 		Sound.play_sound(HOUSING_FULL_SOUND, null, Sound.HEARING_RANGE, Sound.Channel.ALERT)
 		notify(GameData.text(805, "We don't have enough living space"), false)
-
-
-## Each upgrade has its own "ready" sound in the table (the people's fanfare, and for the
-## Mexicans' Steal the gunslinger's reply); later upgrades borrow the people's.
-func _on_upgrade_ready(upgrade: int) -> void:
-	if Sound.play_alert(upgrade, Sound.Event.UNIT_READY) == 0.0:
-		Sound.play_sound(UPGRADE_READY_SOUNDS.get(player.faction, 46), null, Sound.HEARING_RANGE, Sound.Channel.ALERT)
 
 
 ## One of the original's spoken warnings (under attack, out of wood, a field harvested):

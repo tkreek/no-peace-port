@@ -15,6 +15,7 @@ enum Event {
 ## no stand-ins. Who plays what, and when, is in docs/technical/file-formats.md ("Sound in
 ## the executable").
 
+const MESSAGE_GUID := 899  ## the interface's messages: 100 a new message, 101 something gained
 const SOUND_TABLE := "data/sounds.json"
 const MAX_VOICES := 24
 ## Copies of one recording heard at once in the world (more rifles or axes only make a
@@ -190,13 +191,14 @@ func _make_room(sound_id: int, at: Vector2, limit: int) -> bool:
 	return true
 
 
-## Something neutral (a stray cow or horse, an empty building) takes a people's colours
-## ("Neutrale Einheiten umfärben"); a herd joining at once is heard once.
-func play_neutral_taken(at: Vector2) -> void:
+## Something has become the local player's (taken over, converted, captured): the
+## original plays the message object's (GUID 899) "order", `message_up_map`. A herd joining
+## at once is heard once.
+func play_gained() -> void:
 	var now := Time.get_ticks_msec()
-	if now - int(_last_played.get("neutral", -100000)) >= 2500:
-		_last_played["neutral"] = now
-		play_named("neutral_units_recolour", at)
+	if now - int(_last_played.get("gained", -100000)) >= 2500:
+		_last_played["gained"] = now
+		play_event(MESSAGE_GUID, Event.ORDER)
 
 
 ## Decode every referenced sound; returns [ok, failed paths].

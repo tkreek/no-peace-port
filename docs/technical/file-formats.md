@@ -193,7 +193,20 @@ then per GUID `{u32 guid, u32 count, u32 event[20], u32 sound[20]}`.
   main buildings 861/871/881/891, wagons 862/872/882/892/893, mission 873, weapons factories
   874/895, bank 894, other buildings 851, other units 850.
 - Played by id: diplomacy messages (alliance or enmity: 58, `field_harvested.wav`; "is giving
-  the signal": 143).
+  the signal": 143; "has exposed the leaders", for 500 gold: 36).
+- Something becoming the local player's (any change of owner, 0x418a50 units, 0x40bd40
+  buildings): 899's 101, `message_up_map`. A new text message: 899's 100.
+- Placement refused: alerts 812 (spot), 803-805 (cost, room), 809 (requirements), 808
+  (building limit). Nothing else that cannot be done makes a sound (a full boat or fort,
+  a trade). Unit production checks room first: 805, or 807 at the match's limit.
+- Upgrades finish in silence (0x42cd00); their 153 entries go unused.
+- The rest of the sound object: music streams (`Music/IND|MEX|DES|USA.MP3` in a match,
+  `tit.mp3` menus, `abr.mp3` statistics, `briefing.mp3`, `credits2.mp3`), mission speech
+  (`missions2/%s%02d.mp3`, `missions/%03d.mp3`, won/lost), volumes, stopping an object's
+  sounds when it is removed, and two timer helpers. The menus make no sound.
+- Never played: `river`, `water_splash_1-3`, `ding`, `neutral_units_recolour`,
+  `burning_buildings_2`, `collapsing_buildings_large_1`; `gold_mine` only when a mine is
+  clicked.
 
 ## TODO
 - `.alf` `BITARRAY`/`PINSMATR`, `EIGENSCH` property ids, triggers and scripts.

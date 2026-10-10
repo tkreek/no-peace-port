@@ -85,6 +85,11 @@ func screenshot(path: String) -> void:
 		var count := GameData.cmdline_option("select", "0").to_int()  # --select=n: only the first n
 		main.selection._select(ours.slice(0, count) if count > 0 else ours, false)
 		main.selection._order_move(main._vector_option("order", main.camera.position + Vector2(-200, -120)))
+		if GameData.cmdline_option("select-buildings") != "":  # also mark our buildings, to see their outline
+			for object in MapObject.structures:
+				if object.owner_index == 1:
+					object.selected = true
+					object.redraw_overlay()
 	for i in GameData.cmdline_option("frames", "90").to_int():
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw

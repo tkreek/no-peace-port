@@ -11,7 +11,8 @@ const MINE_GOLD := 3000
 enum TreeState { STANDING, FELLED, STUMP }
 const TREE_FELLED_ANIM := 24
 const TREE_STUMP_ANIM := 26
-## Mines: worker-seconds until the timbered entrance is finished.
+## Mines: worker-seconds to timber the entrance before the gold can be dug (a few seconds
+## for a handful of miners).
 const MINE_FRAMED_AFTER := 12.0
 ## Fields: fallow -> sown by a woman -> grow -> ripe, harvested down to fallow again.
 enum Field { FALLOW, GROWING, RIPE }
@@ -96,7 +97,12 @@ func _clear_ground() -> void:
 		NavGrid.current.unblock_footprint(object.object_type, object.position)
 
 
-## Workers inside a mine build up its timber entrance (original frames: bare, framing, timbered).
+## Whether the entrance is timbered: until then the miners build it, and no gold comes out.
+func mine_framed() -> bool:
+	return mine_work >= MINE_FRAMED_AFTER
+
+
+## Workers at a new mine build its timber entrance (original frames: bare, framing, timbered).
 func add_mine_work(seconds: float) -> void:
 	var before := mine_stage()
 	mine_work += seconds

@@ -178,6 +178,4 @@ func _draw() -> void:
 
 
 func _draw_ring(canvas: CanvasItem, radius: float) -> void:
-	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.55))
-	canvas.draw_arc(Vector2.ZERO, radius, 0.0, TAU, 48, Color(1, 1, 1, 0.85), 1.5, true)
-	canvas.draw_set_transform(Vector2.ZERO)
+	StatusBar.ring(canvas, Vector2.ZERO, radius, StatusBar.team_colour(get("team")))

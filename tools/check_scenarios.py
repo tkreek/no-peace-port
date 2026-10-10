@@ -38,7 +38,7 @@ CHECKS = {
     "hunt": ([], 2700, [r"hunt order marks the prey: true, hunters on it true",
                         r"buffalo dies: plays die, drawn above the ground true",
                         r"carcass faded with meat left: false", r"food \+[1-9]"]),
-    "gold": ([], 2700, [r"gold \+[1-9]\d*"]),
+    "gold": ([], 2700, [r"mine entrance timbered in \d+\.\ds, gold before it: false", r"gold \+[1-9]\d*"]),
     "woodcut": ([], 1900, [r"wood\+[1-9]"]),
     "unhorse": (["--faction=usa", "--enemy=mex"], 0, [r"gauchos on foot alive \d+ dead [1-9]", r"horses alive [1-9]"]),
     "fire": (["--faction=ind", "--enemy=usa"], 0, [r"\"\d+% burning\", \"\d+% burning\""]),

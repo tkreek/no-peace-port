@@ -141,6 +141,7 @@ func _scenario_gold() -> void:
 	var workers := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.can_gather("gold"))
 	for w: Unit in workers.slice(0, 3):
 		w.gather(mine)
+	_watch_mine_entrance(mine, workers.slice(0, 3))
 	main._spawn_squad(wagon_guid, 1, hq.position + Vector2(0, 220), 1)
 	var wagon: Unit = main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == wagon_guid)[0]
 	print("mine %d px from HQ, warehouse %d px from mine; wagon carry %d transport=%s" % [mine.position.distance_to(hq.position),
@@ -153,6 +154,23 @@ func _scenario_gold() -> void:
 		print("t=%ds gold +%d warehoused %d wagon state %d carrying %d" % [(i + 1) * 10, main.players[1].resources.gold - start_gold,
 				main.players[1].warehoused_gold(), wagon.state, wagon.work.carried])
 	get_tree().quit()
+
+
+## The miners timber a new mine's entrance before anyone goes in or comes out with gold.
+func _watch_mine_entrance(mine: MapObject, miners: Array) -> void:
+	var started := -1.0
+	var early := false
+	var clock := 0.0
+	while not mine.stock.mine_framed():
+		await get_tree().process_frame
+		clock += get_process_delta_time()
+		if started < 0.0 and mine.stock.mine_work > 0.0:
+			started = clock
+		if mine.stock.mine_framed():
+			break  # finished this frame: they may go in now
+		for miner: Unit in miners:
+			early = early or miner.inside or miner.work.carried > 0
+	print("mine entrance timbered in %.1fs, gold before it: %s" % [clock - started, early])
 
 
 ## One worker on the nearest tree: what each second of a wood round trip is spent on.

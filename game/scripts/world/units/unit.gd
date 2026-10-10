@@ -833,14 +833,9 @@ func _draw_overlay(canvas: Node2D) -> void:
 	if selected and ring_on_top:
 		_draw_ring(canvas, 52.0)
 	if selected or health < max_health:
-		var bar := Rect2(-12, -58, 24, 3)
-		var ratio := health / max_health
-		canvas.draw_rect(bar, Color(0.1, 0.1, 0.1, 0.8))
-		canvas.draw_rect(Rect2(bar.position, Vector2(bar.size.x * ratio, bar.size.y)),
-				Color(0.85, 0.2, 0.1).lerp(Color(0.3, 0.9, 0.2), ratio))
+		var bar := Vector2(-14, -60)
+		StatusBar.draw(canvas, bar, 29.0, health / max_health)
 		if selected and team > 0:
 			# Morale below the energy (manual 4.4): 80% empty .. 120% full, blue.
-			var low := bar.position + Vector2(0, 4)
 			var level := (morale() - MORALE_MIN) / (MORALE_MAX - MORALE_MIN)
-			canvas.draw_rect(Rect2(low, bar.size), Color(0.1, 0.1, 0.1, 0.8))
-			canvas.draw_rect(Rect2(low, Vector2(bar.size.x * level, bar.size.y)), Color(0.35, 0.6, 1.0))
+			StatusBar.draw(canvas, bar + Vector2(0, StatusBar.HEIGHT + 2.0), 29.0, level, StatusBar.MORALE)

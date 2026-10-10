@@ -57,6 +57,7 @@ var selected := false:
 	set(value):
 		selected = value
 		_overlay.queue_redraw()
+		_marks.queue_redraw()
 var max_health := 0.0
 var health := 0.0
 var complete := true
@@ -72,6 +73,8 @@ var _body: Sprite2D
 var _shadow: Sprite2D
 var _ramps: Texture2D
 var _overlay := DrawOverlay.new()
+## The selection outline, on the ground: under the building, over its patch and fields.
+var _marks := Node2D.new()
 var _work_rect := Rect2()
 var _walls: Array[Rect2] = []  # the solid footprint cells as row runs, relative to position
 var _team_row := 0
@@ -120,6 +123,10 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 	add_child(_shadow)
 	add_child(_body)
 	add_child(_overlay)
+	_marks.z_as_relative = false
+	_marks.z_index = FIELD_Z + 1
+	_marks.draw.connect(_draw_marks)
+	add_child(_marks)
 	_add_ground()
 	if not refresh_sprites():
 		return false
@@ -228,6 +235,7 @@ func flash(color := Color(1.0, 0.9, 0.4)) -> void:
 
 func redraw_overlay() -> void:
 	_overlay.queue_redraw()
+	_marks.queue_redraw()
 
 
 func _process(delta: float) -> void:
@@ -511,6 +519,16 @@ func _palette_row(_anim_index: int) -> int:
 	return _team_row
 
 
+## Buildings and fields are outlined with a diamond on the ground in their people's colour,
+## as in the original, round the walls (whose box is the diamond's).
+func _draw_marks() -> void:
+	if not selected or not (_is_building or is_field()):
+		return
+	var walls := work_rect()
+	walls.position -= position
+	StatusBar.diamond(_marks, walls.get_center(), walls.size.x * 0.62, StatusBar.team_colour(owner_index))
+
+
 func _add_ground() -> void:
 	# Shipyards and bridges have no patch: their anim 4 is a frame of the building itself.
 	if not _is_building or is_field() or not _has_sheet(GROUND_ANIM) or _bob.anims[GROUND_ANIM].frames.size() != 1 \
@@ -600,20 +618,16 @@ func _draw_overlay(canvas: Node2D) -> void:
 	if selected:
 		# Ring the walls (the solid cells), not the whole footprint grid, which is lopsided
 		# for buildings such as the finca; a tree is ringed round its trunk.
-		var radius := 16.0 if is_tree() else walls.size.x * 0.68
-		canvas.draw_set_transform(walls.get_center() + Vector2(0, walls.size.y * 0.1), 0.0, Vector2(1.0, 0.55))
-		canvas.draw_arc(Vector2.ZERO, radius, 0.0, TAU, 48, Color(1, 1, 1, 0.8), 2.0, true)
-		canvas.draw_set_transform(Vector2.ZERO)
+		if not (_is_building or is_field()):
+			StatusBar.ring(canvas, walls.get_center() + Vector2(0, walls.size.y * 0.1),
+					16.0 if is_tree() else walls.size.x * 0.68, StatusBar.team_colour(0))
 	if not _is_building or not (selected or not complete):
 		return
 	var width := maxf(walls.size.x, 48.0)
-	var bar := Rect2(walls.get_center().x - width * 0.4, rect.position.y - 16, width * 0.8, 4)
-	canvas.draw_rect(bar, Color(0.1, 0.1, 0.1, 0.8))
+	var bar := Vector2(walls.get_center().x - width * 0.3, rect.position.y - 16)
 	if not complete:
-		canvas.draw_rect(Rect2(bar.position, Vector2(bar.size.x * build_progress, bar.size.y)), Color(0.95, 0.75, 0.2))
+		StatusBar.draw(canvas, bar, width * 0.6, build_progress, StatusBar.BUILD)
 	else:
-		canvas.draw_rect(Rect2(bar.position, Vector2(bar.size.x * health / max_health, bar.size.y)), Color(0.3, 0.9, 0.2))
+		StatusBar.draw(canvas, bar, width * 0.6, health / max_health)
 		if not production.queue.is_empty():
-			var train := Rect2(bar.position + Vector2(0, 6), bar.size)
-			canvas.draw_rect(train, Color(0.1, 0.1, 0.1, 0.8))
-			canvas.draw_rect(Rect2(train.position, Vector2(train.size.x * production.progress, train.size.y)), Color(0.4, 0.7, 1.0))
+			StatusBar.draw(canvas, bar + Vector2(0, StatusBar.HEIGHT + 2.0), width * 0.6, production.progress, StatusBar.MORALE)

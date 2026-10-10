@@ -250,7 +250,7 @@ func _update_gather(delta: float) -> void:
 				_work_timer = WORK_SECONDS.get(gather_source.stock.resource, 4.0) / (1.0 + faster / 100.0) \
 						/ unit.morale() / unit.effectiveness()
 				unit.face(gather_source.work_rect().get_center() - unit.position)
-				if gather_source.stock.resource == "gold":
+				if gather_source.stock.resource == "gold" and gather_source.stock.mine_framed():
 					unit.inside = true  # workers go inside the mine
 		Phase.WORKING:
 			if not _source_valid():
@@ -267,7 +267,14 @@ func _update_gather(delta: float) -> void:
 			if gather_source.stock.resource == "food":
 				unit.play_repeating("harvest")
 			elif gather_source.is_mine():
-				gather_source.stock.add_mine_work(delta)
+				if not gather_source.stock.mine_framed():
+					# A new mine: first they timber its entrance, outside, then go in.
+					unit.inside = false
+					unit.play_repeating("build" if unit.unit_type.anim_index("build") >= 0 else "chop")
+					gather_source.stock.add_mine_work(delta)
+					return
+				unit.inside = true
+				gather_source.stock.add_mine_work(delta)  # the picks heard from inside
 			_work_timer -= delta
 			if gather_source.stock.resource == "wood" and unit.play_repeating("chop"):
 				Sound.play_event(unit.unit_type.guid(), Sound.Event.CHOP, unit.position, 300, unit.get_instance_id(), Sound.WORK_RANGE)

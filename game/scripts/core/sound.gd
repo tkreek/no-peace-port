@@ -26,10 +26,8 @@ const TABLE_FIXES := {
 const SOUND_TABLE := "data/sounds.json"
 const MAX_VOICES := 24
 ## Copies of one recording heard at once in the world (more rifles or axes only make a
-## din); work going on (axes, building, fires) fewer. A new one nearer the view than the
-## farthest playing takes its place.
+## din). A new one nearer the view than the farthest playing takes its place.
 const SAME_SOUND_LIMIT := 4
-const WORK_SOUND_LIMIT := 2
 ## Interface sounds play on a channel, each cutting off the one before: clicks (selection
 ## and order replies, "not possible") and alerts (warnings, fanfares, messages) apart, so
 ## clicking about doesn't silence a warning.
@@ -192,7 +190,7 @@ func play_sound(sound_id: int, at = null, reach := HEARING_RANGE, channel := Cha
 		p.stream = stream
 		p.play()
 		return stream.get_length()
-	if not _make_room(sound_id, at, WORK_SOUND_LIMIT if reach >= WORK_RANGE else SAME_SOUND_LIMIT):
+	if not _make_room(sound_id, at, SAME_SOUND_LIMIT):
 		return 0.0
 	var p2d := AudioStreamPlayer2D.new()
 	p2d.position = at

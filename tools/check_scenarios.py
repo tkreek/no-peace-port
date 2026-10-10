@@ -14,6 +14,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 
 GAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "game")
@@ -72,10 +73,29 @@ CHECKS = {
                        r"blocks without a piece 0,", r"read back: tiles same, 10 placements, [1-9]\d* water cells",
                        r"lattice read back, 0 points differ", r"(\d+) of \1 known|1[5-9]\d{3} of 15853 known",
                        r"stroke painted Desert, right click removed 1, undo back to 10 placements"]),
+    # Lockstep groundwork: a player's orders recorded at 60 fps, replayed without the interface
+    # at 23 fps, must give the same game at every checksum (see run_replay).
+    "replay": ([], 0, [r"replay: (1\d|[2-9]\d) of \1 checksums agree"]),
     # Six computer players for ten game minutes: no script errors, and the waves go out.
     "aigame": (["--ai-vs-ai=1", "--players=mex,usa,ind,des,mex,usa", "--time-scale=4", "--trace-ai=1",
                 "--map=[6 Players] - oasis.ulf"], 4500, [r"attacks with \d+ units"]),
 }
+
+
+def run_replay():
+    """Record the "commands" scenario's orders, replay them bare, compare the checksums."""
+    replay = os.path.join(tempfile.mkdtemp(), "check.replay")
+    common = ["--fog=off", "--checksum-every=5"]
+    record = subprocess.run(["godot", "--headless", "--fixed-fps", "60", "--path", GAME, "--",
+                             "--scenario=commands", "--record=" + replay] + common,
+                            capture_output=True, text=True, timeout=400).stdout
+    played = subprocess.run(["godot", "--headless", "--fixed-fps", "23", "--path", GAME, "--",
+                             "--replay=" + replay, "--report-after=1400"] + common,
+                            capture_output=True, text=True, timeout=400).stdout
+    sums = [dict(re.findall(r"tick (\d+) checksum (\w+)", out)) for out in (record, played)]
+    shared = [t for t in sums[0] if t in sums[1]]
+    agree = sum(sums[0][t] == sums[1][t] for t in shared)
+    return record + played + "\nreplay: %d of %d checksums agree\n" % (agree, len(shared))
 
 
 def run(name):
@@ -98,7 +118,8 @@ def run(name):
     command += os.environ.get("CHECK_ARGS", "").split()
     started = time.time()
     try:
-        out = subprocess.run(command, capture_output=True, text=True, timeout=400).stdout
+        out = run_replay() if name == "replay" else \
+            subprocess.run(command, capture_output=True, text=True, timeout=400).stdout
     except subprocess.TimeoutExpired as e:
         out = (e.stdout or b"").decode() if isinstance(e.stdout, bytes) else (e.stdout or "")
         out += "\nTIMEOUT"

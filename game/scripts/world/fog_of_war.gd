@@ -87,7 +87,7 @@ func update_now() -> void:
 				var owner: Player = Player.by_index.get(player_team)
 				var sharper := owner.bonus(object.guid, "sight_pct") if owner else 0.0  # tower Sight upgrades
 				_reveal(object.footprint_rect().get_center(), BUILDING_SIGHT * (1.0 + sharper / 100.0))
-		var now := Time.get_ticks_msec()
+		var now := Sim.msec()
 		_reveals = _reveals.filter(func(r: Dictionary) -> bool: return r.until > now)
 		for r in _reveals:
 			_reveal(r.at, r.radius)
@@ -103,7 +103,7 @@ var _reveals: Array[Dictionary] = []
 
 
 func reveal_for(point: Vector2, radius_px: float, seconds: float) -> void:
-	_reveals.append({"at": point, "radius": radius_px, "until": Time.get_ticks_msec() + seconds * 1000.0})
+	_reveals.append({"at": point, "radius": radius_px, "until": Sim.msec() + seconds * 1000.0})
 	update_now()
 
 

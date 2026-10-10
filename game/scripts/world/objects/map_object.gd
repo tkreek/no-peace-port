@@ -45,6 +45,7 @@ const GROUND_Z := FIELD_Z - 1
 static var all_objects: Array[MapObject] = []
 var _sim_on := false
 var _sim_listed := false
+var sim_id := 0  ## names the object in orders (Sim.identify)
 ## Buildings and fields: the few hundred objects worth scanning (all_objects also holds the
 ## thousands of trees, rocks and mines).
 static var structures: Array[MapObject] = []
@@ -161,6 +162,7 @@ func capture(new_owner: int) -> void:
 
 func _enter_tree() -> void:
 	if not is_ghost:
+		Sim.identify(self)
 		all_objects.append(self)
 		if is_building() or is_field():
 			structures.append(self)
@@ -174,6 +176,7 @@ func _exit_tree() -> void:
 
 ## Off the lists (the node may live on a moment longer, fading out or freed).
 func forget() -> void:
+	Sim.forget(self)
 	all_objects.erase(self)
 	structures.erase(self)
 	abandoned_stores.erase(self)

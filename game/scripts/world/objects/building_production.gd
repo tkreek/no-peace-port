@@ -159,41 +159,67 @@ static func is_trade(item: int) -> bool:
 	return item >= TRADE_GUID and item < TRADE_GUID + TRADES.size()
 
 
+## Whether `item` could be queued now (what enqueue checks, without paying).
+func can_enqueue(item: int) -> bool:
+	var price := _price(item)
+	return not price.is_empty() and owner().can_afford(price.cost)
+
+
 ## Pay for `item` and add it to the queue; false when it cannot be had now.
 func enqueue(item: int) -> bool:
+	var price := _price(item)
+	if price.is_empty() or not owner().spend(price.cost):
+		return false
+	if is_trade(item):
+		_trade_terms.append(price.cost)
+	queue.append(item)
+	return true
+
+
+## {"cost": what `item` takes now}, or {} when it cannot be queued at all.
+func _price(item: int) -> Dictionary:
 	var player := owner()
 	if queue.size() >= QUEUE_LIMIT or player == null:
-		return false
+		return {}
 	var stats := GameData.stats(item)
 	if stats.get("kind") == "upgrade":
-		if not player.can_research(item) or not player.spend(stats.get("cost", {})):
-			return false
-	elif is_trade(item):
+		return {"cost": stats.get("cost", {})} if player.can_research(item) else {}
+	if is_trade(item):
 		# Buying pays the gold now; selling hands over the goods now; the other side of the
 		# deal arrives when the trade completes.
 		if queue.size() >= TRADE_QUEUE_LIMIT:
-			return false
+			return {}
 		var trade: Dictionary = TRADES[item - TRADE_GUID]
-		var paid := {"gold": player.buy_price(trade.good)} if trade.buy else {trade.good: Player.TRADE_PACKAGE[trade.good]}
-		if not player.spend(paid):
-			return false
-		_trade_terms.append(paid)
-	elif item == COW_GUID or item == GUN_GUID:
-		if not player.spend(stats.cost):
-			return false
-	elif item == HORSE_GUID:
-		if int(player.resources.get("horses", 0)) + player.queued_horses() >= player.horse_capacity() \
-				or not player.spend(stats.cost):
-			return false
-	else:
-		if item in Player.COMMANDERS and player.has_commander():
-			return false
-		var cost: Dictionary = stats.get("cost", {}).duplicate()
-		cost.erase("population")
-		if not player.has_room() or not player.spend(cost):
-			return false
-	queue.append(item)
-	return true
+		return {"cost": {"gold": player.buy_price(trade.good)} if trade.buy else {trade.good: Player.TRADE_PACKAGE[trade.good]}}
+	if item == COW_GUID or item == GUN_GUID:
+		return {"cost": stats.cost}
+	if item == HORSE_GUID:
+		if int(player.resources.get("horses", 0)) + player.queued_horses() >= player.horse_capacity():
+			return {}
+		return {"cost": stats.cost}
+	if item in Player.COMMANDERS and player.has_commander():
+		return {}
+	var cost: Dictionary = stats.get("cost", {}).duplicate()
+	cost.erase("population")
+	return {"cost": cost} if player.has_room() else {}
+
+
+## The assembly location for what this building trains.
+func set_rally(point: Vector2) -> void:
+	rally_point = point
+
+
+func set_distilling(on: bool) -> void:
+	distilling = on
+
+
+## The saloon's look over the land: lifts the fog round `point` for a while, for its owner.
+func look(point: Vector2) -> void:
+	if building.guid != SALOON or Sim.msec() < look_ready_at:
+		return
+	look_ready_at = Sim.msec() + LOOK_RECHARGE * 1000.0
+	if FogOfWar.current and building.owner_index == Orders.local_player:
+		FogOfWar.current.reveal_for(point, 450.0, 20.0)
 
 
 ## Take entry `index` off the queue and refund what it cost.

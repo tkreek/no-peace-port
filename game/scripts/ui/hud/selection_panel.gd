@@ -301,7 +301,7 @@ func _refresh_queue(building: MapObject) -> void:
 			card.position = Vector2(i * CARD_STEP * scale + (8 * scale if i > 0 else 0.0), 0)
 			card.tooltip_text = "%s\nClick to cancel" % GameData.stats(queue[i]).get("name", "?")
 			var index := i
-			card.pressed.connect(func() -> void: building.production.cancel(index))
+			card.pressed.connect(func() -> void: Orders.building(building, "cancel", [index]))
 			_queue_box.add_child(card)
 			_queue_box.move_child(card, 0)  # later orders tuck in behind the first
 		for i in quartered.size():
@@ -309,7 +309,7 @@ func _refresh_queue(building: MapObject) -> void:
 			var card := _card(unit.unit_type.guid(), CARD_SIZE * 0.8 * scale, unit.unit_type.type_id)
 			card.position = Vector2(i * (CARD_SIZE * 0.8 + 3) * scale, 0)
 			card.tooltip_text = "%s\nClick to leave quarters" % unit.display_name()
-			card.pressed.connect(func() -> void: building.defence.release(unit))
+			card.pressed.connect(func() -> void: Orders.building(building, "release", [unit]))
 			_queue_box.add_child(card)
 		if not queue.is_empty():
 			var bar := HudStyle.progress_bar(Color(0.4, 0.7, 1.0))

@@ -139,9 +139,9 @@ func refresh() -> void:
 		_add_building_commands(building)
 	if building and building.owner_index == hud.player.index:
 		if not building.defence.garrison.is_empty():
-			_add_icon(extra_icons, ICON_LEAVE, "Move units from quarters (L)", func() -> void: building.defence.release())
+			_add_icon(extra_icons, ICON_LEAVE, "Move units from quarters (L)", func() -> void: Orders.building(building, "release"))
 		_add_icon(extra_icons, ICON_DEMOLISH, "Demolish (Del)" if building.complete \
-				else "Demolish (Del) — refunds the unbuilt part", func() -> void: building.condition.demolish())
+				else "Demolish (Del) — refunds the unbuilt part", func() -> void: Orders.building(building, "demolish"))
 	layout(hud.command_area())
 
 
@@ -189,12 +189,12 @@ func _add_unit_commands(units: Array, builders: Array, farmers: Array, fighters:
 					{"point": "spot", "unit": "unit to protect", "enemy": "enemy to convert"}[info.target]])
 	if units.all(func(u: Unit) -> bool: return u.riding.can_dismount()):
 		_add_icon(command_icons, ICON_DISMOUNT, "Dismount: the horse can be led into a corral, hacienda or ranch",
-				func() -> void: for_each_selected(func(u: Unit) -> void: u.dismount()))
+				func() -> void: Orders.units(_units(), "dismount"))
 	if units.all(func(u: Unit) -> bool: return u.stealth.can_hide()):
 		var assassin := units.any(func(u: Unit) -> bool: return u.unit_type.guid() == UnitStealth.ASSASSIN)
 		_add_icon(extra_icons, ICON_HIDE, "Dig in: wait hidden and stab passers-by" if assassin \
 				else "Camouflage: blend into the landscape until given another order",
-				func() -> void: for_each_selected(func(u: Unit) -> void: u.conceal()))
+				func() -> void: Orders.units(_units(), "conceal"))
 	if units.all(func(u: Unit) -> bool: return u.water.is_carrier()) \
 			and units.any(func(u: Unit) -> bool: return not u.water.passengers.is_empty()):
 		_add_icon(extra_icons, ICON_LEAVE, "Remove units (U): the guards climb out" if units.all(func(u: Unit) -> bool: return not u.water.is_boat())
@@ -216,7 +216,8 @@ func _add_unit_commands(units: Array, builders: Array, farmers: Array, fighters:
 func _add_building_commands(building: MapObject) -> void:
 	var production := building.production
 	var enqueue := func(item: int) -> void:
-		if production.enqueue(item):
+		if production.can_enqueue(item):
+			Orders.building(building, "enqueue", [item])
 			return
 		var stats := GameData.stats(item)
 		var cost: Dictionary = stats.get("cost", {}).duplicate()
@@ -251,13 +252,15 @@ func _add_building_commands(building: MapObject) -> void:
 				"Invoke warrior spirit: every fighting unit gains %d%% morale for %d s\nCosts %d magic energy (see the tepee's energy)" % [
 				roundi(BuildingProduction.SPIRIT_BOOST[spirit - 1] * 100), BuildingProduction.SPIRIT_SECONDS,
 				BuildingProduction.SPIRIT_COST], "", func() -> void:
-					if not production.invoke_spirit():
-						Sound.play_sound(CANNOT))
+					if production.spirit_energy < BuildingProduction.SPIRIT_COST:
+						Sound.play_sound(CANNOT)
+					else:
+						Orders.building(building, "invoke_spirit"))
 	if building.guid == BuildingProduction.DISTILLERY_GUID:
 		_add_icon(command_icons, ICON_STOP, "Stop distilling (keeps the wood)" if production.distilling \
 				else "Start distilling again (%d wood into %d food every %d s)" % [BuildingProduction.DISTILL_WOOD,
 				BuildingProduction.DISTILL_FOOD, BuildingProduction.DISTILL_SECONDS], func() -> void:
-					production.distilling = not production.distilling
+					Orders.building(building, "set_distilling", [not production.distilling])
 					signature = "", not production.distilling)
 	if not production.trainable_units().is_empty():
 		_add_icon(extra_icons, ICON_RALLY, "Specify assembly location (I)",
@@ -480,26 +483,19 @@ func open_build_menu(menu: String) -> void:
 	signature = ""
 
 
-func for_each_selected(order: Callable) -> void:
-	for u in _units():
-		order.call(u)
-
-
 func set_stance(stance: Unit.Stance) -> void:
-	for_each_selected(func(u: Unit) -> void:
-		if not u.unit_type.attack_anims.is_empty():
-			u.set_stance(stance))
+	Orders.units(_units().filter(func(u: Unit) -> bool: return not u.unit_type.attack_anims.is_empty()), "set_stance", [stance])
 	signature = ""
 
 
 func set_formation(formation: Unit.Formation) -> void:
-	for_each_selected(func(u: Unit) -> void: u.formation = formation)
-	hud.selection.reform()
+	Orders.units(_units(), "set_formation", [formation])
+	hud.selection.reform(formation)
 	signature = ""
 
 
 func stop_selection() -> void:
-	for_each_selected(func(u: Unit) -> void: u.stop())
+	Orders.units(_units(), "stop")
 
 
 ## Place the tepee the first loaded travois in the selection carries.
@@ -513,9 +509,9 @@ func unpack_tepee() -> void:
 
 
 func unload_boats() -> void:
-	for_each_selected(func(u: Unit) -> void:
+	for u: Unit in _units():
 		if u.water.is_carrier():
-			u.unload_at(u.position))
+			Orders.unit(u, "unload_at", [u.position])
 
 
 func _all_travois() -> bool:
@@ -537,7 +533,7 @@ func handle_key(key: int) -> bool:
 				selection.begin_targeting("patrol" if key == KEY_Z else "follow")
 		KEY_DELETE:
 			if ours:
-				building.condition.demolish()
+				Orders.building(building, "demolish")
 		KEY_U:
 			if not units.any(func(u: Unit) -> bool: return u.water.is_carrier()):
 				return false
@@ -551,7 +547,7 @@ func handle_key(key: int) -> bool:
 			if _all_travois():
 				unpack_tepee()
 			elif ours:
-				building.defence.release()
+				Orders.building(building, "release")
 		KEY_I:
 			if ours:
 				selection.begin_targeting("rally")

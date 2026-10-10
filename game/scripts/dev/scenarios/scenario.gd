@@ -41,6 +41,12 @@ func _nearest_mine(from: Vector2) -> MapObject:
 	return best
 
 
+## Wait until the orders just given have been carried out (Orders: on a coming game step).
+func _orders_landed() -> void:
+	for i in Orders.delay + 1:
+		await get_tree().physics_frame
+
+
 ## Click the mouse at a map point the way a player does: the camera centres on it and the
 ## press and release go through the input system (selection, orders, the build ghost). The
 ## interface is hidden meanwhile: headless, the window is too small to see past it.

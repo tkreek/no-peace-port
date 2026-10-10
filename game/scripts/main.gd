@@ -16,6 +16,8 @@ extends Node2D
 ##   --ai-vs-ai=1  computer controls player 1 as well
 ##   --report-after=<frames>  print stockpiles every 300 frames, then quit (use --fixed-fps)
 ##   --seed=n  the game's randomness; --checksum-every=<s>  print a state fingerprint (Sim)
+##   --record=<file>  keep the match's orders (written on leaving); --replay=<file>  play them
+##     back instead of the player's (start it with the same map and peoples)
 ##   --camera=x,y  --zoom=z  --order=x,y (screenshot move target)  --debug-paths=1
 
 const DEFAULT_MAP := "[2 Players] - close combat.ulf"
@@ -74,9 +76,13 @@ func _ready() -> void:
 	if map == null:
 		_show_message("Could not load map %s" % map_path)
 		return
-	# The game's randomness: --seed=n for a repeatable run (scenarios default to 1).
+	# The game's randomness: --seed=n for a repeatable run (scenarios default to 1); a replay
+	# brings its own, and its orders instead of the player's.
 	var default_seed := "1" if GameData.cmdline_option("scenario") != "" else str(randi())
-	Sim.reset(GameData.cmdline_option("seed", default_seed).to_int())
+	var replay := Orders.read_replay(GameData.cmdline_option("replay"))
+	Sim.reset(int(replay.seed) if not replay.is_empty() else GameData.cmdline_option("seed", default_seed).to_int())
+	if not replay.is_empty():
+		Orders.play(replay)
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF  # the camera and interface move per frame
 	units_root.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON  # the game moves per step
 
@@ -143,6 +149,8 @@ func _ready() -> void:
 	build_controller.player = players[1]
 	build_controller.selection = selection
 	build_controller.objects_root = units_root
+	Orders.build_controller = build_controller
+	Orders.local_player = 1  # the interface gives player 1's orders
 	add_child(build_controller)  # after the selection controller, so it sees clicks first
 	build_controller.placed.connect(_on_building_placed)
 	for object in MapObject.structures:
@@ -229,6 +237,11 @@ func _grow_forests(map: AlfMap) -> void:
 		units_root.add_child(object)
 		nav.block_footprint(type, tree.position)
 	print("Grew %d forest trees in %d ms" % [trees.size(), Time.get_ticks_msec() - started])
+
+
+func _exit_tree() -> void:
+	if GameData.cmdline_option("record") != "":
+		Orders.write_replay(GameData.cmdline_option("record"))
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -399,6 +412,7 @@ var game_time: float:
 		Sim.tick = roundi(value * Sim.RATE)
 const VICTORY_CHECK_TICKS := Sim.RATE * 2
 ## --checksum-every=<seconds>: print the state's fingerprint (compare runs for determinism).
+var _dump_tick := GameData.cmdline_option("dump-at", "-1").to_int()  # --dump-at=<step>: every unit's state
 var _checksum_ticks := roundi(GameData.cmdline_option("checksum-every", "0").to_float() * Sim.RATE)
 
 
@@ -409,6 +423,12 @@ func _physics_process(_delta: float) -> void:
 		_check_victory()
 	if _checksum_ticks > 0 and Sim.tick % _checksum_ticks == 0:
 		print("tick %d checksum %s" % [Sim.tick, Sim.checksum()])
+	if _dump_tick >= 0 and Sim.tick >= _dump_tick and Sim.tick % 10 == 0:
+		for unit in Unit.all_units:
+			print("dump t%d #%d %s team %d at %s hp %.2f state %d path %d" % [Sim.tick, unit.sim_id, unit.unit_type.guid(), unit.team,
+					unit.position, unit.health, unit.state, unit.path.size()])
+		for index in Player.by_index:
+			print("dump people %d %s" % [index, Player.by_index[index].resources])
 
 
 func _vector_option(name: String, default: Vector2) -> Vector2:

@@ -104,6 +104,7 @@ func _scenario_hunt() -> void:
 	var hunters := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() == hunter_guid)
 	main.selection._select(hunters, false)
 	main.selection.order_at(buffalo.position + Vector2(0, -12))  # a right click on it
+	await _orders_landed()
 	print("hunt order marks the prey: %s, hunters on it %s" % [buffalo._flash_time > 0.0,
 			hunters.all(func(h: Unit) -> bool: return h.target == buffalo)])
 	var food: int = main.players[1].resources.food
@@ -487,6 +488,7 @@ func _scenario_buildqueue() -> void:
 			var spot := (hq.position + Vector2(radius, 0).rotated(k * TAU / 16.0)).snapped(Vector2(16, 16))
 			if sites.size() < 3 and main.build_controller.is_placing() and main.build_controller.can_place(spot):
 				main.build_controller._place(spot, true)
+				await _orders_landed()
 				sites.append(MapObject.structures[-1])
 	main.build_controller.cancel()
 	var order := []

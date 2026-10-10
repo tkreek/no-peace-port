@@ -33,6 +33,7 @@ static var debug_paths := false
 static var all_units: Array[Unit] = []
 var _sim_on := false
 var _sim_listed := false
+var sim_id := 0  ## names the unit in orders (Sim.identify)
 
 var team := 1
 var max_health := 100.0
@@ -95,12 +96,14 @@ func setup(type: UnitType, team_index: int) -> void:
 	ring_on_top = water.is_boat()
 	_parts = [riding, animal, magic, work, tepees, water, stealth, saboteur]
 	all_units.append(self)
+	Sim.identify(self)
 	Sim.activate(self)
 	play("idle")
 
 
 func _exit_tree() -> void:
 	all_units.erase(self)
+	Sim.forget(self)
 	UnitGrid.invalidate()  # never hand out a unit that is gone
 
 
@@ -229,8 +232,8 @@ func _base_morale() -> float:
 	if team <= 0:
 		return 1.0
 	var now := Sim.time()
-	if now - _morale_timer < 0.5:
-		return _morale
+	if now - _morale_timer < 0.5 or not Sim.stepping:
+		return _morale  # the interface only reads it: refreshed on game steps alone
 	_morale_timer = now
 	var player: Player = Player.by_index.get(team)
 	if player == null:
@@ -370,6 +373,16 @@ func attack(enemy: Node2D, ordered := false) -> void:
 	inside = false
 	state = State.ATTACKING
 	path.clear()
+
+
+## The player's attack order; `at_horse` aims at a rider's horse rather than the rider.
+func order_attack(enemy: Node2D, at_horse := false) -> void:
+	attack(enemy, true)
+	riding.aim_at_horse = at_horse
+
+
+func set_formation(value: Formation) -> void:
+	formation = value
 
 
 func stop() -> void:

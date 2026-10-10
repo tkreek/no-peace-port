@@ -167,6 +167,7 @@ func _scenario_orders() -> void:
 	main.selection._select(squad.slice(0, 2), false)
 	main.selection.begin_targeting("follow")
 	main.selection._give_targeted(leader.position)
+	await _orders_landed()
 	leader = squad[0].follow_target
 	leader.move_to(leader.position + Vector2(-250, 0))
 	await get_tree().create_timer(8.0).timeout
@@ -256,4 +257,47 @@ func _scenario_poplimit() -> void:
 			break
 	print("population %d / %d: warned on filling %d, on a train order %d" % [player.population(), player.population_limit(),
 			filled, main.hud.population_warnings - before - filled])
+	get_tree().quit()
+
+
+## Nothing but a player's orders, given through the interface for 90 s (for --record and
+## --replay, which must end in the same game): workers gather and build houses, the main
+## building trains, soldiers and workers are sent about, stances change.
+func _scenario_commands() -> void:
+	var hq: MapObject = main.players[1].main_building()
+	var picker := RandomNumberGenerator.new()
+	picker.seed = 3
+	var house_guid: int = {"mex": 201, "usa": 401, "des": 301, "ind": 101}[main.players[1].faction]
+	var house := ObjectTypes.get_type(GameData.type_for_guid(house_guid, main.terrain.biome))
+	for round in 45:
+		await get_tree().create_timer(2.0).timeout
+		var own := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 1 and u.is_alive())
+		if own.is_empty() or not is_instance_valid(hq):
+			break
+		var some := own.slice(0, picker.randi_range(1, own.size()))
+		match round % 5:
+			0:
+				main.selection._select(some, false)
+				main.selection.order_at(hq.position + Vector2(picker.randf_range(-400, 400), picker.randf_range(150, 400)))
+			1:
+				var trees := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.is_tree() and o.stock.amount > 0)
+				trees.sort_custom(func(a: MapObject, b: MapObject) -> bool:
+					return a.position.distance_to(hq.position) < b.position.distance_to(hq.position))
+				main.selection._select(own.filter(func(u: Unit) -> bool: return u.unit_type.can_gather("wood")), false)
+				main.selection.order_gather(trees[picker.randi_range(0, mini(5, trees.size() - 1))])
+			2:
+				main.selection.select_building(hq)
+				var guid: int = hq.production.trainable_units()[picker.randi_range(0, 1)]
+				if hq.production.can_enqueue(guid):
+					Orders.building(hq, "enqueue", [guid])
+			3:
+				main.selection._select(own.filter(func(u: Unit) -> bool: return u.unit_type.can_build()), false)
+				main.build_controller.start(house.id)
+				var spot := AiBuilder.find_spot(house, hq.position, 220 + round * 8)
+				if spot != Vector2.INF and main.build_controller.can_place(spot):
+					main.build_controller._place(spot, false)
+				main.build_controller.cancel()
+			4:
+				main.selection._select(some, false)
+				main.hud.commands.set_stance(picker.randi_range(0, 2))
 	get_tree().quit()

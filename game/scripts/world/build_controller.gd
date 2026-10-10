@@ -57,27 +57,38 @@ func _process(_delta: float) -> void:
 
 
 func can_place(at: Vector2) -> bool:
+	return can_place_for(placing_type, at, player.index, _unpacker != null)
+
+
+## Whether people `owner` may put a site of `type` at `at` now (`free`: an unpacked tepee).
+static func can_place_for(type: ObjectTypes.ObjectType, at: Vector2, owner: int, free := false) -> bool:
 	var nav := NavGrid.current
-	var rect := MapObject.footprint_rect_for(placing_type, at)
+	var rect := MapObject.footprint_rect_for(type, at)
 	var origin := nav.cell_of(rect.position)
-	for i in placing_type.footprint_cells.size():
-		if (placing_type.footprint_cells[i] & NavGrid.BLOCKED) == 0:
+	for i in type.footprint_cells.size():
+		if (type.footprint_cells[i] & NavGrid.BLOCKED) == 0:
 			continue
-		var cell := origin + Vector2i(i % placing_type.footprint_grid.x, i / placing_type.footprint_grid.x)
-		if not nav.can_build_on(cell, placing_type.footprint_cells[i]):
+		var cell := origin + Vector2i(i % type.footprint_grid.x, i / type.footprint_grid.x)
+		if not nav.can_build_on(cell, type.footprint_cells[i]):
 			return false
 	for unit in Unit.all_units:
-		if unit.is_alive() and unit.team != player.index and rect.has_point(unit.position):
+		if unit.is_alive() and unit.team != owner and rect.has_point(unit.position):
 			return false
-	if GameData.guid_for_type(placing_type.id) == MapObject.FIELD_GUID and MapObject.field_allowance(player.index) <= 0:
+	var guid := GameData.guid_for_type(type.id)
+	if guid == MapObject.FIELD_GUID and MapObject.field_allowance(owner) <= 0:
 		return false
-	if GameData.guid_for_type(placing_type.id) in MapObject.SHIPYARDS and not MapObject.by_water(placing_type, at):
+	if guid in MapObject.SHIPYARDS and not MapObject.by_water(type, at):
 		return false
-	return _unpacker != null or player.can_afford(_cost())
+	var people: Player = Player.by_index.get(owner)
+	return free or (people != null and people.can_afford(_cost_of(type)))
 
 
 func _cost() -> Dictionary:
-	var cost: Dictionary = GameData.stats(GameData.guid_for_type(placing_type.id)).get("cost", {}).duplicate()
+	return _cost_of(placing_type)
+
+
+static func _cost_of(type: ObjectTypes.ObjectType) -> Dictionary:
+	var cost: Dictionary = GameData.stats(GameData.guid_for_type(type.id)).get("cost", {}).duplicate()
 	cost.erase("population")
 	return cost
 
@@ -96,46 +107,60 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
+## A left click with the ghost: the order to put the site there (Orders) is given once the
+## spot and the stockpile allow it.
 func _place(at: Vector2, keep_placing: bool) -> void:
 	var unpacker := _unpacker
 	if unpacker == null and player.alert_shortage(_cost()):
 		return
-	if not can_place(at) or (unpacker == null and not player.spend(_cost())):
+	if not can_place(at):
 		Sound.play_sound(CANNOT_BUILD_SOUND)
 		return
 	if unpacker != null and not is_instance_valid(unpacker):
 		cancel()
 		return
+	var builders := selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+	Orders.place(placing_type.id, at, keep_placing, unpacker, builders)
+	var type_id := placing_type.id
+	cancel()
+	if keep_placing and unpacker == null:
+		start(type_id)
+
+
+## Carry out a placing order (on a game step): pay, put the site down, move aside whoever
+## stands on it, and send the builders; or the travois `unpacker` sets up its tepee there.
+func place_site(owner: int, type_id: int, at: Vector2, keep_placing: bool, unpacker: Unit, builders: Array) -> MapObject:
+	var type := ObjectTypes.get_type(type_id)
+	var people: Player = Player.by_index.get(owner)
+	if type == null or people == null or not can_place_for(type, at, owner, unpacker != null):
+		return null
+	if unpacker == null and not people.spend(_cost_of(type)):
+		return null
 	var site := MapObject.new()
 	site.position = at
-	if not site.setup(placing_type, player.index, 0, true):
+	if not site.setup(type, owner, 0, true):
 		site.free()
-		return
+		return null
 	objects_root.add_child(site)
 	var is_field := site.is_field() or site.is_trap()  # neither blocks the way
 	if not is_field:
-		NavGrid.current.block_footprint(placing_type, at)
+		NavGrid.current.block_footprint(type, at)
 	# Units now standing inside the footprint step out to the nearest free cell.
 	for unit in Unit.all_units:
 		if not is_field and site.footprint_rect().has_point(unit.position) and not unit.inside:
 			var cell := NavGrid.current.nearest_walkable(NavGrid.current.cell_of(unit.position), 24, unit.water.nav_layer())
 			unit.position = (Vector2(cell) + Vector2(0.5, 0.5)) * NavGrid.CELL
+			unit.reset_physics_interpolation()
 	if unpacker:
 		unpacker.unpack(site)
 		placed.emit(site)
-		cancel()
-		return
-	for unit in selection.selection:
-		if is_instance_valid(unit) and unit.is_alive():
-			if is_field:
-				unit.gather(site)
-			elif keep_placing:
-				unit.work.queue_build(site)
-			else:
-				unit.build(site)
+		return site
+	for unit: Unit in builders:
+		if is_field:
+			unit.gather(site)
+		elif keep_placing:
+			unit.work.queue_build(site)
+		else:
+			unit.build(site)
 	placed.emit(site)
-	var type_id := placing_type.id
-	cancel()
-	if keep_placing:
-		start(type_id)
-
+	return site

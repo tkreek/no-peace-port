@@ -78,14 +78,14 @@ func _give_targeted(world: Vector2) -> void:
 			on_unit = _unit_at(world, false)
 		for unit: Unit in units:
 			if spell in unit.magic.known_spells():
-				unit.cast(spell, world, on_unit)
+				Orders.unit(unit, "cast", [spell, world, on_unit])
 				break  # one caster is enough
 		OrderMarker.spawn(units_root, world, player_team)
 		return
 	match command:
 		"patrol":
 			for unit: Unit in units:
-				unit.patrol(world + (unit.position - _centre(units)))
+				Orders.unit(unit, "patrol", [world + (unit.position - _centre(units))])
 			OrderMarker.spawn(units_root, world, player_team)
 		"follow":
 			var leader := _unit_at(world)
@@ -93,15 +93,14 @@ func _give_targeted(world: Vector2) -> void:
 				leader = _unit_at(world, false)
 			if leader:
 				leader.flash(Color(0.5, 0.9, 1.0))
-				for unit: Unit in units:
-					unit.follow(leader)
+				Orders.units(units, "follow", [leader])
 		"pack":
 			var tepee := _building_at(world)
 			if tepee and tepee.guid in UnitTepees.TEPEES and tepee.complete:
 				var travois := units.filter(func(u: Unit) -> bool: return u.tepees.can_pack() and u.tepees.packed.is_empty())
 				travois.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.distance_to(tepee.position) < b.position.distance_to(tepee.position))
 				if not travois.is_empty():
-					travois[0].pack(tepee)
+					Orders.unit(travois[0], "pack", [tepee])
 					tepee.flash()
 		"quarters":
 			var building := _building_at(world)
@@ -117,12 +116,10 @@ func _give_targeted(world: Vector2) -> void:
 		"look":
 			var saloon := selected_building
 			if is_instance_valid(saloon) and saloon.guid == BuildingProduction.SALOON and Sim.msec() >= saloon.production.look_ready_at:
-				saloon.production.look_ready_at = Sim.msec() + BuildingProduction.LOOK_RECHARGE * 1000.0
-				if FogOfWar.current:
-					FogOfWar.current.reveal_for(world, 450.0, 20.0)
+				Orders.building(saloon, "look", [world])
 		"rally":
 			if is_instance_valid(selected_building) and selected_building.is_building():
-				selected_building.production.rally_point = world
+				Orders.building(selected_building, "set_rally", [world])
 				OrderMarker.spawn(units_root, world, player_team)
 	if not units.is_empty() and command != "rally":
 		Sound.play_event(units[0].unit_type.guid(), Sound.Event.ORDER)
@@ -223,8 +220,7 @@ func order_at(world: Vector2, ctrl := false) -> void:
 		order_build(site)
 	elif site and site.guid in BuildingProduction.ANIMAL_PROCESSING and site.complete \
 			and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_cow()):
-		for cow: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_cow()):
-			cow.animal.deliver(site)
+		Orders.units(selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_cow()), "deliver", [site])
 		site.flash()
 	elif site and site.is_gold_warehouse() and site.complete and selection.any(_is_transport):
 		order_haul(site)
@@ -234,42 +230,35 @@ func order_at(world: Vector2, ctrl := false) -> void:
 		order_quarters(site)
 	elif animal and animal.animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.may_hunt_horses()):
 		# Hunters (but not the Native Americans') shoot the horse for its meat.
-		for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.may_hunt_horses()):
-			unit.hunt(animal)
+		Orders.units(selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.may_hunt_horses()), "hunt", [animal])
 		animal.flash(Color(1.0, 0.35, 0.3))
 		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	elif animal and animal.animal.is_horse() and animal.is_alive() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.riding.can_mount()):
 		# Mount the wild horse: the nearest unit that can ride takes it.
 		var riders := selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.riding.can_mount())
 		riders.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.distance_to(animal.position) < b.position.distance_to(animal.position))
-		riders[0].mount(animal)
+		Orders.unit(riders[0], "mount", [animal])
 		animal.flash(Color(1.0, 0.9, 0.4))
 		Sound.play_event(riders[0].unit_type.guid(), Sound.Event.ORDER)
 	elif site and site.guid in BuildingProduction.HORSE_BUILDINGS and site.complete \
 			and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_horse()):
-		for horse: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_horse()):
-			horse.animal.stable(site)
+		Orders.units(selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_horse()), "stable", [site])
 		site.flash()
 	elif animal and selection.any(func(u: Unit) -> bool: return u.unit_type.is_hunter()):
-		for unit in selection:
-			if is_instance_valid(unit) and unit.unit_type.is_hunter():
-				unit.hunt(animal)
+		Orders.units(selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.unit_type.is_hunter()), "hunt", [animal])
 		animal.flash(Color(1.0, 0.35, 0.3))  # marked as the target, like an attack order
 		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	elif enemy is MapObject and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.saboteur.can_sabotage(enemy)):
 		# Saboteurs go in to throw the defenders out or take the empty building.
-		for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.saboteur.can_sabotage(enemy)):
-			unit.sabotage(enemy)
+		Orders.units(selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.saboteur.can_sabotage(enemy)), "sabotage", [enemy])
 		enemy.flash(Color(1.0, 0.9, 0.4))
 		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	elif enemy is Unit and enemy.unit_type.is_transport() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_steal()):
-		for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_steal()):
-			unit.steal(enemy)
+		Orders.units(selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_steal()), "steal", [enemy])
 		enemy.flash(Color(1.0, 0.9, 0.4))
 		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	elif enemy is MapObject and UnitWork.loot_of(enemy) > 0 and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_rob()):
-		for unit: Unit in selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_rob()):
-			unit.rob(enemy)
+		Orders.units(selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_rob()), "rob", [enemy])
 		enemy.flash(Color(1.0, 0.9, 0.4))
 		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	elif enemy:
@@ -295,11 +284,8 @@ func _water_order(world: Vector2) -> bool:
 	var loaded := units.filter(func(u: Unit) -> bool: return u.water.is_boat() and not u.water.passengers.is_empty())
 	var nav := NavGrid.current
 	if not loaded.is_empty() and nav and nav.is_walkable(nav.cell_of(world)) and not nav.is_water(nav.cell_of(world)):
-		for u: Unit in loaded:
-			u.unload_at(world)
-		for u: Unit in units:
-			if u not in loaded:
-				u.move_to(world)
+		Orders.units(loaded, "unload_at", [world])
+		Orders.units(units.filter(func(u: Unit) -> bool: return u not in loaded), "move_to", [world])
 		OrderMarker.spawn(units_root, world, player_team)
 		Sound.play_event(loaded[0].unit_type.guid(), Sound.Event.ORDER)
 		return true
@@ -320,10 +306,9 @@ func order_board(boat: Unit, walkers: Array) -> void:
 		var centre := _centre(walkers)
 		var shore := nav.nearest_passable(nav.cell_of(centre), 40, NavGrid.Layer.WATER)
 		if shore.x >= 0 and nav.center_of(shore).distance_to(boat.position) > UnitWater.BOARD_REACH:
-			boat.move_to(nav.center_of(shore))
+			Orders.unit(boat, "move_to", [nav.center_of(shore)])
 	walkers.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.distance_to(boat.position) < b.position.distance_to(boat.position))
-	for unit: Unit in walkers.slice(0, room):
-		unit.board(boat)
+	Orders.units(walkers.slice(0, room), "board", [boat])
 
 
 func _draw() -> void:
@@ -396,8 +381,7 @@ func order_haul(warehouse: MapObject) -> void:
 	var wagons := selection.filter(_is_transport)
 	warehouse.flash()
 	Sound.play_event(wagons[0].unit_type.guid(), Sound.Event.ORDER)
-	for wagon: Unit in wagons:
-		wagon.haul(warehouse)
+	Orders.units(wagons, "haul", [warehouse])
 
 
 ## Workers and women keep working; soldiers, hunters and commanders can take quarters
@@ -419,11 +403,7 @@ func order_quarters(building: MapObject) -> void:
 		Sound.play_named(FORT_CALLS[building.guid])
 	else:
 		Sound.play_event(units[0].unit_type.guid(), Sound.Event.ORDER)
-	for unit: Unit in units:
-		if room <= 0:
-			break
-		unit.take_quarters(building)
-		room -= 1
+	Orders.units(units.slice(0, room), "take_quarters", [building])
 
 
 ## Send the selected builders to help finish a construction site.
@@ -433,12 +413,10 @@ func order_build(site: MapObject) -> void:
 		return
 	site.flash()
 	Sound.play_event(builders[0].unit_type.guid(), Sound.Event.ORDER)
-	for unit: Unit in builders:
-		unit.build(site)
+	Orders.units(builders, "build", [site])
 	# Anyone else selected just walks over.
-	for unit in selection:
-		if is_instance_valid(unit) and unit.is_alive() and not _is_builder(unit, site.guid):
-			unit.move_to(site.position)
+	Orders.units(selection.filter(func(u: Unit) -> bool:
+		return is_instance_valid(u) and u.is_alive() and not _is_builder(u, site.guid)), "move_to", [site.position])
 
 
 func order_gather(source: MapObject) -> void:
@@ -448,8 +426,7 @@ func order_gather(source: MapObject) -> void:
 		return
 	source.flash()
 	Sound.play_event(gatherers[0].unit_type.guid(), Sound.Event.ORDER)
-	for unit: Unit in gatherers:
-		unit.gather(source)
+	Orders.units(gatherers, "gather", [source])
 
 
 func _enemy_building_at(point: Vector2) -> MapObject:
@@ -463,9 +440,7 @@ func order_attack(enemy: Node2D, at_horse := false) -> void:
 		return
 	enemy.flash(Color(1.0, 0.35, 0.3))
 	Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
-	for unit in selection:
-		unit.attack(enemy, true)
-		unit.riding.aim_at_horse = at_horse
+	Orders.units(selection, "order_attack", [enemy, at_horse])
 
 
 func _units_in(rect: Rect2) -> Array[Unit]:
@@ -549,7 +524,8 @@ func _select(units: Array, add: bool) -> void:
 		Sound.play_event(units[0].unit_type.guid(), Sound.Event.SELECT)
 
 
-func _order_move(target: Vector2) -> void:
+## `shape`: the formation to walk in, when not the units' own (it is being changed).
+func _order_move(target: Vector2, shape := -1) -> void:
 	selection = selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
 	var count := selection.size()
 	if count == 0:
@@ -563,17 +539,17 @@ func _order_move(target: Vector2) -> void:
 	# Keep each unit's relative slot stable: sort by projection onto the formation axes.
 	var ordered := selection.duplicate()
 	ordered.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.dot(-facing) < b.position.dot(-facing))
-	var slots := formation_slots(count, selection[0].formation)
+	var slots := formation_slots(count, selection[0].formation if shape < 0 else shape)
 	for i in count:
 		var offset := (side * slots[i].x - facing * slots[i].y) * FORMATION_SPACING
-		ordered[i].move_to(target + offset)
+		Orders.unit(ordered[i], "move_to", [target + offset])
 
 
 ## Re-form the selection on the spot in its new formation, facing down the screen.
-func reform() -> void:
+func reform(shape := -1) -> void:
 	var units := selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
 	if units.size() > 1:
-		_order_move(_centre(units))
+		_order_move(_centre(units), shape)
 
 
 ## Slot positions (x across, y back from the front, in spacing units) for `count` units.

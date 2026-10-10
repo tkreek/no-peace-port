@@ -10,26 +10,37 @@ extends RefCounted
 ##   - nodes that `activate` themselves get `sim_tick(TICK)` each step, in the order they
 ##     were first activated (they keep `_sim_on` and `_sim_listed` for this);
 ##   - `after` runs a call once a number of game seconds have passed;
-##   - `rng` is the only randomness the game itself may use, seeded per match.
+##   - `rng` is the only randomness the game itself may use, seeded per match;
+##   - units and placed objects get a `sim_id` (`identify`), the same on every machine, so
+##     orders (Orders) can name them; the players' orders are carried out first in each step.
 ## Purely cosmetic things (sounds, birds, the camera, the interface) keep using the frame.
 
 const RATE := 30
 const TICK := 1.0 / RATE
 
 static var tick := 0
+static var seed_value := 0  ## this match's seed
+## True while a step runs: caches the interface also reads refresh only then.
+static var stepping := false
 static var rng := RandomNumberGenerator.new()
 static var _nodes: Array[Node] = []
 static var _timers: Array[Array] = []  # [due tick, order, Callable], kept sorted
 static var _timer_count := 0
+static var _next_id := 0
+static var _by_id := {}  # sim_id -> node
 
 
 ## A new match: clock at zero, nothing ticking, randomness seeded.
-static func reset(seed_value: int) -> void:
+static func reset(match_seed: int) -> void:
 	tick = 0
+	seed_value = match_seed
 	_nodes.clear()
 	_timers.clear()
 	_timer_count = 0
-	rng.seed = seed_value
+	_next_id = 0
+	_by_id.clear()
+	rng.seed = match_seed
+	Orders.reset()
 	UnitGrid.invalidate()
 
 
@@ -71,6 +82,25 @@ static func set_active(node: Node, on: bool) -> void:
 		deactivate(node)
 
 
+## Give `node` (a unit or placed map object) its number for orders.
+static func identify(node: Node) -> void:
+	if node.sim_id != 0:
+		return
+	_next_id += 1
+	node.sim_id = _next_id
+	_by_id[_next_id] = node
+
+
+static func forget(node: Node) -> void:
+	_by_id.erase(node.sim_id)
+
+
+## The unit or object numbered `id`, or null when it is gone.
+static func find(id: int) -> Node:
+	var node: Node = _by_id.get(id)
+	return node if is_instance_valid(node) and not node.is_queued_for_deletion() else null
+
+
 ## Calls `callable` once `seconds` of game time have passed (on the step that reaches it).
 static func after(seconds: float, callable: Callable) -> void:
 	var due := tick + maxi(1, ceili(seconds * RATE - 0.0001))
@@ -84,6 +114,8 @@ static func after(seconds: float, callable: Callable) -> void:
 ## One step of the game.
 static func step() -> void:
 	tick += 1
+	stepping = true
+	Orders.run(tick)
 	while not _timers.is_empty() and _timers[0][0] <= tick:
 		var callable: Callable = _timers.pop_front()[2]
 		if callable.is_valid():
@@ -101,6 +133,7 @@ static func step() -> void:
 		elif is_instance_valid(node):
 			node._sim_listed = false
 	_nodes = kept
+	stepping = false
 
 
 ## A fingerprint of the game's state: every unit's place, health and doing, every building's

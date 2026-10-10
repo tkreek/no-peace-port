@@ -152,8 +152,9 @@ func _unit_stats(unit: Unit) -> Array:
 	if unit.team > 0:
 		stats.append([ICON_MORALE, "%d%%" % roundi(unit.morale() * 100), "Morale"])
 		stats.append([ICON_EXPERIENCE, "%d%%" % roundi(unit.experience * 100), "Experience"])
-	if UnitMagic.CASTERS.has(unit.unit_type.guid()):
-		stats.append([ICON_MAGIC, "%d/%d" % [unit.magic.magic_energy, unit.magic.magic_pool()], "Magic energy"])
+	if unit.magic.has_energy():
+		stats.append([ICON_MAGIC, "%d/%d" % [unit.magic.magic_energy, unit.magic.magic_pool()],
+				"Magic energy" if UnitMagic.CASTERS.has(unit.unit_type.guid()) else "Healing energy"])
 	if unit.work.carried > 0 and Player.RESOURCES.has(unit.work.carrying):
 		stats.append([Player.RESOURCES[unit.work.carrying].icon, "%d" % unit.work.carried, "Carrying %s" % unit.work.carrying])
 	if unit.water.is_carrier():

@@ -38,7 +38,7 @@ CHECKS = {
     "chain": (["--time-scale=4"], 0, [r"queued: idle worker building true with 1 waiting; cutter building true",
                                       r"chained: houses built true; then wood: idle worker true, cutter back at her tree true"]),
     "groups": ([], 0, [r"group 1 recalled: 3 of 3"]),
-    "heal": (["--faction=usa"], 0, [r"heal: life lost (\d+); healed 1[3-6]\d for 1[3-6]\d energy, energy now \d$"]),
+    "heal": (["--faction=usa"], 0, [r"heal: life lost (\d+); healed 1[3-6]\d for 1[3-6]\d energy, energy now \d\b"]),
     "magic": ([], 0, [r"conversion: target now team 1"]),
     "spells": (["--faction=ind"], 300, [r"spells ready: 2 medicine men with Eagle eye, Lightning dance, Hail dance, Rain dance, Protective dance; our field food 300, enemy field food 300, 5 enemies"]),
     "magic_ind": (["--faction=ind"], 0, [r"eagle eye: eagles circling 1", r"lightning: enemy energy", r"warrior shielded [1-9]"]),

@@ -141,8 +141,34 @@ stages and 2/3 for the finished building.
   prerequisites (tech tree).
 - `sfx/sfxguids.dat`: sound ID table, TODO.
 
+## Combat in the executable
+
+Read from the unprotected `AmericaAddOn.exe` on the expansion CD (`Crack/`; the installed
+one is packed and wrapped in a try-and-buy layer). Addresses are that file's.
+
+- Load (0x442b08): a map's `EIGENSCH` (9 blocks, neutral + 8 players, records
+  `{type, prop, value, use_default}`; only `use_default == 0` applies, and no skirmish map
+  has any) goes into per-player tables first, then `guids2/Defaults.bin` fills the rest.
+  The expansion reads only `guids2/`, never the base `Defaults.bin`.
+- Lookup (0x461900): a property that is not in the table reads as 0.
+- Unit setup (0x419e50, properties 107-120): HP = max(1, 107); walk speed =
+  `LaufenSpeed[110]`; sight = max(`Sichtweite[112]`, attack range); range =
+  `Reichweite[115]` (tier 0 = 64 px, hand to hand); minimum range = `MindestReichweite[120]`;
+  carry = max(1, 111); melee attack = 113 every `KampffrequenzNah[116]` x 10 ms. Tiers clamp
+  to the table (below 0: first value, past the end: last). 108, 109, 117 and 118 are never
+  read, nor DEFS.INI's `KampffrequenzFern`.
+- Fighters (every unit class but the workers, wagons, boats and healers in
+  `DefaultsData.WORKERS`) attack with max(1, 114) on a reload fixed by class (0x436c20):
+  1500 ms for guns and bows, 1000 ms otherwise (chiefs, spearmen, lancers, the hand-to-hand
+  heroes, the assassin), 2500 ms dynamite, 5000 ms cannons. Counters drop by 20 per 20 ms
+  tick, so the values are ms.
+- Damage on firing (0x436cc0) = attack + upgrade bonus, scaled by a few optional
+  percentages. The base `America.exe` has the same reloads and formula: the expansion
+  doubled most units' HP (54 of 87; heroes unchanged) but kept every attack value, so
+  fights take about twice as many hits.
+
 ## TODO
 - `.alf` `BITARRAY`/`PINSMATR`, `EIGENSCH` property ids, triggers and scripts.
 - Fonts, `.pk`.
-- `Defaults.bin`, `rules.def`, `sfxguids.dat`, `kimodules/*.mod`.
+- `rules.def`, `sfxguids.dat`, `kimodules/*.mod`.
 - `.bik` videos (Bink 1; ffmpeg can decode).

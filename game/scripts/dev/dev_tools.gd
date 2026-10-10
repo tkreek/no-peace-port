@@ -168,10 +168,10 @@ func selftest() -> void:
 			var ut := UnitType.for_guid(guid)
 			if ut == null:
 				continue
-			print("%d %-24s %-18s hp=%s m%s/r%s spd%s sight%s rng%s mr%s rr%s minr%s | hp%d dmg%d %s rng%d reload%d sight%d spd%d atk=%s walk=%s die=%s idle=%s cost=%s" % [
+			print("%d %-24s %-18s hp=%s m%s/r%s spd%s sight%s rng%s mr%s minr%s | hp%d dmg%d %s rng%d reload%d sight%d spd%d atk=%s walk=%s die=%s idle=%s cost=%s" % [
 				guid, s.get("name"), t.directory().get_file(), s.get("health"), s.get("melee"), s.get("ranged"),
 				s.get("speed_tier"), s.get("sight_tier"), s.get("range_tier"), s.get("melee_rate_tier"),
-				s.get("ranged_rate_tier"), s.get("min_range_tier"), ut.health, ut.damage,
+				s.get("min_range_tier"), ut.health, ut.damage,
 				"R" if ut.ranged else "M", ut.attack_range, ut.reload_ms, ut.sight, ut.speed,
 				Array(ut.attack_anims).map(func(i: int) -> String: return ut.bob.sub_sprites[ut.bob.anims[i].sub_sprite]),
 				_anim_file(ut, "walk"), _anim_file(ut, "die"), _anim_file(ut, "idle"), s.get("cost")])

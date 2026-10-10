@@ -314,10 +314,11 @@ func type_for_guid(guid: int, biome: String = "steppe") -> int:
 
 
 ## A game constant by tier, e.g. def_tier("sight_range", 2) (sight, ranges, attack rates,
-## walking speeds; from the original DEFS.INI).
+## walking speeds; from the original DEFS.INI). Like the original, a tier below the table
+## reads its first value and one past it its last.
 func def_tier(table: String, tier: int, fallback := 0) -> int:
 	var values: Array = _defs.get(table, [])
-	return int(values[tier]) if tier >= 0 and tier < values.size() else fallback
+	return int(values[clampi(tier, 0, values.size() - 1)]) if not values.is_empty() else fallback
 
 
 func maps_dir() -> String:

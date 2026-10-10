@@ -8,9 +8,28 @@ extends RefCounted
 ## points, 110 speed tier, 111 carry capacity, 112 sight tier, 113 melee attack, 114
 ## ranged attack, 115 range tier, 116/117 melee/ranged attack rate tiers, 119 living space,
 ## 120 minimum range tier. `properties` holds the values the editor shows ("+"), `values`
-## also the switched-off ones, which still carry rate and minimum range tiers.
+## also the switched-off ones. The "+" set is exactly the expansion game's own
+## guids2/Defaults.bin; the game reads a missing property as 0 and never reads the
+## switched-off values, nor 117 (see docs/technical/file-formats.md, "Combat in the
+## executable").
 
 const PATH := "data/defaults.json"
+
+## How often a fighter attacks, in ms. AmericaAddOn.exe hard-codes this per unit class
+## rather than reading the ranged rate (117) and DEFS.INI's KampffrequenzFern: 1500 for
+## units with a gun or bow, 1000 for the rest; the classes below are the exceptions.
+const FIGHTER_RELOAD_MS := 1500
+const RELOAD_MS := {
+	150: 1000, 151: 1000, 162: 1000, 259: 1000, 260: 1000, 266: 1000, 270: 1000, 271: 1000,
+	272: 1000, 273: 1000, 274: 1000, 275: 1000, 362: 1000, 454: 1000,  # chiefs, spearmen, lancers
+	359: 2500, 468: 2500,  # dynamite
+	265: 5000, 465: 5000,  # cannons
+}
+## Units of the game's worker classes: they hit with their melee attack (113) at the melee
+## rate (116, DEFS.INI's KampffrequenzNah x 10 ms). Every other unit is a fighter, whose
+## attack (114) reaches the range tier's distance (tier 0: 64 px) every RELOAD_MS.
+const WORKERS := [152, 153, 155, 164, 252, 253, 254, 255, 256, 257, 352, 355, 364, 452, 453,
+		455, 456, 457]
 
 
 ## GUID -> entry (property ids as ints).
@@ -57,7 +76,6 @@ static func to_stats(entry: Dictionary, base: Dictionary) -> Dictionary:
 	if unit:
 		# Fighters keep their attack value in "Angriffswert Fern" (114) even when the range
 		# tier (115) is 0, i.e. hand to hand; workers have only "Angriffswert Nah" (113).
-		var v: Dictionary = entry.get("values", p)
 		stats.melee = int(p.get(113, 0))
 		stats.ranged = int(p.get(114, 0))
 		stats.damage = stats.ranged if stats.ranged > 0 else stats.melee
@@ -65,10 +83,9 @@ static func to_stats(entry: Dictionary, base: Dictionary) -> Dictionary:
 		for id in tiers:
 			if p.has(id):
 				stats[tiers[id]] = int(p[id])
-		var combat_tiers := {115: "range_tier", 116: "melee_rate_tier", 117: "ranged_rate_tier", 120: "min_range_tier"}
+		var combat_tiers := {115: "range_tier", 116: "melee_rate_tier", 120: "min_range_tier"}
 		for id in combat_tiers:
-			if v.has(id):
-				stats[combat_tiers[id]] = int(v[id])
+			stats[combat_tiers[id]] = int(p.get(id, 0))
 	else:
 		if p.has(9):
 			stats.housing = int(p[9])

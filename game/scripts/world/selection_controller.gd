@@ -40,6 +40,11 @@ func cancel_targeting() -> void:
 
 
 func _process(_delta: float) -> void:
+	# An enemy being looked at is lost from view once it goes into the fog or a building.
+	for unit in selection:
+		if is_instance_valid(unit) and unit.team != player_team and (unit.fogged or unit.inside):
+			deselect(unit)
+			break
 	# The selected building's assembly location shows as a waving flag.
 	var rally := Vector2.INF
 	if is_instance_valid(selected_building) and selected_building.owner_index == player_team and selected_building.is_building():
@@ -169,6 +174,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				else:
 					var unit := _unit_at(world)
 					if unit == null and not event.shift_pressed:
+						unit = _foreign_unit_at(world)  # an enemy or an animal, to look at
+					if unit == null and not event.shift_pressed:
 						var building := _building_at(world)
 						if building == null:
 							building = _object_at(world)  # enemy buildings, mines, trees, fields
@@ -187,7 +194,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		var digit: int = event.keycode - KEY_0
 		if digit >= 0 and digit <= 9:
 			if event.ctrl_pressed:
-				groups[digit] = selection.duplicate()
+				if is_own_selection():
+					groups[digit] = selection.duplicate()
 			elif groups.has(digit):
 				var members: Array = groups[digit].filter(func(u) -> bool: return is_instance_valid(u) and u.is_alive())
 				# Pressing the number again centres the view on the group (manual 3.2).
@@ -205,7 +213,7 @@ func _unhandled_input(event: InputEvent) -> void:
 ## or unload a boat, build or repair, deliver cattle, haul, quarters, hunt, mount, steal,
 ## rob, attack, gather) and otherwise a move. `ctrl` aims at a rider's horse.
 func order_at(world: Vector2, ctrl := false) -> void:
-	if selection.is_empty():
+	if selection.is_empty() or not is_own_selection():
 		return
 	if _water_order(world):
 		return
@@ -243,7 +251,7 @@ func order_at(world: Vector2, ctrl := false) -> void:
 		var riders := selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.riding.can_mount())
 		riders.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.distance_to(animal.position) < b.position.distance_to(animal.position))
 		riders[0].mount(animal)
-		animal.flash(Color(1.0, 0.9, 0.4))
+		animal.flash(Color(1.0, 0.9, 0.4), true)
 		Sound.play_event(riders[0].unit_type.guid(), Sound.Event.ORDER)
 	elif site and site.guid in BuildingProduction.HORSE_BUILDINGS and site.complete \
 			and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.animal.is_horse()):
@@ -487,6 +495,27 @@ func _unit_at(point: Vector2, own := true) -> Unit:
 	return best
 
 
+## Someone not ours under the cursor (an enemy in sight, a wild animal), to see its status.
+func _foreign_unit_at(point: Vector2) -> Unit:
+	var best: Unit = null
+	var best_distance := CLICK_RADIUS
+	for unit in Unit.all_units:
+		if unit.team == player_team or not unit.is_alive() or unit.fogged or unit.inside or not unit.visible:
+			continue
+		var distance := point.distance_to(unit.position + Vector2(0, -20))
+		if distance >= CLICK_RADIUS and unit.hit(point):
+			distance = CLICK_RADIUS - 0.5
+		if distance < best_distance:
+			best = unit
+			best_distance = distance
+	return best
+
+
+## Whether the selection is ours to command (not an enemy or animal being looked at).
+func is_own_selection() -> bool:
+	return selection.all(func(u: Unit) -> bool: return not is_instance_valid(u) or u.team == player_team)
+
+
 func _building_at(point: Vector2) -> MapObject:
 	return _front_most(point, func(o: MapObject) -> bool: return o.is_building() and o.owner_index == player_team)
 
@@ -545,7 +574,8 @@ func _select(units: Array, add: bool) -> void:
 		if unit not in selection:
 			selection.append(unit)
 			unit.selected = true
-	if not units.is_empty():
+	# Enemies don't answer our clicks; animals still make their noise.
+	if not units.is_empty() and units[0].team in [player_team, 0]:
 		Sound.play_event(units[0].unit_type.guid(), Sound.Event.SELECT)
 
 

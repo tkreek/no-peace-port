@@ -76,6 +76,7 @@ var _overlay := DrawOverlay.new()
 ## The selection outline, on the ground: under the building, over its patch and fields.
 var _marks := Node2D.new()
 var _work_rect := Rect2()
+var _outline := PackedVector2Array()  # the selection outline, fitted once
 var _walls: Array[Rect2] = []  # the solid footprint cells as row runs, relative to position
 var _team_row := 0
 var _body_anim := -1
@@ -521,14 +522,50 @@ func _palette_row(_anim_index: int) -> int:
 	return _team_row
 
 
-## Buildings and fields are outlined with a diamond on the ground in their people's colour,
-## as in the original, round the walls (whose box is the diamond's).
+## Buildings and fields are outlined on the ground in their people's colour, as in the
+## original: the tightest box with the map's diagonal sides round the ground they stand on.
 func _draw_marks() -> void:
 	if not selected or not (_is_building or is_field()):
 		return
-	var walls := work_rect()
-	walls.position -= position
-	StatusBar.diamond(_marks, walls.get_center(), walls.size.x * 0.62, StatusBar.team_colour(owner_index))
+	if _outline.is_empty():
+		_outline = _fit_outline()
+	_marks.draw_polyline(_outline, Color(StatusBar.team_colour(owner_index), 0.9), 1.5, true)
+
+
+## The building's corners on the ground (local), bounded by lines along the two diagonals
+## of the isometric map (x ± 2y constant). The front sides touch the lowest solid pixels of
+## the picture; the back sides, hidden behind the roof, come from the walls' cells. A field
+## is flat: its picture gives all four.
+func _fit_outline() -> PackedVector2Array:
+	var u := Vector2(INF, -INF)  # x + 2y: top-left and bottom-right sides
+	var v := Vector2(INF, -INF)  # x - 2y: bottom-left and top-right sides
+	if _body and _body.texture:
+		var rect := _body.get_rect()
+		for y in range(int(rect.position.y), int(rect.end.y), 2):
+			for x in range(int(rect.position.x), int(rect.end.x), 2):
+				if _body.is_pixel_opaque(Vector2(x, y)):
+					var p := _body.transform * Vector2(x, y)
+					u = Vector2(minf(u.x, p.x + 2 * p.y), maxf(u.y, p.x + 2 * p.y))
+					v = Vector2(minf(v.x, p.x - 2 * p.y), maxf(v.y, p.x - 2 * p.y))
+	if not is_field() and object_type and not object_type.footprint_cells.is_empty():
+		var origin := footprint_rect().position - position
+		var grid := object_type.footprint_grid
+		var back := Vector2(INF, -INF)  # (least x + 2y, greatest x - 2y) of the walls' cells
+		for i in object_type.footprint_cells.size():
+			if object_type.footprint_cells[i] & NavGrid.SOLID:
+				var p := origin + (Vector2(i % grid.x, i / grid.x) + Vector2(0.5, 0.5)) * NavGrid.CELL
+				back = Vector2(minf(back.x, p.x + 2 * p.y), maxf(back.y, p.x - 2 * p.y))
+		if back.x < INF:
+			u.x = back.x - NavGrid.CELL * 0.5
+			v.y = back.y + NavGrid.CELL * 0.5
+	if u.x == INF:
+		var walls := work_rect()
+		walls.position -= position
+		return PackedVector2Array([walls.position, Vector2(walls.end.x, walls.position.y), walls.end,
+				Vector2(walls.position.x, walls.end.y), walls.position])
+	var corner := func(a: float, b: float) -> Vector2: return Vector2((a + b) / 2.0, (a - b) / 4.0)
+	return PackedVector2Array([corner.call(u.x, v.x), corner.call(u.x, v.y), corner.call(u.y, v.y),
+			corner.call(u.y, v.x), corner.call(u.x, v.x)])
 
 
 func _add_ground() -> void:

@@ -40,3 +40,6 @@ tools/.venv/
 
 # Standalone builds (tools/build_game.sh)
 /build/
+
+# Copies of original sounds to listen to (proprietary, not versioned).
+/sound_review/

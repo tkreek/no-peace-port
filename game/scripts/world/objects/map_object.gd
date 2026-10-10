@@ -37,6 +37,10 @@ const SHORE_REACH := 3  # cells of water at most this far from the footprint
 const BURNT_ANIM := 7  # the burnt-out building, shown below a third of its energy
 const RUBBLE_ANIM := 9
 const AMBIENT_ANIM := 11  # a moving part (windmill sails...) and 12 its shadow
+## The patch of trodden earth a building stands on (prairie brown or meadow green with the
+## set), drawn flat beneath it, its shadow and whoever walks past.
+const GROUND_ANIM := 4
+const GROUND_Z := FIELD_Z - 1
 
 static var all_objects: Array[MapObject] = []
 ## Buildings and fields: the few hundred objects worth scanning (all_objects also holds the
@@ -73,6 +77,7 @@ var _walls: Array[Rect2] = []  # the solid footprint cells as row runs, relative
 var _team_row := 0
 var _body_anim := -1
 var _ambient: Sprite2D
+var _ground: Sprite2D
 var _ambient_step := 0
 var _ambient_time := 0.0
 var _flash_time := 0.0
@@ -115,6 +120,7 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 	add_child(_shadow)
 	add_child(_body)
 	add_child(_overlay)
+	_add_ground()
 	if not refresh_sprites():
 		return false
 	_team_row = mini(owner if type.kind == ObjectTypes.Kind.BUILDING and owner > 0 else 0, _bob.teams - 1)
@@ -503,6 +509,22 @@ func shows_rubble() -> bool:
 ## Colour row for a sheet: the team's (sheets without team colours ignore it).
 func _palette_row(_anim_index: int) -> int:
 	return _team_row
+
+
+func _add_ground() -> void:
+	# Shipyards and bridges have no patch: their anim 4 is a frame of the building itself.
+	if not _is_building or is_field() or not _has_sheet(GROUND_ANIM) or _bob.anims[GROUND_ANIM].frames.size() != 1 \
+			or _bob.anims[GROUND_ANIM].sub_sprite == _bob.anims[0].sub_sprite:
+		return
+	_ground = Sprite2D.new()
+	_ground.centered = false
+	_ground.region_enabled = true
+	_ground.z_index = GROUND_Z
+	add_child(_ground)
+	move_child(_ground, 0)
+	if not _show(_ground, GROUND_ANIM, 0):
+		_ground.queue_free()
+		_ground = null
 
 
 func _has_sheet(anim_index: int) -> bool:

@@ -7,7 +7,8 @@ extends RefCounted
 ##   bit 3      water (deep, or shallow where the ground bits are set as well)
 ##   bit 6      blocked (cliffs, rocks painted into the map)
 ##   bit 7      terrain type
-##   bits 12-13 height level
+##   bits 12-13 height level: the map walls each level off with unwalkable cliff faces,
+##              and the ramps placed on it are the only ways up (see _lay_ramps)
 ##   bit 29     cover: canopy or roof drawn over the ground (walkable)
 ##   bit 30     margin: a one-cell ring round buildings and mines that keeps other
 ##              buildings at a distance (walkable, so there is always a lane between them)
@@ -18,6 +19,7 @@ const WALKABLE := 0x2
 const WATER := 0x8
 const SOLID := 0x40 | 0x80000000
 const MARGIN := 0x40000000
+const GROUND := 0x7 | 0x40 | 0x3000  ## what a ramp's walkable cells replace
 const COVER := 0x20000000
 ## Every bit an object footprint stamps into the grid.
 const BLOCKED := SOLID | MARGIN | COVER
@@ -38,6 +40,7 @@ var _layers: Array[AStarGrid2D] = []
 func setup(map: AlfMap) -> void:
 	size = map.grid_size
 	flags = map.grid_flags.duplicate()
+	_lay_ramps(map)
 	for value in flags:
 		if value & WATER:
 			has_water = true
@@ -59,6 +62,28 @@ func setup(map: AlfMap) -> void:
 				if not _passable_flags(flags[y * size.x + x], layer):
 					grid.set_point_solid(Vector2i(x, y))
 	current = self
+
+
+## Ramps between ground and plateau: the map has a cliff where each one stands, and the
+## level editor's "_plateau" variant of the ramp (the one placed is drawn per biome and
+## has no footprint) gives the cells that turn it into a slope from one level to the next.
+func _lay_ramps(map: AlfMap) -> void:
+	for placement in map.placements:
+		var placed := ObjectTypes.get_type(placement.type_id)
+		if placed == null or not placed.name.begins_with("ramp_") or placed.name.ends_with("_plateau"):
+			continue
+		var words := placed.name.split("_")
+		var type := ObjectTypes.get_type(ObjectTypes.named("ramp_%s_%s_plateau" % [words[1], words[2]]))
+		if type == null or type.footprint_cells.is_empty():
+			continue
+		var origin := cell_of(placement.position - Vector2(type.footprint_anchor))
+		for i in type.footprint_cells.size():
+			var value := type.footprint_cells[i]
+			var cell := origin + Vector2i(i % type.footprint_grid.x, i / type.footprint_grid.x)
+			if value == 0 or not Rect2i(Vector2i.ZERO, size).has_point(cell):
+				continue
+			var index := cell.y * size.x + cell.x
+			flags[index] = (flags[index] & ~GROUND) | value if value & WALKABLE else flags[index] | (value & SOLID)
 
 
 static func _passable_flags(value: int, layer := Layer.GROUND) -> bool:
@@ -168,6 +193,8 @@ func center_of(cell: Vector2i) -> Vector2:
 func find_path(from: Vector2, to: Vector2, layer := Layer.GROUND) -> PackedVector2Array:
 	var start := nearest_walkable(cell_of(from), 24, layer)
 	var goal := nearest_walkable(cell_of(to), 24, layer)
+	# A goal out of reach (up a cliff with no ramp to it) gives the path to the nearest
+	# reachable cell instead.
 	var cells := _layers[layer].get_id_path(start, goal, true)
 	if cells.is_empty():
 		return PackedVector2Array()
@@ -182,7 +209,7 @@ func find_path(from: Vector2, to: Vector2, layer := Layer.GROUND) -> PackedVecto
 		points.append(_center(cells[j]))
 		anchor = cells[j]
 		i = j + 1
-	var exact_goal := goal == cell_of(to) and is_walkable(cell_of(to), layer)
+	var exact_goal := cells[cells.size() - 1] == cell_of(to) and is_walkable(cell_of(to), layer)
 	if exact_goal and not points.is_empty():
 		points[points.size() - 1] = to
 	return points

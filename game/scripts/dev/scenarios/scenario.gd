@@ -5,7 +5,7 @@ extends Node
 ## (tools/check_scenarios.py) and screenshots. A scenario is a method _scenario_<name> in
 ## one of the groups below; they reach the match through `main`.
 
-const GROUPS := ["economy", "combat", "water", "interface"]  # scripts *_scenarios.gd beside this one
+const GROUPS := ["economy", "combat", "water", "interface", "terrain"]  # scripts *_scenarios.gd beside this one
 
 var main: Main
 

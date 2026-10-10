@@ -53,6 +53,10 @@ CHECKS = {
     "tepee": (["--faction=ind"], 0, [r"tepee gone true", r"\"up 70%\""]),
     "boats": (["--faction=usa", "--time-scale=4", ISLANDS], 0, [r"clicked boat selected true; sailed [1-9]\d* px, \d{1,2} px short",
                                                                   r"aboard 4 / 4", r"passengers 0, soldiers ashore"]),
+    # Plateaus: up the ramp to one, to the foot of the cliff of one without a ramp.
+    "plateau": (["--map=[2 Players] - mount gnibbelput.ulf"], 0, [r"reachable true, cut off true",
+                r"cut off plateau: \d+ px short, level 0 -> 0 \(highest 0\), by a ramp false",
+                r"ramped plateau: \d px short, level 0 -> 1 \(highest 1\), by a ramp true"]),
     "swim": (["--faction=ind", ISLANDS], 0, [r"swam: true", r"canoe on water plays paddle"]),
     # The command panel for builders, farmers (only fields for the Mexican women) and every
     # building that trains something.

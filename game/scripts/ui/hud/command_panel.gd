@@ -87,7 +87,8 @@ func layout(area: Rect2) -> void:
 
 
 func _units() -> Array:
-	return hud.selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+	return hud.selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive() \
+			and u.team == hud.player.index)
 
 
 ## The selected building, if a building (not a tree, mine or field) is selected.

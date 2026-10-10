@@ -160,6 +160,9 @@ func _unit_stats(unit: Unit) -> Array:
 		stats.append([Player.RESOURCES[unit.work.carrying].icon, "%d" % unit.work.carried, "Carrying %s" % unit.work.carrying])
 	if unit.water.is_carrier():
 		stats.append([ICON_PEOPLE, "%d/%d" % [unit.water.passengers.size(), unit.water.capacity()], "Passengers"])
+	if unit.animal.has_meat():
+		var meat := unit.animal.meat_left if unit.animal.meat_left >= 0 else unit.animal.meat_value()
+		stats.append([Player.RESOURCES.food.icon, "%d" % meat, "Food when hunted"])
 	return stats
 
 

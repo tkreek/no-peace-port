@@ -25,6 +25,7 @@ var _step := 0
 var _step_time := 0.0
 var _anim_finished := false
 var _flash_time := 0.0
+var _flash_ring := false
 
 
 func _setup_sprites(type: UnitType, palette_row: int) -> void:
@@ -60,17 +61,22 @@ func is_alive() -> bool:
 	return true
 
 
-## Briefly tint the unit to confirm it was picked as an attack target.
-func flash(color := Color(1.0, 0.35, 0.3)) -> void:
-	_flash_time = 0.8
+## Briefly tint the unit to confirm it was picked as an attack target; `ring` also circles
+## it, blinking (a horse to be mounted).
+func flash(color := Color(1.0, 0.35, 0.3), ring := false) -> void:
+	_flash_time = 1.2 if ring else 0.8
+	_flash_ring = ring
 	_body.self_modulate = color
 
 
 func _fade_flash(delta: float) -> void:
 	if _flash_time > 0.0:
 		_flash_time -= delta
+		if _flash_ring:
+			queue_redraw()
 		if _flash_time <= 0.0:
 			_body.self_modulate = Color.WHITE
+			_flash_ring = false
 
 
 func face(vector: Vector2) -> void:
@@ -175,6 +181,8 @@ func _draw() -> void:
 	# The selection ring belongs on the ground, under the unit's own sprite.
 	if selected and is_alive() and not ring_on_top:
 		_draw_ring(self, 16.0)
+	elif _flash_ring and int(_flash_time * 5.0) % 2 == 0:
+		StatusBar.ring(self, Vector2.ZERO, 22.0, _body.self_modulate)
 
 
 func _draw_ring(canvas: CanvasItem, radius: float) -> void:

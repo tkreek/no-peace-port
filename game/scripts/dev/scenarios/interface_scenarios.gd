@@ -260,6 +260,80 @@ func _scenario_poplimit() -> void:
 	get_tree().quit()
 
 
+## Every building of player 1's people placed finished near the HQ and outlined, as when
+## selected (to check the diamonds against the walls).
+func _scenario_outlines() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	hq.selected = true
+	for guid in GameData.stats_guids():
+		var stats := GameData.stats(guid)
+		if stats.get("faction") != main.players[1].faction or stats.get("kind") != "structure":
+			continue
+		var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
+		if type == null:
+			continue
+		var building := MapObject.new()
+		building.setup(type, 1)
+		building.position = AiBuilder.find_spot(type, hq.position)
+		main.units_root.add_child(building)
+		NavGrid.current.block_footprint(type, building.position)
+		building.selected = true
+	main.camera.position = hq.position + Vector2(0, 80)
+
+
+## Left clicks on a buffalo and an enemy soldier select them to look at (the panel shows
+## their status, they take no orders); a right click on a wild horse with a cowboy
+## selected circles the horse. --pick=animal|enemy|mount picks what the screenshot shows.
+func _scenario_inspect() -> void:
+	var hq: MapObject = main.players[1].main_building()
+	var at := hq.position + Vector2(0, 220)
+	main._spawn_squad("animals/buffalo", 0, at + Vector2(-120, 0), 1)
+	main._spawn_squad(UnitAnimal.HORSE_DIR, 0, at + Vector2(120, 0), 1)
+	main._spawn_squad(463, 2, at + Vector2(0, 90), 1)
+	main._spawn_squad(463, 1, at + Vector2(0, -60), 1)
+	main.camera.position = at
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var find := func(test: Callable) -> Unit:
+		var found := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and test.call(n))
+		found.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.distance_to(at) < b.position.distance_to(at))
+		return found[0]
+	var buffalo: Unit = find.call(func(u: Unit) -> bool: return u.team == 0 and not u.animal.is_horse())
+	var horse: Unit = find.call(func(u: Unit) -> bool: return u.animal.is_horse())
+	var enemy: Unit = find.call(func(u: Unit) -> bool: return u.team == 2)
+	var cowboy: Unit = find.call(func(u: Unit) -> bool: return u.team == 1 and u.unit_type.guid() == 463)
+	enemy.fogged = false
+	var click := func(world: Vector2, button := MOUSE_BUTTON_LEFT) -> void:
+		var screen: Vector2 = main.get_viewport().get_canvas_transform() * world
+		for pressed in [true, false]:
+			var event := InputEventMouseButton.new()
+			event.button_index = button
+			event.pressed = pressed
+			event.position = screen
+			main.selection._unhandled_input(event)
+	for target: Unit in [buffalo, enemy]:
+		click.call(target.position + Vector2(0, -14))
+		main.hud.selected.refresh()
+		main.hud.commands.refresh()
+		var before := target.position
+		click.call(target.position + Vector2(200, 0), MOUSE_BUTTON_RIGHT)
+		await get_tree().process_frame
+		print("clicked %s: selected %s, panel '%s' with %d stats, %d command buttons, ordered %s" % [
+				target.unit_type.guid(), main.selection.selection == [target], main.hud.selected._title.text,
+				main.hud.selected._stats.get_child_count(), main.hud.commands.grid.get_child_count(),
+				target.path.size() > 0 or target.position != before])
+	var pick := GameData.cmdline_option("pick", "mount")
+	if pick == "mount":
+		main.selection.select_units([cowboy])
+		click.call(horse.position + Vector2(0, -12), MOUSE_BUTTON_RIGHT)
+		print("mount order rings the horse: %s" % horse._flash_ring)
+	else:
+		click.call((buffalo if pick == "animal" else enemy).position + Vector2(0, -14))
+
+
 ## Nothing but a player's orders, given through the interface for 90 s (for --record and
 ## --replay, which must end in the same game): workers gather and build houses, the main
 ## building trains, soldiers and workers are sent about, stances change.

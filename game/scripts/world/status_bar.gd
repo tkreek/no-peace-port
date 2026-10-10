@@ -42,11 +42,3 @@ static func ring(canvas: CanvasItem, centre: Vector2, radius: float, colour: Col
 	canvas.draw_set_transform(centre, 0.0, Vector2(1.0, 0.5))
 	canvas.draw_arc(Vector2.ZERO, radius, 0.0, TAU, 40, Color(colour, 0.95), 1.5, true)
 	canvas.draw_set_transform(Vector2.ZERO)
-
-
-## A diamond on the ground (twice as wide as deep) round a building's walls.
-static func diamond(canvas: CanvasItem, centre: Vector2, half_width: float, colour: Color) -> void:
-	var h := half_width * 0.5
-	var points := PackedVector2Array([centre + Vector2(-half_width, 0), centre + Vector2(0, -h),
-			centre + Vector2(half_width, 0), centre + Vector2(0, h), centre + Vector2(-half_width, 0)])
-	canvas.draw_polyline(points, Color(colour, 0.9), 1.5, true)

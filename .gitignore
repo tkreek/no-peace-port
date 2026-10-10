@@ -4,7 +4,7 @@
 .import/
 *.translation
 export.cfg
-export_presets.cfg
+
 
 # OS/editor noise
 .DS_Store
@@ -37,3 +37,6 @@ game/assets/reference/
 # Downloaded third-party binaries
 tools/bin/
 tools/.venv/
+
+# Standalone builds (tools/build_game.sh)
+/build/

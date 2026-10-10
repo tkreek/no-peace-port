@@ -60,9 +60,10 @@ func _resolve_assets_dir() -> String:
 	var config := ConfigFile.new()
 	if config.load(SETTINGS_PATH) == OK and config.has_section_key("paths", "assets_dir"):
 		return config.get_value("paths", "assets_dir")
-	var base := ProjectSettings.globalize_path("res://").path_join("..") if OS.has_feature("editor") \
-			else OS.get_executable_path().get_base_dir()
-	return base.path_join("assets").simplify_path()
+	var beside_game := OS.get_executable_path().get_base_dir().path_join("assets")
+	if DirAccess.dir_exists_absolute(beside_game) or not OS.has_feature("editor"):
+		return beside_game
+	return ProjectSettings.globalize_path("res://").path_join("../assets").simplify_path()
 
 
 ## Absolute path of an asset.

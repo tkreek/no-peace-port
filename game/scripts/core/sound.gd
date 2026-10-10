@@ -211,7 +211,7 @@ func play_sound(sound_id: int, at = null, reach := HEARING_RANGE, channel := Cha
 func _make_room(sound_id: int, at: Vector2, limit: int) -> bool:
 	var total := 0
 	for id in _in_world:
-		_in_world[id] = _in_world[id].filter(func(p: AudioStreamPlayer2D) -> bool: return is_instance_valid(p) and p.playing)
+		_in_world[id] = _in_world[id].filter(func(p) -> bool: return is_instance_valid(p) and p.playing)  # untyped: freed players are passed too
 		total += _in_world[id].size()
 	var same: Array = _in_world.get(sound_id, [])
 	if same.size() < limit:

@@ -242,11 +242,11 @@ func _object_detail(object: MapObject) -> String:
 	var production := object.production
 	if not production.queue.is_empty():
 		var current := GameData.stats(production.queue[0])
-		var doing: String = {"upgrade": "Researching", "trade": "Trading", "horse": "Raising", "gun": "Making"}.get(current.get("kind"), "Training")
+		if current.get("kind") == "unit" and production.progress >= 1.0:
+			return "%s ready — waiting for living space" % current.get("name", "?")
+		var doing: String = {"upgrade": "Researching", "trade": "Trading", "horse": "Raising", "cow": "Raising",
+				"gun": "Making", "liquor": "Distilling"}.get(current.get("kind"), "Training")
 		return "%s %s — %d%%" % [doing, current.get("name", "?"), int(production.progress * 100)]
-	if object.guid == BuildingProduction.DISTILLERY_GUID:
-		owner_note += "\n" + ("Distilling %d wood into %d food every %d s" % [BuildingProduction.DISTILL_WOOD,
-				BuildingProduction.DISTILL_FOOD, BuildingProduction.production_seconds(BuildingProduction.DISTILL_TIME)] if production.distilling else "Resting")
 	if object.guid == BuildingProduction.SPIRIT_TEPEE and object.owner_index == hud.player.index:
 		owner_note += "\nMagic energy %d / %d" % [production.spirit_energy, BuildingProduction.SPIRIT_MAX]
 	var defence := object.defence
@@ -373,8 +373,17 @@ func _card(guid: int, size: float, type_id := -1) -> Button:
 		type_id = GameData.type_for_guid(guid, hud.biome)
 	if thumb == null and type_id >= 0:
 		thumb = Thumbnail.for_type(type_id, hud.player.index)
+	var stats := GameData.stats(guid)
+	if thumb == null and stats.has("icon_frame"):  # guns, liquor and trades: their command icon
+		var sheet := GameData.load_sprite(CommandPanel.COMMAND_ICONS)
+		if sheet and int(stats.icon_frame) < sheet.frame_count():
+			var icon := TextureRect.new()
+			icon.texture = HudStyle.atlas(sheet, int(stats.icon_frame))
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			thumb = icon
 	if thumb == null:
-		thumb = HudStyle.name_card(GameData.stats(guid).get("name", "?"), int(9 * hud.ui_scale))
+		thumb = HudStyle.name_card(stats.get("name", "?"), int(9 * hud.ui_scale))
 	thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	thumb.set_anchors_preset(Control.PRESET_FULL_RECT)
 	card.add_child(thumb)

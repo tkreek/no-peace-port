@@ -27,7 +27,7 @@ const UNIT_ORDERS := {
 ## What a building order may call, on which of its parts.
 const BUILDING_ORDERS := {
 	"enqueue": "production", "cancel": "production", "invoke_spirit": "production",
-	"set_distilling": "production", "set_rally": "production", "look": "production",
+	"set_rally": "production", "look": "production",
 	"release": "defence", "demolish": "condition",
 }
 

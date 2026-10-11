@@ -431,7 +431,7 @@ func save_state(unit_ids: Dictionary) -> Dictionary:
 			"amount": stock.amount, "field_state": stock.field_state, "field_progress": stock.field_progress,
 			"stored_gold": stock.stored_gold, "loot_kind": stock.loot_kind, "loot": stock.loot}
 	if _is_building:
-		entry.merge({"queue": Array(production.queue), "train": production.progress, "distilling": production.distilling,
+		entry.merge({"queue": Array(production.queue), "train": production.progress,
 				"rally": [production.rally_point.x, production.rally_point.y] if production.rally_point != Vector2.INF else null,
 				"trap_kills": defence.trap_kills, "burning": condition.burning,
 				"garrison": defence.garrison.filter(func(u: Unit) -> bool: return unit_ids.has(u)).map(func(u: Unit) -> int: return unit_ids[u])})

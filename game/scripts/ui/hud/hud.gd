@@ -158,6 +158,9 @@ func warn_population_limit() -> void:
 ## One of the original's spoken warnings (under attack, out of wood, a field harvested):
 ## its recording and its line of text share the alert's GUID.
 func _on_alert(guid: int, _at: Vector2) -> void:
+	if guid == Player.LIVING_SPACE_ALERT:  # a finished unit waits: housing or the match's limit
+		warn_population_limit()
+		return
 	Sound.play_alert(guid)
 	notify(GameData.text(guid), false)
 

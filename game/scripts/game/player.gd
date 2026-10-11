@@ -160,6 +160,11 @@ func has_room() -> bool:
 	return population() + queued_units() < population_limit()
 
 
+## Whether a finished unit needing `space` living space can come out now.
+func can_house(space: int) -> bool:
+	return population() + space <= population_limit()
+
+
 ## The people's leader (chief, comandante, band leader, commander) if alive.
 func leader() -> Unit:
 	for unit in Unit.all_units:
@@ -180,6 +185,7 @@ func main_building() -> MapObject:
 
 ## The original's warnings: what ran short, and per people what is under attack.
 const SHORTAGE_ALERTS := {"food": 800, "wood": 801, "horses": 802, "gold": 803, "guns": 804}
+const LIVING_SPACE_ALERT := 805
 const FIELD_HARVESTED_ALERT := 806
 const ROBBED_ALERT := 852
 const PEOPLE_ATTACKED_ALERT := 850

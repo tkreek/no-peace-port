@@ -32,6 +32,8 @@ CHECKS = {
     "pitfall": (["--faction=ind"], 0, [r"pit spent"]),
     "quarters": ([], 0, [r"capacity \d, quartered \d", r"hit beyond the open range: true", r"after release: quartered 0, outside (\d+) on \1 cells"]),
     "research": ([], 2100, [r"researched: \[925\] rifle 2 now:true"]),
+    "liquor": (["--faction=des", "--time-scale=4"], 0, [r"liquor offered true, queued true, wood left 25, second one false",
+                                                        r"liquor done: food \+40, queue empty true"]),
     "trade": (["--time-scale=4"], 0, [r"queued: truetruetrue", r"\"guns\": 24"]),
     "orders": ([], 0, [r"queued Field worker: true", r"rally flag: true"]),
     "food": ([], 300, [r"workers per field \[1, 1\]"]),
@@ -69,7 +71,7 @@ CHECKS = {
     "repair": ([], 0, [r"right click: soldier to quarters true, workers repairing false",
                        r"repair command: repaired true"]),
     "buildqueue": (["--time-scale=4"], 0, [r"sites placed 3, built in order true, queued left 0"]),
-    "poplimit": ([], 0, [r"warned on filling 1, on a train order 1"]),
+    "poplimit": (["--time-scale=4"], 0, [r"warned on filling 1, on a train order 0; queued true, held when done true, warned 1; out once room: true"]),
     "picking": ([], 0, [r"roof \(picture centre, upper third\) +-> true", r"walls centre +-> true",
                         r"open corner of the walls' box +-> false"]),
     # The dead rot to bones, ruins smoulder, gulls fly over.

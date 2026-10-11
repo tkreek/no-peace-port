@@ -69,6 +69,8 @@ func _train() -> void:
 		if building.guid in BuildingProduction.GUN_FACTORIES and int(player.resources.get("guns", 0)) < 8 \
 				and int(player.resources.get("gold", 0)) > 250 and production.enqueue(BuildingProduction.GUN_GUID):
 			continue
+		if not player.has_room():  # finished units would only wait in their buildings
+			continue
 		var options := Array(production.trainable_units()).filter(func(guid: int) -> bool:
 			return GameData.stats(guid).get("damage", 0) >= 5 and guid not in Player.COMMANDERS \
 					and (guid != UnitWater.CANOE or want_canoes))
@@ -80,6 +82,8 @@ func _train() -> void:
 
 ## Healers, casters and boats, which the trainer above leaves out (they don't fight).
 func _train_specialists(units: Array, soldiers: Array) -> void:
+	if not ai.player.has_room():
+		return
 	for building: MapObject in ai.my_buildings():
 		if not building.complete or building.production.queue.size() >= 1:
 			continue

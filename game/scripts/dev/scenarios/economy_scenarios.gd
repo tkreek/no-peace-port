@@ -189,6 +189,28 @@ func _scenario_woodcut() -> void:
 	get_tree().quit()
 
 
+## An outlaw distillery makes liquor: the wood is paid when it is ordered, the food comes
+## when it is done.
+func _scenario_liquor() -> void:
+	var p: Player = main.players[1]
+	var hq: MapObject = p.main_building()
+	var type := ObjectTypes.get_type(GameData.type_for_guid(BuildingProduction.DISTILLERY_GUID, main.terrain.biome))
+	var still := MapObject.new()
+	still.position = AiBuilder.find_spot(type, hq.position)
+	still.setup(type, 1)
+	main.units_root.add_child(still)
+	p.resources.wood = 100
+	main.selection.select_building(still)
+	var food := int(p.resources.food)
+	var offered := Array(still.production.trainable_units()).has(BuildingProduction.LIQUOR_GUID)
+	var queued := still.production.enqueue(BuildingProduction.LIQUOR_GUID)
+	print("liquor offered %s, queued %s, wood left %d, second one %s" % [offered, queued, p.resources.wood,
+			still.production.enqueue(BuildingProduction.LIQUOR_GUID)])
+	await get_tree().create_timer(BuildingProduction.production_seconds(50) + 1.0).timeout
+	print("liquor done: food +%d, queue empty %s" % [int(p.resources.food) - food, still.production.queue.is_empty()])
+	get_tree().quit()
+
+
 ## A finished trading building buys guns twice and sells wood; prices and stock printed.
 func _scenario_trade() -> void:
 	var hq: MapObject = null

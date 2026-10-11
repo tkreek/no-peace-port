@@ -199,6 +199,9 @@ func _load_tables() -> void:
 	_stats[BuildingProduction.GUN_GUID] = {"kind": "gun", "name": "Guns",
 			"faction": "", "build_time": 120, "cost": {"gold": 300},
 			"function": "Makes %d guns for the units that need one" % BuildingProduction.GUNS_PER_BATCH, "icon_frame": 52}
+	# Liquor at the outlaws' distillery (Defaults.bin's neutral block, 711): 75 wood, 50 s.
+	_stats[BuildingProduction.LIQUOR_GUID] = {"kind": "liquor", "name": "Liquor", "faction": "", "build_time": 50,
+			"cost": {"wood": 75}, "function": "Distils liquor: %d food" % BuildingProduction.LIQUOR_FOOD, "icon_frame": 24}
 	# Raising a horse (manual: corral, hacienda, ranch).
 	_stats[BuildingProduction.HORSE_GUID] = {"kind": "horse", "name": "Horse", "faction": "", "build_time": 45,
 			"cost": {"food": 150}, "icon": "portraits/other/z_02_horse.png",

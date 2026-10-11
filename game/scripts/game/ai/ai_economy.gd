@@ -10,6 +10,7 @@ extends RefCounted
 const WOOD_SHARE := 0.6
 const FIELD_TARGET := 5
 const FOOD_SURPLUS := 2500  # distilleries rest above this
+const LIQUOR_WOOD_RESERVE := 200  # wood kept back from the distilleries for building
 const COW_TARGET := 4
 const COW_SELL_VALUE := 18.0
 const REBALANCE_SECONDS := 30.0
@@ -103,7 +104,7 @@ func _gold_source_for(worker: Unit, workers: Array) -> MapObject:
 
 ## Workers up to the difficulty's target, and women for the fields.
 func _train_civilians(hq: MapObject, workers: Array, units: Array) -> void:
-	if not hq.complete or hq.production.queue.size() >= 2:
+	if not hq.complete or hq.production.queue.size() >= 2 or not ai.player.has_room():
 		return
 	var fields := MapObject.structures.filter(func(o: MapObject) -> bool:
 		return o.is_field() and o.owner_index == ai.player.index).size()
@@ -157,6 +158,8 @@ func _haul_gold(transports: Array) -> void:
 
 
 func _train_transport() -> void:
+	if not ai.player.has_room():
+		return
 	for building: MapObject in ai.my_buildings():
 		if not building.complete or not building.production.queue.is_empty():
 			continue
@@ -206,7 +209,9 @@ func _distil(units: Array, hq: MapObject) -> void:
 	var food := int(ai.player.resources.get("food", 0))
 	var stills := ai.my_buildings().filter(func(b: MapObject) -> bool: return b.guid == BuildingProduction.DISTILLERY_GUID)
 	for still: MapObject in stills:
-		still.production.distilling = food < FOOD_SURPLUS
+		if still.complete and still.production.queue.is_empty() and food < FOOD_SURPLUS \
+				and int(ai.player.resources.get("wood", 0)) >= LIQUOR_WOOD_RESERVE:
+			still.production.enqueue(BuildingProduction.LIQUOR_GUID)
 	var wanted := 1 + ai.my_units().size() / 12
 	if stills.size() < wanted and food < FOOD_SURPLUS and ai.builder.sites() < ai.level().sites \
 			and ai.affordable(BuildingProduction.DISTILLERY_GUID):

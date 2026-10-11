@@ -251,12 +251,30 @@ func _scenario_poplimit() -> void:
 	player.resources.food = 5000
 	await get_tree().process_frame
 	await get_tree().process_frame
+	var trained := -1
 	for button in main.hud.commands.grid.get_children():
-		if GameData.stats(button.get_meta("guid", -1)).get("kind") == "unit":
+		var guid: int = button.get_meta("guid", -1)
+		if GameData.stats(guid).get("kind") == "unit" and hq.production.can_enqueue(guid):
+			trained = guid
 			button.pressed.emit()
 			break
-	print("population %d / %d: warned on filling %d, on a train order %d" % [player.population(), player.population_limit(),
-			filled, main.hud.population_warnings - before - filled])
+	for i in 3:
+		await get_tree().process_frame
+	var on_order := main.hud.population_warnings - before - filled
+	var queued := Array(hq.production.queue).has(trained)
+	# Like the original, the order is taken; the finished unit waits for living space.
+	await get_tree().create_timer(BuildingProduction.production_seconds(int(GameData.stats(trained).build_time)) + 2.0).timeout
+	var held := hq.production.queue.size() == 1 and hq.production.progress >= 1.0
+	var while_held := main.hud.population_warnings - before - filled - on_order
+	var population := player.population()
+	for unit in Unit.all_units:
+		if unit.team == 1 and unit.is_alive() and unit.unit_type.guid() != trained:
+			unit.die()
+			break
+	await get_tree().create_timer(1.0).timeout
+	print("population %d / %d: warned on filling %d, on a train order %d; queued %s, held when done %s, warned %d; out once room: %s" % [
+			population, player.population_limit(), filled, on_order, queued, held, while_held,
+			hq.production.queue.is_empty() and player.population() == population])
 	get_tree().quit()
 
 

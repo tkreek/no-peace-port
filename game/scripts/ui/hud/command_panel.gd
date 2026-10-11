@@ -219,21 +219,19 @@ func _add_building_commands(building: MapObject) -> void:
 		if production.can_enqueue(item):
 			Orders.building(building, "enqueue", [item])
 			return
-		var stats := GameData.stats(item)
-		var cost: Dictionary = stats.get("cost", {}).duplicate()
+		var cost: Dictionary = GameData.stats(item).get("cost", {}).duplicate()
 		cost.erase("population")
-		if stats.get("kind") == "unit" and not hud.player.has_room():
-			hud.warn_population_limit()
-		else:
-			hud.player.alert_shortage(cost)  # the original's shortage warnings; nothing else sounds
+		hud.player.alert_shortage(cost)  # the original's shortage warnings; nothing else sounds
 	for guid in production.trainable_units():
 		if BuildingProduction.is_trade(guid):
 			var trade: Dictionary = BuildingProduction.TRADES[guid - BuildingProduction.TRADE_GUID]
 			var button := _add_icon(command_icons, trade.icon, "", enqueue.bind(guid))
 			button.set_meta("guid", guid)
 			button.set_meta("trade", trade)
-		elif guid == BuildingProduction.GUN_GUID:
-			var button := _add_icon(command_icons, int(GameData.stats(guid).icon_frame), "Make %d guns\n%s" % [BuildingProduction.GUNS_PER_BATCH, _cost_text(guid)],
+		elif guid == BuildingProduction.GUN_GUID or guid == BuildingProduction.LIQUOR_GUID:
+			var what := "Make %d guns" % BuildingProduction.GUNS_PER_BATCH if guid == BuildingProduction.GUN_GUID \
+					else "Distil liquor (%d food)" % BuildingProduction.LIQUOR_FOOD
+			var button := _add_icon(command_icons, int(GameData.stats(guid).icon_frame), "%s\n%s" % [what, _cost_text(guid)],
 					enqueue.bind(guid))
 			button.set_meta("guid", guid)
 		elif guid == BuildingProduction.HORSE_GUID or guid == BuildingProduction.COW_GUID:
@@ -254,12 +252,6 @@ func _add_building_commands(building: MapObject) -> void:
 				BuildingProduction.SPIRIT_COST], "", func() -> void:
 					if production.spirit_energy >= BuildingProduction.SPIRIT_COST:  # else nothing, like the original
 						Orders.building(building, "invoke_spirit"))
-	if building.guid == BuildingProduction.DISTILLERY_GUID:
-		_add_icon(command_icons, ICON_STOP, "Stop distilling (keeps the wood)" if production.distilling \
-				else "Start distilling again (%d wood into %d food every %d s)" % [BuildingProduction.DISTILL_WOOD,
-				BuildingProduction.DISTILL_FOOD, BuildingProduction.production_seconds(BuildingProduction.DISTILL_TIME)], func() -> void:
-					Orders.building(building, "set_distilling", [not production.distilling])
-					signature = "", not production.distilling)
 	if not production.trainable_units().is_empty():
 		_add_icon(extra_icons, ICON_RALLY, "Specify assembly location (I)",
 				func() -> void: hud.selection.begin_targeting("rally"), hud.selection.pending == "rally")
@@ -385,7 +377,7 @@ func _update_affordability() -> void:
 		cost.erase("horses")
 		var reason := unavailable_reason(guid, cost)
 		button.disabled = not reason.is_empty()
-		button.tooltip_text = button.get_meta("tooltip") + ("\n" + reason if reason else "")
+		button.tooltip_text = button.get_meta("tooltip") + ("\n" + reason if reason else "") + _housing_note(guid)
 		button.modulate = Color(1, 1, 1, 0.55) if button.disabled else Color.WHITE
 		# An upgrade being researched here shows its progress across the button.
 		var researching: bool = GameData.stats(guid).get("kind") == "upgrade" and building != null \
@@ -425,6 +417,21 @@ func _update_trade_button(button: Button) -> void:
 	button.modulate = Color.WHITE if can else Color(1, 1, 1, 0.55)
 
 
+## A unit can be ordered without living space; it then waits in the building when done.
+func _housing_note(guid: int) -> String:
+	var player := hud.player
+	if GameData.stats(guid).get("kind") != "unit" or player.has_room():
+		return ""
+	var house := ""
+	for other in GameData.stats_guids():
+		var s2 := GameData.stats(other)
+		if s2.get("faction") == player.faction and s2.get("kind") == "structure" \
+				and int(s2.get("housing", 0)) > 0 and int(s2.get("housing", 0)) < 12:
+			house = s2.get("name", "")
+	return "\nNot enough housing (%d/%d): it will wait when done%s" % [player.population() + player.queued_units(),
+			player.population_cap(), " — build a %s" % house if house else ""]
+
+
 ## Why a build/train button is unavailable, or "" when it can be used.
 func unavailable_reason(guid: int, cost: Dictionary) -> String:
 	var player := hud.player
@@ -446,15 +453,6 @@ func unavailable_reason(guid: int, cost: Dictionary) -> String:
 	if stats.get("kind") == "unit":
 		if guid in Player.COMMANDERS and player.has_commander():
 			return "You can only have one %s" % stats.get("name", "commander").to_lower()
-		if not player.has_room():
-			var house := ""
-			for other in GameData.stats_guids():
-				var s2 := GameData.stats(other)
-				if s2.get("faction") == player.faction and s2.get("kind") == "structure" \
-						and int(s2.get("housing", 0)) > 0 and int(s2.get("housing", 0)) < 12:
-					house = s2.get("name", "")
-			return "Not enough housing (%d/%d)%s" % [player.population() + player.queued_units(),
-					player.population_cap(), " — build a %s" % house if house else ""]
 		var selected := selected_building()
 		if selected and selected.production.queue.size() >= BuildingProduction.QUEUE_LIMIT:
 			return "Queue full"

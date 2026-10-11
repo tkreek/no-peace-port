@@ -1,11 +1,11 @@
 class_name BuildingProduction
 extends RefCounted
-## What a building makes: its production queue (units, upgrades, horses, cows, rifles and
-## trades), the assembly location for what it trains, and the work some buildings do on
-## their own: banks and missions earn gold, the distillery turns wood into food, the
-## saloon looks over the land.
+## What a building makes: its production queue (units, upgrades, horses, cows, guns, liquor
+## and trades), the assembly location for what it trains, and the work some buildings do
+## on their own: banks and missions earn gold, the saloon looks over the land.
 
-const QUEUE_LIMIT := 5
+## Orders a building holds, trades included (AmericaAddOn.exe 0x40cd10).
+const QUEUE_LIMIT := 10
 ## Production time when the data has none (AmericaAddOn.exe, 0x40ce30).
 const DEFAULT_PRODUCTION_TIME := 10
 ## Horses are raised at the corral (Native, outlaw), hacienda and ranch, which shelter five
@@ -32,19 +32,17 @@ const TRADES := [
 	{"good": "wood", "buy": true, "icon": 46}, {"good": "wood", "buy": false, "icon": 38},
 	{"good": "guns", "buy": true, "icon": 52}, {"good": "guns", "buy": false, "icon": 44},
 ]
-const TRADE_QUEUE_LIMIT := 10
 ## Banks (interest) and missions (donations) pay gold on their own; more of them pay more,
 ## up to five each (manual).
 const INCOME_BUILDINGS := [416, 216]
 const INCOME_GOLD := 15
 const INCOME_SECONDS := 12.0
 const INCOME_MAX_BUILDINGS := 5
-## The distillery turns wood into food (the outlaws' liquor) while wood lasts: Defaults.bin's
-## "Liquor" (711), 75 wood and 50 s for 40 food (AmericaAddOn.exe 0x40cf40).
+## The outlaws' distillery makes liquor, which feeds them: Defaults.bin's "Liquor" (711),
+## queued like a unit and paid when ordered; done, it adds 40 food (AmericaAddOn.exe 0x40cf40).
 const DISTILLERY_GUID := 308
-const DISTILL_TIME := 50
-const DISTILL_WOOD := 75
-const DISTILL_FOOD := 40
+const LIQUOR_GUID := 9004
+const LIQUOR_FOOD := 40
 ## The outlaws' saloon looks over the land once Lift fog of war is researched.
 ## The Natives' tepee of the ancestors (expansion manual 4.1) invokes the warrior spirit:
 ## for 75 units of its magic energy, which builds back up slowly, every military unit of
@@ -67,12 +65,11 @@ var building: MapObject
 var queue: PackedInt32Array = []  ## unit, upgrade or trade GUIDs waiting their turn
 var progress := 0.0  ## 0..1 for queue[0]
 var rally_point := Vector2.INF  ## where trained units gather; INF = just outside
-var distilling := true  ## its owner can let a distillery rest, keeping the wood
 var look_ready_at := 0.0  ## game msec (Sim.msec) when the saloon can look again
 var spirit_energy := SPIRIT_COST  ## the tepee of the ancestors' magic energy
 var _trade_terms: Array[Dictionary] = []  # what each queued trade was paid with, in order
 var _income_timer := 0.0
-var _distill_timer := 0.0
+var _room_alerted := false  # the finished unit waiting for living space has been announced
 
 
 func _init(owner: MapObject) -> void:
@@ -95,6 +92,8 @@ func trainable_units() -> PackedInt32Array:
 		out.append(COW_GUID)
 	if guid in GUN_FACTORIES:
 		out.append(GUN_GUID)
+	if guid == DISTILLERY_GUID:
+		out.append(LIQUOR_GUID)
 	if guid in TRADE_BUILDINGS:
 		for i in TRADES.size():
 			out.append(TRADE_GUID + i)
@@ -198,11 +197,9 @@ func _price(item: int) -> Dictionary:
 	if is_trade(item):
 		# Buying pays the gold now; selling hands over the goods now; the other side of the
 		# deal arrives when the trade completes.
-		if queue.size() >= TRADE_QUEUE_LIMIT:
-			return {}
 		var trade: Dictionary = TRADES[item - TRADE_GUID]
 		return {"cost": {"gold": player.buy_price(trade.good)} if trade.buy else {trade.good: Player.TRADE_PACKAGE[trade.good]}}
-	if item == COW_GUID or item == GUN_GUID:
+	if item == COW_GUID or item == GUN_GUID or item == LIQUOR_GUID:
 		return {"cost": stats.cost}
 	if item == HORSE_GUID:
 		if int(player.resources.get("horses", 0)) + player.queued_horses() >= player.horse_capacity():
@@ -210,18 +207,15 @@ func _price(item: int) -> Dictionary:
 		return {"cost": stats.cost}
 	if item in Player.COMMANDERS and player.has_commander():
 		return {}
+	# Living space is not needed yet: a finished unit waits for it (see _train).
 	var cost: Dictionary = stats.get("cost", {}).duplicate()
 	cost.erase("population")
-	return {"cost": cost} if player.has_room() else {}
+	return {"cost": cost}
 
 
 ## The assembly location for what this building trains.
 func set_rally(point: Vector2) -> void:
 	rally_point = point
-
-
-func set_distilling(on: bool) -> void:
-	distilling = on
 
 
 ## The saloon's look over the land: lifts the fog round `point` for a while, for its owner.
@@ -265,8 +259,6 @@ func update(delta: float) -> void:
 	var guid := building.guid
 	if guid == SPIRIT_TEPEE and building.complete and building.health > 0.0:
 		spirit_energy = minf(SPIRIT_MAX, spirit_energy + SPIRIT_REGEN * delta)
-	if guid == DISTILLERY_GUID:
-		_distill(delta)
 	if guid in INCOME_BUILDINGS and building.health > 0.0:
 		_earn(delta)
 	if guid in TRADE_BUILDINGS:
@@ -283,9 +275,18 @@ func _train(delta: float) -> void:
 	progress += delta / production_seconds(int(stats.get("build_time", DEFAULT_PRODUCTION_TIME)))
 	if progress < 1.0:
 		return
+	var player := owner()
+	# A finished unit waits in the building until its people have living space for it,
+	# announced once (AmericaAddOn.exe 0x40d103, alert 805).
+	if stats.get("kind") == "unit" and player and not player.can_house(int(stats.get("cost", {}).get("population", 1))):
+		progress = 1.0
+		if not _room_alerted:
+			_room_alerted = true
+			player.alert(Player.LIVING_SPACE_ALERT, building.position, 0)
+		return
+	_room_alerted = false
 	progress = 0.0
 	queue.remove_at(0)
-	var player := owner()
 	if stats.get("kind") == "upgrade":
 		if player:
 			player.complete_research(item)
@@ -302,9 +303,12 @@ func _train(delta: float) -> void:
 		return
 	if building.owner_index == Orders.local_player:  # the new unit announces itself, ours only
 		Sound.play_event(item, Sound.Event.UNIT_READY, building.position, 0)
-	if item == HORSE_GUID or item == GUN_GUID:
+	if item == HORSE_GUID or item == GUN_GUID or item == LIQUOR_GUID:
 		if player:
-			player.add("horses" if item == HORSE_GUID else "guns", 1 if item == HORSE_GUID else GUNS_PER_BATCH)
+			match item:
+				HORSE_GUID: player.add("horses", 1)
+				GUN_GUID: player.add("guns", GUNS_PER_BATCH)
+				LIQUOR_GUID: player.add("food", LIQUOR_FOOD)
 		return
 	if player:
 		player.stats.produced += 1
@@ -327,23 +331,11 @@ func _earn(delta: float) -> void:
 		player.add("gold", INCOME_GOLD)
 
 
-func _distill(delta: float) -> void:
-	var player := owner()
-	if player == null or not distilling or int(player.resources.get("wood", 0)) < DISTILL_WOOD:
-		return
-	_distill_timer += delta
-	if _distill_timer >= production_seconds(DISTILL_TIME):
-		_distill_timer = 0.0
-		player.spend({"wood": DISTILL_WOOD})
-		player.add("food", DISTILL_FOOD)
-
-
 func restore(entry: Dictionary) -> void:
 	queue = PackedInt32Array(entry.get("queue", []).map(func(v) -> int: return int(v)))
 	progress = float(entry.get("train", 0.0))
 	var rally = entry.get("rally")
 	rally_point = Vector2(rally[0], rally[1]) if rally != null else Vector2.INF
-	distilling = bool(entry.get("distilling", true))
 	# Saves don't keep what queued trades were paid; refund them at today's prices.
 	_trade_terms.clear()
 	var player := owner()

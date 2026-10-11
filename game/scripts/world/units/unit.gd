@@ -520,6 +520,7 @@ func fire_from_quarters(enemy: Node2D, from: Vector2, reach: float) -> void:
 func take_damage(amount: float, attacker: Node2D = null, horse_too := false) -> void:
 	if not is_alive() or state == State.QUARTERED:
 		return
+	KiManager.note_hurt(self)
 	if magic.shield_time > 0.0:
 		amount *= 0.5  # the medicine man's protective shield
 	health = maxf(0.0, health - amount)

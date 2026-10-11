@@ -36,6 +36,8 @@ var ais: Array[AiPlayer] = []
 ## The campaign mission's script (null in a skirmish), and what the map says about it.
 var mission: Mission
 var mission_data: MissionData
+## The original's AI scripts the mission starts (null in a skirmish).
+var ki: KiManager
 var _game_over := false
 var players := {}
 var start_positions := {}  # player -> Vector2, from the map's Editor_Start markers
@@ -353,6 +355,11 @@ func _setup_diplomacy() -> void:
 
 func _start_mission() -> void:
 	var texts: Dictionary = Campaign.texts(Match.campaign.get("set", "base"))
+	ki = KiManager.new()
+	ki.name = "KI"
+	add_child(ki)
+	ki.setup(mission_data.players.filter(func(p: MissionData.PlayerSlot) -> bool: return p.control != MissionData.Seat.NONE) \
+			.map(func(p: MissionData.PlayerSlot) -> int: return p.index), terrain.map.pixel_size(), terrain.biome)
 	mission = Mission.new()
 	mission.name = "Mission"
 	add_child(mission)
@@ -366,7 +373,8 @@ func _start_mission() -> void:
 
 ## The script started one of the original's AI modules for a people (kimodules).
 func start_ai_module(player: int, module: int) -> void:
-	print("MISSION: AI module %08d for player %d" % [module, player])
+	if ki:
+		ki.start(player, module)
 
 
 func _on_mission_ended(won: bool) -> void:

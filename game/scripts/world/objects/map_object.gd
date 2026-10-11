@@ -233,6 +233,7 @@ func display_name() -> String:
 func take_damage(amount: float, attacker: Node2D = null, _splash := false) -> void:
 	if _is_building:
 		condition.take_damage(amount, attacker)
+		KiManager.note_hurt(self)
 
 
 ## Briefly pulse the object and ring it, to confirm it was picked as an order's target.

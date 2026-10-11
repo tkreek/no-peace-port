@@ -221,13 +221,16 @@ func _resource(player: int, which: int) -> int:
 ## people `player` has, within `rect` when one is given; buildings once they stand
 ## (the first tutorial's "now the chief's tepee is standing"). Animals: horses and cows by
 ## owner, buffalo whoever they belong to.
-func count(player: int, what: int, rect := Rect2()) -> int:
+## `outside`: units in buildings and boats do not count (the KI's 375); `any_owner`:
+## animals count whoever owns them (the KI's area counts).
+static func count(player: int, what: int, rect := Rect2(), outside := false, any_owner := false) -> int:
 	var within := rect.has_area()
 	var total := 0
 	if what < 100 or _is_unit(what) or EITHER.has(what) or what in ANIMALS:
+		var any := what == BUFFALO or (any_owner and what in ANIMALS)
 		for unit in Unit.all_units:
-			if unit.is_alive() and (unit.team == player or what == BUFFALO) and unit_matches(unit, what) \
-					and (not within or rect.has_point(unit.position)):
+			if unit.is_alive() and (unit.team == player or any) and unit_matches(unit, what) \
+					and (not within or rect.has_point(unit.position)) and not (outside and unit.inside):
 				total += 1
 	if what < 100 or not (_is_unit(what) or what in ANIMALS):  # buildings and fields
 		for object in MapObject.structures:

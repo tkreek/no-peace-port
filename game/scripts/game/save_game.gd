@@ -25,6 +25,7 @@ static func save(main: Node, path := QUICK) -> bool:
 	if main.mission:
 		data["campaign"] = Match.campaign
 		data["mission"] = main.mission.save_state()
+		data["ki"] = main.ki.save_state()
 		data["revealed_areas"] = main.fog.revealed_areas.keys()
 	for index in main.players:
 		var p: Player = main.players[index]
@@ -77,6 +78,8 @@ static func restore(main: Node, data: Dictionary) -> void:
 		Diplomacy.restore_state(data.diplomacy)
 	if main.mission and data.has("mission"):
 		main.mission.restore_state(data.mission)
+		if data.has("ki"):
+			main.ki.restore_state(data.ki)
 		for id in data.get("revealed_areas", []):
 			main.fog.revealed_areas[int(id)] = main.mission.area(int(id))
 	if data.has("tick"):

@@ -41,6 +41,8 @@ var _net_status := Label.new()
 var _name_edit := LineEdit.new()
 var _address_edit := LineEdit.new()
 var _password_edit := LineEdit.new()
+var _campaign: CampaignMenu
+var _screen_backdrops := {}  # screen -> backdrop picture other than the main one
 
 
 func _ready() -> void:
@@ -60,6 +62,13 @@ func _ready() -> void:
 	_screens.setup = _build_setup()
 	_screens.settings = _build_settings()
 	_screens.network = _build_network()
+	if not Campaign.data().is_empty():
+		_campaign = CampaignMenu.new(self)
+		_screens.campaign = _campaign.campaign_screen
+		_screens.missions = _campaign.missions_screen
+		_screens.briefing = _campaign.briefing_screen
+		_screen_backdrops.campaign = Campaign.art("select_campaign")
+		_screen_backdrops.missions = Campaign.art("select_mission")
 	Net.lobby_changed.connect(_on_lobby_changed)
 	Net.connection_failed.connect(func(reason: String) -> void:
 		_net_status.text = reason
@@ -71,6 +80,9 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_fit)
 	_fit()
 	_show("main")
+	if _campaign and not Match.campaign.is_empty():
+		_campaign.resume(Match.campaign)  # back from a mission: its campaign
+		_show("missions")
 	Sound.play_music("title")
 	_menu_screenshot()
 	if GameData.cmdline_option("menu-autostart") != "":
@@ -80,7 +92,7 @@ func _ready() -> void:
 
 
 ## --menu-shot=<png> [--menu-screen=setup|network|lobby]: capture a menu screen and quit
-## (for checks; "lobby" hosts a game and waits --menu-wait=<s> for others to join first).
+## (for checks; campaign|missions|briefing: the campaign's screens; "lobby" hosts a game and waits --menu-wait=<s> for others to join first).
 func _menu_screenshot() -> void:
 	var path := GameData.cmdline_option("menu-shot")
 	if path.is_empty():
@@ -90,6 +102,8 @@ func _menu_screenshot() -> void:
 		Net.host()
 		_enter_lobby()
 		await get_tree().create_timer(GameData.cmdline_option("menu-wait", "0").to_float()).timeout
+	elif screen == "briefing" and _campaign:
+		_campaign._brief()
 	else:
 		_show(screen)
 	if GameData.cmdline_option("menu-map") != "":
@@ -134,11 +148,18 @@ func _show(screen: String) -> void:
 	for key in _screens:
 		_screens[key].visible = key == screen
 	var art: TextureRect = get_node_or_null("Art")
-	if art:
+	if art and _screen_backdrops.get(screen, "") != "":
+		_set_backdrop(_screen_backdrops[screen])
+	elif art:
 		var path := SETUP_BG if screen == "setup" else MAIN_BG
 		if path == MAIN_BG and not GameData.exists(MAIN_BG):
 			path = MAIN_BG_BASE
 		_set_backdrop(path)
+
+
+## The picture behind `screen` (the campaign's screens have their own).
+func set_screen_backdrop(screen: String, path: String) -> void:
+	_screen_backdrops[screen] = path
 
 
 # ------------------------------------------------------------------ background
@@ -181,6 +202,8 @@ func _build_main() -> Control:
 	column.position = Vector2(400, 250)
 	column.add_theme_constant_override("separation", 14)
 	screen.add_child(column)
+	if not Campaign.data().is_empty():
+		column.add_child(_glow_button("Campaign", func() -> void: _show("campaign")))
 	column.add_child(_glow_button("Skirmish", func() -> void: _show("setup")))
 	column.add_child(_glow_button("Multiplayer", func() -> void: _show("network")))
 	if FileAccess.file_exists(SaveGame.QUICK):

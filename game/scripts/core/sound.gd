@@ -238,7 +238,9 @@ func speech_stream(path: String) -> AudioStream:
 
 
 func play_music(faction: String) -> void:
-	var path := "music/%s.mp3" % FACTION_MUSIC.get(faction, "title")
+	var path := "music/%s.mp3" % FACTION_MUSIC.get(faction, faction)  # a people, or a track ("briefing")
+	if not GameData.exists(path):
+		path = "music/title.mp3"
 	if not GameData.exists(path):
 		return
 	var stream := AudioStreamMP3.new()

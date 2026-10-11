@@ -232,9 +232,7 @@ func _glow_button(text: String, action: Callable) -> Control:
 		glow.texture = _frame(_glow, 0)
 		label.add_theme_color_override("font_color", MenuStyle.TEXT))
 	button.button_down.connect(func() -> void: glow.texture = _frame(_glow, 2))
-	button.pressed.connect(func() -> void:
-		Sound.play_sound(268)  # "ding"
-		action.call())
+	button.pressed.connect(action)  # the original's menus are silent
 	return button
 
 
@@ -490,9 +488,7 @@ func _small_button(text: String, action: Callable) -> Button:
 	button.add_theme_stylebox_override("normal", normal)
 	button.add_theme_stylebox_override("hover", hover)
 	button.add_theme_stylebox_override("pressed", hover)
-	button.pressed.connect(func() -> void:
-		Sound.play_sound(268)
-		action.call())
+	button.pressed.connect(action)  # the original's menus are silent
 	return button
 
 

@@ -467,6 +467,42 @@ func _scenario_disarm() -> void:
 	get_tree().quit()
 
 
+## A scout (--disarmer=<GUID>: trapper 461, militiaman 261, hunter 358, arrow shooter 156)
+## disarms a Native pitfall: four seconds with his butchering animation, then it is gone.
+func _scenario_scoutdisarm() -> void:
+	var centre := Vector2(main.terrain.map.pixel_size()) / 2.0
+	centre = (Vector2(main.nav.nearest_walkable(main.nav.cell_of(centre))) + Vector2(0.5, 0.5)) * NavGrid.CELL
+	var type := ObjectTypes.get_type(GameData.type_for_guid(MapObject.PITFALL_GUID, main.terrain.biome))
+	var pit := MapObject.new()
+	pit.position = centre
+	pit.setup(type, 2)
+	main.units_root.add_child(pit)
+	main.camera.position = centre
+	var scout: Unit = _new_units(GameData.cmdline_option("disarmer", "461").to_int(), 1, centre + Vector2(-200, 40), 1)[0]
+	scout.stance = Unit.Stance.PASSIVE
+	var can := scout.saboteur.can_sabotage(pit)
+	scout.sabotage(pit)
+	var working := false
+	for i in 40:
+		await get_tree().create_timer(0.25).timeout
+		if scout._anim == scout.unit_type.anim_index("butcher"):
+			working = true
+			break
+	var started := Sim.msec()
+	var shot := GameData.cmdline_option("screenshot")
+	if not shot.is_empty():  # a frame a second into the work (run with a large --frames)
+		await get_tree().create_timer(1.0).timeout
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(shot)
+		get_tree().quit()
+		return
+	while is_instance_valid(pit) and pit.is_alive() and Sim.msec() - started < 8000:
+		await get_tree().create_timer(0.25).timeout
+	print("disarm by %s: can %s, butcher animation %s, trap gone %s after %.1f s, alive %s" % [scout.display_name(), can, working,
+			not is_instance_valid(pit) or not pit.is_alive(), (Sim.msec() - started) / 1000.0, scout.is_alive()])
+	get_tree().quit()
+
+
 ## An assassin digs in, lies under his mound of earth, and bursts out of it at an enemy
 ## walking by (--faction=des; --stage=mound stops there for a screenshot).
 func _scenario_ambush() -> void:

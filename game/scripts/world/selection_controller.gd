@@ -286,7 +286,8 @@ func _order_at(world: Vector2, ctrl: bool) -> void:
 		animal.flash(Color(1.0, 0.35, 0.3))  # marked as the target, like an attack order
 		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	elif enemy is MapObject and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.saboteur.can_sabotage(enemy)):
-		# Saboteurs go in to throw the defenders out or take the empty building.
+		# Saboteurs go in to throw the defenders out or take the empty building; at a trap,
+		# saboteurs and scouts disarm it.
 		Orders.units(selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.saboteur.can_sabotage(enemy)), "sabotage", [enemy])
 		enemy.flash(Color(1.0, 0.9, 0.4))
 		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)

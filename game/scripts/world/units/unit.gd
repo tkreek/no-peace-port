@@ -432,7 +432,7 @@ func steal(vehicle: Unit) -> void:
 	work.steal(vehicle)
 
 
-## A saboteur's order: into an enemy fort, tower or trap (UnitSabotage).
+## A saboteur's order: into an enemy fort, tower or trap; a scout's: disarm a trap (UnitSabotage).
 func sabotage(building: MapObject) -> void:
 	saboteur.sabotage(building)
 

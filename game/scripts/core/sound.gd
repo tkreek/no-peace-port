@@ -253,6 +253,8 @@ func _stream(path: String) -> AudioStream:
 		var mp3 := AudioStreamMP3.new()
 		mp3.data = bytes
 		stream = mp3
+	elif GameData.path(path).ends_with(".ogg"):  # a release build's packed sound
+		stream = AudioStreamOggVorbis.load_from_buffer(bytes)
 	else:
 		stream = AudioStreamWAV.load_from_buffer(bytes)
 	_streams[path] = stream

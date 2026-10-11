@@ -6,9 +6,9 @@
 #
 # Usage: tools/build_game.sh [linux|windows ...]   (default: both)
 #   COPY_ASSETS=1  copy the asset folder instead of linking it, so the build folder can be
-#                  zipped and moved to another machine. The copy stores colour pictures as
-#                  lossless WebP, with the colour under transparent pixels kept only near
-#                  visible ones (tools/pack_assets.py --trim=8, needs ImageMagick).
+#                  zipped and moved to another machine. The copy is packed smaller with no
+#                  visible change: WebP pictures, Ogg sounds (tools/pack_assets.py; needs
+#                  numpy and Pillow from tools/.venv, or PYTHON=..., and ffmpeg).
 #   ZIP=1          also pack each build into build/america-remastered-<platform>.zip
 #                  (implies COPY_ASSETS=1).
 #
@@ -18,6 +18,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 GODOT=${GODOT:-godot}
+PYTHON=${PYTHON:-tools/.venv/bin/python}  # numpy and Pillow, for tools/pack_assets.py
+[ -x "$PYTHON" ] || PYTHON=python3
 MAKE_ZIP=${ZIP:-0}
 unset ZIP  # zip itself reads $ZIP as options
 COPY_ASSETS=${COPY_ASSETS:-$MAKE_ZIP}
@@ -48,7 +50,7 @@ for platform in "${platforms[@]}"; do
 	if [ "$COPY_ASSETS" = 1 ]; then
 		# Packed once, then shared by each platform's copy.
 		if [ ! -d build/packed-assets ]; then
-			tools/pack_assets.py --trim=8 assets build/packed-assets.tmp
+			"$PYTHON" tools/pack_assets.py assets build/packed-assets.tmp
 			mv build/packed-assets.tmp build/packed-assets
 		fi
 		cp -r build/packed-assets "$out/assets"

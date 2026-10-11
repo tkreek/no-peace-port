@@ -246,7 +246,7 @@ func _object_detail(object: MapObject) -> String:
 		return "%s %s — %d%%" % [doing, current.get("name", "?"), int(production.progress * 100)]
 	if object.guid == BuildingProduction.DISTILLERY_GUID:
 		owner_note += "\n" + ("Distilling %d wood into %d food every %d s" % [BuildingProduction.DISTILL_WOOD,
-				BuildingProduction.DISTILL_FOOD, BuildingProduction.DISTILL_SECONDS] if production.distilling else "Resting")
+				BuildingProduction.DISTILL_FOOD, BuildingProduction.production_seconds(BuildingProduction.DISTILL_TIME)] if production.distilling else "Resting")
 	if object.guid == BuildingProduction.SPIRIT_TEPEE and object.owner_index == hud.player.index:
 		owner_note += "\nMagic energy %d / %d" % [production.spirit_energy, BuildingProduction.SPIRIT_MAX]
 	var defence := object.defence

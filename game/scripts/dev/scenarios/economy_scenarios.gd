@@ -206,7 +206,7 @@ func _scenario_trade() -> void:
 	print("before: %s  gun price %d, wood sells for %d" % [p.resources, p.buy_price("guns"), p.sell_price("wood")])
 	print("queued: ", post.production.enqueue(BuildingProduction.TRADE_GUID + 4), post.production.enqueue(BuildingProduction.TRADE_GUID + 4), post.production.enqueue(BuildingProduction.TRADE_GUID + 3))
 	print("paid:   %s" % p.resources)
-	await get_tree().create_timer(20.0).timeout
+	await get_tree().create_timer(3 * BuildingProduction.production_seconds(20) + 1.0).timeout
 	print("after:  %s  gun price %d, wood sells for %d" % [p.resources, p.buy_price("guns"), p.sell_price("wood")])
 	get_tree().quit()
 

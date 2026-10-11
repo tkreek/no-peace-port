@@ -159,8 +159,8 @@ func _load_tables() -> void:
 			_stats[guid] = DefaultsData.to_stats(entry, _stats.get(guid, {}))
 			if _texts.has(guid):
 				_stats[guid].name = _texts[guid]
-		elif entry.kind == "upgrade" and _stats.has(guid) and entry.has("icon"):
-			_stats[guid].icon = entry.icon  # upgrade stats come from the manual; take the picture
+		elif entry.kind == "upgrade" and _stats.has(guid):
+			DefaultsData.apply_upgrade(entry, _stats[guid])
 	# Mounted units are trained where their foot version is ("mounted: + 1 horse").
 	var by_name := {}
 	for guid in _stats:
@@ -178,27 +178,33 @@ func _load_tables() -> void:
 			var foot: int = by_name.get("%s|%s" % [st.get("faction"), name.substr(8).to_lower()], -1)
 			if foot >= 0 and _stats[foot].has("produced_at"):
 				st.produced_at = _stats[foot].produced_at
-	# Trades at the trading post (buy: green arrow, sell: red arrow icons in SonstigeIcons).
+	# Trades at the trading post (buy: green arrow, sell: red arrow icons in SonstigeIcons);
+	# AmericaAddOn.exe gives every trade 20 s (0x40ce30).
 	for i in BuildingProduction.TRADES.size():
 		var trade: Dictionary = BuildingProduction.TRADES[i]
 		_stats[BuildingProduction.TRADE_GUID + i] = {"kind": "trade", "name": "%s %s" % ["Buy" if trade.buy else "Sell", trade.good],
-				"faction": "", "build_time": 6, "cost": {}, "icon_frame": trade.icon}
-	_stats[BuildingProduction.COW_GUID] = {"kind": "cow", "name": "Cow", "faction": "", "build_time": 15,
-			"cost": {"food": 40}, "icon": "portraits/other/z_08_cow.png",
+				"faction": "", "build_time": 20, "cost": {}, "icon_frame": trade.icon}
+	# Cows, horses and guns are in Defaults.bin's neutral block, which the editor's
+	# Defaults.dat leaves out: cow (482) 120 food, 45 s; horse (480) 150 food, 45 s; guns
+	# (710) 300 gold, 120 s for ten. The field (149) is there too: 25 s to build.
+	_stats[BuildingProduction.COW_GUID] = {"kind": "cow", "name": "Cow", "faction": "", "build_time": 45,
+			"cost": {"food": 120}, "icon": "portraits/other/z_08_cow.png",
 			"function": "Raises a cow; it gains up to 25 gold of value while grazing"}
 	# The American "Stagecoach" upgrade (editor GUID 990) the manual lists at the sawmill.
 	if not _stats.has(BuildingProduction.STAGECOACH_UPGRADE):
 		_stats[BuildingProduction.STAGECOACH_UPGRADE] = {"kind": "upgrade", "faction": "usa", "name": "Stagecoach",
-				"produced_at": 409, "cost": {"food": 150, "wood": 150, "gold": 250}, "effects": {},
+				"produced_at": 409, "cost": {"food": 150, "wood": 150, "gold": 250}, "build_time": 120, "effects": {},
 				"function": "Allows stagecoaches to be built", "applies_to": "Stagecoaches", "applies_to_guids": [456]}
-	# Making a rifle at the weapons factory (manual 4.3; GUID 710 "Guns" has no editor entry).
-	_stats[BuildingProduction.GUN_GUID] = {"kind": "gun", "name": "Rifle",
-			"faction": "", "build_time": 12, "cost": {"wood": 40, "gold": 40},
-			"function": "Makes a rifle for the units that need one", "icon_frame": 52}
-	# Raising a horse (manual: corral, hacienda, ranch; "costs food"; no editor entry).
-	_stats[BuildingProduction.HORSE_GUID] = {"kind": "horse", "name": "Horse", "faction": "", "build_time": 20,
-			"cost": {"food": 50}, "icon": "portraits/other/z_02_horse.png",
+	# Making guns at the weapons factory (manual 4.3).
+	_stats[BuildingProduction.GUN_GUID] = {"kind": "gun", "name": "Guns",
+			"faction": "", "build_time": 120, "cost": {"gold": 300},
+			"function": "Makes %d guns for the units that need one" % BuildingProduction.GUNS_PER_BATCH, "icon_frame": 52}
+	# Raising a horse (manual: corral, hacienda, ranch).
+	_stats[BuildingProduction.HORSE_GUID] = {"kind": "horse", "name": "Horse", "faction": "", "build_time": 45,
+			"cost": {"food": 150}, "icon": "portraits/other/z_02_horse.png",
 			"function": "Raises a horse for mounted units (each horse building shelters %d)" % BuildingProduction.HORSES_PER_BUILDING}
+	if _stats.has(MapObject.FIELD_GUID):
+		_stats[MapObject.FIELD_GUID].build_time = 25
 	for guid in EXPANSION_PRODUCTION:
 		if _stats.has(guid):
 			_stats[guid].produced_at = EXPANSION_PRODUCTION[guid]

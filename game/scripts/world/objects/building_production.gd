@@ -5,9 +5,9 @@ extends RefCounted
 ## their own: banks and missions earn gold, the distillery turns wood into food, the
 ## saloon looks over the land.
 
-const TRAIN_SECONDS := {"default": 14.0, "worker": 9.0}
 const QUEUE_LIMIT := 5
-const UPGRADE_SECONDS := 60.0
+## Production time when the data has none (AmericaAddOn.exe, 0x40ce30).
+const DEFAULT_PRODUCTION_TIME := 10
 ## Horses are raised at the corral (Native, outlaw), hacienda and ranch, which shelter five
 ## each ("zero of five possible horses"); mounted units cost one.
 const HORSE_GUID := 9001
@@ -19,6 +19,7 @@ const COW_BUILDINGS := [205, 405]
 const ANIMAL_PROCESSING := [102, 202, 302, 402]
 ## Guns (manual 4.3): "Americans and Mexicans produce guns in their weapons factories".
 const GUN_GUID := 9003
+const GUNS_PER_BATCH := 10
 const GUN_FACTORIES := [211, 411]
 const STAGECOACH := 456
 const STAGECOACH_UPGRADE := 990
@@ -38,10 +39,11 @@ const INCOME_BUILDINGS := [416, 216]
 const INCOME_GOLD := 15
 const INCOME_SECONDS := 12.0
 const INCOME_MAX_BUILDINGS := 5
-## The distillery turns wood into food (the outlaws' liquor) while wood lasts.
+## The distillery turns wood into food (the outlaws' liquor) while wood lasts: Defaults.bin's
+## "Liquor" (711), 75 wood and 50 s for 40 food (AmericaAddOn.exe 0x40cf40).
 const DISTILLERY_GUID := 308
-const DISTILL_SECONDS := 15.0
-const DISTILL_WOOD := 20
+const DISTILL_TIME := 50
+const DISTILL_WOOD := 75
 const DISTILL_FOOD := 40
 ## The outlaws' saloon looks over the land once Lift fog of war is researched.
 ## The Natives' tepee of the ancestors (expansion manual 4.1) invokes the warrior spirit:
@@ -153,6 +155,15 @@ func invoke_spirit() -> bool:
 				and not unit.unit_type.is_farmer():
 			unit.inspire(SPIRIT_BOOST[level - 1], SPIRIT_SECONDS)
 	return true
+
+
+## How long the original takes over something of production time `time` (seconds, property
+## 106). AmericaAddOn.exe (0x40ce30) counts to 0x7000 in whole steps of
+## (0x7000 / time) * 20 / 1000 every 20 ms tick, so long times run over: 20 s takes 20.5 s,
+## 60 s 63.7 s, 90 s 95.6 s, 120 s 143.4 s.
+static func production_seconds(time: int) -> float:
+	var step := floori(floori(28672.0 / maxi(1, time)) * 20 / 1000.0)
+	return ceili(28672.0 / step) * 0.02 if step > 0 else INF
 
 
 static func is_trade(item: int) -> bool:
@@ -269,14 +280,7 @@ func update(delta: float) -> void:
 func _train(delta: float) -> void:
 	var item := queue[0]
 	var stats := GameData.stats(item)
-	var seconds: float = TRAIN_SECONDS.default if stats.get("damage", 0) > 4 else TRAIN_SECONDS.worker
-	seconds = float(stats.get("build_time", seconds))
-	if stats.get("kind") == "upgrade":
-		# The editor data gives 60 s for level 1 and 90 s for level 2 of an upgrade.
-		var name: String = stats.get("name", "")
-		var level := name.get_slice(" ", name.get_slice_count(" ") - 1)
-		seconds = 30.0 + 30.0 * level.to_int() if level.is_valid_int() else UPGRADE_SECONDS
-	progress += delta / seconds
+	progress += delta / production_seconds(int(stats.get("build_time", DEFAULT_PRODUCTION_TIME)))
 	if progress < 1.0:
 		return
 	progress = 0.0
@@ -300,7 +304,7 @@ func _train(delta: float) -> void:
 		Sound.play_event(item, Sound.Event.UNIT_READY, building.position, 0)
 	if item == HORSE_GUID or item == GUN_GUID:
 		if player:
-			player.add("horses" if item == HORSE_GUID else "guns", 1)
+			player.add("horses" if item == HORSE_GUID else "guns", 1 if item == HORSE_GUID else GUNS_PER_BATCH)
 		return
 	if player:
 		player.stats.produced += 1
@@ -328,7 +332,7 @@ func _distill(delta: float) -> void:
 	if player == null or not distilling or int(player.resources.get("wood", 0)) < DISTILL_WOOD:
 		return
 	_distill_timer += delta
-	if _distill_timer >= DISTILL_SECONDS:
+	if _distill_timer >= production_seconds(DISTILL_TIME):
 		_distill_timer = 0.0
 		player.spend({"wood": DISTILL_WOOD})
 		player.add("food", DISTILL_FOOD)

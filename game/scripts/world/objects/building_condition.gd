@@ -7,6 +7,9 @@ extends RefCounted
 
 ## Worker-seconds of building work per point of structure energy, when the data gives none.
 const BUILD_WORK_PER_HEALTH := 0.05
+## AmericaAddOn.exe (0x40c4b0) does a building's production time (property 6) in steps of a
+## worker's 51 ticks of 20 ms, each step a 1/time share of the work; more workers, more steps.
+const BUILD_STEP_SECONDS := 1.02
 const BURNT_BELOW := 0.33
 const FIRE_BELOW := 0.66
 const RUBBLE_SECONDS := 25.0
@@ -50,7 +53,8 @@ func needs_repair() -> bool:
 
 
 func _total_work() -> float:
-	return maxf(5.0, float(GameData.stats(building.guid).get("build_time", building.max_health * BUILD_WORK_PER_HEALTH)))
+	var time := float(GameData.stats(building.guid).get("build_time", building.max_health * BUILD_WORK_PER_HEALTH))
+	return maxf(1.0, time) * BUILD_STEP_SECONDS
 
 
 ## Add construction work (worker-seconds); returns true when the building completes.

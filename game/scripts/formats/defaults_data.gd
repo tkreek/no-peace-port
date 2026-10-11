@@ -32,6 +32,12 @@ const WORKERS := [152, 153, 155, 164, 252, 253, 254, 255, 256, 257, 352, 355, 36
 		455, 456, 457]
 
 
+## What the game charges (AmericaAddOn.exe 0x4564a0 for units and upgrades, 0x40cc50 for
+## structures); a unit's living space (119) is checked when it is done, not paid.
+const UNIT_COST := {"food": 101, "wood": 102, "horses": 103, "gold": 104, "guns": 105}
+const STRUCTURE_COST := {"food": 1, "wood": 2, "gold": 4, "guns": 5}
+
+
 ## GUID -> entry (property ids as ints).
 static func load() -> Dictionary:
 	var data = GameData.read_json(PATH)
@@ -59,12 +65,7 @@ static func to_stats(entry: Dictionary, base: Dictionary) -> Dictionary:
 	stats.kind = "unit" if unit else ("structure" if entry.kind == "structure" else entry.kind)
 	if not stats.has("name"):
 		stats.name = entry.name_de
-	var cost := {}
-	var cost_ids := {"food": 101, "wood": 102, "horses": 103, "gold": 104, "guns": 105} if unit \
-			else {"food": 1, "wood": 2, "gold": 4, "guns": 5}
-	for key in cost_ids:
-		if int(p.get(cost_ids[key], 0)) > 0:
-			cost[key] = int(p[cost_ids[key]])
+	var cost := _cost(p, UNIT_COST if unit else STRUCTURE_COST)
 	if unit and p.has(119):
 		cost["population"] = int(p[119])
 	stats.cost = cost
@@ -97,3 +98,22 @@ static func to_stats(entry: Dictionary, base: Dictionary) -> Dictionary:
 		stats.icon = entry.icon
 	stats.types = entry.types
 	return stats
+
+
+## An upgrade's cost and production time (106) into `stats` (the manual's entry, which
+## names it and says what it does; its costs and times are not the game's).
+static func apply_upgrade(entry: Dictionary, stats: Dictionary) -> void:
+	var p: Dictionary = entry.properties
+	stats.cost = _cost(p, UNIT_COST)
+	if p.has(106):
+		stats.build_time = int(p[106])
+	if entry.has("icon"):
+		stats.icon = entry.icon
+
+
+static func _cost(p: Dictionary, ids: Dictionary) -> Dictionary:
+	var cost := {}
+	for key in ids:
+		if int(p.get(ids[key], 0)) > 0:
+			cost[key] = int(p[ids[key]])
+	return cost

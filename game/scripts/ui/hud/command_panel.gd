@@ -233,7 +233,7 @@ func _add_building_commands(building: MapObject) -> void:
 			button.set_meta("guid", guid)
 			button.set_meta("trade", trade)
 		elif guid == BuildingProduction.GUN_GUID:
-			var button := _add_icon(command_icons, int(GameData.stats(guid).icon_frame), "Make a rifle\n%s" % _cost_text(guid),
+			var button := _add_icon(command_icons, int(GameData.stats(guid).icon_frame), "Make %d guns\n%s" % [BuildingProduction.GUNS_PER_BATCH, _cost_text(guid)],
 					enqueue.bind(guid))
 			button.set_meta("guid", guid)
 		elif guid == BuildingProduction.HORSE_GUID or guid == BuildingProduction.COW_GUID:
@@ -257,7 +257,7 @@ func _add_building_commands(building: MapObject) -> void:
 	if building.guid == BuildingProduction.DISTILLERY_GUID:
 		_add_icon(command_icons, ICON_STOP, "Stop distilling (keeps the wood)" if production.distilling \
 				else "Start distilling again (%d wood into %d food every %d s)" % [BuildingProduction.DISTILL_WOOD,
-				BuildingProduction.DISTILL_FOOD, BuildingProduction.DISTILL_SECONDS], func() -> void:
+				BuildingProduction.DISTILL_FOOD, BuildingProduction.production_seconds(BuildingProduction.DISTILL_TIME)], func() -> void:
 					Orders.building(building, "set_distilling", [not production.distilling])
 					signature = "", not production.distilling)
 	if not production.trainable_units().is_empty():

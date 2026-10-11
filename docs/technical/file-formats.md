@@ -167,6 +167,28 @@ one is packed and wrapped in a try-and-buy layer). Addresses are that file's.
   doubled most units' HP (54 of 87; heroes unchanged) but kept every attack value, so
   fights take about twice as many hits.
 
+## Production in the executable
+
+Same file. Costs and times are `Defaults.bin` properties; the loader (0x442db2) puts all five
+of its blocks into one table by object type and copies it into every player's table, so the
+neutral block's cow (482), horse (480), guns (710), liquor (711) and field (149) count for
+everyone. The expansion editor's `Defaults.dat` lacks those five.
+
+- Queueing (0x4564a0) charges 101 food, 102 wood, 103 horses, 104 gold, 105 guns, from the
+  player's table, or the neutral one for horse, guns and liquor. Living space (119) is
+  checked when the unit is done (0x40d103, alert 0x325), not paid. The queue holds 10.
+- Production timer (0x40ce30, 0x40cee0): counts to 0x7000 by
+  `(0x7000 / t) * 20 / 1000` (whole numbers) every 20 ms tick, `t` = property 106 (at least
+  1; 10 if the type has no entry; trades 600-619 take 20). The rounding lengthens long
+  times: 20 s → 20.5, 60 → 63.7, 90 → 95.6, 120 → 143.4.
+- Done (0x40cf1d): upgrades (900+) are researched; guns add 10 guns, liquor 40 food, a horse
+  1 horse; buying at the trading post adds 100 food, 100 wood or 2 guns.
+- Construction (0x40c4b0, called by every worker on the site each tick): every 51 of a
+  worker's ticks (1.02 s) the building gains `maxHP / t` (HP is fixed point x256 from 1 HP)
+  and uses `K / t` of a work pool K (2000-7000, set by building class); it is done when
+  either runs out, so one worker takes `t` x 1.02 s and n workers take 1/n of that.
+  `t` = property 6.
+
 ## Sound in the executable
 
 From `AmericaAddOn.exe` (addresses are that file's). It loads the expansion's

@@ -32,7 +32,7 @@ CHECKS = {
     "pitfall": (["--faction=ind"], 0, [r"pit spent"]),
     "quarters": ([], 0, [r"capacity \d, quartered \d", r"hit beyond the open range: true", r"after release: quartered 0, outside (\d+) on \1 cells"]),
     "research": ([], 2100, [r"researched: \[925\] rifle 2 now:true"]),
-    "trade": ([], 0, [r"queued: truetruetrue", r"\"guns\": 24"]),
+    "trade": (["--time-scale=4"], 0, [r"queued: truetruetrue", r"\"guns\": 24"]),
     "orders": ([], 0, [r"queued Field worker: true", r"rally flag: true"]),
     "food": ([], 300, [r"workers per field \[1, 1\]"]),
     "chain": (["--time-scale=4"], 0, [r"queued: idle worker building true with 1 waiting; cutter building true",

@@ -30,6 +30,7 @@ The current focus is to define the product shape, legal boundaries, technical di
 - `assets/` - source art, audio, animation, and reference assets.
 - `prototypes/` - throwaway experiments and technical spikes.
 - `tools/` - custom scripts, importers, exporters, and project utilities.
+- `server/` - the dedicated multiplayer server's systemd unit and setup guide (`tools/build_server.sh` packs it).
 
 ## First Target
 

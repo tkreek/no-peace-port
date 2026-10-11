@@ -38,7 +38,7 @@ func _ready() -> void:
 	if is_ready():
 		has_expansion = exists("data/defaults.json")
 		_load_tables()
-	else:
+	elif not cmdline_flag("dedicated"):  # a dedicated server (Net) plays no game
 		push_error("No asset folder at '%s'. Build it with tools/assets/build_assets.py or pass --assets-dir=<folder>." % assets_dir)
 
 
@@ -51,6 +51,14 @@ func cmdline_option(name: String, default: String = "") -> String:
 		if arg.begins_with("--%s=" % name):
 			return arg.get_slice("=", 1)
 	return default
+
+
+## Whether --name or --name=value was given.
+func cmdline_flag(name: String) -> bool:
+	for arg in OS.get_cmdline_user_args() + OS.get_cmdline_args():
+		if arg == "--" + name or arg.begins_with("--%s=" % name):
+			return true
+	return false
 
 
 func _resolve_assets_dir() -> String:

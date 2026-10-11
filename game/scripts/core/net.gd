@@ -7,11 +7,17 @@ extends Node
 ##
 ## One machine hosts (ENet, PORT by default); the others join it and all traffic passes
 ## through the host, which also holds the lobby: who plays which people, the map and the
-## settings. The host starts the match for everyone.
+## settings. The lobby's leader (the hosting player) sets it up and starts the match.
+##
+## The host can also be a dedicated server (--dedicated, e.g. on a machine with a public
+## address): it holds the lobby and passes the orders on but plays no people and runs no
+## game, so it needs neither the assets nor a screen. Whoever joins first leads the lobby;
+## when everyone has left a match the server opens a new lobby.
 ##
 ## Command line (after `--`), for tests without the menu:
 ##   --host=port|default --humans=n   host, wait for n - 1 others, then start (--map, --players)
 ##   --join=address[:port]      join a host and play the next free people
+##   --dedicated[=port] [--password=word] [--humans=n]   serve, starting once n are in
 
 signal lobby_changed  ## someone joined or left, or the host changed the slots
 signal connection_failed(reason: String)
@@ -19,15 +25,25 @@ signal desynced(tick: int)
 signal player_left(index: int)
 
 const PORT := 47624
+## Players a dedicated server takes at once (a hosting player is one of them).
+const MAX_PLAYERS := 8
 ## Steps between giving an order and everyone carrying it out (133 ms at 30 steps a second).
 const DELAY := 4
 ## Every this many steps a batch carries the sender's checksum.
 const CHECK_EVERY := 30
-const PROTOCOL := 1
+const PROTOCOL := 2
+const NAME_LENGTH := 24
 
 ## True from the start of a network match until it ends.
 var active := false
 var is_host := false
+## This machine is a dedicated server (is_host too).
+var dedicated := false
+## Network id of the player who sets up the lobby and starts the match (0: nobody yet).
+var leader := 0
+## The word a server asks of those joining (empty: none), and the one this machine gives.
+var password := ""
+var join_password := ""
 ## The lobby, as the host keeps it: one entry per people in start-point order,
 ## {"faction", "kind": "human" or "ai", "peer": network id of whoever plays it (humans)}.
 var slots: Array[Dictionary] = []
@@ -46,6 +62,7 @@ var _their_sums := {}  # step -> {people: checksum}, arrived before ours
 var _left := {}  # people index -> last step of theirs to wait for
 var _kept := {}  # on the host: people index -> {step: orders}, recent batches to pass on if they leave
 var _auto_start := 0  # --humans=n: start once this many are here
+var _latest := {}  # on a dedicated server: people index -> last step of theirs passed on
 
 
 func _ready() -> void:
@@ -60,6 +77,17 @@ func _ready() -> void:
 	multiplayer.connected_to_server.connect(_on_connected)
 	multiplayer.connection_failed.connect(func() -> void: connection_failed.emit("Could not reach the host"))
 	multiplayer.server_disconnected.connect(_on_server_gone)
+	join_password = GameData.cmdline_option("password")
+	if GameData.cmdline_flag("dedicated"):
+		var port_option := GameData.cmdline_option("dedicated")
+		_auto_start = GameData.cmdline_option("humans", "0").to_int()
+		password = GameData.cmdline_option("password")
+		Engine.max_fps = 120  # nothing to draw: poll the network, then rest
+		var problem := serve(port_option.to_int() if port_option.is_valid_int() else PORT)
+		if problem != "":
+			printerr(problem)
+			get_tree().quit(1)
+		return
 	var host_option := GameData.cmdline_option("host")
 	if host_option != "":
 		_auto_start = GameData.cmdline_option("humans", "2").to_int()
@@ -90,6 +118,11 @@ func slot_caption(index: int) -> String:
 	return names.get(int(slot.peer), "Player")
 
 
+## Whether this machine's player sets up the lobby.
+func leads() -> bool:
+	return leader != 0 and leader == multiplayer.get_unique_id() and not dedicated
+
+
 func host(port := PORT) -> String:
 	leave()
 	var peer := ENetMultiplayerPeer.new()
@@ -99,14 +132,34 @@ func host(port := PORT) -> String:
 	multiplayer.multiplayer_peer = peer
 	is_host = true
 	names = {1: my_name}
-	map_path = GameData.maps_dir().path_join("[2 Players] - close combat.ulf")
+	leader = 1
+	map_path = GameData.maps_dir().path_join(DEFAULT_MAP)
 	_command_line_lobby()
 	lobby_changed.emit()
 	return ""
 
+const DEFAULT_MAP := "[2 Players] - close combat.ulf"
 
-func join(address: String, port := PORT) -> String:
+
+## Serve as a dedicated server: hold the lobby and pass orders on, playing no people.
+func serve(port := PORT) -> String:
 	leave()
+	var peer := ENetMultiplayerPeer.new()
+	var error := peer.create_server(port, MAX_PLAYERS)
+	if error != OK:
+		return "Could not open port %d (%s)" % [port, error_string(error)]
+	multiplayer.multiplayer_peer = peer
+	is_host = true
+	dedicated = true
+	map_path = DEFAULT_MAP
+	_command_line_lobby()
+	_log("Serving on port %d (UDP), protocol %d%s" % [port, PROTOCOL, ", with a password" if password != "" else ""])
+	return ""
+
+
+func join(address: String, port := PORT, word := join_password) -> String:
+	leave()
+	join_password = word
 	var peer := ENetMultiplayerPeer.new()
 	var error := peer.create_client(address, port)
 	if error != OK:
@@ -122,6 +175,8 @@ func leave() -> void:
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	active = false
 	is_host = false
+	dedicated = false
+	leader = 0
 	slots.clear()
 	names.clear()
 	_humans.clear()
@@ -141,7 +196,8 @@ func _command_line_lobby() -> void:
 	slots.clear()
 	for i in factions.size():
 		var human := i < _auto_start if _auto_start > 0 else true  # open places, played by the computer if nobody comes
-		slots.append({"faction": factions[i], "kind": "human" if human else "ai", "peer": 1 if i == 0 else 0})
+		slots.append({"faction": factions[i], "kind": "human" if human else "ai",
+				"peer": 1 if i == 0 and not dedicated else 0})
 
 
 func _on_peer_connected(id: int) -> void:
@@ -156,66 +212,156 @@ func _hello(protocol: int) -> void:
 		connection_failed.emit("The host runs another version of the game")
 		leave()
 		return
-	_introduce.rpc_id(1, my_name)
+	_introduce.rpc_id(1, my_name, join_password)
 
 
 ## A new player on the host: give them the first free human place.
 @rpc("any_peer", "reliable")
-func _introduce(player_name: String) -> void:
+func _introduce(player_name: String, word: String) -> void:
 	if not is_host:
 		return
 	var id := multiplayer.get_remote_sender_id()
-	names[id] = player_name
+	if word != password:
+		_refuse(id, "Wrong password for this server" if word != "" else "This server asks for a password")
+		return
 	if active:
-		return  # a match is on: no room
-	for slot in slots:
-		if slot.kind == "human" and slot.peer == 0:
-			slot.peer = id
-			break
+		_refuse(id, "A match is being played there: try again when it is over")
+		return
+	if names.size() >= MAX_PLAYERS:
+		_refuse(id, "The lobby is full")
+		return
+	player_name = player_name.strip_edges().left(NAME_LENGTH)
+	names[id] = player_name if player_name != "" else "Player"
+	if leader == 0:
+		leader = id
+	_log("%s joined (%d here)" % [names[id], names.size()])
+	_seat_waiting()
 	_share_lobby()
 	if _auto_start > 0 and slots.filter(func(s: Dictionary) -> bool: return s.kind == "human" and s.peer != 0).size() >= _auto_start:
-		start_match()
+		_begin()
+
+
+## Turn a newcomer away: they leave on hearing why, or are put out shortly after.
+func _refuse(id: int, reason: String) -> void:
+	_refused.rpc_id(id, reason)
+	await get_tree().create_timer(2.0).timeout
+	if multiplayer.multiplayer_peer is ENetMultiplayerPeer and id in multiplayer.get_peers() and not names.has(id):
+		multiplayer.multiplayer_peer.disconnect_peer(id)
+
+
+@rpc("authority", "reliable")
+func _refused(reason: String) -> void:
+	connection_failed.emit(reason)
+	leave()
+
+
+## Everyone in the lobby without a place gets the first open player's place, in the order
+## they came.
+func _seat_waiting() -> void:
+	var seated := {}
+	for slot in slots:
+		seated[int(slot.peer)] = true
+	for id in names:
+		if seated.has(int(id)):
+			continue
+		for slot in slots:
+			if slot.kind == "human" and int(slot.peer) == 0:
+				slot.peer = int(id)
+				seated[int(id)] = true
+				break
 
 
 func _share_lobby() -> void:
-	_lobby.rpc(slots, map_path.get_file(), settings, names)
+	_lobby.rpc(slots, map_path.get_file(), settings, names, leader)
 	lobby_changed.emit()
 
 
 @rpc("authority", "reliable")
-func _lobby(new_slots: Array, map_file: String, new_settings: Dictionary, new_names: Dictionary) -> void:
+func _lobby(new_slots: Array, map_file: String, new_settings: Dictionary, new_names: Dictionary, new_leader: int) -> void:
 	slots.assign(new_slots)
 	map_path = _local_map(map_file)
 	settings = new_settings
 	names = new_names
+	leader = new_leader
 	lobby_changed.emit()
 
 
-## The host changes a place: `kind` "human" (open for a player) or "ai", or a faction.
+## The leader asks the host for a change; the host makes it if they still lead.
+func _from_leader() -> bool:
+	return is_host and not active and multiplayer.get_remote_sender_id() == leader
+
+
+## The leader changes a place: `kind` "human" (open for a player) or "ai", or a faction.
 func set_slot(index: int, faction: String, kind: String) -> void:
-	if not is_host or index >= slots.size():
+	if leads() and is_host:
+		_set_slot(index, faction, kind)
+	elif leads():
+		_ask_slot.rpc_id(1, index, faction, kind)
+
+
+@rpc("any_peer", "reliable")
+func _ask_slot(index: int, faction: String, kind: String) -> void:
+	if _from_leader():
+		_set_slot(index, faction, kind)
+
+
+func _set_slot(index: int, faction: String, kind: String) -> void:
+	if index < 0 or index >= slots.size() or faction not in Match.FACTIONS or kind not in ["human", "ai"]:
 		return
 	slots[index].faction = faction
-	if slots[index].kind != kind:
+	if slots[index].kind != kind and int(slots[index].peer) != leader:  # the leader keeps their place
 		slots[index].kind = kind
-		slots[index].peer = 1 if kind == "human" and index == 0 else 0
+		slots[index].peer = 0
+		_seat_waiting()
 	_share_lobby()
 
 
 func set_map(path: String, player_count: int) -> void:
-	if not is_host:
+	if leads() and is_host:
+		_set_map(path.get_file(), player_count)
+	elif leads():
+		_ask_map.rpc_id(1, path.get_file(), player_count)
+
+
+@rpc("any_peer", "reliable")
+func _ask_map(file: String, player_count: int) -> void:
+	if _from_leader():
+		_set_map(file, player_count)
+
+
+func _set_map(file: String, player_count: int) -> void:
+	if file.get_file() != file or file.get_extension().to_lower() not in ["alf", "ulf"] \
+			or player_count < 1 or player_count > MAX_PLAYERS:
 		return
-	map_path = path
+	map_path = file if dedicated else _local_map(file)
 	while slots.size() < player_count:
 		slots.append({"faction": Match.FACTIONS[slots.size() % Match.FACTIONS.size()], "kind": "human", "peer": 0})
 	slots.resize(player_count)
+	_seat_waiting()
 	_share_lobby()
 
 
 func set_settings(new_settings: Dictionary) -> void:
-	if is_host:
-		settings = new_settings
-		_share_lobby()
+	if leads() and is_host:
+		_set_settings(new_settings)
+	elif leads():
+		_ask_settings.rpc_id(1, new_settings)
+
+
+@rpc("any_peer", "reliable")
+func _ask_settings(new_settings: Dictionary) -> void:
+	if _from_leader():
+		_set_settings(new_settings)
+
+
+func _set_settings(new_settings: Dictionary) -> void:
+	settings = {}
+	for key in ["supply", "difficulty", "game_type", "population_limit"]:
+		if new_settings.has(key):
+			settings[key] = int(new_settings[key])
+	if new_settings.has("speed"):
+		settings.speed = float(new_settings.speed)
+	_share_lobby()
 
 
 ## Maps travel by file name; each machine reads its own copy.
@@ -231,17 +377,38 @@ func _on_connected() -> void:
 
 
 func _on_peer_disconnected(id: int) -> void:
+	if names.has(id):
+		_log("%s left" % names[id])
 	names.erase(id)
 	if active:
 		for index in _humans:
-			if _humans[index] == id:
+			if _humans[index] == id and not _left.has(index):
 				_drop(index)
+		if dedicated and names.is_empty():
+			_reopen()
 		return
 	if is_host:
 		for slot in slots:
 			if slot.peer == id:
 				slot.peer = 0
+		if id == leader:
+			leader = names.keys()[0] if not names.is_empty() else 0
+		_seat_waiting()
 		_share_lobby()
+
+
+## A dedicated server whose match everyone has left: a new lobby, on the same map.
+func _reopen() -> void:
+	active = false
+	leader = 0
+	for slot in slots:
+		slot.peer = 0
+	_humans.clear()
+	_left.clear()
+	_kept.clear()
+	_latest.clear()
+	_their_sums.clear()
+	_log("Match over: the lobby is open again")
 
 
 ## Without the host nobody can pass orders on: the match ends here.
@@ -251,9 +418,22 @@ func _on_server_gone() -> void:
 
 # ------------------------------------------------------------------ starting a match
 
-## The host starts the match for everyone in the lobby (empty human places play as AI).
+## The leader starts the match for everyone in the lobby (empty human places play as AI).
 func start_match() -> void:
-	if not is_host:
+	if leads() and is_host:
+		_begin()
+	elif leads():
+		_ask_start.rpc_id(1)
+
+
+@rpc("any_peer", "reliable")
+func _ask_start() -> void:
+	if _from_leader():
+		_begin()
+
+
+func _begin() -> void:
+	if active or not is_host:
 		return
 	var seed_value := randi()
 	_start.rpc(slots, map_path.get_file(), settings, seed_value)
@@ -274,6 +454,25 @@ func _start(match_slots: Array, map_file: String, match_settings: Dictionary, se
 			_humans[i + 1] = int(slot.peer)
 			if int(slot.peer) == my_id:
 				me = i + 1
+	_received.clear()
+	_sums.clear()
+	_their_sums.clear()
+	_left.clear()
+	_kept.clear()
+	_latest.clear()
+	_sealed = 0
+	active = true
+	if dedicated:
+		var who := PackedStringArray()
+		for index in _humans:
+			who.append("%s (%s)" % [names.get(_humans[index], "?"), slots[index - 1].faction])
+		_log("Match started on %s: %s, %d computer players" % [map_file, ", ".join(who), slots.size() - _humans.size()])
+		return
+	if not FileAccess.file_exists(_local_map(map_file)):
+		# Another map would be another game: better to leave (the others play on without us).
+		connection_failed.emit("You don't have the map %s" % map_file)
+		leave()
+		return
 	Match.setup(_local_map(map_file), setup)
 	Match.local_player = me
 	Match.game_type = int(match_settings.get("game_type", Match.GameType.EVERYBODY)) as Match.GameType
@@ -282,13 +481,6 @@ func _start(match_slots: Array, map_file: String, match_settings: Dictionary, se
 	Match.supply = int(match_settings.get("supply", 0))
 	Match.difficulty = int(match_settings.get("difficulty", 2))
 	Match.seed_value = seed_value
-	_received.clear()
-	_sums.clear()
-	_their_sums.clear()
-	_left.clear()
-	_kept.clear()
-	_sealed = 0
-	active = true
 	Orders.delay = DELAY
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
@@ -328,6 +520,9 @@ func stepped(tick: int) -> void:
 func _batch(tick: int, index: int, orders: Array, sum_tick: int, sum: String) -> void:
 	if not active or _humans.get(index) != multiplayer.get_remote_sender_id():
 		return  # only a people's own player gives its orders
+	if dedicated:
+		_pass_on(tick, index, orders, sum_tick, sum)
+		return
 	_take(tick, index, orders)
 	if sum != "":
 		var theirs: Dictionary = _their_sums.get(sum_tick, {})
@@ -350,6 +545,35 @@ func _take(tick: int, index: int, orders: Array) -> void:
 		_kept[index] = kept
 
 
+## On a dedicated server (which has already passed the batch on to the others): keep it
+## for whoever is short of it should its sender leave, and compare the players' checksums.
+func _pass_on(tick: int, index: int, orders: Array, sum_tick: int, sum: String) -> void:
+	if _left.has(index):
+		return
+	if _latest.has(index) and tick != int(_latest[index]) + 1:
+		_log("Player %d sent step %d after %d: put out" % [index, tick, _latest[index]])
+		multiplayer.multiplayer_peer.disconnect_peer(_humans[index])
+		return
+	_latest[index] = tick
+	var kept: Dictionary = _kept.get(index, {})
+	kept[tick] = orders
+	kept.erase(tick - DELAY * 8)
+	_kept[index] = kept
+	if sum == "":
+		return
+	var theirs: Dictionary = _their_sums.get(sum_tick, {})
+	theirs[index] = sum
+	_their_sums[sum_tick] = theirs
+	if theirs.size() < _humans.size() - _left.size():
+		return
+	if theirs.values().any(func(other: String) -> bool: return other != sum):
+		_log("Out of sync at step %d: %s" % [sum_tick, theirs])
+	_their_sums.erase(sum_tick)
+	for old in _their_sums.keys():
+		if int(old) < sum_tick - CHECK_EVERY * 20:
+			_their_sums.erase(old)
+
+
 func _mark(tick: int, index: int) -> void:
 	var held: Dictionary = _received.get(tick, {})
 	held[index] = true
@@ -369,7 +593,7 @@ func _compare(tick: int) -> void:
 ## A player is gone: stop waiting for them after the last step whose orders arrived (the
 ## host relays everything, so it has them all; a machine short of some waits for them).
 func _drop(index: int) -> void:
-	var last := Sim.tick
+	var last := int(_latest.get(index, 0)) if dedicated else Sim.tick
 	for tick in _received:
 		if _received[tick].has(index):
 			last = maxi(last, tick)
@@ -393,3 +617,9 @@ func end_match() -> void:
 	active = false
 	Orders.delay = 0
 	leave()
+
+
+## A dedicated server's account of what happens, for its log.
+func _log(message: String) -> void:
+	if dedicated:
+		print(message)

@@ -94,6 +94,10 @@ CHECKS = {
     # Lockstep over the network: a host at 60 fps and a client at 23 fps each give their own
     # people orders, with a computer player too; their checksums must agree (see run_network).
     "network": ([], 0, [r"network: (1\d|[2-9]\d) of \1 checksums agree"]),
+    # The same through a dedicated server without assets: two clients, the server only relays
+    # (see run_dedicated); it compares their checksums too and must find no drift.
+    "dedicated": ([], 0, [r"dedicated: (1\d|[2-9]\d) of \1 checksums agree", r"Match started on",
+                          r"Match over: the lobby is open again"]),
     # Six computer players for ten game minutes: no script errors, and the waves go out.
     "aigame": (["--ai-vs-ai=1", "--players=mex,usa,ind,des,mex,usa", "--time-scale=4", "--trace-ai=1",
                 "--map=[6 Players] - oasis.ulf"], 4500, [r"attacks with \d+ units"]),
@@ -138,6 +142,33 @@ def run_network():
     return hosted + client + "\nnetwork: %d of %d checksums agree\n" % (agree, len(shared))
 
 
+def run_dedicated():
+    """A dedicated server (no asset folder) and two clients; compare the clients' games."""
+    port = str(47900 + os.getpid() % 100)
+    common = ["--scenario=commands", "--fog=off", "--checksum-every=5", "--password=check"]
+    server = subprocess.Popen(["godot", "--headless", "--path", GAME, "--", "--dedicated=" + port,
+                               "--password=check", "--humans=2", "--players=mex,usa,ind",
+                               "--assets-dir=/nonexistent"],
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    time.sleep(2)
+    clients = []
+    for fps in ("60", "23"):
+        clients.append(subprocess.Popen(["godot", "--headless", "--fixed-fps", fps, "--path", GAME, "--",
+                                         "--join=127.0.0.1:" + port] + common,
+                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True))
+        time.sleep(1)  # the first in plays the first people
+    played = [c.communicate(timeout=400)[0] for c in clients]
+    time.sleep(1)
+    server.terminate()
+    served = server.communicate(timeout=30)[0]
+    sums = [dict(re.findall(r"tick (\d+) checksum (\w+)", out)) for out in played]
+    shared = [t for t in sums[0] if t in sums[1]]
+    agree = sum(sums[0][t] == sums[1][t] for t in shared)
+    if "Out of sync" in served:
+        agree = 0
+    return served + "".join(played) + "\ndedicated: %d of %d checksums agree\n" % (agree, len(shared))
+
+
 def run(name):
     args, frames, expected = CHECKS[name]
     scenario = name.split("_")[0]
@@ -159,6 +190,7 @@ def run(name):
     started = time.time()
     try:
         out = run_replay() if name == "replay" else run_network() if name == "network" else \
+            run_dedicated() if name == "dedicated" else \
             subprocess.run(command, capture_output=True, text=True, timeout=400).stdout
     except subprocess.TimeoutExpired as e:
         out = (e.stdout or b"").decode() if isinstance(e.stdout, bytes) else (e.stdout or "")

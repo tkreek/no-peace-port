@@ -1,0 +1,35 @@
+# America Remastered dedicated server, one lobby per instance; the instance name is its UDP port:
+#   systemctl enable --now america-server@47624
+# Extra options (e.g. a password) go in /etc/america-server/<port>.env as
+#   SERVER_ARGS=--password=<word>
+[Unit]
+Description=America Remastered dedicated server (UDP port %i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=america
+Group=america
+WorkingDirectory=/opt/america-server
+EnvironmentFile=-/etc/america-server/%i.env
+# Godot keeps its user:// folder (and logs) under these; StateDirectory makes it writable.
+Environment=XDG_DATA_HOME=/var/lib/america-server/%i XDG_CONFIG_HOME=/var/lib/america-server/%i XDG_CACHE_HOME=/var/lib/america-server/%i
+StateDirectory=america-server
+ExecStart=/opt/america-server/america-remastered.x86_64 --headless -- --dedicated=%i $SERVER_ARGS
+Restart=always
+RestartSec=3
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

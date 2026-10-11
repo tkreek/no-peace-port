@@ -40,6 +40,7 @@ var _start_button: Button
 var _net_status := Label.new()
 var _name_edit := LineEdit.new()
 var _address_edit := LineEdit.new()
+var _password_edit := LineEdit.new()
 
 
 func _ready() -> void:
@@ -109,6 +110,8 @@ func _menu_screenshot() -> void:
 func _skip_to_game() -> bool:
 	if GameData.cmdline_option("host") != "" or GameData.cmdline_option("join") != "":
 		return true  # a network test: Net starts the match once everyone is in
+	if GameData.cmdline_flag("dedicated"):
+		return true  # a server: no menu, Net does the work
 	if GameData.cmdline_option("editor") != "" or GameData.cmdline_option("editor-selftest") != "":
 		get_tree().change_scene_to_file.call_deferred("res://scenes/editor.tscn")
 		return true
@@ -525,7 +528,7 @@ func _on_map_selected(index: int) -> void:
 		_map_info.text = "%d players · %d × %d · %s" % [map.players, alf.columns, alf.rows,
 				"forest" if alf.guess_biome() == "wiese" else "prairie"]
 	if _lobby:
-		if Net.is_host and Net.map_path != map.path:
+		if Net.leads() and Net.map_path.get_file() != map.path.get_file():
 			Net.set_map(map.path, map.players)
 		return
 	# One seat per possible opponent; the first is a computer player by default.
@@ -590,7 +593,10 @@ func _build_network() -> Control:
 	column.add_theme_constant_override("separation", 8)
 	panel.add_child(column)
 	column.add_child(MenuStyle.label("Multiplayer", 20))
-	for row in [["Your name", _name_edit, Net.my_name], ["Host address", _address_edit, Net.last_address]]:
+	_password_edit.secret = true
+	_password_edit.placeholder_text = "(none)"
+	for row in [["Your name", _name_edit, Net.my_name], ["Host address", _address_edit, Net.last_address],
+			["Password", _password_edit, ""]]:
 		var line := HBoxContainer.new()
 		line.add_child(_fixed_label(row[0], 100))
 		var edit: LineEdit = row[1]
@@ -605,19 +611,21 @@ func _build_network() -> Control:
 	buttons.add_child(_small_button("Host a game", func() -> void:
 		_remember_names()
 		var problem := Net.host()
+		Net.password = _password_edit.text
 		_net_status.text = problem
 		if problem == "":
 			_enter_lobby()))
 	buttons.add_child(_small_button("Join", func() -> void:
 		_remember_names()
 		var parts := Net.last_address.split(":")
-		var problem := Net.join(parts[0], parts[1].to_int() if parts.size() > 1 else Net.PORT)
+		var problem := Net.join(parts[0], parts[1].to_int() if parts.size() > 1 else Net.PORT, _password_edit.text)
 		_net_status.text = problem if problem != "" else "Connecting to %s…" % Net.last_address))
 	column.add_child(buttons)
 	MenuStyle.style(_net_status, 12, MenuStyle.TEXT_DIM)
 	_net_status.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_net_status.custom_minimum_size.x = 300
-	_net_status.text = "Everyone needs the game and its assets. The host's port %d (UDP) must be reachable." % Net.PORT
+	_net_status.text = ("Everyone needs the game and its assets. Join a dedicated server, or host: then your " +
+			"port %d (UDP) must be reachable. A host's password is asked of those joining.") % Net.PORT
 	column.add_child(_net_status)
 	var back := _small_button(GameData.menu_text(16, "Back"), func() -> void: _show("main"))
 	back.position = Vector2(ART_SIZE.x * 0.5 - 75, 560)
@@ -636,16 +644,21 @@ func _enter_lobby() -> void:
 	_slots.visible = false
 	_lobby_slots.visible = true
 	_show("setup")
-	_start_button.visible = Net.is_host
-	_map_list.mouse_filter = Control.MOUSE_FILTER_STOP if Net.is_host else Control.MOUSE_FILTER_IGNORE
 	for option: OptionButton in [_supply, _difficulty, _game_type, _population, _speed]:
-		option.disabled = not Net.is_host
-		if Net.is_host and not option.item_selected.is_connected(_push_settings):
+		if not option.item_selected.is_connected(_push_settings):
 			option.item_selected.connect(_push_settings)
-	if Net.is_host:
+	if Net.leads():  # the hosting player, or the first in on a dedicated server: their choices
 		_on_map_selected(_map_list.get_selected_items()[0] if _map_list.is_anything_selected() else 0)
 		_push_settings()
 	_on_lobby_changed()
+
+
+## Only the lobby's leader sets it up; the lead passes on when they leave.
+func _apply_lobby_rights() -> void:
+	_start_button.visible = Net.leads()
+	_map_list.mouse_filter = Control.MOUSE_FILTER_STOP if Net.leads() else Control.MOUSE_FILTER_IGNORE
+	for option: OptionButton in [_supply, _difficulty, _game_type, _population, _speed]:
+		option.disabled = not Net.leads()
 
 
 func _leave_lobby() -> void:
@@ -662,6 +675,8 @@ func _leave_lobby() -> void:
 
 
 func _push_settings(_index := 0) -> void:
+	if not _lobby:
+		return
 	Net.set_settings({"supply": _supply.selected, "difficulty": _difficulty.selected,
 			"game_type": _game_type.selected, "population_limit": Match.POPULATION_LIMITS[_population.selected],
 			"speed": Match.SPEEDS[_speed.selected]})
@@ -673,7 +688,8 @@ func _on_lobby_changed() -> void:
 		if not Net.is_host and Net.is_connected_to_game() and not Net.slots.is_empty():
 			_enter_lobby()  # joined: the host's first word is the lobby
 		return
-	if not Net.is_host:
+	_apply_lobby_rights()
+	if not Net.leads():
 		for i in _maps.size():
 			if _maps[i].path.get_file() == Net.map_path.get_file() and not _map_list.is_selected(i):
 				_map_list.select(i)
@@ -695,7 +711,7 @@ func _on_lobby_changed() -> void:
 		_fill_factions(faction, maxi(0, Match.FACTIONS.find(Net.slots[i].faction)))
 		_style_option(faction, 11)
 		faction.custom_minimum_size.x = 104
-		faction.disabled = not Net.is_host
+		faction.disabled = not Net.leads()
 		cell.add_child(faction)
 		var kind := OptionButton.new()
 		kind.add_item("Player")
@@ -703,7 +719,7 @@ func _on_lobby_changed() -> void:
 		kind.select(0 if Net.slots[i].kind == "human" else 1)
 		_style_option(kind, 11)
 		kind.custom_minimum_size.x = 78
-		kind.disabled = not Net.is_host or i == 0  # the host plays the first people
+		kind.disabled = not Net.leads() or int(Net.slots[i].peer) == Net.leader  # the leader plays
 		cell.add_child(kind)
 		var index := i
 		var changed := func(_selected: int) -> void:

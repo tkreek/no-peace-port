@@ -18,7 +18,11 @@ const ICON_BUILD_EXPANDED := 16  # large hammer: structures with enhanced functi
 const ICON_FOLLOW := 2  # two men walking one behind the other
 const ICON_PATROL := 4  # two men with an arrow
 const ICON_DISMOUNT := 54  # horse with an arrow
-const ICON_REPAIR := 20  # carpenter's tools
+## Repair has no picture of its own in the original: its large hammer (and the hammer's grey
+## copy, to cut it out by) laid over the American wooden house.
+const REPAIR_HAMMER := 16
+const REPAIR_HOUSE_ICONS := "interface/icons/americans/american_icons"
+const REPAIR_HOUSE := 28
 ## Iconserstereihe frames.
 const ICON_RALLY := 12  # signpost
 const ICON_HIDE := 14  # hooded figure
@@ -51,6 +55,7 @@ var build_menu := ""  ## "", "basic" or "expanded"
 var command_icons: RdSprite
 var extra_icons: RdSprite
 var small_icons: RdSprite
+static var _repair_icon: RdSprite
 
 
 func _init(owner: Hud, parent: Control) -> void:
@@ -59,6 +64,57 @@ func _init(owner: Hud, parent: Control) -> void:
 	extra_icons = GameData.load_sprite(EXTRA_ICONS)
 	small_icons = GameData.load_sprite(SMALL_ICONS)
 	parent.add_child(grid)
+
+
+## The repair button's picture (one frame), made once from the original's icons.
+static func repair_icon(misc: RdSprite) -> RdSprite:
+	if _repair_icon != null:
+		return _repair_icon
+	var houses := GameData.load_sprite(REPAIR_HOUSE_ICONS)
+	if misc == null or houses == null:
+		return misc
+	var misc_image := misc.texture.get_image()
+	misc_image.clear_mipmaps()
+	var house_image := houses.texture.get_image()
+	house_image.clear_mipmaps()
+	var picture := house_image.get_region(houses.rects[REPAIR_HOUSE])
+	picture.convert(Image.FORMAT_RGBA8)
+	var colour := misc_image.get_region(misc.rects[REPAIR_HAMMER])
+	var grey := misc_image.get_region(misc.rects[REPAIR_HAMMER + 1])
+	# On the grey copy the parchment is light and the tool dark: keep what is dark, inside
+	# the scroll's border, with a soft edge.
+	var size := colour.get_size()
+	var hammer := Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
+	for y in size.y:
+		for x in size.x:
+			var off := Vector2((x + 0.5) / size.x - 0.5, (y + 0.5) / size.y - 0.5)
+			if off.length() > 0.38:
+				continue
+			var alpha := clampf((0.62 - grey.get_pixel(x, y).get_luminance()) / 0.08, 0.0, 1.0)
+			if alpha > 0.0:
+				var c := colour.get_pixel(x, y)
+				hammer.set_pixel(x, y, Color(c.r, c.g, c.b, alpha))
+	var used := hammer.get_used_rect()
+	if used.size.x <= 0:
+		return misc
+	hammer = hammer.get_region(used)
+	var width := int(picture.get_width() * 0.55)
+	hammer.resize(width, maxi(1, int(width * float(used.size.y) / used.size.x)), Image.INTERPOLATE_LANCZOS)
+	var shadow := hammer.duplicate()
+	for y in shadow.get_height():
+		for x in shadow.get_width():
+			shadow.set_pixel(x, y, Color(0, 0, 0, hammer.get_pixel(x, y).a * 0.45))
+	var at := Vector2i(int(picture.get_width() * 0.40), int(picture.get_height() * 0.30))
+	var full := Rect2i(Vector2i.ZERO, hammer.get_size())
+	picture.blend_rect(shadow, full, at + Vector2i(3, 4))
+	picture.blend_rect(hammer, full, at)
+	picture.generate_mipmaps()
+	_repair_icon = RdSprite.new()
+	_repair_icon.scale = houses.scale
+	_repair_icon.texture = ImageTexture.create_from_image(picture)
+	_repair_icon.rects.append(Rect2i(Vector2i.ZERO, picture.get_size()))
+	_repair_icon.hotspots.append(Vector2.ZERO)
+	return _repair_icon
 
 
 ## The buttons fill the plank `area` between the selection panel and the minimap.
@@ -162,7 +218,7 @@ func _add_unit_commands(units: Array, builders: Array, farmers: Array, fighters:
 	if not builders.is_empty():
 		_add_icon(command_icons, ICON_BUILD, "Build structure (B)", func() -> void: open_build_menu("basic"))
 		_add_icon(command_icons, ICON_BUILD_EXPANDED, "Build expanded structure (V)", func() -> void: open_build_menu("expanded"))
-		_add_icon(command_icons, ICON_REPAIR, "Repair (R): click a damaged building",
+		_add_icon(repair_icon(command_icons), 0, "Repair (R): click a damaged building",
 				func() -> void: selection.begin_targeting("repair"), selection.pending == "repair")
 	if not farmers.is_empty():
 		var field_type := GameData.type_for_guid(MapObject.FIELD_GUID, hud.biome)

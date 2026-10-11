@@ -86,8 +86,8 @@ LZW (MSB-first, 9–13-bit codes, 256 clear, 257 end, early change).
 | `BOBLISTE` | u32 count + 24-byte placements `{u32 x, y, type_id, owner, amount, ?}` (0xCDCDCDCD = unset) |
 | `BITARRAY`, `PINSMATR` | probably passability / height data (TODO) |
 | `EINHEIT`, `EIGENSCH` | per-object property overrides `{u32 object, property, value, ?}` (TODO) |
-| `SPIELER` | player slots and names |
-| `AREA*`, `ABLAUF*` | mission trigger areas and scripts (TODO) |
+| `SPIELER` | players: number, people, human/computer/independent, side, stock (see missions.md) |
+| `AREA`, `ABLAUF` | mission areas and script: [missions.md](missions.md) |
 
 Player start points are placements of type `Editor_Start` (owner = player).
 

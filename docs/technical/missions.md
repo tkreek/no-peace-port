@@ -1,0 +1,129 @@
+# Campaign missions
+
+How the original runs its campaign maps, read from the unprotected expansion executable
+(`original/expansion/iso/Crack/AmericaAddOn.exe`; addresses are that file's) and checked
+against all 38 campaign maps (base game `Kampagne/*.alf`: four tutorials, 8 Native American,
+6 Mexican, 6 outlaw and 6 American missions; expansion `Kampagne2/*.ulf`: 2 per people).
+The remake's side: `MissionData` (reading), `Mission` (running), `Diplomacy`, `Campaign`
+(lists and progress), `CampaignMenu`.
+
+## Map chunks
+
+### `SPIELER`: players
+8 records of 300 bytes, one per editor slot (loader 0x442890):
+
+| Offset | Contents |
+| --- | --- |
+| 0x000 | player number 1..8: the owner number of the map's objects and the scripts' player |
+| 0x004 | -1 or 18 |
+| 0x008 | slot 1..8 |
+| 0x00C | name: a text id in `kampagnen.eng` (100+) or a literal name |
+| 0x10C | people: 0 Native Americans, 1 Mexicans, 2 outlaws, 3 Americans; -1 unused slot |
+| 0x110 | who plays: 1 human, 2 computer, 3 independent |
+| 0x114 | side: a bit per slot; players whose masks share a bit are allied |
+| 0x118 | food, wood, gold, guns |
+| 0x128 | 1: take the level's start resources (`LVL_INFO`) instead |
+
+The player number is not the slot: the first tutorial's human is slot 3, player 4.
+
+Starting relations (0x42be70), per ordered pair: an independent player is neutral to
+everyone and everyone to it; otherwise allied when the side masks share a bit, at war when
+not; a player is allied to itself and shares its own sight. Relation flags (world+0x8CC,
+`[from*8+to]`): 1 at war, 2 neutral, 4 allied, 0x20 shares sight. Units of a player neutral
+to yours join you when one of your units comes within 96 px (0x42c580, from the unit
+update); independent players' own units never take others over.
+
+### `AREA`: named rectangles
+`u32 count`, then `{u32 id, left, top, right, bottom, name length; char name[length]}` in map
+pixels (0x4650c0). Scripts name areas by id; an id that is not there means the whole map
+(0x465ff0).
+
+### `ABLAUF`: the script
+`u32 trigger count`; per trigger `u32 item count` and items `{u32 opcode, u32 kind, ...}`:
+kind 0 an action and kind 1 a condition, each `u32 count` + `count` params; kind 2 a note
+(`u32 length` + text, the trigger's name in the editor; opcode -1). Up to 20 conditions and
+20 actions a trigger (0x464f70).
+
+## Running (0x464ed0)
+
+Every 20 ms game step: the 50 timers that are above 0 count down by 20 (ms, floor 0; -1 =
+stopped), then the next armed trigger after the last one checked is checked; when none is
+armed the script is over. So with N triggers each is looked at every N/50 s.
+
+Checking a trigger (0x465240): conditions in order. Normally all must hold (the first that
+fails ends the check); after an OR condition (15) the first that holds is enough. A trigger
+that fires disarms, then does every action; an action "stay armed" (10) re-arms it.
+
+## Conditions (0x465330)
+
+Players are player numbers; `type` is a GUID (`GUIDS.INI` ids: 100.. Native buildings,
+150.. units, 200/250 Mexican, 300/350 outlaw, 400/450 American) or a category below 100.
+
+| Op | Params | Holds when |
+| --- | --- | --- |
+| 1 | | always |
+| 2 | player, amount, resource | stock >= amount |
+| 3, 11 | player, n, type, area | exactly n of type in the area |
+| 4 | seconds | the countdown runs and shows less than that |
+| 5 | flag | flag (0..99) set |
+| 6 | player, area | something of the player sees part of the area |
+| 7, 9 | player, n, type | fewer than n |
+| 8, 10 | player, n, type | more than n |
+| 12 | player, amount, resource | stock < amount |
+| 13 | player, n, type, area | more than n in the area |
+| 14 | player, n, type, area | fewer than n in the area |
+| 15 | | never; from here on any condition is enough |
+| 16 | timer | timer (0..49) has run out (is 0) |
+| 17 | variable, value | variable (0..19) equals value; unset is false, another value disarms the trigger |
+| 18 | flag | flag clear |
+
+Resources: 1 food, 2 wood, 3 horses, 4 gold, 5 guns.
+
+Categories (0x42a0b0): 0 all units, 1..4 Native, Mexican, outlaw, American units; 5 all
+buildings, 6..9 per people; 16 all soldiers (leaders, fighters, heroes), 17..20 per people.
+Some GUIDs count a unit on foot and mounted together: 165 (150+151), 166, 167, 168, 267, 268,
+269, 365..368, 475..478. Animals: 480 horses and 482 cows by owner, 481 buffalo whoever
+owns them, 483 a horse of nobody's. Buildings under construction count.
+
+## Actions (0x465740)
+
+| Op | Params | Does |
+| --- | --- | --- |
+| 1 | player, module | starts AI module `kimodules/%08d.mod` (`kimodules2` in the expansion) for the player |
+| 2 | player, area | the player's view to the area's centre |
+| 3 | player, n, type, area | n new units at the area's centre (animals for nobody; 483 a horse) |
+| 4 | player | the player has lost ("verloren.mp3"; the end screen 6 s later) |
+| 5 | text, player, seconds | message for the player |
+| 6, 34 | player, type, area | takes the player's objects of type in the area off the map |
+| 7, 8 | | nothing |
+| 9 | text | message with `sfx/missions/%03d.mp3` spoken, as long as the recording (bytes / 15898 + 2 s) |
+| 10 | | the trigger stays armed |
+| 11 | seconds | starts the countdown |
+| 12 | flag | sets the flag |
+| 13 | player | the player has won ("gewonnen.mp3") |
+| 14 | type, x, y | a neutral object at the spot |
+| 15, 16 | | shows / hides the countdown clock |
+| 17 | seconds | the world stands still (no map uses it) |
+| 18, 19 | | locks / unlocks the player's input (scenes) |
+| 20 | player, area | uncovers the area for the player until covered |
+| 21, 22 | player, amount, resource | adds / takes resources |
+| 23 | flag | clears the flag |
+| 24 | player, area | covers the area again |
+| 25 | timer, seconds | starts a timer |
+| 26 | timer | stops a timer |
+| 27 | text | the mission goals ("Mission goals" in the game menu) |
+| 28, 29 | player, player | share / stop sharing sight, both ways |
+| 30 | player, player | allied, both ways |
+| 31 | player, player | at war |
+| 32 | player, player | neutral |
+| 33 | variable, n | variable = random number below n |
+| 35 | type, area, player | everything of type in the area, of any other player, goes over to the player |
+| 36 | type, x, y, player | an object of type for the player at the spot (a hero, in the maps) |
+
+Texts are `text2.eng` (`text2-Add-on.eng` for the expansion's maps, whose ids overlap the
+base game's), `@` a line break. The briefing is `missionen.eng` (story) and `kampagnen.eng`
+(titles 0..35 by people: 0 Native, 10 Mexican, 20 outlaw, 30 American; 40..43 people names;
+100+ player names), narrated by `sfx/missions/<people><nn>.mp3` (`missions2` for the
+expansion). Its picture `global/gfx/menues/kampagne/<people>0<n>.pic` (`<people>1<n>` in
+the expansion) is the bottom-left corner (0, 330) of the storyteller's backdrop
+`<people>.pic` with the mission's map drawn on the parchment.

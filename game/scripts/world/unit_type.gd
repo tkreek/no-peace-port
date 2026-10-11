@@ -199,6 +199,17 @@ func anim_index(action: String) -> int:
 	return -1
 
 
+## Every body animation whose file name contains `stem`, in file order (a sheet can hold
+## several: the assassin's dig_fight is the mound he lies under, then his bursting out).
+func anims_named(stem: String) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	for i in bob.anims.size():
+		var sub := bob.anims[i].sub_sprite
+		if sub < bob.sub_sprites.size() and not bob.sub_sprite_is_shadow[sub] and bob.sub_sprites[sub].get_file().contains(stem):
+			out.append(i)
+	return out
+
+
 ## First body animation whose file name contains `stem`. Unless `riding`, sheets that show
 ## the unit on horseback are skipped, so a cavalryman on foot never uses his mounted lance.
 ## `projectile` also accepts single-direction sheets (arrows in flight).

@@ -114,6 +114,17 @@ func play_repeating(action: String) -> bool:
 	return false
 
 
+## Play animation `index` of the set (one no action name reaches), unless it is playing.
+func play_index(index: int) -> void:
+	if index >= 0 and _action != "#%d" % index:
+		_play_index(index)
+
+
+## Whether the current animation has played through once (a looping one: a full cycle).
+func anim_done() -> bool:
+	return _anim_finished
+
+
 func _play_index(index: int) -> void:
 	_action = "#%d" % index
 	_start_anim(index)

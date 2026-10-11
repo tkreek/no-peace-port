@@ -11,6 +11,8 @@ const DETECTOR_REACH := 700.0  # beyond any detector's sight, upgrades included
 const ASSASSIN := 362
 
 var concealed := false
+var _buried := false  # the assassin has dug in and lies under his mound of earth
+var _ambushed: Unit = null  # whom he is bursting out of it at
 
 
 func can_hide() -> bool:
@@ -32,6 +34,8 @@ func conceal() -> void:
 
 
 func uncover() -> void:
+	_buried = false
+	_ambushed = null
 	if concealed:
 		concealed = false
 		busy = false
@@ -42,18 +46,44 @@ func clear_orders() -> void:
 	uncover()
 
 
-## While hidden the unit only lies in wait; a dug-in assassin stabs whoever comes close.
+## While hidden the unit only lies in wait. The assassin digs himself in (05_dig_in, once
+## through), then lies under a mound of earth (06_dig_fight's first animation); whoever
+## comes close, he bursts out of it (its second) and stabs.
 func update(_delta: float) -> bool:
+	if _ambushed != null:
+		if not unit.anim_done():
+			return true
+		var victim := _ambushed
+		uncover()
+		if is_instance_valid(victim) and victim.is_alive():
+			unit.attack(victim)
+		return false
 	if unit.state != Unit.State.IDLE:
 		uncover()
 		return false
-	unit.play("hide")
-	if unit.unit_type.guid() == ASSASSIN and not unit.unit_type.attack_anims.is_empty():
-		for other: Unit in UnitGrid.near(unit.position, 40.0):
-			if other.is_alive() and other.team > 0 and other.team != unit.team and other.position.distance_to(unit.position) < 40.0:
+	if unit.unit_type.guid() != ASSASSIN:
+		unit.play("hide")
+		return true
+	var mound := unit.unit_type.anims_named("dig_fight")
+	if not _buried:
+		unit.play("hide")
+		if unit.anim_done() and not mound.is_empty():
+			_buried = true
+			unit.play_index(mound[0])
+	if unit.unit_type.attack_anims.is_empty():
+		return true
+	for other: Unit in UnitGrid.near(unit.position, 40.0):
+		if other.is_alive() and other.team > 0 and other.team != unit.team and other.position.distance_to(unit.position) < 40.0:
+			if not _buried or mound.size() < 2:
 				uncover()
 				unit.attack(other)
 				return false
+			_ambushed = other
+			concealed = false  # out in the open as he bursts out
+			unit.modulate.a = 1.0
+			unit.face(other.position - unit.position)
+			unit.play_index(mound[1])
+			return true
 	return true
 
 

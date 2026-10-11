@@ -78,6 +78,8 @@ CHECKS = {
     "remains": ([ISLANDS], 0, [r"remains: \[.*step [12].*step [12]", r"smoke plumes: [23], after 14s 0, flyers: [1-9]"]),
     # Expansion abilities: saboteurs empty and take a fort, the warrior spirit, the armored stagecoach.
     "saboteur": (["--faction=des"], 0, [r"saboteur: garrison \[5, 2, 0, 0\], fort now player 1"]),
+    "disarm": (["--faction=des"], 0, [r"disarm: trap animation true, trap now player 1 after [45]\.\d s, saboteur alive true"]),
+    "ambush": (["--faction=des"], 0, [r"ambush: under the mound true, burst out true, then attacking true"]),
     "spirit": (["--faction=ind"], 0, [r"before upgrade false, invoked true, morale 1\.\d+ -> 1\.\d+, energy left 0, again false, auras 3",
                                       r"afterwards morale \d\.\d+, auras 0"]),
     "coach": (["--faction=mex"], 0, [r"aboard 2 / 2, enlarged 4 / 4, enemy hit true, guards dead with the coach 4"]),

@@ -438,6 +438,63 @@ func _scenario_saboteur() -> void:
 		get_tree().quit()
 
 
+## A saboteur disarms a Native pitfall: four seconds at it with his trap animation, then
+## it is his people's and he lives on (--faction=des).
+func _scenario_disarm() -> void:
+	var centre := Vector2(main.terrain.map.pixel_size()) / 2.0
+	centre = (Vector2(main.nav.nearest_walkable(main.nav.cell_of(centre))) + Vector2(0.5, 0.5)) * NavGrid.CELL
+	var type := ObjectTypes.get_type(GameData.type_for_guid(MapObject.PITFALL_GUID, main.terrain.biome))
+	var pit := MapObject.new()
+	pit.position = centre
+	pit.setup(type, 2)
+	main.units_root.add_child(pit)
+	main.camera.position = centre
+	var saboteur: Unit = _new_units(369, 1, centre + Vector2(-160, 40), 1)[0]
+	saboteur.sabotage(pit)
+	var working := false
+	for i in 40:
+		await get_tree().create_timer(0.25).timeout
+		if saboteur._anim == saboteur.unit_type.anim_index("trap"):
+			working = true
+			break
+	var started := Sim.msec()
+	if not GameData.cmdline_option("screenshot").is_empty():
+		return
+	while pit.owner_index != 1 and Sim.msec() - started < 8000:
+		await get_tree().create_timer(0.25).timeout
+	print("disarm: trap animation %s, trap now player %d after %.1f s, saboteur alive %s" % [working, pit.owner_index,
+			(Sim.msec() - started) / 1000.0, saboteur.is_alive()])
+	get_tree().quit()
+
+
+## An assassin digs in, lies under his mound of earth, and bursts out of it at an enemy
+## walking by (--faction=des; --stage=mound stops there for a screenshot).
+func _scenario_ambush() -> void:
+	var centre := Vector2(main.terrain.map.pixel_size()) / 2.0
+	centre = (Vector2(main.nav.nearest_walkable(main.nav.cell_of(centre))) + Vector2(0.5, 0.5)) * NavGrid.CELL
+	main.camera.position = centre
+	var assassin: Unit = _new_units(362, 1, centre, 1)[0]
+	await get_tree().create_timer(0.5).timeout
+	assassin.stealth.conceal()
+	await get_tree().create_timer(4.0).timeout
+	var mound := assassin.unit_type.anims_named("dig_fight")
+	var buried := assassin._anim == mound[0] and assassin.stealth.concealed
+	if GameData.cmdline_option("stage") == "mound":
+		return
+	var walker: Unit = _new_units(458, 2, centre + Vector2(-200, 0), 1)[0]
+	walker.stance = Unit.Stance.PASSIVE
+	walker.move_to(centre + Vector2(200, 0))
+	var burst := false
+	for i in 80:
+		await get_tree().create_timer(0.1).timeout
+		if assassin._anim == mound[1]:
+			burst = true
+		if assassin.state == Unit.State.ATTACKING:
+			break
+	print("ambush: under the mound %s, burst out %s, then attacking %s" % [buried, burst, assassin.state == Unit.State.ATTACKING])
+	get_tree().quit()
+
+
 ## Expansion: the tepee of the ancestors invokes the warrior spirit over three warriors
 ## (--faction=ind).
 func _scenario_spirit() -> void:

@@ -397,7 +397,8 @@ func _scenario_commands() -> void:
 	get_tree().quit()
 
 
-## Control groups by keyboard: Ctrl+1 keeps the selection, 1 brings it back.
+## Control groups by keyboard: Ctrl+1 keeps the selection, 1 brings it back; Ctrl+2 keeps
+## a building, and its button on the HUD selects it and brings the view there.
 func _scenario_groups() -> void:
 	await get_tree().create_timer(0.5).timeout
 	var own := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == main.me and u.is_alive())
@@ -406,7 +407,24 @@ func _scenario_groups() -> void:
 	main.selection._select([], false)
 	await _key(KEY_1)
 	print("group 1 recalled: %d of 3" % main.selection.selection.size())
-	get_tree().quit()
+	var hq: MapObject = MapObject.all_objects.filter(func(o: MapObject) -> bool:
+		return o.is_building() and o.owner_index == main.me)[0]
+	main.selection.select_building(hq)
+	await _key(KEY_2, true)
+	main.selection._select(own.slice(0, 1), false)
+	main.camera.position = hq.position + Vector2(900, 600)
+	await get_tree().process_frame
+	var buttons := main.hud.groups.root.get_children()
+	print("group buttons: %s" % ",".join(buttons.map(func(f: Control) -> String: return str(f.get_meta("digit")))))
+	(buttons[1].get_child(0) as Button).pressed.emit()
+	await get_tree().process_frame
+	print("group 2 button: building %s, view %.0f px away, lit %d" % [main.selection.selected_building == hq,
+			main.camera.position.distance_to(hq.position), main.hud.groups._active])
+	main.selection._select([], false)
+	await _key(KEY_2)
+	print("group 2 key: building %s" % (main.selection.selected_building == hq))
+	if GameData.cmdline_option("screenshot") == "":
+		get_tree().quit()
 
 
 func _key(key: Key, ctrl := false) -> void:

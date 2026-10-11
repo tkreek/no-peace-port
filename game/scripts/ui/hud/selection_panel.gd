@@ -26,7 +26,7 @@ var hud: Hud
 var _panel: Control  # the left plank everything sits on
 var _title := HudStyle.label(22)
 var _info := VBoxContainer.new()  # the stat icons, then any further detail as text
-var _stats := GridContainer.new()  # two stats a row, as in the original
+var _stats := GridContainer.new()  # one stat a row, clear of the portrait
 var _stats_signature := ""
 var _detail := HudStyle.label(16)
 var _health_bar := HudStyle.progress_bar(Color(0.35, 0.75, 0.2))
@@ -45,7 +45,7 @@ func _init(owner: Hud, panel: Control) -> void:
 	for item: Control in [_title, _info, _health_bar]:
 		panel.add_child(item)
 	_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_stats.columns = 2
+	_stats.columns = 1
 	_info.add_child(_stats)
 	_info.add_child(_detail)
 	_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -299,7 +299,7 @@ func _refresh_queue(building: MapObject) -> void:
 		for child in _queue_box.get_children():
 			child.queue_free()
 		for i in queue.size():
-			var card := _card(queue[i], CARD_SIZE * scale)
+			var card := portrait_card(queue[i], CARD_SIZE * scale)
 			card.position = Vector2(i * CARD_STEP * scale + (8 * scale if i > 0 else 0.0), 0)
 			card.tooltip_text = "%s\nClick to cancel" % GameData.stats(queue[i]).get("name", "?")
 			var index := i
@@ -308,7 +308,7 @@ func _refresh_queue(building: MapObject) -> void:
 			_queue_box.move_child(card, 0)  # later orders tuck in behind the first
 		for i in quartered.size():
 			var unit: Unit = quartered[i]
-			var card := _card(unit.unit_type.guid(), CARD_SIZE * 0.8 * scale, unit.unit_type.type_id)
+			var card := portrait_card(unit.unit_type.guid(), CARD_SIZE * 0.8 * scale, unit.unit_type.type_id)
 			card.position = Vector2(i * (CARD_SIZE * 0.8 + 3) * scale, 0)
 			card.tooltip_text = "%s\nClick to leave quarters" % unit.display_name()
 			card.pressed.connect(func() -> void: Orders.building(building, "release", [unit]))
@@ -335,7 +335,7 @@ func _refresh_group(units: Array) -> void:
 		var columns := maxi(1, int((hud.selection_area().size.x - 20 * scale) / (size + 2)))
 		for i in units.size():
 			var unit: Unit = units[i]
-			var card := _card(unit.unit_type.guid(), size, unit.unit_type.type_id)
+			var card := portrait_card(unit.unit_type.guid(), size, unit.unit_type.type_id)
 			card.position = Vector2((i % columns) * (size + 2), (i / columns) * (size + 7 * scale))
 			card.tooltip_text = unit.display_name()
 			card.set_meta("unit", unit)
@@ -363,7 +363,7 @@ func _refresh_group(units: Array) -> void:
 
 
 ## A small portrait button for a unit, building or upgrade.
-func _card(guid: int, size: float, type_id := -1) -> Button:
+func portrait_card(guid: int, size: float, type_id := -1) -> Button:
 	var card := Button.new()
 	card.focus_mode = Control.FOCUS_NONE
 	card.size = Vector2(size, size)

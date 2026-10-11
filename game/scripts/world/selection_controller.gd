@@ -1,20 +1,22 @@
 class_name SelectionController
 extends Node2D
-## Click / box selection, control groups (Ctrl+0-9 to set, 0-9 to recall) and
-## right-click move orders in a loose formation.
+## Click / box selection, control groups (Ctrl+0-9 to set, 0-9 to recall; a group is some
+## units or one building) and right-click move orders in a loose formation.
 
 const CLICK_RADIUS := 22.0
 const DRAG_THRESHOLD := 6.0
 const FORMATION_SPACING := 26.0
 ## Mexican and American forts: the call to take refuge in the fort ("ins Fort fliehen").
 
-signal group_assigned(digit: int, count: int)
+## A control group was set (`members` empty: cleared).
+signal group_assigned(digit: int, members: Array)
 
 @export var player_team := 1
 
 var units_root: Node2D
 var selection: Array[Unit] = []
 var selected_building: MapObject
+## Control groups: digit -> the units, or the one building, kept under it (see group_members).
 var groups := {}
 var _drag_start := Vector2.ZERO
 var _dragging := false
@@ -133,7 +135,7 @@ func _give_targeted(world: Vector2) -> void:
 
 static func _centre(units: Array) -> Vector2:
 	var centre := Vector2.ZERO
-	for unit: Unit in units:
+	for unit: Node2D in units:
 		centre += unit.position
 	return centre / maxf(1.0, units.size())
 
@@ -192,20 +194,72 @@ func _unhandled_input(event: InputEvent) -> void:
 		var digit := _digit(event)
 		if digit >= 0:
 			if event.ctrl_pressed or event.meta_pressed:
-				if is_own_selection():
-					groups[digit] = selection.duplicate()
-					group_assigned.emit(digit, selection.size())
+				assign_group(digit)
 			elif groups.has(digit):
-				var members: Array = groups[digit].filter(func(u) -> bool: return is_instance_valid(u) and u.is_alive())
-				# Pressing the number again centres the view on the group (manual 3.2).
-				var again := _last_group == digit and Time.get_ticks_msec() - _last_group_time < 600
-				_last_group = digit
-				_last_group_time = Time.get_ticks_msec()
-				_select(members, false)
-				if again and not members.is_empty() and camera:
-					camera.position = _centre(members)
+				recall_group(digit)
 		elif event.keycode == KEY_PERIOD:
 			_select_idle_worker()
+
+
+## Ctrl+digit: keep our selected units, or our selected building, under the digit; with
+## nothing of ours selected the group is cleared.
+func assign_group(digit: int) -> void:
+	var members: Array = []
+	if not selection.is_empty():
+		if is_own_selection():
+			members = selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+	elif is_instance_valid(selected_building) and selected_building.is_building() \
+			and selected_building.owner_index == player_team:
+		members = [selected_building]
+	if members.is_empty():
+		groups.erase(digit)
+	else:
+		groups[digit] = members
+	group_assigned.emit(digit, members)
+
+
+## A group's members still with us (the dead, destroyed and captured drop out); a group
+## left empty is forgotten.
+func group_members(digit: int) -> Array:
+	var members: Array = groups.get(digit, []).filter(func(m) -> bool:
+		if not is_instance_valid(m) or not m.is_alive():
+			return false
+		return m.team == player_team if m is Unit else m.owner_index == player_team)
+	if members.is_empty():
+		groups.erase(digit)
+	elif members.size() != groups[digit].size():
+		groups[digit] = members
+	return members
+
+
+## Select a group. A building's group also brings the view to it, as does pressing a unit
+## group's number twice (manual 3.2) or `jump` (the group's button on the HUD).
+func recall_group(digit: int, jump := false) -> void:
+	var members := group_members(digit)
+	if members.is_empty():
+		return
+	var again := _last_group == digit and Time.get_ticks_msec() - _last_group_time < 600
+	_last_group = digit
+	_last_group_time = Time.get_ticks_msec()
+	if members[0] is Unit:
+		_select(members, false)
+	else:
+		select_building(members[0])
+		jump = true
+	if (again or jump) and camera:
+		camera.position = _centre(members)
+
+
+## The digit of the group that is selected right now, -1 for none.
+func selected_group() -> int:
+	for digit in groups:
+		var members: Array = groups[digit]
+		if members.size() == 1 and members[0] == selected_building and selection.is_empty():
+			return digit
+		if members[0] is Unit and members.size() == selection.size() \
+				and members.all(func(m) -> bool: return m in selection):
+			return digit
+	return -1
 
 
 ## The number key pressed (top row or keypad), -1 for none. The key's place on the

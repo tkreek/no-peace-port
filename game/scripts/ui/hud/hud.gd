@@ -3,8 +3,9 @@ extends CanvasLayer
 ## In-game interface built from the original wooden status bar, as the original lays it out
 ## at high resolutions: the bar's two boards at the bottom left, the selection on the
 ## nailed board (SelectionPanel) and the command buttons on the long one (CommandPanel),
-## the minimap panel at the bottom right, the map open in between, and a strip with the
-## stockpiles at the top left. Scales with the window height and the interface-size
+## the minimap panel at the bottom right, the map open in between with the control groups
+## along its bottom edge (GroupBar), and a strip with the stockpiles at the top left.
+## Scales with the window height and the interface-size
 ## setting. Esc opens the game menu (GameMenu).
 
 const STATUS_SHEET := "interface/hud/bar/sheet_1"
@@ -36,6 +37,7 @@ var minimap := Minimap.new()
 var root := Control.new()  ## everything the HUD shows hangs off this
 var commands: CommandPanel
 var selected: SelectionPanel
+var groups: GroupBar
 var menu := GameMenu.new(self)
 
 var _left := TextureRect.new()
@@ -50,6 +52,7 @@ var _idle_button: Button
 var _resource_timer := 0.0
 var _scale_setting := 1.0
 var _at_population_limit := false
+var _notices: Array[Label] = []  # messages still on screen, oldest first
 ## How often the population limit has been announced (for the checks).
 var population_warnings := 0
 
@@ -76,6 +79,7 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	_setup_resources()
 	selected = SelectionPanel.new(self, _left)
 	commands = CommandPanel.new(self, root)
+	groups = GroupBar.new(self, root)
 	player.resources_changed.connect(_refresh_resources)
 	player.alerted.connect(_on_alert)
 	get_viewport().size_changed.connect(_layout)
@@ -135,6 +139,7 @@ func _process(delta: float) -> void:
 	_check_population_limit(population)
 	selected.refresh()
 	commands.refresh()
+	groups.refresh()
 
 
 ## The warning sound and message when the people fill their housing (or the match's limit).
@@ -170,7 +175,7 @@ func blocks_point(screen_point: Vector2) -> bool:
 	for panel: Control in [_left, _right, _top]:
 		if panel.get_global_rect().has_point(screen_point):
 			return true
-	return false
+	return groups.blocks_point(screen_point)
 
 
 ## Where the command buttons go: the long board.
@@ -229,6 +234,10 @@ func _layout() -> void:
 	_top.size = Vector2(minf(view.x, _resources.get_combined_minimum_size().x + 16 * ui_scale), top_h)
 	commands.layout(command_area())
 	selected.layout()
+	var gap := 8.0 * ui_scale
+	var groups_left := _left.position.x + _left.size.x + gap
+	groups.layout(Rect2(groups_left, view.y - (GroupBar.CARD * ui_scale + gap), _right.position.x - gap - groups_left,
+			GroupBar.CARD * ui_scale))
 
 
 func _refresh_resources() -> void:
@@ -300,7 +309,8 @@ func show_statistics(players: Dictionary) -> void:
 
 
 ## A message across the top of the screen for a few seconds (surrenders, warnings), with
-## the message chime unless the message comes with a sound of its own.
+## the message chime unless the message comes with a sound of its own. Earlier messages
+## still showing move down a line.
 func notify(text: String, chime := true) -> void:
 	if chime:
 		Sound.play_alert(MESSAGE_SOUND_GUID)
@@ -310,6 +320,10 @@ func notify(text: String, chime := true) -> void:
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_constant_override("outline_size", int(6 * ui_scale))
+	_notices = _notices.filter(func(old: Label) -> bool: return is_instance_valid(old))
+	for old: Label in _notices:
+		old.position.y += label.get_minimum_size().y
+	_notices.append(label)
 	root.add_child(label)
 	var view := get_viewport().get_visible_rect().size
 	label.position = Vector2(view.x / 2.0 - label.get_minimum_size().x / 2.0, 60 * ui_scale)

@@ -174,8 +174,13 @@ func _ready() -> void:
 	add_child(hud)
 	hud.setup(map, terrain.overview_image(), camera, units_root, players[me], selection)
 	hud.minimap.move_ordered.connect(selection._order_move)
-	selection.group_assigned.connect(func(digit: int, count: int) -> void:
-		hud.notify("Group %d: %d %s" % [digit, count, "unit" if count == 1 else "units"], false))
+	selection.group_assigned.connect(func(digit: int, members: Array) -> void:
+		if members.is_empty():
+			hud.notify("Group %d cleared" % digit, false)
+		elif members[0] is MapObject:
+			hud.notify("Group %d: %s" % [digit, members[0].display_name()], false)
+		else:
+			hud.notify("Group %d: %d %s" % [digit, members.size(), "unit" if members.size() == 1 else "units"], false))
 	for index in players:
 		if computer.get(index, false):
 			var ai := AiPlayer.new()

@@ -225,6 +225,12 @@ func _load_tables() -> void:
 			"function": "Raises a horse for mounted units (each horse building shelters %d)" % BuildingProduction.HORSES_PER_BUILDING}
 	if _stats.has(MapObject.FIELD_GUID):
 		_stats[MapObject.FIELD_GUID].build_time = 25
+	# A wall's straight pieces are its corner's type in the original (one object type, one
+	# Defaults.bin entry): the same cost, energy, build time and name.
+	for pieces: Array in WallLine.PIECES.values():
+		if _stats.has(pieces[0]):
+			for piece in pieces.slice(1):
+				_stats[piece] = _stats[pieces[0]].duplicate(true)
 	for guid in EXPANSION_PRODUCTION:
 		if _stats.has(guid):
 			_stats[guid].produced_at = EXPANSION_PRODUCTION[guid]
@@ -272,7 +278,10 @@ func guid_for_type(type_id: int) -> int:
 ## Display name of an object type (via its GUID), e.g. "Command post".
 func type_name(type_id: int) -> String:
 	var type := ObjectTypes.get_type(type_id)
-	return text(guid_for_type(type_id), type.name if type else "?")
+	var guid := guid_for_type(type_id)
+	if _stats.has(guid) and _stats[guid].has("name"):
+		return _stats[guid].name
+	return text(guid, type.name if type else "?")
 
 
 ## Stats for a GUID: {name, faction, kind, cost, health, damage, produced_at, ...} or {}.

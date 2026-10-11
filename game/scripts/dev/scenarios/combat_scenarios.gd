@@ -467,6 +467,67 @@ func _scenario_disarm() -> void:
 	get_tree().quit()
 
 
+## Walls: dragging out the people's wall (stockade, wall, barricade) from corner to corner
+## (the build controller's own drag) puts down a closed diamond of pieces; finished, it
+## keeps a soldier inside in and one outside out (--faction=usa, mex or des).
+func _scenario_wall() -> void:
+	var p: Player = main.players[1]
+	p.resources.wood = 5000
+	var n := 6
+	var wall_guid: int = WallLine.PIECES[p.faction][0]
+	var wall_type := ObjectTypes.get_type(GameData.type_for_guid(wall_guid, main.terrain.biome))
+	# Flat open ground for the whole diamond, spiralling out from the middle of the map.
+	var centre := Vector2.INF
+	var middle := (Vector2(main.terrain.map.pixel_size()) / 2.0 / 16.0).round() * 16.0
+	for ring in 40:
+		for k in maxi(1, ring * 8):
+			var at := middle + Vector2.from_angle(TAU * k / maxi(1, ring * 8)) * ring * 64.0
+			at = (at / 16.0).round() * 16.0
+			var free := true
+			for side in 4:
+				var top := at - WallLine.STEP_LEFT * (n / 2) - WallLine.STEP_RIGHT * (n / 2)
+				for i in n + 1:
+					for spot in [top + WallLine.STEP_LEFT * i, top + WallLine.STEP_RIGHT * i,
+							top + WallLine.STEP_LEFT * n + WallLine.STEP_RIGHT * i, top + WallLine.STEP_RIGHT * n + WallLine.STEP_LEFT * i]:
+						free = free and BuildController.can_place_for(wall_type, spot, 1)
+			if free and main.nav.is_walkable(main.nav.cell_of(at)) and main.nav.is_walkable(main.nav.cell_of(at + Vector2(0, 220))):
+				centre = at
+				break
+		if centre != Vector2.INF:
+			break
+	main.camera.position = centre
+	var top := centre - WallLine.STEP_LEFT * (n / 2) - WallLine.STEP_RIGHT * (n / 2)
+	var corners := [top, top + WallLine.STEP_LEFT * n, top + WallLine.STEP_LEFT * n + WallLine.STEP_RIGHT * n, top + WallLine.STEP_RIGHT * n]
+	var bc: BuildController = main.build_controller
+	var before := MapObject.structures.size()
+	var planned := 0
+	for i in 2:  # two L-shaped drags: top -> right -> bottom, then bottom -> left -> top
+		bc.start(wall_type.id)
+		bc._wall_from = corners[i * 2]
+		bc._ghost.position = corners[i * 2] + WallLine.STEP_LEFT * n * (1 - 2 * i) + WallLine.STEP_RIGHT * n * (1 - 2 * i)
+		bc._update_wall_ghosts()
+		planned += bc._wall_plan.size()
+		bc._place_wall(false)
+	await get_tree().create_timer(0.5).timeout
+	var pieces := MapObject.structures.slice(before)
+	for piece: MapObject in pieces:
+		piece.condition.add_build_work(1000.0)  # finished at once
+	var inside: Unit = _new_units(458, 1, centre, 1)[0]
+	var outside: Unit = _new_units(458, 1, centre + Vector2(0, 220), 1)[0]
+	inside.move_to(centre + Vector2(0, 400))
+	outside.move_to(centre)
+	if not GameData.cmdline_option("screenshot").is_empty():
+		return
+	await get_tree().create_timer(15.0).timeout
+	var within := func(u: Unit) -> bool:
+		var d := u.position - centre
+		return absf(d.x) / (WallLine.STEP_LEFT.x * n) + absf(d.y) / (WallLine.STEP_LEFT.y * n) < 1.0
+	print("wall: planned %d pieces, built %d (%s), all walls %s; inside stays in %s, outside stays out %s" % [
+			planned, pieces.size(), pieces[0].display_name() if not pieces.is_empty() else "-",
+			pieces.all(func(o: MapObject) -> bool: return o.complete), within.call(inside), not within.call(outside)])
+	get_tree().quit()
+
+
 ## A scout (--disarmer=<GUID>: trapper 461, militiaman 261, hunter 358, arrow shooter 156)
 ## disarms a Native pitfall: four seconds with his butchering animation, then it is gone.
 func _scenario_scoutdisarm() -> void:

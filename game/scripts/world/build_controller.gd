@@ -4,6 +4,9 @@ extends Node2D
 ## 16 px collision grid), tinted green or red by whether the footprint is free. Left click
 ## places a construction site and sends the selected builders; right click / Esc cancels.
 ## With Shift held the placing goes on, and the builders take the sites in turn.
+## Walls are dragged out: press where the wall starts and let go where it ends; the ghost
+## shows every piece (WallLine), red where the ground is taken or the stock runs out, and
+## the builders put up the pieces from the start on.
 
 signal placed(site: MapObject)
 
@@ -18,6 +21,9 @@ var placing_type: ObjectTypes.ObjectType
 var _ghost: MapObject
 ## The travois whose packed tepee is being placed (free: it was paid for once).
 var _unpacker: Unit
+var _wall_from := Vector2.INF  ## where the wall being dragged out starts (INF: no drag)
+var _wall_plan: Array[Dictionary] = []  ## its pieces: {type_id, position}
+var _wall_ghosts: Array[MapObject] = []
 
 
 func is_placing() -> bool:
@@ -41,11 +47,26 @@ func start(type_id: int, unpacker: Unit = null) -> void:
 
 
 func cancel() -> void:
+	_end_wall_drag()
 	if _ghost:
 		_ghost.queue_free()
 	_ghost = null
 	placing_type = null
 	_unpacker = null
+
+
+func _placing_wall() -> bool:
+	return placing_type != null and _unpacker == null and WallLine.is_wall(GameData.guid_for_type(placing_type.id))
+
+
+func _end_wall_drag() -> void:
+	_wall_from = Vector2.INF
+	_wall_plan.clear()
+	for ghost in _wall_ghosts:
+		ghost.queue_free()
+	_wall_ghosts.clear()
+	if _ghost:
+		_ghost.visible = true
 
 
 func _process(_delta: float) -> void:
@@ -54,6 +75,45 @@ func _process(_delta: float) -> void:
 	var grid := float(NavGrid.CELL)
 	_ghost.position = (get_global_mouse_position() / grid).round() * grid
 	_ghost.modulate = VALID if can_place(_ghost.position) else INVALID
+	if _wall_from != Vector2.INF:
+		_update_wall_ghosts()
+
+
+## The dragged-out wall's ghosts, rebuilt when its pieces change; tinted piece by piece.
+func _update_wall_ghosts() -> void:
+	_ghost.visible = false
+	var plan := WallLine.plan(GameData.guid_for_type(placing_type.id), _wall_from, _ghost.position,
+			"wiese" if placing_type.is_meadow() else "steppe")
+	if plan != _wall_plan:
+		_wall_plan = plan
+		for ghost in _wall_ghosts:
+			ghost.queue_free()
+		_wall_ghosts.clear()
+		for piece in plan:
+			var ghost := MapObject.new()
+			ghost.is_ghost = true
+			ghost.position = piece.position
+			if not ghost.setup(ObjectTypes.get_type(piece.type_id), player.index):
+				ghost.free()
+				continue
+			ghost.set_process(false)
+			add_child(ghost)
+			_wall_ghosts.append(ghost)
+	var stock := player.resources.duplicate()
+	for ghost in _wall_ghosts:
+		var cost := _cost_of(ghost.object_type)
+		var ok := _take(stock, cost) and can_place_for(ghost.object_type, ghost.position, player.index, true)
+		ghost.modulate = VALID if ok else INVALID
+
+
+## Take `cost` out of `stock` if it's all there.
+static func _take(stock: Dictionary, cost: Dictionary) -> bool:
+	for key in cost:
+		if int(stock.get(key, 0)) < int(cost[key]):
+			return false
+	for key in cost:
+		stock[key] = int(stock[key]) - int(cost[key])
+	return true
 
 
 func can_place(at: Vector2) -> bool:
@@ -96,14 +156,25 @@ static func _cost_of(type: ObjectTypes.ObjectType) -> Dictionary:
 func _unhandled_input(event: InputEvent) -> void:
 	if _ghost == null:
 		return
-	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_LEFT:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed \
+			and _wall_from != Vector2.INF:
+		_place_wall(event.shift_pressed)
+		get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT and _placing_wall():
+			_wall_from = _ghost.position  # dragged out until the button is let go
+		elif event.button_index == MOUSE_BUTTON_LEFT:
 			_place(_ghost.position, event.shift_pressed)
+		elif event.button_index == MOUSE_BUTTON_RIGHT and _wall_from != Vector2.INF:
+			_end_wall_drag()
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			cancel()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		cancel()
+		if _wall_from != Vector2.INF:
+			_end_wall_drag()
+		else:
+			cancel()
 		get_viewport().set_input_as_handled()
 
 
@@ -124,6 +195,37 @@ func _place(at: Vector2, keep_placing: bool) -> void:
 	var type_id := placing_type.id
 	cancel()
 	if keep_placing and unpacker == null:
+		start(type_id)
+
+
+## The button let go on a dragged-out wall: a placing order for each piece, from its start,
+## as far as the stock goes; pieces on taken ground are left out. A click that wasn't
+## dragged puts down a single corner.
+func _place_wall(keep_placing: bool) -> void:
+	_update_wall_ghosts()
+	var plan := _wall_plan.duplicate()
+	var type_id := placing_type.id
+	_end_wall_drag()
+	if plan.size() <= 1:
+		_place(_ghost.position, keep_placing)
+		return
+	var builders := selection.selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive())
+	var stock := player.resources.duplicate()
+	var ordered := 0
+	for piece in plan:
+		var type := ObjectTypes.get_type(piece.type_id)
+		var cost := _cost_of(type)
+		if not can_place_for(type, piece.position, player.index, true):
+			continue
+		if not _take(stock, cost):
+			player.alert_shortage(cost)
+			break
+		Orders.place(piece.type_id, piece.position, true, null, builders)  # the builders take them in turn
+		ordered += 1
+	if ordered == 0:
+		Sound.play_sound(CANNOT_BUILD_SOUND)
+	cancel()
+	if keep_placing:
 		start(type_id)
 
 

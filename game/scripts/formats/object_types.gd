@@ -58,6 +58,9 @@ static func named(name: String) -> int:
 	return -1
 
 
+static var _wall_piece := RegEx.create_from_string(WallLine.TYPE_NAME)
+
+
 static func _load() -> void:
 	var data = GameData.read_json(PATH)
 	if not data is Array:
@@ -77,4 +80,11 @@ static func _load() -> void:
 			t.footprint_size = Vector2i(f.size[0], f.size[1])
 			t.footprint_grid = Vector2i(f.grid[0], f.grid[1])
 			t.footprint_cells = PackedInt32Array(f.cells)
+		if _wall_piece.search(t.name):
+			# Every wall piece stands on two solid cells, as the Mexican and American ones
+			# do in BobListe; the barricade's entries there are empty or far too big.
+			t.footprint_anchor = Vector2i(16, 0)
+			t.footprint_size = Vector2i(32, 16)
+			t.footprint_grid = Vector2i(2, 1)
+			t.footprint_cells = PackedInt32Array([0x80000000, 0x80000000])  # as theirs
 		_types.append(t)

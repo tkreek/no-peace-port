@@ -39,6 +39,9 @@ var commands: CommandPanel
 var selected: SelectionPanel
 var groups: GroupBar
 var menu := GameMenu.new(self)
+## The campaign mission being played, or null (its messages show in `mission_panel`).
+var mission: Mission
+var mission_panel := MissionPanel.new(self)
 
 var _left := TextureRect.new()
 var _right := TextureRect.new()
@@ -77,6 +80,8 @@ func setup(map: AlfMap, terrain_colors: Image, camera: Camera2D, objects: Node2D
 	_right.texture = _minimap_panel_texture()
 	_setup_minimap(map, camera, objects, terrain_colors)
 	_setup_resources()
+	root.add_child(mission_panel)
+	root.add_child(mission_panel.clock)
 	selected = SelectionPanel.new(self, _left)
 	commands = CommandPanel.new(self, root)
 	groups = GroupBar.new(self, root)
@@ -140,6 +145,8 @@ func _process(delta: float) -> void:
 	selected.refresh()
 	commands.refresh()
 	groups.refresh()
+	if mission:
+		mission_panel.update_clock(mission)
 
 
 ## The warning sound and message when the people fill their housing (or the match's limit).
@@ -232,6 +239,10 @@ func _layout() -> void:
 	_resources.reset_size()
 	_top.position = Vector2.ZERO
 	_top.size = Vector2(minf(view.x, _resources.get_combined_minimum_size().x + 16 * ui_scale), top_h)
+	mission_panel.position = Vector2(view.x / 2.0 - MissionPanel.WIDTH * ui_scale / 2.0 - 10 * ui_scale, top_h + 10 * ui_scale)
+	mission_panel.clock.position = Vector2(view.x - 140 * ui_scale, top_h + 4 * ui_scale)
+	mission_panel.clock.size = Vector2(120 * ui_scale, 36 * ui_scale)
+	mission_panel.clock.add_theme_font_size_override("font_size", int(28 * ui_scale))
 	commands.layout(command_area())
 	selected.layout()
 	var gap := 8.0 * ui_scale
@@ -331,6 +342,16 @@ func notify(text: String, chime := true) -> void:
 	tween.tween_interval(4.0)
 	tween.tween_property(label, "modulate:a", 0.0, 1.5)
 	tween.tween_callback(label.queue_free)
+
+
+## A message from the mission's script (Mission.message).
+func mission_message(text: String, seconds: float, speech: String) -> void:
+	mission_panel.show_message(text, seconds, speech)
+
+
+## The goals changed: the game menu's "Mission goals" shows the new ones.
+func set_mission_goal(_text: String) -> void:
+	pass
 
 
 ## Large centred message (victory / defeat) with a way back to the main menu.

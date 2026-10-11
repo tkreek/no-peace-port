@@ -293,7 +293,7 @@ func _may_engage(enemy: Node2D) -> bool:
 
 
 func is_enemy_of(other: Unit) -> bool:
-	if other.team == team or other.team <= 0 or team <= 0:
+	if not Diplomacy.hostile(team, other.team):
 		return false
 	var other_player: Player = Player.by_index.get(other.team)
 	if other_player and other_player.surrendered:
@@ -786,7 +786,7 @@ func nearest_target(radius: float) -> Node2D:
 	var best: MapObject = null
 	var best_distance := radius
 	for object in MapObject.structures:
-		if object.is_building() and object.owner_index > 0 and object.owner_index != team and object.is_alive() \
+		if object.is_building() and Diplomacy.hostile(team, object.owner_index) and object.is_alive() \
 				and not (object.is_trap() and not UnitStealth.detected(object.position, team)):
 			var bounds := object.work_rect()
 			if position.distance_to(position.clamp(bounds.position, bounds.end)) >= best_distance:

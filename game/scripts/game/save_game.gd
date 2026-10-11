@@ -20,7 +20,12 @@ static func save(main: Node, path := QUICK) -> bool:
 				"difficulty": Match.difficulty},
 		"players": [], "objects": [], "resources": [], "units": [],
 		"explored": Marshalls.raw_to_base64(main.fog.explored) if main.fog.enabled else "",
+		"diplomacy": Diplomacy.save_state(),
 	}
+	if main.mission:
+		data["campaign"] = Match.campaign
+		data["mission"] = main.mission.save_state()
+		data["revealed_areas"] = main.fog.revealed_areas.keys()
 	for index in main.players:
 		var p: Player = main.players[index]
 		var ai_state := {}
@@ -68,6 +73,12 @@ static func read(path := QUICK) -> Dictionary:
 ## Bring a freshly set-up match (map, terrain, forests, players) to the saved state.
 static func restore(main: Node, data: Dictionary) -> void:
 	main.game_time = float(data.get("game_time", 0.0))
+	if data.has("diplomacy"):
+		Diplomacy.restore_state(data.diplomacy)
+	if main.mission and data.has("mission"):
+		main.mission.restore_state(data.mission)
+		for id in data.get("revealed_areas", []):
+			main.fog.revealed_areas[int(id)] = main.mission.area(int(id))
 	if data.has("tick"):
 		Sim.tick = int(data.tick)
 		Sim.rng.state = String(data.rng).to_int()

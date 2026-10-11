@@ -41,6 +41,7 @@ static func reset(match_seed: int) -> void:
 	_by_id.clear()
 	rng.seed = match_seed
 	Orders.reset()
+	Diplomacy.reset()
 	UnitGrid.invalidate()
 
 

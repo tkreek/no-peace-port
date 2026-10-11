@@ -78,21 +78,23 @@ func update_now() -> void:
 		# Units standing in the same cell with the same sight reveal the same circle: once.
 		var stamped := {}
 		for unit in Unit.all_units:
-			if unit.team == player_team and unit.is_alive():
+			if unit.is_alive() and Diplomacy.sees_for(player_team, unit.team):
 				var sight := unit.sight()
 				var key := _index(unit.position) * 64 + int(sight / CELL)
 				if not stamped.has(key):
 					stamped[key] = true
 					_reveal(unit.position, sight)
 		for object in MapObject.structures:
-			if object.is_building() and object.owner_index == player_team and object.is_alive():
-				var owner: Player = Player.by_index.get(player_team)
+			if object.is_building() and object.is_alive() and Diplomacy.sees_for(player_team, object.owner_index):
+				var owner: Player = Player.by_index.get(object.owner_index)
 				var sharper := owner.bonus(object.guid, "sight_pct") if owner else 0.0  # tower Sight upgrades
 				_reveal(object.footprint_rect().get_center(), building_sight(object) * (1.0 + sharper / 100.0))
 		var now := Sim.msec()
 		_reveals = _reveals.filter(func(r: Dictionary) -> bool: return r.until > now)
 		for r in _reveals:
 			_reveal(r.at, r.radius)
+		for rect: Rect2 in revealed_areas.values():
+			_reveal_rect(rect)
 	_visible_image.set_data(columns, rows, false, Image.FORMAT_L8, visible_cells)
 	_visible_texture.update(_visible_image)
 	_explored_image.set_data(columns, rows, false, Image.FORMAT_L8, explored)
@@ -103,6 +105,19 @@ func update_now() -> void:
 static func building_sight(object: MapObject) -> float:
 	var tier := int(GameData.stats(object.guid).get("sight_tier", -1))
 	return GameData.def_tier("sight_range", tier, int(BUILDING_SIGHT)) if tier >= 0 else BUILDING_SIGHT
+
+
+## Areas a mission keeps in sight (Mission: area id -> map rectangle) until it covers them.
+var revealed_areas := {}
+
+
+func _reveal_rect(rect: Rect2) -> void:
+	var from := Vector2i((rect.position / CELL).floor()).clamp(Vector2i.ZERO, Vector2i(columns - 1, rows - 1))
+	var to := Vector2i((rect.end / CELL).ceil()).clamp(Vector2i.ZERO, Vector2i(columns, rows))
+	for y in range(from.y, to.y):
+		for x in range(from.x, to.x):
+			visible_cells[y * columns + x] = 1
+			explored[y * columns + x] = 1
 
 
 ## Eagle eye: a spot kept in sight for a while.

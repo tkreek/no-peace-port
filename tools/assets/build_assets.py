@@ -19,6 +19,9 @@ of everything the game uses:
                 minimap colours, painting rules
   sounds/ music/
   maps/         skirmish maps (.ulf, zlib-packed)
+  campaign/     campaign and tutorial maps, mission speech and narration, the missions' AI
+                modules (.mod, as they are) and the campaign menus' pictures; their texts
+                and mission lists are data/campaign.json
   manifest.json original path -> asset path
   REPORT.md     what was left out (and why), untranslated words, name clashes
 
@@ -40,7 +43,7 @@ ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(HERE, "..", "formats"))
 sys.path.insert(0, HERE)
 from rd_archive import GameFiles, normalize  # noqa: E402
-from rd_chunks import read_chunks  # noqa: E402
+from rd_chunks import parse_chunks  # noqa: E402
 import glossary  # noqa: E402
 
 # Files the game's code loads by name (original paths), beyond what the data tables name.
@@ -502,6 +505,73 @@ class Builder:
                 seen[title.lower()] = f
                 self.write(rel, repack_map(os.path.join(directory, f)))
 
+    def campaign(self):
+        """The two campaigns (base game: tutorials plus 6-8 missions per people; expansion:
+        2 per people) -> campaign/<set>/... and data/campaign.json."""
+        out = {"art": {}}
+        sets = (("base", "kampagne", "sfx/missions", "kimodules", "global/guids", "", "0"),
+                ("expansion", "kampagne2", "sfx/missions2", "kimodules2", "global/guids2", "-add-on", "1"))
+        for name, maps, narration, modules, guids, suffix, picture in sets:
+            if not any(n.startswith(maps + "/") for n in self.files.names()):
+                continue
+            entry = {"texts": self.text_table(f"{guids}/text2{suffix}.eng"),
+                     "titles": self.text_table(f"{guids}/kampagnen{suffix}.eng"),
+                     "stories": self.text_table(f"{guids}/missionen{suffix}.eng"), "missions": {}}
+            for original in sorted(n for n in self.files.names() if n.startswith(maps + "/")):
+                m = re.match(r"([a-z]+) ?(\d+)\.[au]lf$", original.split("/")[-1])
+                if not m:
+                    continue
+                people, number = m.group(1), int(m.group(2))
+                code = f"{people}_{number:02d}"
+                rel = f"campaign/{name}/maps/{code}.ulf"
+                self.manifest[original] = rel
+                self.used.add(original)
+                self.write(rel, repack_map_data(self.files.read(original), original))
+                mission = {"code": code, "number": number, "map": rel}
+                text_id = CAMPAIGN_TEXT_BASE.get(people, -1) + number - 1
+                if people in CAMPAIGN_TEXT_BASE:
+                    mission["title"] = entry["titles"].get(str(text_id), "")
+                    mission["story"] = entry["stories"].get(str(text_id), "")
+                speech = f"{narration}/{people}{number:02d}.mp3"
+                if self.files.exists(speech):
+                    mission["narration"] = f"campaign/{name}/narration/{people}{number:02d}.mp3"
+                    self.manifest[speech] = mission["narration"]
+                    self.write(mission["narration"], self.read(speech))
+                art = self.image(f"global/gfx/menues/kampagne/{people}{picture}{number}.pic") \
+                    if people in CAMPAIGN_TEXT_BASE else None
+                if art:
+                    mission["picture"] = art
+                entry["missions"].setdefault(people, []).append(mission)
+            for original in sorted(n for n in self.files.names() if n.startswith(modules + "/")):
+                rel = f"campaign/{name}/ai/{original.split('/')[-1]}"
+                self.manifest[original] = rel
+                self.write(rel, self.read(original))
+            if name == "base":
+                for original in sorted(n for n in self.files.names() if n.startswith(narration + "/")):
+                    stem = original.split("/")[-1]
+                    if stem[0].isdigit():
+                        rel = f"campaign/base/speech/{stem}"
+                        self.manifest[original] = rel
+                        self.write(rel, self.read(original))
+            out[name] = entry
+        for people in CAMPAIGN_TEXT_BASE:
+            out["art"][people] = self.image(f"global/gfx/menues/kampagne/{people}.pic") or ""
+        out["art"]["select_campaign"] = self.image("global/gfx/menues/selectkampagne/selectkampagne.pic") or ""
+        out["art"]["select_campaign_buttons"] = self.sheet("global/gfx/menues/selectkampagne/piclist00.spr") or ""
+        out["art"]["select_mission"] = self.image("global/gfx/menues/selectmission/selectmission.pic") or ""
+        self.write_json("data/campaign.json", out)
+
+    def text_table(self, original):
+        """A .eng text file as {id: text}; "@" stays (the game turns it into line breaks)."""
+        texts = {}
+        if not self.files.exists(original):
+            return texts
+        for line in self.read(original).decode("latin1").replace("\r", "").split("\n"):
+            k = line.split("=", 1)[0].strip()
+            if "=" in line and k.isdigit() and k not in texts:
+                texts[k] = line[line.find("=") + 1:].strip()
+        return texts
+
     def music(self):
         for directory in (os.path.join(self.install, "Music"), os.path.join(self.addon, "Music")):
             if not os.path.isdir(directory):
@@ -584,12 +654,16 @@ class Builder:
         self.terrain("steppe", "prairie")
         self.terrain("wiese", "meadow")
         self.maps()
+        self.campaign()
         self.music()
         left = self.report()
         print(f"{len(self.manifest)} entries in the manifest; {sum(len(v) for v in left.values())} original "
               f"files left out; {len(self.missing)} missing; {len(self.untranslated)} untranslated words; "
               f"{len(self.clashes)} clashes")
 
+
+# First story and title text id of each people's campaign (kampagnen.eng, missionen.eng).
+CAMPAIGN_TEXT_BASE = {"ind": 0, "mex": 10, "des": 20, "usa": 30}
 
 KNOWN_ENGLISH = set()
 for _v in glossary.WORDS.values():
@@ -607,8 +681,6 @@ def why_left_out(name):
         return "Palettes (the upscaled graphics carry their own colours)"
     if ext in (".spx", ".shw", ".spr", ".pic", ".bmp") and not n.startswith(("global/gfx/menues", "potraits")):
         return "Original pictures of graphics the upscaled set replaces, or not used"
-    if ext == ".mod":
-        return "Campaign AI modules (kimodules), not used"
     if n.startswith(("kampagne", "global/gfx/menues/kampagne", "global/gfx/menues/selectkampagne",
                      "global/gfx/menues/selectmission", "global/gfx/menues/mission")) or "kampagne" in n or "mission" in n:
         return "Campaign and missions, not implemented"
@@ -654,9 +726,12 @@ def _png(width, height, colour_type, raw):
 
 def repack_map(path):
     """A level file with every chunk zlib-packed (as the expansion editor writes them)."""
-    data = open(path, "rb").read()
+    return repack_map_data(open(path, "rb").read(), path)
+
+
+def repack_map_data(data, path="<bytes>"):
     out = bytearray(data[:0x20])
-    for name, body in read_chunks(path):
+    for name, body in parse_chunks(data, path):
         packed = zlib.compress(body, 9)
         header = name.encode("latin1")[:8].ljust(8, b"\0")
         start = len(out)

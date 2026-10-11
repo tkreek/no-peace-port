@@ -43,7 +43,10 @@ def lzw_decompress(data, expected_size=None):
 
 
 def read_chunks(path):
-    data = open(path, "rb").read()
+    return parse_chunks(open(path, "rb").read(), path)
+
+
+def parse_chunks(data, path="<bytes>"):
     if not data.startswith(b"RDCHUNK.VERSION\0"):
         raise ValueError(f"{path}: not an RDCHUNK file")
     pos, chunks = 0x20, []

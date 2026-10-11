@@ -518,7 +518,7 @@ func order_gather(source: MapObject) -> void:
 
 func _enemy_building_at(point: Vector2) -> MapObject:
 	return _front_most(point, func(o: MapObject) -> bool:
-		return o.is_building() and o.owner_index > 0 and o.owner_index != player_team and o.is_alive())
+		return o.is_building() and Diplomacy.hostile(player_team, o.owner_index) and o.is_alive())
 
 
 func order_attack(enemy: Node2D, at_horse := false) -> void:

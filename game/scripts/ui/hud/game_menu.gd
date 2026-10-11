@@ -28,8 +28,11 @@ func toggle() -> void:
 		])
 		return
 	hud.get_tree().paused = true
+	var goals := []
+	if hud.mission and hud.mission.goal_text() != "":
+		goals = [[hud.mission.text(56) if hud.mission.text(56) != "" else "Mission goals", show_goals]]
 	_panel = _menu_panel(GameData.menu_text(50, "Settings"), [
-		[GameData.menu_text(57, "Continue"), toggle],
+		[GameData.menu_text(57, "Continue"), toggle]] + goals + [
 		["Save game (F2)", func() -> void:
 			toggle()
 			quick_save()],
@@ -69,6 +72,25 @@ func quick_load() -> void:
 	Match.load_data = data
 	hud.get_tree().paused = false
 	hud.get_tree().reload_current_scene()
+
+
+## The mission's current goals (the script's last goal text).
+func show_goals() -> void:
+	if _panel:
+		_panel.queue_free()
+	_panel = _menu_panel(hud.mission.text(56) if hud.mission.text(56) != "" else "Mission goals", [["Back", func() -> void:
+		_close()
+		toggle()]])
+	var box: Control = _panel.get_child(0)
+	var column: VBoxContainer = box.get_child(0)
+	var label := HudStyle.label(int(17 * hud.ui_scale))
+	label.text = hud.mission.goal_text()
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.custom_minimum_size.x = 520 * hud.ui_scale
+	column.add_child(label)
+	column.move_child(label, 1)
+	box.reset_size()
+	box.position = hud.get_viewport().get_visible_rect().size / 2.0 - box.get_combined_minimum_size() / 2.0
 
 
 ## Sound, scrolling, interface and display settings (SettingsPanel), kept between sessions.

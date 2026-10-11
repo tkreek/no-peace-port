@@ -39,6 +39,8 @@ static var build_controller: BuildController
 static var history: Array[Dictionary] = []
 ## While a replay plays, the interface's orders are ignored.
 static var replaying := false
+## While a mission plays a scene, the interface's orders are ignored (Mission).
+static var locked := false
 static var _pending: Array[Dictionary] = []
 static var _outgoing := {}  # step -> this machine's orders for it, until Net sends them
 static var _count := 0  # orders given this match (their "n": the order within a step)
@@ -50,6 +52,7 @@ static func reset() -> void:
 	_count = 0
 	history.clear()
 	replaying = false
+	locked = false
 
 
 # ------------------------------------------------------------------ giving orders
@@ -77,7 +80,7 @@ static func place(type_id: int, at: Vector2, keep_placing: bool, unpacker: Unit,
 
 ## Queue an order from this machine's people for a coming step.
 static func give(order: Dictionary) -> void:
-	if replaying:
+	if replaying or locked:
 		return
 	_count += 1
 	order["t"] = Sim.tick + 1 + delay

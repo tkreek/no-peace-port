@@ -136,7 +136,7 @@ func cast(which: int, point: Vector2, on_unit: Unit = null) -> void:
 
 ## Leaders, builders, gatherers, transports and boats cannot be converted (manual).
 func convertible(other: Unit) -> bool:
-	return other.team > 0 and other.team != unit.team and other.is_alive() and not other.inside \
+	return Diplomacy.hostile(unit.team, other.team) and other.is_alive() and not other.inside \
 			and other.unit_type.guid() not in Player.COMMANDERS and not other.unit_type.can_gather("wood") \
 			and not other.unit_type.can_gather("gold") and not other.unit_type.is_farmer() \
 			and not other.unit_type.is_transport() and other.unit_type.anim_index("build") < 0
@@ -184,12 +184,12 @@ func _apply_spell(which: int, at: Vector2) -> void:
 		919:
 			Weather.spawn(parent, at, Weather.LIGHTNING_BOB, 6.0, func(where: Vector2) -> void:
 				for other: Unit in UnitGrid.near(where, 140.0):
-					if other.is_alive() and other.team > 0 and other.team != team and other.position.distance_to(where) < 140.0:
+					if other.is_alive() and Diplomacy.hostile(team, other.team) and other.position.distance_to(where) < 140.0:
 						other.take_damage(8.0))
 		920:
 			Weather.spawn(parent, at, Weather.HAIL_BOB, 4.0)
 			for field in MapObject.structures:
-				if field.is_field() and field.owner_index != team and field.position.distance_to(at) < 200.0:
+				if field.is_field() and not Diplomacy.allied(team, field.owner_index) and field.position.distance_to(at) < 200.0:
 					field.stock.ruin_crop()
 		921:
 			Weather.spawn(parent, at, Weather.RAIN_BOB, 4.0)

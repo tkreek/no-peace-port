@@ -19,6 +19,7 @@ extends Node2D
 ##   --record=<file>  keep the match's orders (written on leaving); --replay=<file>  play them
 ##     back instead of the player's (start it with the same map and peoples)
 ##   --camera=x,y  --zoom=z  --order=x,y (screenshot move target)  --debug-paths=1
+##   --mission=<set>/<code>  play a campaign mission, e.g. base/ind_01, expansion/usa_02, base/tut_01
 
 const DEFAULT_MAP := "[2 Players] - close combat.ulf"
 
@@ -32,6 +33,9 @@ var hud := Hud.new()
 var build_controller := BuildController.new()
 var ambience := Ambience.new()
 var ais: Array[AiPlayer] = []
+## The campaign mission's script (null in a skirmish), and what the map says about it.
+var mission: Mission
+var mission_data: MissionData
 var _game_over := false
 var players := {}
 var start_positions := {}  # player -> Vector2, from the map's Editor_Start markers
@@ -66,8 +70,13 @@ func _ready() -> void:
 	map_path = map_arg
 	var loading: Dictionary = Match.load_data
 	Match.load_data = {}
+	if GameData.cmdline_option("mission") != "" and loading.is_empty():
+		Match.campaign = Campaign.mission_entry(GameData.cmdline_option("mission"))
 	if not loading.is_empty():
 		map_path = loading.map
+		Match.campaign = loading.get("campaign", {})
+	elif not Match.campaign.is_empty():
+		map_path = GameData.path(Match.campaign.map)
 	elif Match.configured:
 		map_path = Match.map_path
 	elif not map_arg.is_absolute_path():
@@ -106,7 +115,7 @@ func _ready() -> void:
 	ambience.camera = camera
 	add_child(ambience)
 
-	me = Match.local_player if Match.configured else 1
+	me = Match.local_player if Match.configured and Match.campaign.is_empty() else 1
 	if Net.active:
 		Net.desynced.connect(func(tick: int) -> void: hud.notify("Out of sync with the other players (step %d)" % tick))
 		Net.player_left.connect(func(index: int) -> void:
@@ -116,7 +125,15 @@ func _ready() -> void:
 	var size := Vector2(map.pixel_size())
 	Player.by_index.clear()
 	var computer := {}  # player index -> true when AI controlled
-	if not loading.is_empty():
+	if not Match.campaign.is_empty():
+		mission_data = MissionData.from_map(map)
+		me = mission_data.human().index if mission_data.human() else 1
+		Orders.local_player = me
+	if mission_data:
+		for slot in mission_data.players:
+			players[slot.index] = Player.new(slot.index, slot.faction)
+		_setup_diplomacy()
+	elif not loading.is_empty():
 		var settings: Dictionary = loading.match
 		Match.game_type = int(settings.game_type) as Match.GameType
 		Match.population_limit = int(settings.population_limit)
@@ -142,10 +159,14 @@ func _ready() -> void:
 		computer[2] = GameData.cmdline_option("ai") != "off"
 		computer[1] = GameData.cmdline_option("ai-vs-ai") != ""
 	for player in players:
+		var slot := mission_data.player(player) if mission_data else null
+		if slot:
+			players[player].set_start_resources(map.start_resources if slot.level_resources else slot.resources)
+			continue  # a mission's peoples have what the map gives them
 		players[player].set_start_resources(Match.start_resources(map.start_resources))
 		if loading.is_empty() and not placed_owners.has(player):
 			_setup_player(player, start_positions.get(player, _fallback_start(player, size)))
-	camera.position = _vector_option("camera", start_positions.get(me, size / 2.0))
+	camera.position = _vector_option("camera", start_positions.get(me, _own_centre(size / 2.0)))
 	# --time-scale=N runs the simulation N times faster (long AI tests).
 	var speed := clampf(GameData.cmdline_option("time-scale", "1").to_float(), 0.1, 8.0)
 	if Match.configured:
@@ -190,6 +211,8 @@ func _ready() -> void:
 			ai.difficulty = Match.difficulty if Match.configured else GameData.cmdline_option("difficulty", "2").to_int()
 			add_child(ai)
 			ais.append(ai)
+	if mission_data:
+		_start_mission()
 	if not loading.is_empty():
 		SaveGame.restore(self, loading)
 		loaded_game = true
@@ -272,7 +295,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## A player is out when they have no buildings and no units left.
 func _check_victory() -> void:
-	if _game_over or Match.editor_map != "":
+	if _game_over or Match.editor_map != "" or mission:
 		return
 	# Who is still in the game depends on the game type: anyone with units or buildings left,
 	# anyone whose leader lives, or anyone whose main building stands.
@@ -309,6 +332,63 @@ func _check_victory() -> void:
 	Sound.play_mission_result(won)
 	hud.show_banner(GameData.text(1 if won else 2, "Victory!" if won else "Defeat"))
 	hud.show_statistics(players)
+
+
+# ------------------------------------------------------------------ campaign missions
+
+## The sides as the level editor set them (AmericaAddOn.exe 0x42be70): an independent people
+## is neutral to everyone, the others allied when they share a side and at war otherwise.
+func _setup_diplomacy() -> void:
+	for a in mission_data.players:
+		for b in mission_data.players:
+			if a == b:
+				continue
+			var flags := Diplomacy.ENEMY
+			if a.control == MissionData.Seat.INDEPENDENT or b.control == MissionData.Seat.INDEPENDENT:
+				flags = Diplomacy.NEUTRAL
+			elif a.allies & (1 << b.slot):
+				flags = Diplomacy.ALLY
+			Diplomacy.set_relation(a.index, b.index, flags)
+
+
+func _start_mission() -> void:
+	var texts: Dictionary = Campaign.texts(Match.campaign.get("set", "base"))
+	mission = Mission.new()
+	mission.name = "Mission"
+	add_child(mission)
+	mission.setup(mission_data, self, texts, "campaign/base/speech" if Match.campaign.get("set") == "base" else "")
+	mission.message.connect(hud.mission_message)
+	mission.goal_changed.connect(hud.set_mission_goal)
+	mission.ended.connect(_on_mission_ended)
+	hud.mission = mission
+	DisplayServer.window_set_title("America — %s" % Campaign.title(Match.campaign))
+
+
+## The script started one of the original's AI modules for a people (kimodules).
+func start_ai_module(player: int, module: int) -> void:
+	print("MISSION: AI module %08d for player %d" % [module, player])
+
+
+func _on_mission_ended(won: bool) -> void:
+	if _game_over:
+		return
+	_game_over = true
+	print("MISSION OVER: ", "won" if won else "lost")
+	if won:
+		Campaign.record_won(Match.campaign)
+	hud.show_banner(mission.text(1) if won else mission.text(2))
+	hud.show_statistics(players)
+
+
+## Where the local people's things stand (for the camera when the map has no start point).
+func _own_centre(fallback: Vector2) -> Vector2:
+	var total := Vector2.ZERO
+	var n := 0
+	for unit in Unit.all_units:
+		if unit.team == me:
+			total += unit.position
+			n += 1
+	return total / n if n > 0 else fallback
 
 
 ## An AI player gave up (its main building gone and no way to rebuild it).

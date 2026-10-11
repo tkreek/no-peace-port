@@ -73,7 +73,7 @@ func update(_delta: float) -> bool:
 	if unit.unit_type.attack_anims.is_empty():
 		return true
 	for other: Unit in UnitGrid.near(unit.position, 40.0):
-		if other.is_alive() and other.team > 0 and other.team != unit.team and other.position.distance_to(unit.position) < 40.0:
+		if other.is_alive() and Diplomacy.hostile(unit.team, other.team) and other.position.distance_to(unit.position) < 40.0:
 			if not _buried or mound.size() < 2:
 				uncover()
 				unit.attack(other)

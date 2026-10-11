@@ -27,6 +27,9 @@ const POPULATION_LIMITS := [75, 100, 150, 200]
 const SPEEDS := [0.75, 1.0, 1.25, 1.5]
 const SPEED_NAMES := ["Slow", "Normal", "Fast", "Very fast"]
 
+## The campaign mission being played: {"set": "base"|"expansion", "people": "ind", "code":
+## "ind_01", "map": asset path}, or empty in a skirmish (Campaign).
+var campaign := {}
 ## A saved game to continue (SaveGame.read), or empty for a new match.
 var load_data := {}
 var configured := false
@@ -50,6 +53,7 @@ var editor_state := {}
 
 func setup(map: String, slots: Array[Dictionary]) -> void:
 	configured = true
+	campaign = {}
 	map_path = map
 	players = slots
 	local_player = 1

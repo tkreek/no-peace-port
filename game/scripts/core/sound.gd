@@ -225,6 +225,18 @@ func play_mission_result(won: bool) -> void:
 		player.play()
 
 
+## A mission's spoken line or a briefing's narration (an mp3 asset), not cached.
+func speech_stream(path: String) -> AudioStream:
+	var bytes := GameData.read(path)
+	if bytes.is_empty():
+		return null
+	if GameData.path(path).ends_with(".ogg"):
+		return AudioStreamOggVorbis.load_from_buffer(bytes)
+	var mp3 := AudioStreamMP3.new()
+	mp3.data = bytes
+	return mp3
+
+
 func play_music(faction: String) -> void:
 	var path := "music/%s.mp3" % FACTION_MUSIC.get(faction, "title")
 	if not GameData.exists(path):

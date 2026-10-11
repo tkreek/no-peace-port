@@ -103,7 +103,7 @@ func _update_garrison(delta: float) -> void:
 		var best_distance := reach
 		var loophole := centre
 		for other: Unit in UnitGrid.near(centre, reach + walls.size.length() / 2.0):
-			if other.is_alive() and not other.inside and other.team > 0 and other.team != building.owner_index:
+			if other.is_alive() and not other.inside and Diplomacy.hostile(building.owner_index, other.team):
 				var edge := building.wall_point(other.position)
 				var d := edge.distance_to(other.position)
 				if d < best_distance:
@@ -126,7 +126,7 @@ func _spring_trap(delta: float) -> void:
 	_trap_scan = 0.2
 	var pit := building.footprint_rect().get_center()
 	for unit: Unit in UnitGrid.near(pit, 30.0):
-		if unit.is_alive() and unit.team > 0 and unit.team != building.owner_index and not unit.inside \
+		if unit.is_alive() and Diplomacy.hostile(building.owner_index, unit.team) and not unit.inside \
 				and not unit.unit_type.is_transport() and unit.position.distance_to(pit) < 30.0:
 			unit.take_damage(unit.max_health * 10.0, building, true)
 			trap_kills += 1

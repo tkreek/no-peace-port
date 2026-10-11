@@ -331,7 +331,7 @@ func notify(text: String, chime := true) -> void:
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_constant_override("outline_size", int(6 * ui_scale))
-	_notices = _notices.filter(func(old: Label) -> bool: return is_instance_valid(old))
+	_notices.assign(_notices.filter(func(old) -> bool: return is_instance_valid(old)))
 	for old: Label in _notices:
 		old.position.y += label.get_minimum_size().y
 	_notices.append(label)

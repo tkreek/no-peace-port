@@ -38,6 +38,74 @@ func _scenario_tutorial1() -> void:
 	get_tree().quit()
 
 
+## --mission=base/tut_02: a granary and two fields, a training tepee and five arrow
+## shooters; then the buffalo the script brings are hunted down and the tutorial is won.
+func _scenario_tutorial2() -> void:
+	var mission := main.mission
+	var me := main.players[main.me] as Player
+	var hq := _own_building(100)
+	var women := _own(func(u: Unit) -> bool: return u.unit_type.is_farmer())
+	var cutters := _own(func(u: Unit) -> bool: return u.unit_type.can_gather("wood") and not u.unit_type.is_farmer())
+	print("start: %d women, %d wood cutters, %s" % [women.size(), cutters.size(), me.resources])
+	if not cutters.is_empty():
+		Orders.units(cutters, "gather", [_nearest_tree(hq.position)])
+	await _build(108, hq.position, women)  # granary
+	for i in 2:
+		await _build(MapObject.FIELD_GUID, hq.position, [women[i % women.size()]], false)
+	await _until(func() -> bool: return int(me.resources.food) >= 150, 900.0, "150 food")
+	print("150 food at %.0f s" % Sim.time())
+	var helpers := women.slice(2) if women.size() > 2 else women
+	await _build(101, hq.position, helpers)  # room for the new shooters
+	var school := await _build(103, hq.position, helpers)
+	await _until(func() -> bool:
+		_keep_farming(women)
+		if school.production.queue.is_empty() and mission.count(main.me, 156) < 5:
+			Orders.building(school, "enqueue", [156])
+		return mission.count(main.me, 156) >= 5, 900.0, "five arrow shooters")
+	print("five arrow shooters at %.0f s" % Sim.time())
+	await _until(func() -> bool: return mission.goal == 136, 300.0, "the buffalo")
+	var shooters := _own(func(u: Unit) -> bool: return u.unit_type.guid() == 156)
+	await _until(func() -> bool:
+		var herd := Unit.all_units.filter(func(u: Unit) -> bool: return u.is_alive() and u.unit_type.guid() == Mission.BUFFALO)
+		if not herd.is_empty() and shooters.all(func(s: Unit) -> bool: return s.state == Unit.State.IDLE or not s.work.hunting):
+			Orders.units(shooters, "hunt", [herd[0]])
+		return mission.outcome != 0, 1200.0, "the buffalo hunted")
+	print("TUTORIAL 2 %s at %.0f s, food %d" % ["WON" if mission.outcome > 0 else "LOST", Sim.time(), me.resources.food])
+	get_tree().quit()
+
+
+## Idle women back onto our fields (a harvested field lies fallow until worked again).
+func _keep_farming(women: Array) -> void:
+	var fields := MapObject.structures.filter(func(o: MapObject) -> bool: return o.owner_index == main.me and o.is_field())
+	for i in women.size():
+		var woman: Unit = women[i]
+		if is_instance_valid(woman) and woman.is_alive() and woman.state == Unit.State.IDLE and not fields.is_empty():
+			Orders.unit(woman, "gather", [fields[i % fields.size()]])
+
+
+## A building (or field) of `guid` put up near `around` by `builders`; waits until it stands.
+func _build(guid: int, around: Vector2, builders: Array, wait := true) -> MapObject:
+	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
+	var spot := AiBuilder.find_spot(type, around, 120)
+	var had := MapObject.structures.filter(func(o: MapObject) -> bool: return o.owner_index == main.me and o.guid == guid).size()
+	Orders.place(type.id, spot, false, null, builders)
+	var site: Array = [null]
+	await _until(func() -> bool:
+		for o in MapObject.structures:
+			if o.owner_index == main.me and o.guid == guid and o.position == spot:
+				site[0] = o
+		return site[0] != null and (not wait or site[0].complete), 600.0, "building %d" % guid)
+	print("built %d at %.0f s (%d before)" % [guid, Sim.time(), had])
+	return site[0]
+
+
+func _own_building(guid: int) -> MapObject:
+	for object in MapObject.structures:
+		if object.owner_index == main.me and object.guid == guid and object.is_alive():
+			return object
+	return null
+
+
 func _own(filter: Callable) -> Array:
 	return Unit.all_units.filter(func(u: Unit) -> bool: return u.is_alive() and u.team == main.me and filter.call(u))
 
@@ -62,7 +130,12 @@ func _until(done: Callable, seconds: float, what: String) -> void:
 	var limit := Sim.time() + seconds
 	while not done.call():
 		if Sim.time() > limit:
-			print("TIMED OUT waiting for %s at %.0f s" % [what, Sim.time()])
+			var people := main.players[main.me] as Player
+			print("TIMED OUT waiting for %s at %.0f s: %s, population %d / %d" % [what, Sim.time(), people.resources,
+					people.population(), people.population_limit()])
+			for o in MapObject.structures:
+				if o.owner_index == main.me and o.is_building():
+					print("  %s complete %s queue %s" % [o.display_name(), o.complete, o.production.queue])
 			get_tree().quit()
 			return
 		await get_tree().physics_frame

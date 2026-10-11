@@ -229,9 +229,9 @@ func count(player: int, what: int, rect := Rect2()) -> int:
 			if unit.is_alive() and (unit.team == player or what == BUFFALO) and unit_matches(unit, what) \
 					and (not within or rect.has_point(unit.position)):
 				total += 1
-	if what < 100 or not (_is_unit(what) or what in ANIMALS):
+	if what < 100 or not (_is_unit(what) or what in ANIMALS):  # buildings and fields
 		for object in MapObject.structures:
-			if object.owner_index == player and object.is_building() and object.is_alive() and object.complete \
+			if object.owner_index == player and (object.is_building() or object.is_field()) and object.is_alive() and object.complete \
 					and matches(object.guid, what) and (not within or rect.has_point(object.position)):
 				total += 1
 	return total
@@ -399,9 +399,9 @@ func _finish(player: int, won: bool) -> void:
 	Sound.play_mission_result(won)
 
 
-## `amount` units of `guid` for people `player` around `at` (animals belong to nobody).
+## `amount` units of `guid` for people `player` around `at`.
 func spawn(player: int, amount: int, guid: int, at: Vector2) -> void:
-	if guid in ANIMALS:
+	if guid in [BUFFALO, COW, WILD_HORSE]:  # nobody's (0x42c710); a horse keeps its owner
 		player = 0
 		if guid == WILD_HORSE:
 			guid = HORSE

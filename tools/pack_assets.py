@@ -9,15 +9,21 @@
   (default 8), and black beyond. Only that fill reaches the screen, where the GPU's
   mipmaps blend edge pixels with their transparent neighbours (drawn smaller than stored,
   e.g. zoomed out), and it blends there as well as the original colour did.
-- Ground tiles (terrain/<biome>/ground_<n>.png: opaque, noisy texture) become lossy WebP
-  at quality 95, about four times smaller and indistinguishable on screen.
+- The sprite sheets of units, buildings, animals, scenery and effects, and the ground
+  tiles (terrain/<biome>/ground_<n>.png), become lossy WebP instead: quality 95 with
+  sharp YUV conversion (colour edges stay crisp), alpha still exact. Two to four times
+  smaller; at the game's zoom the difference is fine noise a few levels deep (about 45-50
+  dB), also in team colours, which the shader looks up from the shading. Colour tables
+  (*.ramps.png), terrain data maps, the interface and portraits stay lossless.
 - WAV sounds become Ogg Vorbis (quality 6; the originals are 22 kHz mono), about a sixth.
 - Grey PNGs (shadows, team masks) stay PNG: WebP has no grey format, so the game would
   hold them at four times the memory. Everything else is copied.
 
 The game reads <name>.webp / <name>.ogg wherever it asks for a missing <name>.png / .wav.
-Needs numpy and Pillow (tools/.venv, see game/README.md) and ffmpeg with libvorbis.
+Needs numpy and Pillow (tools/.venv, see game/README.md), ImageMagick with WebP (magick)
+and ffmpeg with libvorbis.
 """
+import io
 import os
 import re
 import shutil
@@ -29,7 +35,7 @@ import numpy as np
 from PIL import Image
 
 PNG_RGB, PNG_RGBA = 2, 6
-GROUND_TILE = re.compile(r"(^|/)terrain/[^/]+/ground_\d+\.png$")
+LOSSY = re.compile(r"^(units|buildings|animals|nature|effects)/(?!.*\.ramps\.png$)|^terrain/[^/]+/ground_\d+\.png$")
 LOSSY_QUALITY = 95
 VORBIS_QUALITY = 6
 
@@ -81,12 +87,17 @@ def bleed(rgba: np.ndarray, radius: int, smooth: int = 2) -> np.ndarray:
 def to_webp(source: str, target: str, radius: int, lossy: bool) -> None:
     with Image.open(source) as image:
         image.load()
-        if lossy:
-            image.convert("RGB").save(target, "WEBP", quality=LOSSY_QUALITY, method=6)
-            return
         if image.mode == "RGBA":
             image = Image.fromarray(bleed(np.asarray(image), radius), "RGBA")
-        image.save(target, "WEBP", lossless=True, exact=True, quality=100, method=5)
+        if not lossy:
+            image.save(target, "WEBP", lossless=True, exact=True, quality=100, method=5)
+            return
+        png = io.BytesIO()
+        image.save(png, "PNG", compress_level=1)
+    # Pillow can't ask libwebp for sharp YUV, ImageMagick can.
+    subprocess.run(["magick", "png:-", "-quality", str(LOSSY_QUALITY), "-define", "webp:method=6",
+                    "-define", "webp:use-sharp-yuv=true", "-define", "webp:alpha-quality=100",
+                    "-define", "webp:exact=true", target], input=png.getvalue(), check=True)
 
 
 def to_ogg(source: str, target: str) -> None:
@@ -117,7 +128,7 @@ def main() -> None:
         for name in files:
             source = os.path.join(folder, name)
             if name.endswith(".png") and colour_png(source):
-                lossy = bool(GROUND_TILE.search(os.path.join(rel, name).replace(os.sep, "/")))
+                lossy = bool(LOSSY.search(os.path.normpath(os.path.join(rel, name)).replace(os.sep, "/")))
                 jobs.append(("lossy" if lossy else "webp", source, os.path.join(out, name[:-4] + ".webp"), radius))
             elif name.endswith(".wav"):
                 jobs.append(("ogg", source, os.path.join(out, name[:-4] + ".ogg"), radius))

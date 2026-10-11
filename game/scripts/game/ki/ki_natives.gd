@@ -374,6 +374,8 @@ static func call_native(id: int, task: KiTask) -> void:
 			var guid := a[1] if id == 135 else a[3]
 			var at := Vector2(a[2], a[3]) if id == 135 else Vector2(a[1], a[2])
 			var spot := _build_near(task, _own_unit(a[0]), guid, at)
+			if KiManager.current and KiManager.current.trace_level >= 2:
+				print("KI t=%.1f p%d %08d build %d near %s: %s" % [Sim.time(), me, task.module.number, guid, at, spot])
 			task.push(int(spot))
 		293: task.push(task.build_spot.x)
 		294: task.push(task.build_spot.y)

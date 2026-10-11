@@ -36,4 +36,5 @@ common/physics_interpolation=true
 
 [rendering]
 
+limits/global_shader_variables/buffer_size=524288
 textures/canvas_textures/default_texture_filter=0

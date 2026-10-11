@@ -44,6 +44,8 @@ const C_CORRAL := 0x40000000
 const C_LEADER := 0x80000000
 
 # State bits (virtual +0x2c).
+const S_GATHERING := 0x1  ## worker task bits (the field and wood managers take these as free hands)
+const S_BUILDING := 0x2
 const S_IDLE := 0x4  ## units: idle; buildings: finished
 const S_WORKING := 0x8
 const S_PRODUCING := 0x10
@@ -198,8 +200,10 @@ static func state_bits(node: Node) -> int:
 				bits |= S_MOVING
 			Unit.State.ATTACKING:
 				bits |= S_FIGHTING
-			Unit.State.GATHERING, Unit.State.BUILDING:
-				bits |= S_WORKING
+			Unit.State.GATHERING:
+				bits |= S_WORKING | S_GATHERING
+			Unit.State.BUILDING:
+				bits |= S_WORKING | S_BUILDING
 			Unit.State.QUARTERED:
 				bits |= S_IN_TRANSPORT if unit.water.vessel else S_IN_BUILDING
 		if unit.inside and not bits & (S_IN_BUILDING | S_IN_TRANSPORT):

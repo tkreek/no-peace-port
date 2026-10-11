@@ -14,7 +14,8 @@ var biome := "steppe"
 var _budget := 0
 var _sim_on := false
 var _sim_listed := false
-var _trace := GameData.cmdline_option("trace-ki") != ""  ## --trace-ki=1: modules started
+## --trace-ki=1: modules started; 2: also what they try to build.
+var trace_level := GameData.cmdline_option("trace-ki", "0").to_int()
 
 
 func setup(peoples: Array, map_pixels: Vector2i, map_biome: String) -> void:
@@ -35,7 +36,7 @@ func _exit_tree() -> void:
 func start(people: int, module: int) -> void:
 	var ki: KiPlayer = players.get(people)
 	var task := ki.start(module) if ki else null
-	if _trace:
+	if trace_level >= 1:
 		print("KI t=%.1f player %d module %08d %s" % [Sim.time(), people, module, "started" if task else "NOT started"])
 
 

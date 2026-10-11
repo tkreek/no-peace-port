@@ -92,6 +92,10 @@ func screenshot(path: String) -> void:
 					object.redraw_overlay()
 	for i in GameData.cmdline_option("frames", "90").to_int():
 		await get_tree().process_frame
+	if GameData.cmdline_option("look") != "":  # --look=x,y: the view there for the capture
+		main.camera.position = main._vector_option("look", main.camera.position)
+		for i in 3:
+			await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	print("fps %d, %d units, %d objects" % [Engine.get_frames_per_second(), Unit.all_units.size(), MapObject.all_objects.size()])
 	get_viewport().get_texture().get_image().save_png(path)

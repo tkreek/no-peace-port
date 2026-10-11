@@ -24,6 +24,8 @@ ISLANDS = "--map=[2 Players] - 2 islands.ulf"
 # name -> (extra arguments, frames to stop after or 0 if it quits itself, expected patterns)
 CHECKS = {
     "parse": ([], 0, [r"parsed \d+ scripts"]),
+    "tutorial1": (["--mission=base/tut_01", "--time-scale=4"], 0, [r"joined: 4 of 4", r"tepee standing in its spot; wood 800",
+                                                                   r"TUTORIAL 1 WON"]),
     "abandoned": (["--map=[4 Players] - forts.ulf"], 0, [r"store left \d+; guns (\d+) -> (?!\1;)\d+; loads of at most 2"]),
     "rob": (["--faction=des"], 1200, [r"robber can rob true, barber can steal true", r"our gold \+[1-9]"]),
     "horses": ([], 0, [r"mounted: true \(horse gone true\)", r"horses 1 / 5, cowboy on foot again true"]),

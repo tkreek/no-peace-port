@@ -218,7 +218,8 @@ func _resource(player: int, which: int) -> int:
 
 
 ## How many of `what` (a GUID, a GUID for mounted and on foot, or a category below 100)
-## people `player` has, within `rect` when one is given. Animals: horses and cows by
+## people `player` has, within `rect` when one is given; buildings once they stand
+## (the first tutorial's "now the chief's tepee is standing"). Animals: horses and cows by
 ## owner, buffalo whoever they belong to.
 func count(player: int, what: int, rect := Rect2()) -> int:
 	var within := rect.has_area()
@@ -230,7 +231,7 @@ func count(player: int, what: int, rect := Rect2()) -> int:
 				total += 1
 	if what < 100 or not (_is_unit(what) or what in ANIMALS):
 		for object in MapObject.structures:
-			if object.owner_index == player and object.is_building() and object.is_alive() \
+			if object.owner_index == player and object.is_building() and object.is_alive() and object.complete \
 					and matches(object.guid, what) and (not within or rect.has_point(object.position)):
 				total += 1
 	return total

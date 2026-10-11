@@ -318,8 +318,8 @@ static func find_spot(type: ObjectTypes.ObjectType, around: Vector2, min_radius 
 	return Vector2.INF
 
 
-## Walkable ground under the whole footprint, and a margin to other buildings so they
-## don't wall each other in.
+## Walkable ground under the whole footprint, and a margin to other buildings and fields so
+## they don't wall each other in (fields leave the ground walkable, so it alone won't tell).
 static func footprint_free(type: ObjectTypes.ObjectType, at: Vector2, nav: NavGrid) -> bool:
 	var rect := MapObject.footprint_rect_for(type, at)
 	var origin := nav.cell_of(rect.position)
@@ -328,6 +328,6 @@ static func footprint_free(type: ObjectTypes.ObjectType, at: Vector2, nav: NavGr
 		if not nav.is_walkable(cell):
 			return false
 	for object in MapObject.structures:
-		if object.is_building() and object.footprint_rect().grow(32).intersects(rect):
+		if (object.is_building() or object.is_field()) and object.footprint_rect().grow(32).intersects(rect):
 			return false
 	return true

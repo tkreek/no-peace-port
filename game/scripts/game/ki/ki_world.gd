@@ -292,8 +292,10 @@ static func objects_of(player: int) -> Array:
 					and (object.is_mine() or object.is_abandoned_store() or object.is_building()):
 				out.append(object)
 	else:
+		# Wall pieces are not in a people's list: the original keeps them in list 10
+		# (AmericaAddOn.exe 0x42698e), which only nearest_wall looks through.
 		for object in MapObject.structures:
-			if object.owner_index == player and object.is_alive():
+			if object.owner_index == player and object.is_alive() and not WallLine.is_wall(object.guid):
 				out.append(object)
 	return out
 

@@ -18,6 +18,11 @@ extends RefCounted
 ##
 ## Ids are IDS.INI's (data/ids.json), not GUIDs; a few GUIDs share one (wall pieces).
 ## Only the interface asks `allows`: the original's computer players are not held to it.
+##
+## The base game's campaign maps were made for, and played with, the base game's own stat
+## table (global/guids/Defaults.bin), not the expansion's that the remake runs on
+## (defaults.json): for them its values (data/defaults_base.json, where the two differ)
+## come under the map's own.
 
 ## Things made from the neutral player's table, by the remake's queue GUID (0x46a600).
 const NEUTRAL_MADE := {BuildingProduction.HORSE_GUID: 480, BuildingProduction.COW_GUID: 482,
@@ -28,14 +33,24 @@ static var _ids := {}  # GUID -> id
 static var _guids := {}  # id -> GUIDs
 static var _switched := {}  # player -> {id: value}
 static var _properties := {}  # player -> {GUID: {property: value}}
-static var _merged := {}  # Vector2i(player, GUID) -> the properties the map sets
+static var _base := {}  # GUID -> {property: value}: the base game's table, in a base campaign map
+static var _merged := {}  # Vector2i(player, GUID) -> the properties that differ from defaults.json
 static var _stats := {}  # Vector2i(player, GUID) -> stats with the player's properties
 static var _unit_types := {}  # [UnitType instance id, player] -> that player's version
 
 
-## Read `map`'s tables (none: everything as the defaults).
-static func setup(map: AlfMap) -> void:
+## Read `map`'s tables (none: everything as the defaults); `base_game`: a map of the base
+## game's campaign, played with the base game's stat table.
+static func setup(map: AlfMap, base_game := false) -> void:
 	clear()
+	if base_game:
+		var table = GameData.read_json("data/defaults_base.json")
+		if table is Dictionary:
+			for key in table:
+				var props := {}
+				for id in table[key]:
+					props[id.to_int()] = int(table[key][id])
+				_base[key.to_int()] = props
 	if _ids.is_empty():
 		var ids = GameData.read_json("data/ids.json")
 		if ids is Dictionary:
@@ -83,6 +98,7 @@ static func setup(map: AlfMap) -> void:
 static func clear() -> void:
 	_switched.clear()
 	_properties.clear()
+	_base.clear()
 	_merged.clear()
 	_stats.clear()
 	_unit_types.clear()
@@ -109,15 +125,16 @@ static func allows(player: int, guid: int) -> bool:
 	return table.is_empty() or not _ids.has(guid) or int(table.get(_ids[guid], 1)) != 0
 
 
-## The properties this map sets for `player`'s `guid` (property id -> value).
+## The properties `player`'s `guid` has here that differ from defaults.json (property id
+## -> value): the base game's table, then the map's own.
 static func properties(player: int, guid: int) -> Dictionary:
 	var key := Vector2i(player, guid)
 	if not _merged.has(key):
-		var own := {}
+		var own: Dictionary = _base.get(guid, {}).duplicate()
 		if NEUTRAL_MADE.has(guid) and guid != MapObject.FIELD_GUID:
-			own = _properties.get(0, {}).get(NEUTRAL_MADE[guid], {})
+			own.merge(_properties.get(0, {}).get(NEUTRAL_MADE[guid], {}), true)
 		else:
-			own = _properties.get(player, {}).get(guid, {})
+			own.merge(_properties.get(player, {}).get(guid, {}), true)
 		_merged[key] = own
 	return _merged[key]
 

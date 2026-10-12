@@ -127,3 +127,37 @@ base game's), `@` a line break. The briefing is `missionen.eng` (story) and `kam
 expansion). Its picture `global/gfx/menues/kampagne/<people>0<n>.pic` (`<people>1<n>` in
 the expansion) is the bottom-left corner (0, 330) of the storyteller's backdrop
 `<people>.pic` with the mission's map drawn on the parchment.
+
+## Checking the missions
+
+`tools/campaign/check_missions.py` reads every campaign map's script and the AI modules it
+starts, and checks them against the remake's data and code without running the game:
+
+```
+tools/campaign/check_missions.py -o report.md      # all 38 missions, markdown
+tools/campaign/check_missions.py --json            # the same findings as JSON
+tools/campaign/check_missions.py base/ind_03       # some missions ("ind_03": the base set's)
+tools/campaign/check_missions.py --dump base/tut_01   # players, areas and triggers, readable
+```
+
+It reports, as ERROR (breaks the mission), WARN (probably deliberate or harmless, or the
+original's own slip) or INFO: areas, texts, speech, AI modules (and what they gosub/spawn)
+and players a script names that do not exist; natives the modules call that `KiNatives`
+does not implement or pops/pushes differently from the original; GUIDs the remake cannot
+count, spawn or create; flags, timers and variables tested but never set; triggers that
+stay armed and start modules or spawn without limit; triggers that can never fire; whether
+a chain of triggers can reach the human's WIN (and the chain), and how LOSE can happen. The
+tables it shares with the game (`Mission.EITHER`, the category ranges, herders, thieves,
+horse and cow buildings) are read from the GDScript sources, and checked against the
+object data too. With the original game's files in `original/` it tells a text or module
+the asset build lost from one the original lacks as well.
+
+"Can fire" is an over-approximation, computed to a fixed point: a condition can hold when
+the triggers that can fire set up what it tests, and a count condition when the player can
+have enough of the type: placed on the map, spawned, created or converted by a trigger,
+joined from a neutral (independent) player, driven off (cows, by herders) or stolen
+(transports, by thieves), or built and trained (the human, and players a trigger starts a
+module for) from its people's production buildings and prerequisites. A count only placed
+or spawned is bounded by how many there are. The tool cannot tell whether an AI module will
+walk a unit into an area or build something; a WIN that only an AI player's building or
+training can reach is marked doubtful.

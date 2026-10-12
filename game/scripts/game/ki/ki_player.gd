@@ -41,12 +41,18 @@ func _init(people: int) -> void:
 func start(number: int, arguments: Array = []) -> KiTask:
 	var slot := slots.find(null)
 	if slot < 0:
+		if MissionStats.on:
+			MissionStats.started(number, "full")
 		return null
 	var module := KiModule.load(number)
 	if module == null:
+		if MissionStats.on:
+			MissionStats.started(number, "missing")
 		return null
 	var task := KiTask.new(self, module, arguments.duplicate(), null)
 	slots[slot] = task
+	if MissionStats.on:
+		MissionStats.started(number, "")
 	return task
 
 
@@ -58,6 +64,8 @@ func step() -> void:
 		current_slot = slot
 		task.tick(atomic and slot != atomic_slot)
 		if task.finished:
+			if MissionStats.on:
+				MissionStats.finished(task)
 			slots[slot] = null
 	current_slot = -1
 

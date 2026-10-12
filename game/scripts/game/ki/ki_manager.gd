@@ -36,16 +36,21 @@ func _exit_tree() -> void:
 func start(people: int, module: int) -> void:
 	var ki: KiPlayer = players.get(people)
 	var task := ki.start(module) if ki else null
+	if ki == null and MissionStats.on:
+		MissionStats.started(module, "no player")
 	if trace_level >= 1:
 		print("KI t=%.1f player %d module %08d %s" % [Sim.time(), people, module, "started" if task else "NOT started"])
 
 
 func sim_tick(_delta: float) -> void:
+	var clock := Time.get_ticks_usec() if MissionStats.on else 0
 	_budget += 1000  # a game step in 1/30 ms
 	while _budget >= KiPlayer.STEP_MS * Sim.RATE:
 		_budget -= KiPlayer.STEP_MS * Sim.RATE
 		for index in players:
 			players[index].step()
+	if MissionStats.on:
+		MissionStats.cost(0, clock)
 
 
 ## Called when something of a people is hurt (the scripts' "attacked" queues).

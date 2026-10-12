@@ -52,8 +52,10 @@ const S_PRODUCING := 0x10
 const S_FALLOW := 0x40
 const S_MOVING := 0x100
 const S_SITE := 0x200
-const S_IN_BUILDING := 0x400
-const S_IN_TRANSPORT := 0x800
+## Inside something (unit+0x3f0): aboard a boat or wagon when +0x3a0 is set (boarding,
+## 0x41aacb), else quartered in a building (0x41a814); the unit's state at 0x41a37e.
+const S_IN_TRANSPORT := 0x400
+const S_IN_BUILDING := 0x800
 const S_WEAK := 0x1000
 const S_FIGHTING := 0x2000
 const S_HIDDEN := 0x10000

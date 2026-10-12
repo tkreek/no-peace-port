@@ -279,6 +279,7 @@ func _plan_base_ind_08() -> void:
 		bot.research = [900, 903, 917, 919, 901, 904]
 		bot.casters_wanted = 2
 		bot.max_production = 4
+		bot.defend_outposts = false  # the tepees by the enemy camps in the south are lost
 		bot.defend_radius = 2400.0
 		bot.scout_route = [Vector2(2000, 6500), Vector2(1600, 8000), Vector2(800, 9000), Vector2(1200, 10000)]
 		bot.rally = bot.home + Vector2(0, 300)
@@ -1004,7 +1005,8 @@ class FairBot:
 	func _heroes(a: Array) -> void:
 		for h: Unit in heroes():
 			var hurt := h.health < h.max_health * hero_retreat
-			if h.unit_type.guid() in keep_back or hurt:
+			var army_away := mode != "home" and not a.is_empty() and _centroid(a).distance_to(home) > 1500.0
+			if h.unit_type.guid() in keep_back or hurt or (heroes_behind and not army_away):
 				if h.position.distance_to(home) > 300.0 or (hurt and h.state == Unit.State.ATTACKING):
 					_order(h, "move_to", [home + Vector2(60, 60)], "home")
 				continue
@@ -1014,7 +1016,7 @@ class FairBot:
 			if heroes_behind:
 				# Behind the army on the side of home, away from the enemies in sight.
 				var away := (home - c).normalized() if home.distance_to(c) > 1.0 else Vector2.ZERO
-				var spot := c + away * 250.0
+				var spot := c + away * 450.0
 				var foe := nearest_unit(_visible, h.position)
 				if foe and foe.position.distance_to(h.position) < 300.0 and h.health < h.max_health * 0.8:
 					_order(h, "move_to", [c + (c - foe.position).normalized() * 150.0], "dodge")

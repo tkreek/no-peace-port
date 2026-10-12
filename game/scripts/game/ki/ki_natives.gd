@@ -561,8 +561,10 @@ static func _can_have(index: int, guid: int, train: bool) -> bool:
 	return people.can_afford(cost)
 
 
-## A site of `guid` for `worker` near `at` (spiral in 16 px steps up to 500 px away), its
-## cost paid and the worker sent to build it; fields the same (AmericaAddOn.exe 0x438670).
+## A site of `guid` for `worker` near `at` (spiral in 16 px steps up to 500 px away) on the
+## worker's height level where the footprint fits as it would for a player (the original's
+## placement helper 0x429a20 knows no margins or gaps), its cost paid and the worker sent to
+## build it; fields the same (AmericaAddOn.exe 0x438670).
 static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id := 135) -> bool:
 	var manager := KiManager.current
 	if worker == null or manager == null:
@@ -573,14 +575,22 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id :
 			MissionStats.build_failed(id, task, guid, "no such building")
 		return false
 	var owner := worker.team
+	var nav := NavGrid.current
+	var level := _level(nav, worker.position)
+	# The placement test wants the price at every spot: without it there is none (and the
+	# spiral of up to 3969 spots, each looking at every unit, is spared).
+	var people: Player = Player.by_index.get(owner)
+	if people == null or not people.can_afford(BuildController._cost_of(type)):
+		if MissionStats.on:
+			MissionStats.no_spot(id, task, owner, type, guid)
+		return false
 	for ring in range(0, BUILD_SEARCH / 16 + 1):
 		for dy in range(-ring, ring + 1):
 			for dx in range(-ring, ring + 1):
 				if absi(dx) != ring and absi(dy) != ring:
 					continue
 				var spot := at + Vector2(dx, dy) * 16.0
-				if BuildController.can_place_for(type, spot, owner) and AiBuilder.footprint_free(type, spot, NavGrid.current) \
-						and (guid != MapObject.FIELD_GUID or true):
+				if _level(nav, spot) == level and BuildController.can_place_for(type, spot, owner):
 					var site := Orders.build_controller.place_site(owner, type.id, spot, false, null, [worker]) \
 							if Orders.build_controller else null
 					if site == null:
@@ -590,8 +600,13 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id :
 					task.build_spot = Vector2i(spot)
 					return true
 	if MissionStats.on:
-		MissionStats.build_failed(id, task, guid, "no spot")
+		MissionStats.no_spot(id, task, owner, type, guid)
 	return false
+
+
+## The height level (ground, plateau ...) at `at` (cell flag bits 12-13).
+static func _level(nav: NavGrid, at: Vector2) -> int:
+	return (nav.flags_at(nav.cell_of(at)) >> 12) & 3
 
 
 static func _tree_near(at: Vector2) -> MapObject:

@@ -104,6 +104,10 @@ func screenshot(path: String) -> void:
 	for i in GameData.cmdline_option("frames", "90").to_int():
 		await get_tree().process_frame
 	if GameData.cmdline_option("menu-goals") != "" and main.mission:  # --menu-goals=1: the game menu's goals page
+		var given := GameData.cmdline_option("menu-goals").split(",")  # --menu-goals=760,762: as if those were given
+		if given.size() > 1:
+			main.mission.goals = PackedInt32Array(Array(given).map(func(g: String) -> int: return g.to_int()))
+			main.mission.goal = main.mission.goals[-1]
 		main.hud.menu.toggle()
 		main.hud.menu.show_goals()
 		await get_tree().process_frame

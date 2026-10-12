@@ -222,7 +222,10 @@ everyone. The expansion editor's `Defaults.dat` lacks those five.
 - Queueing (0x4564a0) charges 101 food, 102 wood, 103 horses, 104 gold, 105 guns, from the
   player's table, or the neutral one for horse, guns and liquor. Living space (119) is
   checked when the unit is done (0x40d103): without room the finished unit waits in the
-  building, announced once (alert 805, again after the next completion). The queue holds
+  building, announced once (alert 805, again after the next completion). A horse waits the
+  same way while the corrals are full (0x40cf78, alert 823); the build menus offer the horse
+  only while the people has fewer horses than room (0x46f650 and the like), not counting
+  horses queued. The queue holds
   10, trades included; liquor is queued at the distillery like a unit.
 - Production timer (0x40ce30, 0x40cee0): counts to 0x7000 by
   `(0x7000 / t) * 20 / 1000` (whole numbers) every 20 ms tick, `t` = property 106 (at least

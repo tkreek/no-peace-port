@@ -31,6 +31,8 @@ const FOLLOW_DISTANCE := 48.0
 
 static var debug_paths := false
 static var all_units: Array[Unit] = []
+## Moves whenever all_units changes or a unit changes team (for caches of who has what).
+static var roster_version := 0
 var _sim_on := false
 var _sim_listed := false
 var sim_id := 0  ## names the unit in orders (Sim.identify)
@@ -98,6 +100,7 @@ func setup(type: UnitType, team_index: int) -> void:
 	ring_on_top = water.is_boat()
 	_parts = [riding, animal, magic, work, tepees, water, stealth, saboteur]
 	all_units.append(self)
+	roster_version += 1
 	Sim.identify(self)
 	Sim.activate(self)
 	play("idle")
@@ -105,6 +108,7 @@ func setup(type: UnitType, team_index: int) -> void:
 
 func _exit_tree() -> void:
 	all_units.erase(self)
+	roster_version += 1
 	Sim.forget(self)
 	UnitGrid.invalidate()  # never hand out a unit that is gone
 
@@ -316,6 +320,7 @@ func change_team(new_team: int) -> void:
 	if new_team == Orders.local_player and team != new_team:
 		Sound.play_gained()
 	team = new_team
+	roster_version += 1
 	set_palette_row(team)
 	flash(Color(1.0, 0.9, 0.4))
 
@@ -822,11 +827,13 @@ func nearest_target(radius: float) -> Node2D:
 	var best: MapObject = null
 	var best_distance := radius
 	for object in MapObject.structures:
-		if object.is_building() and Diplomacy.hostile(team, object.owner_index) and object.is_alive() \
+		if not object.is_building():
+			continue
+		var bounds := object.work_rect()
+		if position.distance_to(position.clamp(bounds.position, bounds.end)) >= best_distance:
+			continue  # the walls are no nearer than their bounding rectangle (asked first: it is cheap)
+		if Diplomacy.hostile(team, object.owner_index) and object.is_alive() \
 				and not (object.is_trap() and not UnitStealth.detected(object.position, team)):
-			var bounds := object.work_rect()
-			if position.distance_to(position.clamp(bounds.position, bounds.end)) >= best_distance:
-				continue  # the walls are no nearer than their bounding rectangle
 			var distance := position.distance_to(aim_point(object))
 			if distance < best_distance:
 				best = object
@@ -838,11 +845,10 @@ func nearest_enemy(radius: float) -> Unit:
 	var best: Unit = null
 	var best_distance := radius
 	for other: Unit in UnitGrid.near(position, radius):
-		if other.is_alive() and is_enemy_of(other):
-			var distance := position.distance_to(other.position)
-			if distance < best_distance:
-				best = other
-				best_distance = distance
+		var distance := position.distance_to(other.position)
+		if distance < best_distance and other.is_alive() and is_enemy_of(other):
+			best = other
+			best_distance = distance
 	return best
 
 

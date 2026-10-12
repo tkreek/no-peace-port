@@ -152,6 +152,7 @@ func _update_horse(delta: float) -> void:
 		if owner and int(owner.resources.get("horses", 0)) < owner.horse_capacity():
 			owner.add("horses", 1)
 			Unit.all_units.erase(unit)
+			Unit.roster_version += 1
 			unit.queue_free()
 			return
 		_stable = null

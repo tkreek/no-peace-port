@@ -26,10 +26,16 @@ var _step_time := 0.0
 var _anim_finished := false
 var _flash_time := 0.0
 var _flash_ring := false
+## The picture on each sprite now (anim << 32 | frame): a step that changes neither leaves it be.
+var _body_shown := -1
+var _shadow_shown := -1
+var _shown_direction := -1
 
 
 func _setup_sprites(type: UnitType, palette_row: int) -> void:
 	unit_type = type
+	_body_shown = -1
+	_shadow_shown = -1
 	for sprite: Sprite2D in [_shadow, _body]:
 		sprite.centered = false
 		sprite.region_enabled = true
@@ -143,6 +149,7 @@ func _start_anim(index: int) -> void:
 
 func _advance(delta: float) -> void:
 	var anim := unit_type.bob.anims[_anim]
+	var shown_step := _step
 	_step_time += delta * 1000.0
 	while _step_time >= anim.durations_ms[_step]:
 		_step_time -= anim.durations_ms[_step]
@@ -155,10 +162,12 @@ func _advance(delta: float) -> void:
 			_step_time = 0.0
 			_anim_finished = true
 			break
-	_apply_frame()
+	if _step != shown_step or direction != _shown_direction:
+		_apply_frame()
 
 
 func _apply_frame() -> void:
+	_shown_direction = direction
 	_set_frame(_body, _anim)
 	if _shadow_anim >= 0:
 		_set_frame(_shadow, _shadow_anim)
@@ -166,11 +175,20 @@ func _apply_frame() -> void:
 
 func _set_frame(sprite: Sprite2D, anim_index: int) -> void:
 	var anim := unit_type.bob.anims[anim_index]
+	var dir := direction % anim.directions
+	var frame := dir * anim.frames_per_direction + anim.frames[mini(_step, anim.frames.size() - 1)]
+	var shown := anim_index << 32 | frame
+	if sprite == _body:
+		if shown == _body_shown:
+			return
+		_body_shown = shown
+	else:
+		if shown == _shadow_shown:
+			return
+		_shadow_shown = shown
 	var sheet := unit_type.sprite_for(anim_index)
 	if sheet == null:
 		return
-	var dir := direction % anim.directions
-	var frame := dir * anim.frames_per_direction + anim.frames[mini(_step, anim.frames.size() - 1)]
 	if frame >= sheet.frame_count():
 		return
 	if sprite.texture != sheet.texture:

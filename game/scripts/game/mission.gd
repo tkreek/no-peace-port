@@ -300,18 +300,72 @@ func _resource(player: int, which: int) -> int:
 static func count(player: int, what: int, rect := Rect2(), outside := false, any_owner := false) -> int:
 	var within := rect.has_area()
 	var total := 0
-	if what < 100 or _is_unit(what) or EITHER.has(what) or what in ANIMALS:
-		var any := what == BUFFALO or (any_owner and what in ANIMALS)
-		for unit in Unit.all_units:
-			if unit.is_alive() and (unit.team == player or any) and unit_matches(unit, what) \
-					and (not within or rect.has_point(unit.position)) and not (outside and unit.inside):
+	var lists := _counted(player, what, any_owner)
+	for units: Array in lists[0]:
+		for unit: Unit in units:
+			if unit.is_alive() and (not within or rect.has_point(unit.position)) and not (outside and unit.inside):
 				total += 1
-	if what < 100 or not (_is_unit(what) or what in ANIMALS):  # buildings and fields
-		for object in MapObject.structures:
-			if object.owner_index == player and (object.is_building() or _sown(object)) and object.is_alive() and object.complete \
-					and matches(object.guid, what) and (not within or rect.has_point(object.position)):
+	for objects: Array in lists[1]:  # buildings and fields
+		for object: MapObject in objects:
+			if (object.is_building() or _sown(object)) and object.is_alive() and object.complete \
+					and (not within or rect.has_point(object.position)):
 				total += 1
 	return total
+
+
+## count's lists, the dead in them too, rebuilt when Unit.roster_version or
+## MapObject.roster_version moves: units by people and type (what a unit counts as goes by
+## its type), all peoples' units by type, structures by owner and GUID, and which of these
+## lists count as what.
+static var _unit_groups := {}  # people -> {UnitType: Array of units}
+static var _all_unit_groups := {}  # UnitType -> Array of units
+static var _structure_groups := {}  # people -> {GUID: Array of map objects}
+static var _counted_lists := {}  # Vector3i(people, what, any owner) -> [unit lists, structure lists]
+static var _unit_roster := -1
+static var _object_roster := -1
+
+
+## The lists of `player`'s units (every people's, for animals counted whoever owns them) and
+## structures that count as `what`.
+static func _counted(player: int, what: int, any_owner: bool) -> Array:
+	_refresh_groups()
+	var key := Vector3i(player, what, int(any_owner))
+	var found = _counted_lists.get(key)
+	if found != null:
+		return found
+	var units := []
+	var objects := []
+	if what < 100 or _is_unit(what) or EITHER.has(what) or what in ANIMALS:
+		var any := what == BUFFALO or (any_owner and what in ANIMALS)
+		var groups: Dictionary = _all_unit_groups if any else _unit_groups.get(player, {})
+		for type in groups:
+			if unit_matches(groups[type][0], what):
+				units.append(groups[type])
+	if what < 100 or not (_is_unit(what) or what in ANIMALS):
+		var groups: Dictionary = _structure_groups.get(player, {})
+		for guid in groups:
+			if matches(guid, what):
+				objects.append(groups[guid])
+	found = [units, objects]
+	_counted_lists[key] = found
+	return found
+
+
+static func _refresh_groups() -> void:
+	if _unit_roster != Unit.roster_version:
+		_unit_roster = Unit.roster_version
+		_counted_lists.clear()
+		_unit_groups.clear()
+		_all_unit_groups.clear()
+		for unit in Unit.all_units:
+			_unit_groups.get_or_add(unit.team, {}).get_or_add(unit.unit_type, []).append(unit)
+			_all_unit_groups.get_or_add(unit.unit_type, []).append(unit)
+	if _object_roster != MapObject.roster_version:
+		_object_roster = MapObject.roster_version
+		_counted_lists.clear()
+		_structure_groups.clear()
+		for object in MapObject.structures:
+			_structure_groups.get_or_add(object.owner_index, {}).get_or_add(object.guid, []).append(object)
 
 
 ## A field counts while it is sown: a fallow one (harvested, or hailed on by a medicine

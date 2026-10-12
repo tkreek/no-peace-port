@@ -74,6 +74,23 @@ const HEROES := [270, 300]  ## GUIDs 270..299
 ## Claims: object sim id -> bit per people (1 << people).
 static var claims := {}
 static var _unit_classes := {}  # unit type -> class bits
+static var _building_classes := {}  # building GUID -> class bits but the garrison's
+## objects_of's lists, the dead in them too: units by list (all_units order), and by people
+## the structures or (0) the loose objects; rebuilt when Unit.roster_version or
+## MapObject.roster_version moves. Being alive is asked at every search, so a search finds
+## what a scan of everything would.
+static var _units_by_list := {}  # list -> Array of units
+static var _objects_by_player := {}  # people -> Array of map objects
+static var _tree_list: Array[MapObject] = []
+## _tree_list by 256 px cell, each tree with its place in the list (built when first asked).
+static var _tree_cells := {}  # Vector2i -> Array of [index, tree]
+static var _tree_extent := Rect2i()  # the cells there are
+const TREE_CELL := 256.0
+## Parts of those lists, the dead in them too: Vector3i(list, 0, GUID) what is of that type
+## (as Mission counts it), Vector3i(list, 1, mask) what may have all the class bits of mask.
+static var _parts := {}
+static var _unit_roster := -1
+static var _object_roster := -1
 
 
 static func reset() -> void:
@@ -133,6 +150,17 @@ static func class_bits(node: Node) -> int:
 		return C_BUILDING | C_FIELD | (C_FALLOW if _fallow(object) else 0)
 	if not object.is_building():
 		return 0x1
+	var bits: int = _building_classes.get(object.guid, -1)
+	if bits < 0:
+		bits = _building_class(object)
+		_building_classes[object.guid] = bits
+	if object.defence and object.defence.capacity() > 0:
+		bits |= C_GARRISON
+	return bits
+
+
+## What a building is by its GUID (the garrison bit, which comes and goes, apart).
+static func _building_class(object: MapObject) -> int:
 	var bits := C_BUILDING
 	var guid := object.guid
 	if guid in MapObject.MAIN_BUILDINGS:
@@ -146,8 +174,6 @@ static func class_bits(node: Node) -> int:
 		bits |= C_WOOD_STORE
 	if not accepts.is_empty():
 		bits |= C_STORE
-	if object.defence and object.defence.capacity() > 0:
-		bits |= C_GARRISON
 	if guid in FARMS:
 		bits |= C_FARM
 	if guid in BuildingProduction.HORSE_BUILDINGS:
@@ -282,34 +308,119 @@ static func release(node: Node, people: int) -> void:
 ## Everything people `player` owns (0: the loose objects: animals, mines, stores), as the
 ## original's per-player lists hold them; trees are apart (tree_list).
 static func objects_of(player: int) -> Array:
+	_refresh_lists()
 	var out := []
-	for unit in Unit.all_units:
-		if unit.is_alive() and list_of(unit) == player:
+	for unit: Unit in _units_by_list.get(player, []):
+		if unit.is_alive():
 			out.append(unit)
-	if player == 0:
-		for object in MapObject.all_objects:
-			if object.owner_index == 0 and not object.is_tree() and not object.is_ghost and object.is_alive() \
-					and (object.is_mine() or object.is_abandoned_store() or object.is_building()):
-				out.append(object)
-	else:
-		# Wall pieces are not in a people's list: the original keeps them in list 10
-		# (AmericaAddOn.exe 0x42698e), which only nearest_wall looks through.
-		for object in MapObject.structures:
-			if object.owner_index == player and object.is_alive() and not WallLine.is_wall(object.guid):
-				out.append(object)
+	for object: MapObject in _objects_by_player.get(player, []):
+		if object.is_alive():
+			out.append(object)
 	return out
 
 
+static func _refresh_lists() -> void:
+	if _unit_roster != Unit.roster_version:
+		_unit_roster = Unit.roster_version
+		_parts.clear()
+		_units_by_list.clear()
+		for unit in Unit.all_units:
+			_units_by_list.get_or_add(list_of(unit), []).append(unit)
+	if _object_roster != MapObject.roster_version:
+		_object_roster = MapObject.roster_version
+		_parts.clear()
+		_objects_by_player.clear()
+		_tree_list.clear()
+		_tree_cells.clear()
+		var loose := []
+		for object in MapObject.all_objects:
+			if object.is_tree():
+				_tree_list.append(object)
+			elif object.owner_index == 0 and not object.is_ghost \
+					and (object.is_mine() or object.is_abandoned_store() or object.is_building()):
+				loose.append(object)
+		_objects_by_player[0] = loose
+		# Wall pieces are not in a people's list: the original keeps them in list 10
+		# (AmericaAddOn.exe 0x42698e), which only nearest_wall looks through.
+		for object in MapObject.structures:
+			if object.owner_index != 0 and not WallLine.is_wall(object.guid):
+				_objects_by_player.get_or_add(object.owner_index, []).append(object)
+
+
+## What of list `player` is of type `guid` (by_class false) or may have every class bit of
+## `guid` (true: the bits that come and go, garrison and fallow, taken as there), in the
+## list's order: a search looks only at these, and asks the rest at the time.
+static func _part(player: int, guid: int, by_class: bool) -> Array:
+	_refresh_lists()
+	var key := Vector3i(player, int(by_class), guid)
+	var part = _parts.get(key)
+	if part == null:
+		part = []
+		for list: Array in [_units_by_list.get(player, []), _objects_by_player.get(player, [])]:
+			for node: Node in list:
+				if (_class_bound(node) & guid == guid) if by_class else _is_type(node, guid):
+					part.append(node)
+		_parts[key] = part
+	return part
+
+
+## Every class bit `node` may have.
+static func _class_bound(node: Node) -> int:
+	if node is MapObject and (node as MapObject).is_field():
+		return C_BUILDING | C_FIELD | C_FALLOW
+	if node is MapObject and (node as MapObject).is_building():
+		return class_bits(node) | C_GARRISON
+	return class_bits(node)
+
+
 static func trees() -> Array:
-	return MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.is_tree() and o.stock.amount > 0)
+	_refresh_lists()
+	return _tree_list.filter(func(o: MapObject) -> bool: return o.stock.amount > 0)
+
+
+## The nearest tree with wood left (ties: the earlier one).
+static func nearest_tree(at: Vector2) -> MapObject:
+	_refresh_lists()
+	if _tree_list.is_empty():
+		return null
+	if _tree_cells.is_empty():
+		var low := Vector2i(1 << 30, 1 << 30)
+		var high := -low
+		for i in _tree_list.size():
+			var cell := Vector2i((_tree_list[i].position / TREE_CELL).floor())
+			_tree_cells.get_or_add(cell, []).append([i, _tree_list[i]])
+			low = low.min(cell)
+			high = high.max(cell)
+		_tree_extent = Rect2i(low, high - low + Vector2i.ONE)
+	# Rings of cells round `at` until no nearer tree can be left; what nearest over the whole
+	# list gives: the least distance, of equals the earliest in the list.
+	var centre := Vector2i((at / TREE_CELL).floor())
+	var best: MapObject = null
+	var best_distance := INF
+	var best_index := -1
+	var rings := maxi(maxi(absi(centre.x - _tree_extent.position.x), absi(centre.x - _tree_extent.end.x)),
+			maxi(absi(centre.y - _tree_extent.position.y), absi(centre.y - _tree_extent.end.y)))
+	for r in rings + 1:
+		if best and (r - 1) * TREE_CELL - 1.0 > 0.0 and ((r - 1) * TREE_CELL - 1.0) ** 2 > best_distance:
+			break  # every cell of this ring is further off than the best found
+		for dy in range(-r, r + 1):
+			for dx in range(-r, r + 1, 1 if absi(dy) == r else maxi(1, 2 * r)):
+				for entry: Array in _tree_cells.get(centre + Vector2i(dx, dy), []):
+					var tree: MapObject = entry[1]
+					var d := at.distance_squared_to(tree.position)
+					if (d < best_distance or (d == best_distance and entry[0] < best_index)) and tree.stock.amount > 0:
+						best = tree
+						best_distance = d
+						best_index = entry[0]
+	return best
 
 
 ## The nearest of `candidates` to `at` that `accept` takes (ties: the earlier one).
 static func nearest(candidates: Array, at: Vector2, accept: Callable) -> Node:
 	var best: Node = null
 	var best_distance := INF
-	for node in candidates:
-		var d: float = at.distance_squared_to(node.position)
+	for node: Node2D in candidates:
+		var d := at.distance_squared_to(node.position)
 		if d < best_distance and accept.call(node):
 			best = node
 			best_distance = d
@@ -320,10 +431,10 @@ static func nearest(candidates: Array, at: Vector2, accept: Callable) -> Node:
 ## claims for `me` (107-109, 200-202). A mask with the tree or tent bit looks for trees.
 static func find_claiming(me: int, player: int, mask: int, at: Vector2, state: int) -> int:
 	if mask & (C_TREE | C_TENT):
-		var tree := nearest(trees(), at, func(_n: Node) -> bool: return true)
-		return handle(tree)
-	var found := nearest(objects_of(player), at, func(n: Node) -> bool:
-		return class_bits(n) & mask == mask and (state == 0 or state_bits(n) & state != 0) and not claimed(n, me))
+		return handle(nearest_tree(at))
+	var found := nearest(_part(player, mask, true), at, func(n: Node) -> bool:
+		return n.is_alive() and class_bits(n) & mask == mask and (state == 0 or state_bits(n) & state != 0) \
+				and not claimed(n, me))
 	if found:
 		claim(found, me)
 	return handle(found)
@@ -331,11 +442,10 @@ static func find_claiming(me: int, player: int, mask: int, at: Vector2, state: i
 
 ## Searches by type with a state any-of filter, claiming (139-141, 203-205).
 static func find_type_claiming(me: int, player: int, guid: int, at: Vector2, state: int, owned_by := -1) -> int:
-	var list := objects_of(player)
-	if owned_by >= 0:
-		list = objects_of(0).filter(func(n: Node) -> bool: return is_animal(n) and owner_of(n) == owned_by)
+	var list := _part(0 if owned_by >= 0 else player, guid, false)
 	var found := nearest(list, at, func(n: Node) -> bool:
-		return _is_type(n, guid) and (state == 0 or state_bits(n) & state != 0) and not claimed(n, me))
+		return n.is_alive() and (owned_by < 0 or is_animal(n) and owner_of(n) == owned_by) \
+				and (state == 0 or state_bits(n) & state != 0) and not claimed(n, me))
 	if found:
 		claim(found, me)
 	return handle(found)
@@ -349,8 +459,8 @@ static func _is_type(node: Node, guid: int) -> bool:
 
 ## Claiming search with a "none of these states" filter (383, 384).
 static func claim_nearest(me: int, player: int, at: Vector2, mask: int, guid: int, notstate: int) -> int:
-	var found := nearest(objects_of(player), at, func(n: Node) -> bool:
-		return (guid < 0 or _is_type(n, guid)) and (mask == 0 or class_bits(n) & mask == mask) \
+	var found := nearest(_candidates(player, mask, guid), at, func(n: Node) -> bool:
+		return n.is_alive() and (guid < 0 or _is_type(n, guid)) and (mask == 0 or class_bits(n) & mask == mask) \
 				and state_bits(n) & notstate == 0 and not claimed(n, me))
 	if found:
 		claim(found, me)
@@ -361,9 +471,21 @@ static func claim_nearest(me: int, player: int, at: Vector2, mask: int, guid: in
 static func nearest_plain(player: int, at: Vector2, mask: int, guid: int, state: int, notstate: int) -> int:
 	if player < 0 or player > 8:
 		return 0
-	return handle(nearest(objects_of(player), at, func(n: Node) -> bool:
-		return (guid < 0 or _is_type(n, guid)) and (mask == 0 or class_bits(n) & mask == mask) \
-				and (state == 0 or state_bits(n) & state != 0) and state_bits(n) & notstate == 0))
+	return handle(nearest(_candidates(player, mask, guid), at, func(n: Node) -> bool:
+		if not n.is_alive() or not (guid < 0 or _is_type(n, guid)) or not (mask == 0 or class_bits(n) & mask == mask):
+			return false
+		var bits := state_bits(n)
+		return (state == 0 or bits & state != 0) and bits & notstate == 0))
+
+
+## What of list `player` a search for type `guid` (-1: any) with class `mask` (0: any) looks at.
+static func _candidates(player: int, mask: int, guid: int) -> Array:
+	if guid >= 0:
+		return _part(player, guid, false)
+	if mask != 0:
+		return _part(player, mask, true)
+	_refresh_lists()
+	return _units_by_list.get(player, []) + _objects_by_player.get(player, [])
 
 
 ## A foe of `me` within 500 px of `at` with any of `classany` and none of `notstate` (387).

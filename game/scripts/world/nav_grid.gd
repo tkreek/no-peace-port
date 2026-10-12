@@ -180,8 +180,9 @@ func nearest_passable(cell: Vector2i, max_radius := 24, layer := Layer.GROUND) -
 		return cell
 	for r in range(1, max_radius):
 		for dy in range(-r, r + 1):
-			for dx in range(-r, r + 1):
-				if maxi(absi(dx), absi(dy)) == r and is_walkable(cell + Vector2i(dx, dy), layer):
+			# The ring alone, in the same order: its top and bottom rows whole, the two ends between.
+			for dx in range(-r, r + 1, 1 if absi(dy) == r else 2 * r):
+				if is_walkable(cell + Vector2i(dx, dy), layer):
 					return cell + Vector2i(dx, dy)
 	return Vector2i(-1, -1)
 
@@ -193,6 +194,13 @@ func center_of(cell: Vector2i) -> Vector2:
 ## World-space waypoints from `from` to `to`, smoothed by line-of-sight. Empty if unreachable.
 ## A point off the map (the AI scripts work some out) heads for the nearest edge.
 func find_path(from: Vector2, to: Vector2, layer := Layer.GROUND) -> PackedVector2Array:
+	var clock := Prof.start()
+	var points := _find_path(from, to, layer)
+	Prof.stop("path search", clock)
+	return points
+
+
+func _find_path(from: Vector2, to: Vector2, layer: Layer) -> PackedVector2Array:
 	var start := nearest_walkable(cell_of(from).clamp(Vector2i.ZERO, size - Vector2i.ONE), 24, layer)
 	var goal := nearest_walkable(cell_of(to).clamp(Vector2i.ZERO, size - Vector2i.ONE), 24, layer)
 	# A goal out of reach (up a cliff with no ramp to it) gives the path to the nearest

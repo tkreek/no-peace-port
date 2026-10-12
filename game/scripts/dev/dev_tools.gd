@@ -2,8 +2,9 @@ class_name DevTools
 extends Node
 ## Developer tools behind command-line options: --selftest (decode every sound and map,
 ## parse every script, list unit stats), --report-after (print stockpiles, frame times and,
-## with --profile, timed sections while a match runs headless, then quit) and --screenshot
-## (save a frame and quit).
+## with --profile, timed sections while a match runs headless, then quit; with
+## --mission-stats=<json> also what the mission's script and KI did, see MissionStats) and
+## --screenshot (save a frame and quit).
 
 var main: Main
 
@@ -26,7 +27,11 @@ func report_after(frames: int) -> void:
 		await get_tree().process_frame
 		if i % (60 if GameData.cmdline_option("trace-workers") != "" else 300) == 0:
 			_print_report(i)
+		if MissionStats.on and main._game_over:
+			frames = i  # with --mission-stats a mission that ended has nothing more to show
+			break
 	_print_report(frames)
+	MissionStats.write(main)
 	get_tree().quit()
 
 

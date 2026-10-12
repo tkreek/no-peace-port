@@ -364,6 +364,7 @@ func _start_mission() -> void:
 	mission.name = "Mission"
 	add_child(mission)
 	mission.setup(mission_data, self, texts, "campaign/base/speech" if Match.campaign.get("set") == "base" else "")
+	MissionStats.begin(mission, GameData.cmdline_option("mission-stats"))
 	mission.message.connect(hud.mission_message)
 	mission.goal_changed.connect(hud.set_mission_goal)
 	mission.ended.connect(_on_mission_ended)

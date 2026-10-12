@@ -41,11 +41,14 @@ func start(people: int, module: int) -> void:
 
 
 func sim_tick(_delta: float) -> void:
+	var clock := Time.get_ticks_usec() if MissionStats.on else 0
 	_budget += 1000  # a game step in 1/30 ms
 	while _budget >= KiPlayer.STEP_MS * Sim.RATE:
 		_budget -= KiPlayer.STEP_MS * Sim.RATE
 		for index in players:
 			players[index].step()
+	if MissionStats.on:
+		MissionStats.cost(0, clock)
 
 
 ## Called when something of a people is hurt (the scripts' "attacked" queues).

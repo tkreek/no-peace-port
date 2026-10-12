@@ -62,6 +62,8 @@ static func call_native(id: int, task: KiTask) -> void:
 	for i in range(n - 1, -1, -1):
 		a[i] = task.pop()
 	var me := task.player.index
+	if MissionStats.on:
+		MissionStats.native(id, task, a)
 	match id:
 		# ---------------------------------------------------------- arithmetic
 		1: task.push(a[0] + a[1])
@@ -373,7 +375,7 @@ static func call_native(id: int, task: KiTask) -> void:
 		135, 292:
 			var guid := a[1] if id == 135 else a[3]
 			var at := Vector2(a[2], a[3]) if id == 135 else Vector2(a[1], a[2])
-			var spot := _build_near(task, _own_unit(a[0]), guid, at)
+			var spot := _build_near(task, _own_unit(a[0]), guid, at, id)
 			if KiManager.current and KiManager.current.trace_level >= 2:
 				print("KI t=%.1f p%d %08d build %d near %s: %s" % [Sim.time(), me, task.module.number, guid, at, spot])
 			task.push(int(spot))
@@ -439,7 +441,11 @@ static func call_native(id: int, task: KiTask) -> void:
 		138, 142:
 			var building := _own_building(a[0])
 			if building and building.production:
-				building.production.enqueue(NEUTRAL_PRODUCTS.get(a[1], a[1]) if id == 142 else a[1])
+				var queued := building.production.enqueue(NEUTRAL_PRODUCTS.get(a[1], a[1]) if id == 142 else a[1])
+				if not queued and MissionStats.on:
+					MissionStats.refused(id, task, "refused: GUID %d" % a[1])
+			elif building and MissionStats.on:
+				MissionStats.refused(id, task, "building makes nothing")
 		210, 351:
 			var building := _own_building(a[0])
 			if building and building.defence:
@@ -458,6 +464,11 @@ static func call_native(id: int, task: KiTask) -> void:
 				building.production.set_rally(Vector2(a[1], a[2]))
 		399, 401:
 			pass  # building abilities: no mission uses them for anything that matters
+		_:
+			if MissionStats.on:
+				MissionStats.unimplemented(id, task)
+	if MissionStats.on:
+		MissionStats.native_done(id, task, a)
 
 
 ## C division: truncates toward zero.
@@ -544,12 +555,14 @@ static func _can_have(index: int, guid: int, train: bool) -> bool:
 
 ## A site of `guid` for `worker` near `at` (spiral in 16 px steps up to 500 px away), its
 ## cost paid and the worker sent to build it; fields the same (AmericaAddOn.exe 0x438670).
-static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2) -> bool:
+static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id := 135) -> bool:
 	var manager := KiManager.current
 	if worker == null or manager == null:
 		return false
 	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, manager.biome))
 	if type == null:
+		if MissionStats.on:
+			MissionStats.build_failed(id, task, guid, "no such building")
 		return false
 	var owner := worker.team
 	for ring in range(0, BUILD_SEARCH / 16 + 1):
@@ -563,9 +576,13 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2) -> b
 					var site := Orders.build_controller.place_site(owner, type.id, spot, false, null, [worker]) \
 							if Orders.build_controller else null
 					if site == null:
+						if MissionStats.on:
+							MissionStats.site_refused(id, task, owner, type, guid)
 						return false
 					task.build_spot = Vector2i(spot)
 					return true
+	if MissionStats.on:
+		MissionStats.build_failed(id, task, guid, "no spot")
 	return false
 
 

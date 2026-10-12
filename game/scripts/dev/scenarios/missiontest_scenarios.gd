@@ -37,6 +37,8 @@ func _scenario_track_units() -> void:
 ##   order:G                  one of the local people's buildings whose buttons offer G (what
 ##                            the map allows it: MapRules) queues it, as a click would
 ##   owned                    the local people's buildings and units by GUID, and what it researched
+##   stats:P:G                what people P has G as in this map (MapRules): offered, hit points,
+##                            attack, cost, time, and the hit points of P's living G
 ##   animals, fields:P, relations   horses/cows/buffalo by owner, P's fields, the stances
 ## With --track-every the units are listed as in track_units.
 func _scenario_steps() -> void:
@@ -144,6 +146,19 @@ func _scenario_steps() -> void:
 				if can:
 					Orders.building(offerer, "enqueue", [wanted])
 				print("STEP t=%.1f order %d: offered %s, queued %s" % [Sim.time(), wanted, offerer != null, can])
+			"stats":  # stats:P:G: what people P's G is here, and P's living ones
+				var p := part[2].to_int()
+				var what := part[3].to_int()
+				var st := MapRules.stats(p, what)
+				var lives := []
+				for unit in Unit.all_units:
+					if unit.is_alive() and unit.team == p and unit.unit_type.guid() == what:
+						lives.append("%.0f/%.0f" % [unit.health, unit.max_health])
+				for object in MapObject.structures:
+					if object.is_alive() and object.owner_index == p and object.guid == what:
+						lives.append("%.0f/%.0f" % [object.health, object.max_health])
+				print("STEP t=%.1f stats P%d %d: offered %s, health %s, damage %s, cost %s, time %s, housing %s; living %s" % [Sim.time(), p, what,
+						MapRules.allows(p, what), st.get("health"), st.get("damage"), st.get("cost"), st.get("build_time"), st.get("housing"), lives])
 			"owned":
 				var counts := {}
 				for object in MapObject.structures:

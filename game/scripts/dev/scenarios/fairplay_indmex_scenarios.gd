@@ -959,7 +959,8 @@ class FairBot:
 		if _breach == null and d_now > 300.0 and Sim.time() - _stall_since > 25.0:
 			var best: MapObject = null
 			for k: Dictionary in _known.values():
-				if is_instance_valid(k.o) and k.o.is_alive() and k.o != target.o and k.pos.distance_to(centre) < 700.0:
+				if is_instance_valid(k.o) and k.o.is_alive() and k.o != target.o and k.pos.distance_to(centre) < 700.0 \
+						and (WallLine.is_wall(k.guid) or k.name.to_lower().contains("stockade") or k.name.to_lower().contains("palisade")):
 					if best == null or k.pos.distance_to(centre) < best.position.distance_to(centre):
 						best = k.o
 			if best:

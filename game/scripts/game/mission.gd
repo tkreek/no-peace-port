@@ -431,6 +431,8 @@ func spawn(player: int, amount: int, guid: int, at: Vector2) -> void:
 				unit.position = nav.center_of(cell)
 				main.units_root.add_child(unit)
 				unit.setup(unit_type, player)
+				if player > 0 and unit.animal.is_horse():
+					unit.animal.wild_timer = UnitAnimal.OWNED_HORSE_SECONDS  # a while its people's, like a rider's
 				placed += 1
 		ring += 1
 

@@ -84,17 +84,29 @@ static func owner_of(node: Node) -> int:
 	return node.team if node is Unit else (node as MapObject).owner_index
 
 
+## Horses, cows and buffalo: the original keeps them in the loose objects' list whoever owns
+## them (the owner is only a field), so their handles never change and the searches over
+## people 0 find owned ones too.
+static func is_animal(node: Node) -> bool:
+	return node is Unit and (node.animal.is_horse() or node.animal.is_cow() or node.unit_type.guid() == Mission.BUFFALO)
+
+
+## The list an object is in: its owner's, or 0 for animals.
+static func list_of(node: Node) -> int:
+	return 0 if is_animal(node) else owner_of(node)
+
+
 static func handle(node: Node) -> int:
 	if node == null or not is_instance_valid(node) or node.sim_id == 0:
 		return 0
-	return (owner_of(node) << OWNER_SHIFT) | (node.sim_id & ID_MASK)
+	return (list_of(node) << OWNER_SHIFT) | (node.sim_id & ID_MASK)
 
 
 static func resolve(h: int) -> Node:
 	if h <= 0:
 		return null
 	var node := Sim.find(h & ID_MASK)
-	if node == null or owner_of(node) != h >> OWNER_SHIFT or not node.is_alive():
+	if node == null or list_of(node) != h >> OWNER_SHIFT or not node.is_alive():
 		return null
 	return node
 
@@ -272,7 +284,7 @@ static func release(node: Node, people: int) -> void:
 static func objects_of(player: int) -> Array:
 	var out := []
 	for unit in Unit.all_units:
-		if unit.team == player and unit.is_alive():
+		if unit.is_alive() and list_of(unit) == player:
 			out.append(unit)
 	if player == 0:
 		for object in MapObject.all_objects:
@@ -319,7 +331,7 @@ static func find_claiming(me: int, player: int, mask: int, at: Vector2, state: i
 static func find_type_claiming(me: int, player: int, guid: int, at: Vector2, state: int, owned_by := -1) -> int:
 	var list := objects_of(player)
 	if owned_by >= 0:
-		list = objects_of(owned_by).filter(func(n: Node) -> bool: return n is Unit and n.unit_type.guid() in [Mission.HORSE, Mission.COW])
+		list = objects_of(0).filter(func(n: Node) -> bool: return is_animal(n) and owner_of(n) == owned_by)
 	var found := nearest(list, at, func(n: Node) -> bool:
 		return _is_type(n, guid) and (state == 0 or state_bits(n) & state != 0) and not claimed(n, me))
 	if found:
@@ -358,7 +370,7 @@ static func enemy_near(me: int, at: Vector2, classany: int, notstate: int) -> in
 	var best_distance := 500.0 * 500.0
 	for unit: Unit in UnitGrid.near(at, 500.0):
 		var d := at.distance_squared_to(unit.position)
-		if d < best_distance and unit.is_alive() and Diplomacy.hostile(me, unit.team) \
+		if d < best_distance and unit.is_alive() and Diplomacy.hostile(me, unit.team) and not is_animal(unit) \
 				and (classany == 0 or class_bits(unit) & classany != 0) and state_bits(unit) & notstate == 0:
 			best = unit
 			best_distance = d

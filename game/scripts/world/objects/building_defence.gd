@@ -102,7 +102,8 @@ func _update_garrison(delta: float) -> void:
 		var best_distance := reach
 		var loophole := centre
 		for other: Unit in UnitGrid.near(centre, reach + walls.size.length() / 2.0):
-			if other.is_alive() and not other.inside and Diplomacy.hostile(building.owner_index, other.team):
+			if other.is_alive() and not other.inside and Diplomacy.hostile(building.owner_index, other.team) \
+					and not other.animal.is_cow() and not other.animal.is_horse():
 				var edge := building.wall_point(other.position)
 				var d := edge.distance_to(other.position)
 				if d < best_distance:

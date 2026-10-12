@@ -295,6 +295,8 @@ func _may_engage(enemy: Node2D) -> bool:
 func is_enemy_of(other: Unit) -> bool:
 	if not Diplomacy.hostile(team, other.team):
 		return false
+	if other.animal.is_cow() or other.animal.is_horse():
+		return false  # livestock is taken (herders), hunted or ordered shot, not fought
 	var other_player: Player = Player.by_index.get(other.team)
 	if other_player and other_player.surrendered:
 		return false  # laid down their arms

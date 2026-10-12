@@ -136,7 +136,13 @@ static func can_place_for(type: ObjectTypes.ObjectType, at: Vector2, owner: int,
 	for unit in Unit.all_units:
 		if unit.is_alive() and unit.team != owner and rect.has_point(unit.position):
 			return false
-	if guid == MapObject.FIELD_GUID and MapObject.field_allowance(owner) <= 0:
+	# Fields block no path, so the grid above does not see them: nothing goes on a field,
+	# and a field goes on no building either.
+	var field := guid == MapObject.FIELD_GUID
+	for object in MapObject.structures:
+		if (object.is_field() or (field and object.is_building())) and object.footprint_rect().intersects(rect):
+			return false
+	if field and MapObject.field_allowance(owner) <= 0:
 		return false
 	if guid in MapObject.SHIPYARDS and not MapObject.by_water(type, at):
 		return false

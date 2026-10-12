@@ -87,9 +87,8 @@ func update(delta: float) -> void:
 ## Quartered riflemen and archers fire out at the nearest enemy each can reach.
 func _update_garrison(delta: float) -> void:
 	_garrison_scan -= delta
-	for unit in garrison.duplicate():
-		if not is_instance_valid(unit):
-			garrison.erase(unit)
+	if garrison.any(func(u) -> bool: return not is_instance_valid(u)):
+		garrison.assign(garrison.filter(func(u) -> bool: return is_instance_valid(u)))
 	if _garrison_scan > 0.0:
 		return
 	_garrison_scan = 0.25

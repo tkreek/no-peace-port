@@ -462,6 +462,10 @@ func create(guid: int, player: int, at: Vector2) -> void:
 func remove(player: int, what: int, rect: Rect2) -> void:
 	for unit in Unit.all_units.duplicate():
 		if unit.team == player and unit.is_alive() and rect.has_point(unit.position) and unit_matches(unit, what):
+			if unit.quarters and unit.quarters.defence:
+				unit.quarters.defence.garrison.erase(unit)
+			if unit.water.vessel:
+				unit.water.vessel.water.passengers.erase(unit)
 			unit.selected = false
 			unit.queue_free()
 	for object in MapObject.structures.duplicate():

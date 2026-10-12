@@ -93,6 +93,7 @@ func _ready() -> void:
 	if map == null:
 		_show_message("Could not load map %s" % map_path)
 		return
+	MapRules.setup(map)  # what each people may make and the values it plays with here
 	# The game's randomness: --seed=n for a repeatable run (scenarios default to 1); a replay
 	# brings its own, and its orders instead of the player's.
 	var default_seed := "1" if GameData.cmdline_option("scenario") != "" else str(randi())

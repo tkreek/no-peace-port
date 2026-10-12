@@ -549,7 +549,7 @@ static func _can_have(index: int, guid: int, train: bool) -> bool:
 	elif not people.meets_prerequisites(guid):
 		return false
 	# Horses, cows, guns and liquor cost what the neutral production order (142) takes.
-	var cost: Dictionary = GameData.stats(NEUTRAL_PRODUCTS.get(guid, guid)).get("cost", {}).duplicate()
+	var cost: Dictionary = MapRules.stats(index, NEUTRAL_PRODUCTS.get(guid, guid)).get("cost", {}).duplicate()
 	if not train:
 		if GameData.stats(guid).get("kind") == "unit":
 			return true  # the scripts ask can_build about units for their prerequisites

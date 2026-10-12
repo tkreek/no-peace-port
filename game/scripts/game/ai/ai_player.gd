@@ -163,15 +163,16 @@ func rich() -> bool:
 
 
 func affordable(guid: int) -> bool:
-	var cost: Dictionary = GameData.stats(guid).get("cost", {}).duplicate()
+	var cost: Dictionary = MapRules.stats(player.index, guid).get("cost", {}).duplicate()
 	cost.erase("population")
 	return player.can_afford(cost)
 
 
 func total_cost(guid: int) -> int:
 	var total := 0
-	for key in GameData.stats(guid).get("cost", {}):
-		total += int(GameData.stats(guid).cost[key])
+	var cost: Dictionary = MapRules.stats(player.index, guid).get("cost", {})
+	for key in cost:
+		total += int(cost[key])
 	return total
 
 

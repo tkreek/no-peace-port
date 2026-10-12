@@ -191,6 +191,8 @@ class Data:
             if t and t.get("anims"):
                 self.guid_types[guid].append(t)
         self.stats = self._stats(load("data/defaults.json"))
+        ids = os.path.join(assets, "data", "ids.json")  # GUID -> the maps' EINHEIT/EIGENSCH id
+        self.ids = {int(k): int(v) for k, v in json.load(open(ids)).items()} if os.path.exists(ids) else {}
         self.natives = NativeImpl(os.path.join(ROOT, "game", "scripts", "game", "ki", "ki_natives.gd"))
 
     def _stats(self, defaults):
@@ -385,6 +387,7 @@ class Mission:
         self.areas = self._areas(self.chunks.get("AREA", b""))
         self.triggers = self._script(self.chunks.get("ABLAUF", b""))
         self.placements = self._placements(self.chunks.get("BOBLISTE", b""))
+        self.switched = self._switched(self.chunks.get("SPIELER", b""), self.chunks.get("EINHEIT", b""))
         info = self.chunks.get("LVL_INFO", b"")
         self.size = (struct.unpack_from("<I", info, 0x114)[0] * 32, struct.unpack_from("<I", info, 0x118)[0] * 32) if len(info) >= 0x11C else (0, 0)
         self.biome = "wiese" if any(data.types.get(t, {}).get("name", "").endswith("_meadow") for _, _, t, _ in self.placements) else "steppe"
@@ -405,6 +408,38 @@ class Mission:
             out[index] = {"index": index, "slot": slot, "name": name, "people": PEOPLES[people] if people < 4 else "usa",
                           "control": control, "allies": allies}
         return out
+
+    @staticmethod
+    def _switched(players, b):
+        """EINHEIT: player -> {id: value}; 0 takes the object out of the player's menus
+        (MapRules in the game: 9 blocks, the neutral one and one per SPIELER record)."""
+        owners = [0] + [1] * 8
+        for slot in range(min(8, len(players) // 300)):
+            index, people = struct.unpack_from("<i", players, slot * 300)[0], struct.unpack_from("<i", players, slot * 300 + 0x10C)[0]
+            if people >= 0 and 1 <= index <= 8:
+                owners[slot + 1] = index
+        out, at = collections.defaultdict(dict), 0
+        for block in range(9):
+            if at + 4 > len(b):
+                break
+            count = struct.unpack_from("<i", b, at)[0]
+            at += 4
+            for _ in range(max(0, count)):
+                if at + 8 > len(b):
+                    break
+                i, value = struct.unpack_from("<ii", b, at)
+                out[owners[block]][i] = value
+                at += 8
+        return out
+
+    def allows(self, player, guid, ids):
+        """Whether the map's EINHEIT leaves `guid` in `player`'s menus (horses, cows and
+        fields: the neutral player's)."""
+        neutral = {HORSE: 480, COW: 482, FIELD: 149}
+        if guid in neutral:
+            player, guid = 0, neutral[guid]
+        table = self.switched.get(player, {})
+        return guid not in ids or table.get(ids[guid], 1) != 0
 
     @staticmethod
     def _areas(b):
@@ -871,6 +906,8 @@ class Checker:
             return set()
         people = q["people"]
         st = self.d.stats
+        # The map's EINHEIT holds back the human's menus (the computer players are not held to it).
+        allowed = (lambda g: self.m.allows(player, g, self.d.ids)) if q["control"] == 1 else (lambda g: True)
         got = set(have)
         made = set()
         changed = True
@@ -882,22 +919,22 @@ class Checker:
                     continue
                 ok = False
                 if g == FIELD:  # every people's farm building allows fields
-                    ok = builder and any(b in got for b in FIELD_BUILDINGS)
+                    ok = builder and allowed(g) and any(b in got for b in FIELD_BUILDINGS)
                 elif s.get("faction") != people:
                     continue
                 elif s.get("kind") == "structure":
-                    ok = builder and all(x in got for x in s["prereq_guids"])
+                    ok = builder and allowed(g) and all(x in got for x in s["prereq_guids"])
                 elif s.get("kind") == "unit":
-                    if g in self.d.foot_of:
+                    if g in self.d.foot_of:  # mounting a horse needs no menu
                         ok = self.d.foot_of[g] in got
                     else:
-                        ok = s.get("produced_at") in got and all(x in got for x in s["prereq_guids"])
+                        ok = s.get("produced_at") in got and allowed(g) and all(x in got for x in s["prereq_guids"])
                 if ok:
                     made.add(g)
                     got.add(g)
                     changed = True
             for animal, places in ((HORSE, HORSE_BUILDINGS), (COW, COW_BUILDINGS)):
-                if animal not in made and any(b in got for b in places):
+                if animal not in made and allowed(animal) and any(b in got for b in places):
                     made.add(animal)
                     got.add(animal)
                     changed = True
@@ -994,8 +1031,9 @@ class Checker:
             return a != b and a != 0 and b != 0 and (a in independent or b in independent or (a, b) in neutral_pairs)
 
         def joiners(pl):
-            """Players whose units join `pl`'s when they meet (mission.gd _join_neutrals):
-            those neutral to it, when `pl` is not independent itself."""
+            """Players whose units, buildings and fields join `pl`'s when they meet
+            (mission.gd _join_neutrals): those neutral to it, when `pl` is not independent
+            itself."""
             if pl in independent or pl not in m.players:
                 return []
             return [q for q in own if neutral(pl, q)]
@@ -1007,7 +1045,7 @@ class Checker:
             limitless = set(made[pl])
             for q in joiners(pl):
                 for g, n in own[q].items():
-                    if d.is_unit_type(g):
+                    if d.is_unit_type(g) or g == FIELD or d.stats.get(g, {}).get("kind") == "structure":
                         counts[g] += n
                         source(pl, g, "joins from player %d (neutral, %d)" % (q, n))
             mine = {g for g, n in counts.items() if n > 0} | limitless

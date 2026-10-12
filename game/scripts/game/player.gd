@@ -104,7 +104,7 @@ func population_cap() -> int:
 	var cap := 0
 	for object in MapObject.structures:
 		if object.owner_index == index and object.complete and object.is_alive():
-			cap += int(GameData.stats(object.guid).get("housing", 0))
+			cap += int(MapRules.stats(index, object.guid).get("housing", 0))
 	return cap
 
 

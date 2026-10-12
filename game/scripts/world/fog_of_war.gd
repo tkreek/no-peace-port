@@ -103,7 +103,7 @@ func update_now() -> void:
 
 
 static func building_sight(object: MapObject) -> float:
-	var tier := int(GameData.stats(object.guid).get("sight_tier", -1))
+	var tier := int(MapRules.stats(object.owner_index, object.guid).get("sight_tier", -1))
 	return GameData.def_tier("sight_range", tier, int(BUILDING_SIGHT)) if tier >= 0 else BUILDING_SIGHT
 
 

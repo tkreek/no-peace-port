@@ -222,7 +222,7 @@ static func build_failed(id: int, task: KiTask, guid: int, reason: String) -> vo
 ## A site could not be placed: whether the people could pay for it.
 static func site_refused(id: int, task: KiTask, owner: int, type: ObjectTypes.ObjectType, guid: int) -> void:
 	var people: Player = Player.by_index.get(owner)
-	var affordable := people != null and people.can_afford(BuildController._cost_of(type))
+	var affordable := people != null and people.can_afford(BuildController._cost_of(type, owner))
 	build_failed(id, task, guid, "site refused" if affordable else "site refused: cannot pay")
 
 

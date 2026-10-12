@@ -191,7 +191,7 @@ func _price(item: int) -> Dictionary:
 	var player := owner()
 	if queue.size() >= QUEUE_LIMIT or player == null:
 		return {}
-	var stats := GameData.stats(item)
+	var stats := MapRules.stats(player.index, item)
 	if stats.get("kind") == "upgrade":
 		return {"cost": stats.get("cost", {})} if player.can_research(item) else {}
 	if is_trade(item):
@@ -232,7 +232,7 @@ func cancel(index: int) -> void:
 	if index < 0 or index >= queue.size():
 		return
 	var item := queue[index]
-	var refund: Dictionary = GameData.stats(item).get("cost", {})
+	var refund: Dictionary = MapRules.stats(building.owner_index, item).get("cost", {})
 	if is_trade(item):
 		var position_in_trades := 0
 		for k in index:
@@ -271,7 +271,7 @@ func update(delta: float) -> void:
 
 func _train(delta: float) -> void:
 	var item := queue[0]
-	var stats := GameData.stats(item)
+	var stats := MapRules.stats(building.owner_index, item)
 	progress += delta / production_seconds(int(stats.get("build_time", DEFAULT_PRODUCTION_TIME)))
 	if progress < 1.0:
 		return

@@ -127,13 +127,14 @@ func flags_at(cell: Vector2i) -> int:
 
 ## Whether a new building's footprint cell (its own flags `own`) can go on `cell`: walls
 ## need open, uncovered ground clear of other buildings' margins; the margin only needs
-## the ground not to be solid.
-func can_build_on(cell: Vector2i, own: int) -> bool:
+## the ground not to be solid. `wall`: a wall piece, which may stand in a margin (up against
+## a building, tree or cliff edge, so the wall closes there).
+func can_build_on(cell: Vector2i, own: int, wall := false) -> bool:
 	if not _astar.is_in_boundsv(cell):
 		return false
 	var there := flags_at(cell)
 	if own & SOLID:
-		return is_walkable(cell) and (there & (MARGIN | COVER)) == 0
+		return is_walkable(cell) and (there & (COVER if wall else MARGIN | COVER)) == 0
 	return (there & SOLID) == 0
 
 
@@ -163,7 +164,7 @@ func unblock_footprint(type: ObjectTypes.ObjectType, position: Vector2) -> void:
 		if not _astar.is_in_boundsv(cell):
 			continue
 		var index := cell.y * size.x + cell.x
-		flags[index] &= ~BLOCKED
+		flags[index] &= ~(type.footprint_cells[i] & BLOCKED)  # its own marks: a wall may share the cell
 		_set_cell(cell)
 
 

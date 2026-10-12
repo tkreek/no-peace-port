@@ -54,7 +54,7 @@ These live in code as named constants and should be tuned through play.
 | Fire from flaming arrows | burns 20 s at 3 energy/s; 6% a second to leap to a building within 48 px | `MapObject.BURN_*`, `SPREAD_*` |
 | Self-healing | 0.6 energy per second | `Unit.SELF_HEAL_PER_SECOND` |
 | Repair | half the building cost for the energy restored | `MapObject.add_repair_work` |
-| Robbing / stealing | 4 s inside a building; 4 s beside a vehicle; robbers carry 3× their normal load | `Unit.ROB_SECONDS`, `STEAL_SECONDS` |
+| Robbing | 4 s inside a building; robbers carry 3× their normal load (stealing wagons follows the exe: file-formats.md "Stealing in the executable") | `UnitWork.ROB_SECONDS` |
 | Garrison range bonus | a quarter more range when shooting from a fort or tower, counted from its walls | `BuildingDefence.GARRISON_RANGE_FACTOR` |
 | Hunting | 5 s to cut a load (a harvest's time), the hunter's own load (15) per trip; DEFS.INI has no gathering rates | `UnitWork.BUTCHER_SECONDS` |
 | Tepee packing | 6 s to take a tepee down or set it up | `Unit.PACK_SECONDS` |

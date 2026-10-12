@@ -275,8 +275,8 @@ static func _digit(event: InputEventKey) -> int:
 
 
 ## A right click at `world` with units selected: the order depends on what is there (board
-## or unload a boat, build or repair, deliver cattle, haul, quarters, hunt, mount, steal,
-## rob, attack, gather) and otherwise a move. `ctrl` aims at a rider's horse; with `queue`
+## or unload a boat, build or repair, deliver cattle, haul, quarters, hunt, mount, rob,
+## attack (a thief's attack on a wagon steals it), gather) and otherwise a move. `ctrl` aims at a rider's horse; with `queue`
 ## (Shift) building, gathering, hauling, hunting and moving wait until what is under way is done.
 func order_at(world: Vector2, ctrl := false, queue := false) -> void:
 	if selection.is_empty() or not is_own_selection():
@@ -343,10 +343,6 @@ func _order_at(world: Vector2, ctrl: bool) -> void:
 		# Saboteurs go in to throw the defenders out or take the empty building; at a trap,
 		# saboteurs and scouts disarm it.
 		Orders.units(selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.saboteur.can_sabotage(enemy)), "sabotage", [enemy])
-		enemy.flash(Color(1.0, 0.9, 0.4))
-		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
-	elif enemy is Unit and enemy.unit_type.is_transport() and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_steal()):
-		Orders.units(selection.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_steal()), "steal", [enemy])
 		enemy.flash(Color(1.0, 0.9, 0.4))
 		Sound.play_event(selection[0].unit_type.guid(), Sound.Event.ORDER)
 	elif enemy is MapObject and UnitWork.loot_of(enemy) > 0 and selection.any(func(u: Unit) -> bool: return is_instance_valid(u) and u.work.can_rob()):

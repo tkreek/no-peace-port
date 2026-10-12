@@ -32,8 +32,11 @@ func _scenario_track_units() -> void:
 ##   shot:name:x:y            a screenshot of the view at x,y (--shot-dir; not headless)
 ##   teleport:P:G:n:x:y[:team] n of P's G put down at x,y (and given to `team`): a test
 ##                            shortcut outside the game step, to reach a mission's next point
-##   cast:G:spell:x:y         the local people's G cast a spell at x,y
+##   cast:G:spell:x:y[:n:k]  the local people's G (n of them from the k-th) cast a spell at x,y
 ##   research:G               the local people has upgrade G (shortcut)
+##   order:G                  one of the local people's buildings whose buttons offer G (what
+##                            the map allows it: MapRules) queues it, as a click would
+##   owned                    the local people's buildings and units by GUID, and what it researched
 ##   animals, fields:P, relations   horses/cows/buffalo by owner, P's fields, the stances
 ## With --track-every the units are listed as in track_units.
 func _scenario_steps() -> void:
@@ -110,9 +113,12 @@ func _scenario_steps() -> void:
 								unit.animal.wild_timer = UnitAnimal.OWNED_HORSE_SECONDS
 						moved += 1
 				print("STEP t=%.1f teleport %d of P%d %d" % [Sim.time(), moved, p, what])
-			"cast":  # cast:G:spell:x:y: the local people's units of G cast the spell at x,y
+			"cast":  # cast:G:spell:x:y[:n:k]: the local people's units of G (n from the k-th) cast the spell at x,y
 				var what := part[2].to_int()
 				var group := _own(func(u: Unit) -> bool: return Mission.unit_matches(u, what))
+				if part.size() > 6:  # only n of them (from the k-th)
+					var from := part[7].to_int() if part.size() > 7 else 0
+					group = group.slice(from, from + part[6].to_int())
 				Orders.units(group, "cast", [part[3].to_int(), Vector2(part[4].to_float(), part[5].to_float())])
 				print("STEP t=%.1f cast %s by %d units" % [Sim.time(), part[3], group.size()])
 			"fields":  # fields:P: people P's fields, where and in which state (0 fallow, 1 growing, 2 ripe)
@@ -125,6 +131,34 @@ func _scenario_steps() -> void:
 				var people: Player = main.players[main.me]
 				people.researched[part[2].to_int()] = true
 				print("STEP t=%.1f research %s" % [Sim.time(), part[2]])
+			"order":  # order:G: a building of ours with a button for G queues it
+				var wanted := part[2].to_int()
+				var offerer: MapObject = null
+				for object in MapObject.structures:
+					if object.owner_index == main.me and object.is_building() and object.is_alive() and object.complete \
+							and MapRules.allows(main.me, wanted) and (wanted in object.production.trainable_units() \
+							or wanted in object.production.researchable_upgrades()):
+						offerer = object
+						break
+				var can := offerer != null and offerer.production.can_enqueue(wanted)
+				if can:
+					Orders.building(offerer, "enqueue", [wanted])
+				print("STEP t=%.1f order %d: offered %s, queued %s" % [Sim.time(), wanted, offerer != null, can])
+			"owned":
+				var counts := {}
+				for object in MapObject.structures:
+					if object.owner_index == main.me and object.is_alive():
+						counts[object.guid] = counts.get(object.guid, 0) + 1
+				for unit in Unit.all_units:
+					if unit.team == main.me and unit.is_alive():
+						counts[unit.unit_type.guid()] = counts.get(unit.unit_type.guid(), 0) + 1
+				var keys := counts.keys()
+				keys.sort()
+				var people: Player = main.players[main.me]
+				var done := people.researched.keys()
+				done.sort()
+				print("STEP t=%.1f owned %s; researched %s; stock %s" % [Sim.time(), ", ".join(keys.map(func(g: int) -> String: return "%d x%d" % [g, counts[g]])),
+						done, people.resources])
 			"relations":
 				for p in mission.data.players:
 					var row := []

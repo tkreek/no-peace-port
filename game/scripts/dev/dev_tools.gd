@@ -3,7 +3,7 @@ extends Node
 ## Developer tools behind command-line options: --selftest (decode every sound and map,
 ## parse every script, list unit stats), --report-after (print stockpiles, frame times and,
 ## with --profile, timed sections while a match runs headless, then quit) and --screenshot
-## (save a frame and quit).
+## (save a frame and quit; --view=WxH lays the interface out for a screen that size).
 
 var main: Main
 
@@ -78,6 +78,12 @@ func _print_report(frame: int) -> void:
 
 func screenshot(path: String) -> void:
 	main.camera.input_enabled = false
+	var view := GameData.cmdline_option("view")  # --view=1600x900: as on a screen that size (tiling
+	if view != "":  # window managers ignore --resolution); the capture keeps the window's pixels
+		var window := get_window()
+		window.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+		window.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
+		window.content_scale_size = Vector2i(view.get_slice("x", 0).to_int(), view.get_slice("x", 1).to_int())
 	Unit.debug_paths = GameData.cmdline_option("debug-paths") != ""
 	if GameData.cmdline_option("scenario") == "":
 		# Exercise the move order so walking animations show up in the capture.
@@ -96,6 +102,8 @@ func screenshot(path: String) -> void:
 		main.camera.position = main._vector_option("look", main.camera.position)
 		for i in 3:
 			await get_tree().process_frame
+	if main.hud.debug and main.hud.debug.panel.visible:  # --debug-overlay=1: what it shows, as text
+		print(main.hud.debug.report_text())
 	await RenderingServer.frame_post_draw
 	print("fps %d, %d units, %d objects" % [Engine.get_frames_per_second(), Unit.all_units.size(), MapObject.all_objects.size()])
 	get_viewport().get_texture().get_image().save_png(path)

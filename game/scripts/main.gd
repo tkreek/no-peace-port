@@ -20,6 +20,9 @@ extends Node2D
 ##     back instead of the player's (start it with the same map and peoples)
 ##   --camera=x,y  --zoom=z  --order=x,y (screenshot move target)  --debug-paths=1
 ##   --mission=<set>/<code>  play a campaign mission, e.g. base/ind_01, expansion/usa_02, base/tut_01
+##   --cheats=1  the playtesting cheat keys outside campaign missions too (Cheats, MissionDebug)
+##   --debug-overlay=1  open the mission overlay (F9) at the start; --debug-trigger=<n> selects
+##     trigger n (docs/production/playtesting.md)
 
 const DEFAULT_MAP := "[2 Players] - close combat.ulf"
 
@@ -215,6 +218,10 @@ func _ready() -> void:
 			ais.append(ai)
 	if mission_data:
 		_start_mission()
+	Cheats.setup(self, speed)
+	if mission or Cheats.enabled:
+		hud.debug = MissionDebug.new(self, hud)
+		hud.add_child(hud.debug)
 	if not loading.is_empty():
 		SaveGame.restore(self, loading)
 		loaded_game = true

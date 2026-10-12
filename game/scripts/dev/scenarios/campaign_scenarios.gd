@@ -187,6 +187,64 @@ func _scenario_mission_saveload() -> void:
 	get_tree().quit()
 
 
+## --mission=base/ind_02: the playtesting cheats, each given as an order (Cheats; two by
+## their keys), and the overlay's report (MissionDebug).
+func _scenario_cheats() -> void:
+	var mission := main.mission
+	var me := main.players[main.me] as Player
+	var debug := main.hud.debug
+	await _until(func() -> bool: return Sim.time() >= 5.0, 30.0, "the start")
+	var food := int(me.resources.food)
+	await _cheat_key(KEY_G)
+	var fog := main.fog.enabled
+	Orders.cheat("reveal")
+	var victim := _own(func(u: Unit) -> bool: return u.unit_type.guid() not in Player.COMMANDERS)[0] as Unit
+	Orders.cheat("kill", [], [victim])
+	# A trigger waiting on something, that neither wins nor loses the mission.
+	var waiting := -1
+	for i in mission.data.triggers.size():
+		var trigger: MissionData.Trigger = mission.data.triggers[i]
+		if mission.is_armed(i) and not trigger.conditions.all(mission.holds) \
+				and not trigger.actions.any(func(a: PackedInt32Array) -> bool: return a[0] in [4, 13]):
+			waiting = i
+			break
+	Orders.cheat("fire", [waiting])
+	Orders.cheat("speed")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var forced := mission.fired_log.any(func(e: PackedInt32Array) -> bool: return e[1] == waiting and e[2] == 1)
+	print("cheats: food +%d, fog %s -> %s, victim dead %s, trigger %d forced %s, speed %.0fx" % [
+			int(me.resources.food) - food, fog, main.fog.enabled, not victim.is_alive(), waiting, forced, Engine.time_scale])
+	Orders.cheat("speed")
+	Orders.cheat("speed")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	print("speed back to %.0fx" % Engine.time_scale)
+	await _cheat_key(KEY_F9, false)
+	var report := debug.report_text()
+	var modules := Array(report.split("\n")).filter(func(l: String) -> bool: return l.contains(" modules:"))
+	print("overlay open %s, %d lines; fired shows the cheat %s; %s" % [debug.panel.visible, report.split("\n").size(),
+			report.contains("(cheat)"), modules[0].strip_edges() if not modules.is_empty() else "no modules"])
+	Orders.cheat("win")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	print("won by cheat: %s" % (mission.outcome > 0))
+	get_tree().quit()  # before the end screen, which would count the mission won
+
+
+func _cheat_key(key: Key, ctrl_shift := true) -> void:
+	for pressed in [true, false]:
+		var event := InputEventKey.new()
+		event.keycode = key
+		event.physical_keycode = key
+		event.ctrl_pressed = ctrl_shift
+		event.shift_pressed = ctrl_shift
+		event.pressed = pressed
+		Input.parse_input_event(event)
+		Input.flush_buffered_events()
+		await get_tree().process_frame
+
+
 ## Modules running, handles the modules hold that still name something, the script's goal.
 func _ki_snapshot() -> String:
 	var modules := 0

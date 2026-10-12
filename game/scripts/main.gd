@@ -297,7 +297,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## A player is out when they have no buildings and no units left.
 func _check_victory() -> void:
-	if _game_over or Match.editor_map != "" or mission:
+	if mission:
+		mission.check_wiped_out()
+		return
+	if _game_over or Match.editor_map != "":
 		return
 	# Who is still in the game depends on the game type: anyone with units or buildings left,
 	# anyone whose leader lives, or anyone whose main building stands.

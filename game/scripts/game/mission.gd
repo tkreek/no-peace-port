@@ -67,8 +67,6 @@ var _countdown_ms := 1000
 var _budget := 0  # thirds of a millisecond of script time owed
 var _join_wait := 0
 var _end_at := -1
-## AI modules the script started: [player, module number].
-var started_modules: Array[PackedInt32Array] = []
 var _sim_on := false
 var _sim_listed := false
 var _trace := GameData.cmdline_option("trace-mission") != ""  ## --trace-mission=1: print what fires
@@ -307,7 +305,6 @@ func _action(a: PackedInt32Array) -> bool:
 	var p4 := _param(a, 4)
 	match a[0]:
 		1:
-			started_modules.append(PackedInt32Array([p1, p2]))
 			main.start_ai_module(p1, p2)
 		2:
 			if p1 == main.me:
@@ -392,6 +389,20 @@ func _action(a: PackedInt32Array) -> bool:
 		_:
 			push_warning("Mission: unknown action %d" % a[0])
 	return false
+
+
+## The local people has nothing left (no units but animals, no buildings): lost, whatever
+## the script says; some missions have no defeat of their own for it.
+func check_wiped_out() -> void:
+	if outcome != 0:
+		return
+	for unit in Unit.all_units:
+		if unit.team == main.me and unit.is_alive() and not unit.animal.is_cow() and not unit.animal.is_horse():
+			return
+	for object in MapObject.structures:
+		if object.owner_index == main.me and object.is_building() and object.is_alive():
+			return
+	_finish(main.me, false)
 
 
 func _finish(player: int, won: bool) -> void:
@@ -516,8 +527,7 @@ func save_state() -> Dictionary:
 	return {"armed": _armed.map(func(b: bool) -> int: return int(b)), "cursor": _cursor, "running": _running,
 			"timers": Array(_timers), "flags": Array(_flags), "vars": Array(_variables), "goal": goal,
 			"clock": clock_shown, "countdown": countdown, "counting": countdown_running,
-			"countdown_ms": _countdown_ms, "budget": _budget, "outcome": outcome, "end_at": _end_at,
-			"modules": started_modules.map(func(m: PackedInt32Array) -> Array: return Array(m))}
+			"countdown_ms": _countdown_ms, "budget": _budget, "outcome": outcome, "end_at": _end_at}
 
 
 func restore_state(state: Dictionary) -> void:
@@ -536,7 +546,4 @@ func restore_state(state: Dictionary) -> void:
 	_budget = int(state.budget)
 	outcome = int(state.outcome)
 	_end_at = int(state.end_at)
-	started_modules.clear()
-	for m in state.get("modules", []):
-		started_modules.append(PackedInt32Array(m))
 	goal_changed.emit(goal_text())

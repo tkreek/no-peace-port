@@ -41,18 +41,28 @@ func _init(owner: KiPlayer, code: KiModule, shared_stack: Array, parent_store: K
 func tick(paused: bool) -> void:
 	if waits_for >= 0:
 		if player.semaphores[waits_for] != 0:
+			if MissionStats.on:
+				MissionStats.blocked(self)
 			return
 		player.semaphores[waits_for] = 1
+		if MissionStats.on:
+			MissionStats.acquired(self, waits_for)
 		waits_for = -1
 	if child:
 		child.tick(paused)
 		if child.finished:
+			if MissionStats.on:
+				MissionStats.finished(child)
 			child = null
 		return
 	if sleep_ms > 0:
 		sleep_ms -= KiPlayer.STEP_MS
+		if MissionStats.on:
+			MissionStats.asleep(self)
 		return
 	if paused:
+		if MissionStats.on:
+			MissionStats.paused(self)
 		return
 	if pc >= module.code.size():
 		finished = true
@@ -63,6 +73,8 @@ func tick(paused: bool) -> void:
 func step() -> void:
 	var word := module.code[pc]
 	pc += 1
+	if MissionStats.on:
+		MissionStats.stepped(self)
 	var operand := word & 0x0FFFFFFF
 	match (word >> 28) & 0xF:
 		0:
@@ -81,6 +93,8 @@ func step() -> void:
 			var code := KiModule.load(operand)
 			if code:
 				child = KiTask.new(player, code, stack, store)
+			elif MissionStats.on:
+				MissionStats.gosub_missing(operand)
 		6:
 			player.start(operand, stack.slice(maxi(0, stack.size() - SPAWN_ARGUMENTS)))
 		7:

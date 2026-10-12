@@ -107,10 +107,13 @@ func sim_tick(_delta: float) -> void:
 	if _end_at >= 0 and Sim.msec() >= _end_at:
 		_end_at = -1
 		ended.emit(outcome > 0)
+	var clock := Time.get_ticks_usec() if MissionStats.on else 0
 	_budget += 1000  # a game step in 1/30 ms (Sim.RATE steps a second)
 	while _budget >= STEP_MS * Sim.RATE:
 		_budget -= STEP_MS * Sim.RATE
 		_step()
+	if MissionStats.on:
+		MissionStats.cost(1, clock)
 	_join_wait -= 1
 	if _join_wait <= 0:
 		_join_wait = JOIN_CHECK_STEPS
@@ -142,6 +145,8 @@ func _step() -> void:
 
 func _check(index: int) -> void:
 	var trigger: MissionData.Trigger = data.triggers[index]
+	if MissionStats.on:
+		MissionStats.checked(index)
 	var any := false  # an OR condition switches from all to any
 	var result := (index & 0xFF) != 0  # no conditions at all: what the original's register held
 	for condition in trigger.conditions:
@@ -173,6 +178,8 @@ func _fire(index: int, forced: bool) -> void:
 	if fired_log.size() > FIRED_LOG_SIZE:
 		fired_log.pop_front()
 	fired.emit(index)
+	if MissionStats.on:
+		MissionStats.fired(index)
 	if _trace:
 		print("MISSION t=%.1f trigger %d %s: %s" % [Sim.time(), index, trigger.name,
 				", ".join(trigger.actions.map(func(a: PackedInt32Array) -> String: return str(Array(a))))])
@@ -295,10 +302,18 @@ static func count(player: int, what: int, rect := Rect2(), outside := false, any
 				total += 1
 	if what < 100 or not (_is_unit(what) or what in ANIMALS):  # buildings and fields
 		for object in MapObject.structures:
-			if object.owner_index == player and (object.is_building() or object.is_field()) and object.is_alive() and object.complete \
+			if object.owner_index == player and (object.is_building() or _sown(object)) and object.is_alive() and object.complete \
 					and matches(object.guid, what) and (not within or rect.has_point(object.position)):
 				total += 1
 	return total
+
+
+## A field counts while it is sown: a fallow one (harvested, or hailed on by a medicine
+## man) is not a "field" to the scripts. The second tutorial says how to rework a fallow
+## field when the player has fewer than two fields, and base/ind_06 is won by hailing on
+## all the settlers' fields.
+static func _sown(object: MapObject) -> bool:
+	return object.is_field() and object.stock != null and object.stock.field_state != ObjectStock.Field.FALLOW
 
 
 ## Whether `unit` counts as `what` (animals by their kind).
@@ -366,6 +381,8 @@ func _action(a: PackedInt32Array) -> bool:
 	var p2 := _param(a, 2)
 	var p3 := _param(a, 3)
 	var p4 := _param(a, 4)
+	if MissionStats.on:
+		MissionStats.action(a)
 	match a[0]:
 		1:
 			main.start_ai_module(p1, p2)

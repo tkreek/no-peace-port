@@ -540,7 +540,7 @@ func take_damage(amount: float, attacker: Node2D = null, horse_too := false) -> 
 		if not horse_too and riding.shot_from_saddle():
 			return
 		die()
-	elif state == State.IDLE and attacker and attacker.is_alive() and _may_engage(attacker) and not work.stealing():
+	elif state == State.IDLE and attacker and attacker.is_alive() and _may_engage(attacker):
 		attack(attacker)  # fight back
 
 
@@ -596,7 +596,7 @@ func sim_tick(delta: float) -> void:
 				_scan_timer = SCAN_INTERVAL
 				if magic.is_healer():
 					magic.look_for_wounded()
-				elif not work.stealing():
+				else:
 					var enemy := nearest_enemy(_engage_radius())
 					if enemy:
 						attack(enemy)
@@ -773,6 +773,7 @@ func _strike() -> void:
 		Projectile.launch(self, target, damage, hit)  # damage lands with it
 	elif hit:
 		deal_damage(target, damage)
+	work.after_blow(target)  # a thief's blow may take a wagon
 
 
 ## Closest point of a target: a unit's feet, or the nearest point of a building's walls.

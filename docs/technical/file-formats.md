@@ -239,6 +239,33 @@ everyone. The expansion editor's `Defaults.dat` lacks those five.
   either runs out, so one worker takes `t` x 1.02 s and n workers take 1/n of that.
   `t` = property 6.
 
+## Stealing in the executable
+
+Same file. There is no steal order, timer or range: a thief steals a wagon by fighting it.
+
+- The thief flag (unit+0x6b1, cleared by the fighter constructor 0x4358f6, set by 0x4376d0):
+  born with it are the barber 353/354 (0x4125f0) and the gunslinger 360/361 and old bandit
+  282/283 (0x414320); the fighter upgrade refresh (vtable +0xc, 0x437400..0x4376c3) gives it
+  for upgrade 942 (gauchos 263/264 in Defaults.bin's upgrade lists) and 992 (cowboys
+  463/464), and asks for 923 too, which no IDS.INI has: the Native American arrow
+  shooters the manual names can never steal. Outlaws (352) rob but do not steal.
+- The check (0x437025, end of the attack 0x436cc0, after each blow or shot): attacker has
+  the flag, target has class bit 0x40000 (the wagons: travois 155, transport wagon 255,
+  flat-bed wagon 355, covered wagon 455, stagecoach 456; not boats, the coaches that carry
+  people, or cannons) and 0x4646a0 holds: life energy (+4) below 90% of the maximum (+0x470)
+  times the armour percentage (+0x390, 100 unless upgraded). The hand-to-hand / direct path
+  the thieves all use deals the damage first, so the blow that takes the wagon below 90%
+  steals it; a projectile path would check as it fires. Any damage counts (other units',
+  earlier fights), several thieves share the work, nothing resets. A wagon at full energy
+  goes in a couple of blows (base covered wagon 120: 109, then 98 = stolen).
+- No relation, escort or player-kind check: computer players' thieves steal the same way,
+  and only what a thief may attack (enemies) gets stolen.
+- Taking it (0x42cd70): off the old owner's object list onto the new one's, set owner
+  (vtable +0x20, 0x418a50: sight, sound 899's 101 for the local player, stop 0x4186a0,
+  undock 0x4649e0, upgrades re-applied for the new owner). The load (+0x168) stays aboard.
+- The robbing order 0x20000017 (virtual +0x94, 0x41b620; 0x41b710 within 128 px) is for
+  buildings only. 0x42c580 (96 px) is the neutral-joining rule (missions.md), not stealing.
+
 ## Sound in the executable
 
 From `AmericaAddOn.exe` (addresses are that file's). It loads the expansion's

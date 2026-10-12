@@ -42,6 +42,7 @@ static var _fired := PackedInt32Array()
 static var _first := PackedFloat32Array()
 static var _actions := {}  # opcode -> count
 static var _endings: Array = []  # {t, op, player}
+static var _script_modules: Array = []  # [player, module] the script started (its action 1)
 static var _natives := {}  # id -> calls
 static var _failures := {}  # id -> {reason -> {module -> count}}
 static var _unimplemented := {}  # id -> {module -> count}
@@ -71,6 +72,7 @@ static func begin(mission: Mission, file: String) -> void:
 	for d in [_actions, _natives, _failures, _unimplemented, _modules, _waits, _locks, _cost]:
 		d.clear()
 	_endings.clear()
+	_script_modules.clear()
 	_start_state = _peoples()
 
 
@@ -88,6 +90,8 @@ static func fired(index: int) -> void:
 
 static func action(a: PackedInt32Array) -> void:
 	_actions[a[0]] = _actions.get(a[0], 0) + 1
+	if a[0] == 1 and a.size() > 2:
+		_script_modules.append([a[1], a[2]])
 	if a[0] == 4 or a[0] == 13:
 		_endings.append({"t": Sim.time(), "op": a[0], "player": a[1] if a.size() > 1 else 0})
 
@@ -105,13 +109,14 @@ static func cost(which: int, since: int) -> void:
 static func _module(number: int) -> Array:
 	if not _modules.has(number):
 		# started, not found, slots full, instructions, ticks blocked, ticks asleep,
-		# ticks paused by another's atomic section, finished, gosubs to a missing module
-		_modules[number] = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+		# ticks paused by another's atomic section, finished, gosubs to a missing module,
+		# started for a player who is not in the mission
+		_modules[number] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 	return _modules[number]
 
 
 static func started(number: int, why_not: String) -> void:
-	_module(number)[{"": 0, "missing": 1, "full": 2}[why_not]] += 1
+	_module(number)[{"": 0, "missing": 1, "full": 2, "no player": 9}[why_not]] += 1
 
 
 static func stepped(task: KiTask) -> void:
@@ -282,7 +287,8 @@ static func write(main: Main) -> void:
 	for number in _modules:
 		var m: Array = _modules[number]
 		modules[str(number)] = {"started": m[0], "missing": m[1], "full": m[2], "instructions": m[3],
-				"blocked": m[4], "asleep": m[5], "paused": m[6], "finished": m[7], "gosub_missing": m[8]}
+				"blocked": m[4], "asleep": m[5], "paused": m[6], "finished": m[7], "gosub_missing": m[8],
+				"no_player": m[9]}
 	var failures := {}
 	for id in _failures:
 		var reasons := {}
@@ -311,7 +317,7 @@ static func write(main: Main) -> void:
 			return {"index": p.index, "faction": p.faction, "control": p.control}),
 		"triggers": triggers,
 		"actions": _keys_to_str(_actions),
-		"started_modules": mission.started_modules.map(func(m: PackedInt32Array) -> Array: return Array(m)),
+		"started_modules": _script_modules,
 		"modules": modules,
 		"running": running,
 		"semaphores": semaphores,

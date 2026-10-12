@@ -37,8 +37,10 @@ from kinatives import NATIVES  # noqa: E402
 
 TIME_SCALE = 4
 # Errors that are known and fixed elsewhere: counted apart so they do not hide the rest.
-KNOWN_ERRORS = {"garrison freed unit": r"previously freed.*|BuildingDefence\._update_garrison"}
+KNOWN_ERRORS = {"garrison freed unit": r"building_defence\.gd:9\d|BuildingDefence\._update_garrison"}
 STUBS = {229, 230, 231, 232, 345, 347, 357, 399, 400, 401}
+# Modules the maps start that the original does not ship either (tools/campaign/check_missions.py).
+MISSING_IN_ORIGINAL = {217999, 176520, 128513, 414477, 663271}
 SEARCHES = {107, 108, 109, 120, 121, 122, 139, 140, 141, 200, 201, 202, 203, 204, 205, 228, 368, 370,
             371, 372, 383, 384, 385, 386, 387, 389, 392, 393, 394, 395, 398}
 
@@ -213,7 +215,15 @@ def summarise(code, d, log_info):
     start_failed = sum(m["missing"] + m["full"] for m in mods.values())
     stuck = sum(1 for r in d["running"] if _waiting(r))
     fails = sum(n for nid, reasons in d["failures"].items() if int(nid) not in STUBS
-                for reason, modules in reasons.items() if reason != "found nothing" for n in modules.values())
+                for reason, modules in reasons.items()
+                if not reason.startswith(("found nothing", "object:", "no:")) for n in modules.values())
+    computers = [str(p["index"]) for p in d["players"] if p["control"] == 2]
+    grown = [0, 0]
+    for index in computers:
+        start, end = d["start"].get(index), d["end"].get(index)
+        if start and end:
+            grown[0] += sum(end["buildings"].values()) - sum(start["buildings"].values())
+            grown[1] += sum(end["units"].values()) - sum(start["units"].values())
     unimpl = sorted(int(n) for n in d["unimplemented"])
     cost = d["cost"]
     ki = [c[1] for c in cost]
@@ -226,7 +236,7 @@ def summarise(code, d, log_info):
         end += " (script over)" if end != "—" else "script over"
     return {"code": code, "title": d["title"], "fired": fired, "triggers": len(triggers), "end": end,
             "started": started, "spawned": spawned, "start_failed": start_failed, "running": len(d["running"]),
-            "stuck": stuck, "fails": fails, "unimpl": unimpl, "ki_avg": sum(ki) / max(1, len(ki)),
+            "stuck": stuck, "fails": fails, "grown": grown, "unimpl": unimpl, "ki_avg": sum(ki) / max(1, len(ki)),
             "ki_max": max(ki or [0]), "trig_avg": sum(c[2] for c in cost) / max(1, len(cost)),
             "game_time": d["game_time"], **log_info}
 
@@ -240,20 +250,28 @@ def _waiting(r):
 
 
 def log_info(path):
-    info = {"errors": 0, "known_errors": 0, "first_error": ""}
+    """Script and engine errors in a run's log, by kind (message and the first game frame)."""
+    info = {"errors": 0, "known_errors": 0, "kinds": collections.Counter()}
     if not os.path.exists(path):
         return info
     with open(path, errors="replace") as f:
         lines = f.read().splitlines()
     for i, line in enumerate(lines):
-        if line.startswith("SCRIPT ERROR") or line.startswith("ERROR:") and "leaked" not in line and "still in use" not in line:
-            context = line + " " + (lines[i + 1] if i + 1 < len(lines) else "")
-            if any(re.search(p, context) for p in KNOWN_ERRORS.values()):
-                info["known_errors"] += 1
-            else:
-                info["errors"] += 1
-                if not info["first_error"]:
-                    info["first_error"] = context.strip()[:200]
+        if not (line.startswith("SCRIPT ERROR") or line.startswith("ERROR:")) or "leaked" in line \
+                or "still in use" in line or line.startswith("ERROR: Condition"):
+            continue
+        frame = ""
+        for after in lines[i + 1:i + 8]:
+            m = re.search(r"(?:at: |\] )(\w+ \(res://[^)]*\)|[\w.]+ \(res://[^)]*\))", after)
+            if m:
+                frame = m.group(1)
+                break
+        context = line + " " + frame
+        if any(re.search(p, context) for p in KNOWN_ERRORS.values()):
+            info["known_errors"] += 1
+        else:
+            info["errors"] += 1
+            info["kinds"][(re.sub(r"\d+", "N", line.split(": ", 1)[-1])[:140], frame)] += 1
     return info
 
 
@@ -291,16 +309,18 @@ def report(stats, logs, out, notes):
     w("")
     w("Triggers: fired at least once / total. Modules: started by the script / instances started in all "
       "(spawns included) / failed to start / still running at the end / waiting on a semaphore at the end. "
-      "Failures: native calls that came to nothing (searches that found nothing and stubs left out). "
+      "Failures: orders that came to nothing (see below; searches, questions and refusals left out). "
+      "AI: buildings / units the computer players gained (losses included). "
       "KI ms: wall-clock ms of KI per game minute, mean and worst minute. Errors: script errors in the log "
       "(known errors fixed elsewhere apart).")
     w("")
-    w("| Mission | Title | Played | Triggers | Ended | Modules | Failures | Unimplemented | KI ms/min | Trigger ms/min | Errors |")
-    w("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+    w("| Mission | Title | Played | Triggers | Ended | Modules | Failures | AI | Unimplemented | KI ms/min | Trigger ms/min | Errors |")
+    w("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for code, r in rows.items():
-        w("| %s | %s | %.0f min | %d/%d | %s | %d / %d / %d / %d / %d | %d | %s | %.0f / %.0f | %.1f | %d%s |" % (
+        w("| %s | %s | %.0f min | %d/%d | %s | %d / %d / %d / %d / %d | %d | %+d / %+d | %s | %.0f / %.0f | %.1f | %d%s |" % (
             code, r["title"], r["game_time"] / 60, r["fired"], r["triggers"], r["end"], r["started"], r["spawned"],
-            r["start_failed"], r["running"], r["stuck"], r["fails"], ", ".join(map(str, r["unimpl"])) or "—",
+            r["start_failed"], r["running"], r["stuck"], r["fails"], r["grown"][0], r["grown"][1],
+            ", ".join(map(str, r["unimpl"])) or "—",
             r["ki_avg"], r["ki_max"], r["trig_avg"], r.get("errors", 0),
             " (+%d known)" % r["known_errors"] if r.get("known_errors") else ""))
     w("")
@@ -316,17 +336,35 @@ def report(stats, logs, out, notes):
       "that made most of them. `null handle`: the script passed 0 (usually an earlier search found nothing); "
       "`stale handle`: the object exists but under another owner; `dead handle`: it is gone.")
     w("")
-    w("| Native | Reason | Calls | Missions | Top modules |")
-    w("| --- | --- | --- | --- | --- |")
     ranked = sorted(by_mission, key=lambda k: -sum(by_mission[k].values()))
-    for key in ranked:
-        nid, reason = key
-        if nid in STUBS or reason == "found nothing":
-            continue
-        top = ", ".join("%s (%d)" % (module_label(n), c) for n, c in by_module[key].most_common(3))
-        w("| %d %s | %s | %d | %d | %s |" % (nid, native_name(nid), reason, sum(by_mission[key].values()),
-                                            len(by_mission[key]), top))
-    w("")
+    groups = [
+        ("Orders and building", "Orders whose unit, target or building is missing, build_near without a site, "
+         "production refused.", lambda nid, reason: not reason.startswith(("object:", "no:"))),
+        ("Can I have it (136, 137, 290, 291 answering no)", "Prerequisites missing or not affordable, per GUID.",
+         lambda nid, reason: reason.startswith("no:")),
+        ("Questions about a missing object", "Mostly harmless: the VM has no short-circuit, so "
+         "`exists(h) && health(h) > 0` still asks `health(0)` when an earlier search found nothing.",
+         lambda nid, reason: reason.startswith("object:")),
+    ]
+    for title, note, accept in groups:
+        w("### " + title)
+        w("")
+        w(note)
+        w("")
+        w("| Native | Reason | Calls | Missions | Top modules |")
+        w("| --- | --- | --- | --- | --- |")
+        shown = 0
+        for key in ranked:
+            nid, reason = key
+            if nid in STUBS or reason == "found nothing" or not accept(nid, reason):
+                continue
+            shown += 1
+            if shown > 40:
+                break
+            top = ", ".join("%s (%d)" % (module_label(n), c) for n, c in by_module[key].most_common(3))
+            w("| %d %s | %s | %d | %d | %s |" % (nid, native_name(nid), reason, sum(by_mission[key].values()),
+                                                len(by_mission[key]), top))
+        w("")
     w("### Searches that found nothing")
     w("")
     w("| Native | Calls returning 0 | of all calls | Missions | Top modules |")
@@ -380,19 +418,23 @@ def report(stats, logs, out, notes):
     any_failed = False
     for code, d in stats.items():
         for number, m in d["modules"].items():
-            if m["missing"] or m["full"] or m["gosub_missing"]:
+            if m["missing"] or m["full"] or m["gosub_missing"] or m.get("no_player"):
                 any_failed = True
-                w("* %s: %s — missing file %d, all 200 slots taken %d, gosub to a missing module %d" % (
-                    code, module_label(number), m["missing"], m["full"], m["gosub_missing"]))
+                expected = " (missing in the original too)" if int(number) in MISSING_IN_ORIGINAL else ""
+                w("* %s: %s%s — missing file %d, all 200 slots taken %d, for a player not in the mission %d, "
+                  "gosub to a missing module %d" % (code, module_label(number), expected, m["missing"], m["full"],
+                                                    m.get("no_player", 0), m["gosub_missing"]))
     if not any_failed:
         w("None.")
     w("")
     w("### Waiting on a semaphore at the end")
     w("")
-    w("A module blocked on `lock(k)` whose semaphore nobody frees; the taker is the module that took it last.")
+    w("A module blocked on `lock(k)` whose semaphore nobody frees; the taker is the module that took it last. "
+      "Semaphores merely held at the end are not listed: the scripts also use them as \"a watcher for this "
+      "building type runs\" flags that stay taken for good (`lock(haus - gebäudediff)` in *_getprioritäteinheit).")
     w("")
-    w("| Mission | Player | Module (where) | Semaphore | Waiting since | Taken by (since) | Taker still running |")
-    w("| --- | --- | --- | --- | --- | --- | --- |")
+    w("| Mission | Player | Modules | Module (where) | Semaphore | Waiting since | Taken by (since) | Taker still running |")
+    w("| --- | --- | --- | --- | --- | --- | --- | --- |")
     for code, d in stats.items():
         taken = {(s["player"], s["sem"]): s for s in d["semaphores"]}
         alive = collections.Counter()
@@ -401,15 +443,18 @@ def report(stats, logs, out, notes):
             while x:
                 alive[x["module"]] += 1
                 x = x.get("child")
+        groups = {}
         for r in d["running"]:
             x = _waiting(r)
-            if not x:
-                continue
-            s = taken.get((r["player"], x["waits"]), {"module": 0, "since": -1})
-            w("| %s | %d | %s | %d | %.0fs | %s (%.0fs) | %s |" % (
-                code, r["player"], "%s @ %s" % (module_label(x["module"]), where(x["module"], x["pc"])), x["waits"],
-                x.get("waiting_since", -1), module_label(s["module"]) if s["module"] else "?", s["since"],
-                "yes" if alive[s["module"]] else "no"))
+            if x:
+                key = (r["player"], x["module"], x["pc"], x["waits"])
+                first = groups.get(key, [0, 1e9])
+                groups[key] = [first[0] + 1, min(first[1], x.get("waiting_since", -1))]
+        for (player, number, pc, sem), (n, since) in sorted(groups.items()):
+            t = taken.get((player, sem), {"module": 0, "since": -1})
+            w("| %s | %d | %d | %s @ %s | %d | %.0fs | %s (%.0fs) | %s |" % (
+                code, player, n, module_label(number), where(number, pc), sem, since,
+                module_label(t["module"]) if t["module"] else "?", t["since"], "yes" if alive[t["module"]] else "no"))
     w("")
     w("### Busiest modules")
     w("")
@@ -437,6 +482,25 @@ def report(stats, logs, out, notes):
     w("| --- | --- | --- | --- | --- |")
     for code, r in sorted(rows.items(), key=lambda kv: -kv[1]["ki_avg"]):
         w("| %s | %.0f | %.0f | %.1f | %d |" % (code, r["ki_avg"], r["ki_max"], r["trig_avg"], r["running"]))
+    w("")
+
+    # ---------------------------------------------------------- errors
+    w("## Errors in the logs")
+    w("")
+    known = sum(r.get("known_errors", 0) for r in rows.values())
+    w("Known and fixed elsewhere (the garrison keeping freed units, commit 49c55e9 on `campaign`): %d lines. "
+      "Others, by kind:" % known)
+    w("")
+    kinds = collections.Counter()
+    where_seen = collections.defaultdict(set)
+    for code in stats:
+        for key, n in logs.get(code, {}).get("kinds", {}).items():
+            kinds[key] += n
+            where_seen[key].add(code)
+    if not kinds:
+        w("None.")
+    for (message, frame), n in kinds.most_common(15):
+        w("* %d x `%s` at `%s` (%s)" % (n, message, frame or "?", ", ".join(sorted(where_seen[(message, frame)]))))
     w("")
 
     # ---------------------------------------------------------- peoples

@@ -36,6 +36,8 @@ func _exit_tree() -> void:
 func start(people: int, module: int) -> void:
 	var ki: KiPlayer = players.get(people)
 	var task := ki.start(module) if ki else null
+	if ki == null and MissionStats.on:
+		MissionStats.started(module, "no player")
 	if trace_level >= 1:
 		print("KI t=%.1f player %d module %08d %s" % [Sim.time(), people, module, "started" if task else "NOT started"])
 

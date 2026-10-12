@@ -180,8 +180,9 @@ func nearest_passable(cell: Vector2i, max_radius := 24, layer := Layer.GROUND) -
 		return cell
 	for r in range(1, max_radius):
 		for dy in range(-r, r + 1):
-			for dx in range(-r, r + 1):
-				if maxi(absi(dx), absi(dy)) == r and is_walkable(cell + Vector2i(dx, dy), layer):
+			# The ring alone, in the same order: its top and bottom rows whole, the two ends between.
+			for dx in range(-r, r + 1, 1 if absi(dy) == r else 2 * r):
+				if is_walkable(cell + Vector2i(dx, dy), layer):
 					return cell + Vector2i(dx, dy)
 	return Vector2i(-1, -1)
 

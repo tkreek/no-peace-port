@@ -584,13 +584,16 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id :
 		if MissionStats.on:
 			MissionStats.no_spot(id, task, owner, type, guid)
 		return false
+	var cells := {}  # the footprint test's answer per cell: the spots overlap
+	var wall := WallLine.is_wall(GameData.guid_for_type(type.id))  # as can_place_for has it
 	for ring in range(0, BUILD_SEARCH / 16 + 1):
 		for dy in range(-ring, ring + 1):
 			for dx in range(-ring, ring + 1):
 				if absi(dx) != ring and absi(dy) != ring:
 					continue
 				var spot := at + Vector2(dx, dy) * 16.0
-				if _level(nav, spot) == level and BuildController.can_place_for(type, spot, owner):
+				if _level(nav, spot) == level and _footprint_fits(nav, type, spot, wall, cells) \
+						and BuildController.can_place_for(type, spot, owner):
 					var site := Orders.build_controller.place_site(owner, type.id, spot, false, null, [worker]) \
 							if Orders.build_controller else null
 					if site == null:
@@ -602,6 +605,25 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id :
 	if MissionStats.on:
 		MissionStats.no_spot(id, task, owner, type, guid)
 	return false
+
+
+## The footprint part of BuildController.can_place_for (false where it fails), each cell's
+## answer kept in `cells`.
+static func _footprint_fits(nav: NavGrid, type: ObjectTypes.ObjectType, at: Vector2, wall: bool, cells: Dictionary) -> bool:
+	var origin := nav.cell_of(MapObject.footprint_rect_for(type, at).position)
+	for i in type.footprint_cells.size():
+		var own := type.footprint_cells[i]
+		if (own & NavGrid.BLOCKED) == 0:
+			continue
+		var cell := origin + Vector2i(i % type.footprint_grid.x, i / type.footprint_grid.x)
+		var key := Vector3i(cell.x, cell.y, int(own & NavGrid.SOLID != 0))
+		var fits = cells.get(key)
+		if fits == null:
+			fits = nav.can_build_on(cell, own, wall)
+			cells[key] = fits
+		if not fits:
+			return false
+	return true
 
 
 ## The height level (ground, plateau ...) at `at` (cell flag bits 12-13).

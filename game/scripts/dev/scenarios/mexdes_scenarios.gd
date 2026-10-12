@@ -135,6 +135,20 @@ func _scenario_force_trigger() -> void:
 		var cell := nav.cell_of(u.position)
 		print("spawned %s P%d at %s: land %s water %s" % [u.display_name(), u.team, u.position,
 				nav.is_walkable(cell), nav.is_walkable(cell, NavGrid.Layer.WATER)])
+	var watch := GameData.cmdline_option("watch", "").to_int()
+	if watch > 0:
+		for t in GameData.cmdline_option("after", "30").to_int():
+			for i in 30 / 4 + 1:
+				await get_tree().physics_frame
+		var kinds := {}
+		for u: Unit in Unit.all_units.filter(func(u: Unit) -> bool: return u.is_alive() and u.team == watch):
+			kinds[u.display_name()] = kinds.get(u.display_name(), 0) + 1
+		print("P%d at %.0f s: %s; fired %s" % [watch, Sim.time(), kinds, mission.fired_log.map(func(e: PackedInt32Array) -> int: return e[1])])
+		var ki: KiPlayer = main.ki.players.get(watch)
+		if ki:
+			print("P%d KI: %s; table 1: %s" % [watch, ki.slots.filter(func(t: KiTask) -> bool: return t != null).map(func(t: KiTask) -> String:
+					return "%s@%d%s" % [t.module.source, t.pc, (" > %s@%d" % [t.child.module.source, t.child.pc]) if t.child else ""]),
+					Array(ki.tables[1].slice(0, 8)).map(func(h: int) -> String: return "%x %s" % [h, KiWorld.resolve(h).display_name() if KiWorld.resolve(h) else "-"])])
 	get_tree().quit()
 
 

@@ -76,7 +76,7 @@ func _read_players(bytes: PackedByteArray) -> void:
 		var at := slot * PLAYER_RECORD
 		var people := bytes.decode_s32(at + 0x10C)
 		var index := bytes.decode_s32(at)
-		if people < 0 or index < 1 or index > 8:
+		if people < 0 or index < 1 or index > 8 or bytes.decode_s32(at + 0x110) == Seat.NONE:
 			continue
 		var p := PlayerSlot.new()
 		p.slot = slot
@@ -91,6 +91,10 @@ func _read_players(bytes: PackedByteArray) -> void:
 		p.resources = {"guns": bytes.decode_s32(at + 0x118), "wood": bytes.decode_s32(at + 0x11C),
 				"gold": bytes.decode_s32(at + 0x120), "food": bytes.decode_s32(at + 0x124)}
 		p.level_resources = bytes.decode_s32(at + 0x128) != 0
+		# The loader (0x442890) copies each record in use to its player number's place, so
+		# when two records name the same player the later one counts (base/des_03: slot 0,
+		# an American with nothing, and slot 7, the outlaws with 2000 wood).
+		players = players.filter(func(q: PlayerSlot) -> bool: return q.index != index)
 		players.append(p)
 
 

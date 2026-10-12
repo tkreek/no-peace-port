@@ -24,6 +24,22 @@ func _scenario_fair_info() -> void:
 	get_tree().quit()
 
 
+## Any mission: each people's values for the units they field (--guids=a,b,...), to compare
+## a campaign map's per-player tables.
+func _scenario_fair_stats() -> void:
+	await get_tree().physics_frame
+	var guids := Array(GameData.cmdline_option("guids", "").split(",")).map(func(g: String) -> int: return g.to_int())
+	for index in main.players:
+		for guid in guids:
+			var st := MapRules.stats(index, guid)
+			var t := UnitType.for_guid(guid)
+			var ut := MapRules.unit_type(t, index) if t else null
+			print("P%d %d %s: hp %s dmg %s cost %s; type hp %s dmg %s range %s reload %s speed %s" % [index, guid, st.get("name"),
+					st.get("health"), st.get("damage"), st.get("cost"), ut.health if ut else "-", ut.damage if ut else "-",
+					ut.attack_range if ut else "-", ut.reload_ms if ut else "-", ut.speed if ut else "-"])
+	get_tree().quit()
+
+
 ## Any mission: a picture of the map for planning (--out=<png>, 1 px per 32 map px):
 ## ground grey, water blue, cliffs dark, trees green, mines yellow, each player's buildings
 ## (squares) and units (dots) in its colour, the script's areas outlined. Reads everything
@@ -101,6 +117,10 @@ func _scenario_fair_layout() -> void:
 				print("by land from %s to P%d's main: %s" % [start, index, "%.0f px" % length if not path.is_empty() and path[-1].distance_to(object.position) < 200 else "NO (ends %s)" % (path[-1] if not path.is_empty() else "-")])
 	print("mines: %s" % [MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.stock.resource == "gold").map(
 			func(o: MapObject) -> String: return "(%d,%d) %d" % [o.position.x, o.position.y, o.stock.amount])])
+	for who in GameData.cmdline_option("list", "").split(",", false):
+		for object in MapObject.structures:
+			if object.is_building() and object.owner_index == who.to_int() and not WallLine.is_wall(object.guid):
+				print("P%s %d %s at (%d,%d)" % [who, object.guid, object.display_name(), object.position.x, object.position.y])
 	image.save_png(GameData.cmdline_option("out", "user://layout.png"))
 	get_tree().quit()
 
@@ -131,6 +151,8 @@ class FairBot:
 	var protect: Array = []  ## unit GUIDs that stay home (heroes who must live)
 	var research := true
 	var build_enabled := true
+	var only_when_poor: Array = []  ## in the mix, but trained only while gold is short
+	var extra_production: Array = []  ## built again (up to 4 each) while food and gold pile up
 	var train_enabled := true
 	var defend_radius := 900.0
 	var mode := "home"  ## home, gathering, attacking
@@ -139,6 +161,7 @@ class FairBot:
 	var events: Array[String] = []
 	var trained := 0
 	var lost := 0
+	var kills := 0  ## hostile units dead (counted for the report, not used to play)
 	var _mix_i := 0
 	var _gather_started := 0.0
 	var _trees: Array = []
@@ -151,6 +174,7 @@ class FairBot:
 	var _failed := {}  # structure guid -> time a spot was not found
 	var _wave_ordered := {}  # unit instance id -> time of its last order in a wave
 	var scout: Unit = null  ## out exploring (not in the army while it is)
+	var reserved: Array = []  ## units the mission's plan runs itself (robbers...)
 	var _scout_route: Array = []
 
 	func _init(main_node: Main) -> void:
@@ -204,7 +228,7 @@ class FairBot:
 		return not u.inside
 
 	func soldiers() -> Array:
-		return units().filter(func(u: Unit) -> bool: return is_soldier(u) and u != scout)
+		return units().filter(func(u: Unit) -> bool: return is_soldier(u) and u != scout and u not in reserved)
 
 	## Send `who` round `points` (explored as it goes), then back into the army.
 	func send_scout(who: Unit, points: Array) -> void:
@@ -249,7 +273,8 @@ class FairBot:
 
 	func known_enemy_buildings() -> Array:
 		return MapObject.structures.filter(func(o: MapObject) -> bool:
-			return o.is_building() and o.is_alive() and hostile(o.owner_index) and main.fog.is_explored_at(o.position))
+			return o.is_building() and o.is_alive() and hostile(o.owner_index) and not o.is_trap() \
+					and main.fog.is_explored_at(o.position))
 
 	static func centre(list: Array) -> Vector2:
 		var c := Vector2.ZERO
@@ -288,16 +313,38 @@ class FairBot:
 		var kinds := {}
 		for u: Unit in units():
 			kinds[u.display_name()] = kinds.get(u.display_name(), 0) + 1
-		return "t=%d %s pop %d/%d mode %s wave %d/%d; %s; buildings %d; enemies in sight %d; trained %d lost %d" % [
-				int(now()), player.resources, player.population(), player.population_cap(), mode,
+		var jobs := {}
+		for u: Unit in units():
+			if is_worker(u):
+				var job: String = u.work.gather_source.stock.resource if is_instance_valid(u.work.gather_source) else Unit.State.keys()[u.state].to_lower()
+				jobs[job] = jobs.get(job, 0) + 1
+		return "t=%d %s pop %d/%d workers %s mode %s wave %d/%d; %s; buildings %d; enemies in sight %d; trained %d lost %d enemy dead %d" % [
+				int(now()), player.resources, player.population(), player.population_cap(), jobs, mode,
 				wave.filter(func(u) -> bool: return is_instance_valid(u) and u.is_alive()).size(), wave_size,
-				kinds, buildings().size(), visible_enemies().size(), trained, lost]
+				kinds, buildings().size(), visible_enemies().size(), trained, lost, kills]
+
+	var _recent_losses := {}  # kind -> count, since the last loss note
+	var _loss_note_at := 0.0
 
 	func _count_losses() -> void:
 		for u: Unit in Unit.all_units:
+			# (for the report only: enemies that died, wherever)
+			if hostile(u.team) and not u.is_alive() and not is_animal(u) and not _known_dead.has(u.get_instance_id()):
+				_known_dead[u.get_instance_id()] = true
+				kills += 1
 			if u.team == me and not u.is_alive() and not _known_dead.has(u.get_instance_id()):
 				_known_dead[u.get_instance_id()] = true
 				lost += 1
+				var key := "%s near (%d,%d)" % [u.display_name(), int(u.position.x / 500) * 500, int(u.position.y / 500) * 500]
+				_recent_losses[key] = _recent_losses.get(key, 0) + 1
+		if not _recent_losses.is_empty() and now() - _loss_note_at >= 30.0:
+			_loss_note_at = now()
+			var seen := {}
+			for e: Unit in visible_enemies():
+				var k := "P%d %s" % [e.team, e.display_name()]
+				seen[k] = seen.get(k, 0) + 1
+			note("losses %s; enemies in sight %s" % [_recent_losses, seen])
+			_recent_losses.clear()
 
 	# -------------------------------------------------------------- economy
 
@@ -346,7 +393,8 @@ class FairBot:
 				if UnitWork.field_worker(field) == null:
 					Orders.unit(f, "gather", [field])
 					break
-		if fields.size() < farmers.size() and MapObject.field_allowance(me) > 0 and player.can_afford({"wood": 150 + _wood_kept()}):
+		var starving := int(player.resources.get("food", 0)) < 300
+		if fields.size() < farmers.size() and MapObject.field_allowance(me) > 0 and player.can_afford({"wood": 150 + (0 if starving else _wood_kept())}):
 			var store: MapObject = null
 			for b: MapObject in buildings(true):
 				if b.guid in MapObject.FOOD_STORES:
@@ -365,6 +413,8 @@ class FairBot:
 			if still.guid == BuildingProduction.DISTILLERY_GUID and still.production.queue.size() < 2 and food < food_low \
 					and int(player.resources.get("wood", 0)) >= 75 + _wood_kept():
 				Orders.building(still, "enqueue", [BuildingProduction.LIQUOR_GUID])
+		_haul()
+		_trade()
 		# Workers and women from the main building.
 		var hq := main_building()
 		if hq and hq.production.queue.size() < 2 and player.has_room():
@@ -402,6 +452,83 @@ class FairBot:
 			return
 		var who: Unit = nearest(idle, centre(lone))
 		Orders.unit(who, "move_to", [nearest(lone, who.position).position])
+
+	## Gold mined into a warehouse waits there for a wagon to take it to the main building:
+	## idle wagons haul from the fullest, and one is made (a horse first) when there is none.
+	func _haul() -> void:
+		var stores := buildings(true).filter(func(o: MapObject) -> bool: return o.is_gold_warehouse())
+		if stores.is_empty():
+			return
+		var wagons := units().filter(func(u: Unit) -> bool: return u.unit_type.is_transport() and not u.water.is_boat())
+		stores.sort_custom(func(a: MapObject, b: MapObject) -> bool: return a.stock.stored_gold > b.stock.stored_gold)
+		for w: Unit in wagons:
+			if w.state == Unit.State.IDLE:
+				Orders.unit(w, "haul", [stores[0]])
+		var waiting := 0
+		for st: MapObject in stores:
+			waiting += st.stock.stored_gold
+		if wagons.size() >= stores.size() or waiting < 40 or _queued(wagon_guid()) > 0:
+			return
+		var maker: MapObject = null
+		for b: MapObject in buildings(true):
+			if wagon_guid() in b.production.trainable_units():
+				maker = b
+		if maker == null:
+			return
+		if int(player.resources.get("horses", 0)) < 1:
+			for b: MapObject in buildings(true):
+				if b.guid in BuildingProduction.HORSE_BUILDINGS and b.production.queue.is_empty() \
+						and b.production.can_enqueue(BuildingProduction.HORSE_GUID):
+					Orders.building(b, "enqueue", [BuildingProduction.HORSE_GUID])
+					note("raises a horse for a wagon")
+					return
+			return
+		if maker.production.can_enqueue(wagon_guid()):
+			Orders.building(maker, "enqueue", [wagon_guid()])
+			note("makes a wagon for the gold")
+
+	## The trading building evens out the stock: spare wood or food for gold when gold runs
+	## short, wood or food bought when gold piles up, guns for the riflemen.
+	func _trade() -> void:
+		var post: MapObject = null
+		for b: MapObject in buildings(true):
+			if b.guid in BuildingProduction.TRADE_BUILDINGS and b.production.queue.size() < 2:
+				post = b
+		if post == null:
+			return
+		var r := player.resources
+		var gold := int(r.get("gold", 0))
+		var trade := -1
+		if army_mix.any(func(g: int) -> bool: return int(MapRules.stats(me, g).get("cost", {}).get("guns", 0)) > 0) \
+				and int(r.get("guns", 0)) < 4 and gold > 600:
+			trade = 4
+		elif gold < 600 and int(r.get("wood", 0)) > 1200:
+			trade = 3
+		elif gold < 600 and int(r.get("food", 0)) > 1500:
+			trade = 1
+		elif int(r.get("food", 0)) < 300 and gold > 1500:
+			trade = 0
+		elif int(r.get("wood", 0)) < 300 and gold > 1500:
+			trade = 2
+		if trade >= 0 and post.production.can_enqueue(BuildingProduction.TRADE_GUID + trade):
+			Orders.building(post, "enqueue", [BuildingProduction.TRADE_GUID + trade])
+
+	func wagon_guid() -> int:
+		return {"des": 355, "usa": 455, "mex": 255, "ind": 155}.get(player.faction, -1)
+
+	## What the gold haul still needs built: the wagon's workshop and a horse building.
+	func _haul_needs() -> int:
+		if not buildings(true).any(func(o: MapObject) -> bool: return o.is_gold_warehouse()):
+			return -1
+		if units().any(func(u: Unit) -> bool: return u.unit_type.guid() == wagon_guid()):
+			return -1
+		var workshop: int = {"des": 309, "usa": 409, "mex": 209, "ind": 109}.get(player.faction, -1)
+		if count_buildings(workshop) == 0:
+			return workshop
+		var horses: int = {"des": 305, "usa": 405, "mex": 205, "ind": 105}.get(player.faction, -1)
+		if int(player.resources.get("horses", 0)) < 1 and count_buildings(horses) == 0:
+			return horses
+		return -1
 
 	func _queued(guid: int) -> int:
 		var n := 0
@@ -472,15 +599,29 @@ class FairBot:
 			if GameData.cmdline_option("debug-drop") != "":
 				print("drop %s: near %s far %s failed %s" % [res, near.position if near else Vector2.INF,
 						_drop_offs(res).map(func(d: MapObject) -> float: return d.position.distance_to(near.position)) if near else [], _failed.get(drop)])
-			if near and _drop_offs(res).all(func(d: MapObject) -> bool: return d.position.distance_to(near.position) > 500.0) \
+			if near and _drop_offs(res).all(func(d: MapObject) -> bool: return d.position.distance_to(near.position) > 600.0) \
+					and count_buildings(drop) < 2 \
 					and (res == "gold" or _sources("wood", home).size() < 15) and now() - float(_failed.get(drop, -1000.0)) > 60.0:
 				if _place(drop, near.position, _builders(workers, 2), 140):
 					return
+		# The gold haul's workshop and horses.
+		var need := _haul_needs()
+		if need >= 0 and sites == 0 and player.meets_prerequisites(need) and MapRules.allows(me, need):
+			if _affordable(need):
+				_place(need, home, _builders(workers, 2))
+			return
 		# Outlaws turn spare wood into food: another distillery while wood piles up.
 		if player.faction == "des" and int(player.resources.get("wood", 0)) > 1200 and int(player.resources.get("food", 0)) < food_low \
 				and count_buildings(BuildingProduction.DISTILLERY_GUID) < 5 and sites == 0 and player.meets_prerequisites(BuildingProduction.DISTILLERY_GUID):
 			if _place(BuildingProduction.DISTILLERY_GUID, home, _builders(workers, 2)):
 				return
+		# More production while the stock piles up.
+		if sites == 0 and int(player.resources.get("food", 0)) > 1000 and int(player.resources.get("gold", 0)) > 800:
+			for guid in extra_production:
+				if count_buildings(guid) < 4 and player.meets_prerequisites(guid) and _affordable(guid) \
+						and now() - float(_failed.get(guid, -1000.0)) > 60.0:
+					if _place(guid, home, _builders(workers, 3)):
+						return
 		# The plan, in order.
 		var have := {}
 		for b: MapObject in buildings():
@@ -553,6 +694,8 @@ class FairBot:
 			for i in army_mix.size():
 				var guid: int = army_mix[(_mix_i + i) % army_mix.size()]
 				if guid not in offered or not MapRules.allows(me, guid):
+					continue
+				if guid in only_when_poor and int(player.resources.get("gold", 0)) >= 150:
 					continue
 				var cost: Dictionary = MapRules.stats(me, guid).get("cost", {}).duplicate()
 				cost.erase("population")
@@ -655,7 +798,8 @@ class FairBot:
 				Orders.unit(u, "attack_move", [centre(wave)])
 			wave_size = maxi(wave_size, wave.size())
 		var c := centre(wave)
-		var buildings_near := known_enemy_buildings().filter(func(o: MapObject) -> bool: return o.position.distance_to(c) < 900.0)
+		var buildings_near := known_enemy_buildings().filter(func(o: MapObject) -> bool:
+			return o.position.distance_to(c) < 900.0 and not WallLine.is_wall(o.guid))
 		for u: Unit in wave:
 			if u.state == Unit.State.ATTACKING:
 				continue
@@ -733,7 +877,9 @@ func _begin(mix: Array, plan: Array) -> FairBot:
 	bot.plan = plan
 	mission.message.connect(func(text: String, _seconds: float, _speech: String) -> void:
 		print("FAIR t=%d MESSAGE %s" % [int(Sim.time()), text.replace("\n", " ").left(140)]))
-	mission.fired.connect(func(index: int) -> void: fired[index] = Sim.time())
+	mission.fired.connect(func(index: int) -> void:
+		fired[index] = Sim.time()
+		print("FAIR t=%d (script: trigger %d fired)" % [int(Sim.time()), index]))
 	mission.goal_changed.connect(func(text: String) -> void:
 		print("FAIR t=%d GOAL %s" % [int(Sim.time()), text.replace("\n", " ").left(200)]))
 	print("FAIR start %s difficulty %d seed %s; we have %s" % [Match.campaign.get("id", GameData.cmdline_option("mission")),
@@ -799,11 +945,12 @@ func _neutral_buildings_seen() -> Array:
 ## whip crackers and barbers), then the western band town, the northern one, and the green
 ## band leader's camp across the river.
 func _scenario_fair_des03() -> void:
-	_begin([462, 462, 363], [300, 308, 303, 308, 306, 309, 301, 308, 301, 301, 301])
+	_begin([462, 363], [300, 308, 303, 308, 306, 309, 301, 303, 308, 301, 303, 301, 301])
+	bot.extra_production = [303]
 	bot.worker_target = 14
 	bot.farmer_target = 5
 	bot.protect = [350, 351]  # the band leader leads from behind
-	bot.attack_size = GameData.cmdline_option("wave", "25").to_int()
+	bot.attack_size = GameData.cmdline_option("wave", "35").to_int()
 	_set_phase("ride north")
 	var start := bot.units()
 	Orders.units(start, "move_to", [_area_centre(2)])
@@ -854,9 +1001,9 @@ func _des03_step() -> void:
 
 ## Conquest: the wave goes at the nearest enemy settlement we know of (its main or
 ## military buildings first); with none known, riders scout the unexplored map.
-func _conquer_step(scouts: Array) -> void:
+func _conquer_step(scouts: Array, owners := []) -> void:
 	if bot.mode == "home" or bot.target_clear():
-		var known := bot.known_enemy_buildings()
+		var known := bot.known_enemy_buildings().filter(func(o: MapObject) -> bool: return owners.is_empty() or o.owner_index in owners)
 		if known.is_empty():
 			if bot.scout == null:
 				var free := bot.units().filter(func(u: Unit) -> bool: return u.unit_type.guid() in scouts and u.state == Unit.State.IDLE)
@@ -912,8 +1059,9 @@ func _unexplored_points(from: Vector2, n: int) -> Array:
 ## training camps and a weapons factory; infantry, cavalry and cannons in waves at the
 ## nearest settlement known, scouts (the mounted cowboys) finding the next.
 func _scenario_fair_usa06() -> void:
-	_begin([458, 458, 460, 465, 458, 462], [408, 409, 401, 407, 406, 401, 417, 403, 411, 401, 403, 401, 413, 401, 401])
-	bot.worker_target = 14
+	_begin([462, 458, 458, 460, 465, 458], [408, 407, 401, 409, 401, 417, 403, 411, 401, 403, 401, 401, 401])
+	bot.extra_production = [403]
+	bot.worker_target = 12
 	bot.farmer_target = 6
 	bot.protect = [450, 451]
 	bot.attack_size = GameData.cmdline_option("wave", "20").to_int()
@@ -923,3 +1071,119 @@ func _scenario_fair_usa06() -> void:
 	if not cowboys.is_empty():
 		bot.send_scout(cowboys[0], bot.ring(bot.home, 1500.0, 8) + [bot.home])
 	await _play(func() -> void: _conquer_step([464, 463]), 9000.0)
+
+
+# ------------------------------------------------------------------ base/des_06
+
+var _robbers: Array = []
+var _bank_spots: Array = []
+var _rob_pause_until := 0.0
+
+
+## --mission=base/des_06 "Sheriff's deadline": the three US settlements on our side of the
+## river (red, green, turquoise; the opening shows them and their banks) must go, and our
+## base must stand; the army across the river is left alone. Gunslingers, blasters, whip
+## crackers and riflemen; a few gunslingers rob the banks for gold.
+func _scenario_fair_des06() -> void:
+	_begin([360, 359, 363, 356, 360, 359, 353], [301, 308, 306, 302, 305, 310, 301, 307, 314, 301, 308, 301])
+	bot.extra_production = [307, 314]
+	bot.only_when_poor = [353]
+	bot.worker_target = 14
+	bot.protect = [350, 351]
+	bot.attack_size = GameData.cmdline_option("wave", "20").to_int()
+	bot.home = bot.main_building().position
+	_bank_spots = [_area_centre(3), _area_centre(5), _area_centre(7)]
+	_bank_spots.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.distance_to(bot.home) < b.distance_to(bot.home))
+	_set_phase("settlements")
+	await _play(_des06_step, 9000.0)
+
+
+func _des06_step() -> void:
+	# The towns the opening showed, nearest first, until they are gone.
+	if bot.mode == "home" or bot.target_clear():
+		var towns := [_area_centre(2), _area_centre(8), _area_centre(4)]
+		var known := bot.known_enemy_buildings().filter(func(o: MapObject) -> bool: return o.owner_index in [3, 4, 8])
+		var left := towns.filter(func(t: Vector2) -> bool:
+			return not main.fog.is_visible_at(t) or known.any(func(o: MapObject) -> bool: return o.position.distance_to(t) < 1200.0))
+		if not known.is_empty() and (left.is_empty() or bot.target_clear()):
+			var pick: MapObject = FairBot.nearest(known, bot.home)
+			if pick.position.distance_to(bot.target) > bot.target_radius:
+				bot.target = pick.position
+				bot.note("next target: %s of P%d at (%d,%d)" % [pick.display_name(), pick.owner_index, pick.position.x, pick.position.y])
+		elif not left.is_empty():
+			left.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.distance_to(bot.home) < b.distance_to(bot.home))
+			if bot.target == Vector2.INF or bot.target_clear():
+				bot.target = left[0]
+				bot.note("next town: (%d,%d)" % [bot.target.x, bot.target.y])
+	_rob_banks()
+
+
+## Three gunslingers (or outlaws) rob the nearest bank we know of while gold runs low.
+func _rob_banks() -> void:
+	var before := _robbers.size()
+	_robbers = _robbers.filter(func(u) -> bool: return is_instance_valid(u) and u.is_alive())
+	if before > 0 and _robbers.is_empty():
+		_rob_pause_until = Sim.time() + 600.0  # the robbers were caught: wait a while
+		bot.note("robbers lost; next try in 10 min")
+	if int(bot.player.resources.get("gold", 0)) > 600 or _bank_spots.is_empty() or Sim.time() < _rob_pause_until:
+		return
+	if _robbers.is_empty():
+		var picks := bot.soldiers().filter(func(u: Unit) -> bool: return u.work.can_rob() and u not in bot.wave)
+		if picks.size() < 4:
+			return  # a band of four, or nobody
+		_robbers = picks.slice(0, 4)
+		bot.reserved = _robbers
+		if _robbers.is_empty():
+			return
+		bot.note("robbers: %d %s" % [_robbers.size(), _robbers[0].display_name()])
+	var spot: Vector2 = _bank_spots[0]
+	var bank: MapObject = null
+	for o: MapObject in bot.known_enemy_buildings():
+		if o.guid in BuildingProduction.INCOME_BUILDINGS and o.position.distance_to(spot) < 500.0:
+			bank = o
+	for r: Unit in _robbers:
+		if r.state != Unit.State.IDLE:
+			continue
+		if bank:
+			Orders.unit(r, "rob", [bank])
+		elif main.fog.is_visible_at(spot):
+			_bank_spots.pop_front()  # gone (or never there)
+			return
+		else:
+			Orders.unit(r, "move_to", [spot + Vector2(0, 150)])
+
+
+## Skirmish map (--ai=off): --na=<n> of --a=<guid> (people 1) against --nb=<m> of --b=<guid>
+## (people 2), --dist=<px> apart, both attack-moving; the survivors and their energy.
+## A check that a fight between equals is even (both without leaders: the same morale).
+func _scenario_fair_duel() -> void:
+	await get_tree().physics_frame
+	var centre: Vector2 = main.camera.position
+	var dist := GameData.cmdline_option("dist", "500").to_float()
+	var a := GameData.cmdline_option("a", "462").to_int()
+	var b := GameData.cmdline_option("b", "360").to_int()
+	for u: Unit in Unit.all_units.duplicate():
+		if u.team > 0:
+			u.queue_free()
+	await get_tree().physics_frame
+	main._spawn_squad(a, 1, centre + Vector2(0, dist / 2), GameData.cmdline_option("na", "10").to_int())
+	main._spawn_squad(b, 2, centre - Vector2(0, dist / 2), GameData.cmdline_option("nb", "10").to_int())
+	await get_tree().physics_frame
+	for team in [1, 2]:
+		var side := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == team and u.is_alive())
+		var other_centre := centre - Vector2(0, dist / 2) if team == 1 else centre + Vector2(0, dist / 2)
+		Orders.local_player = team
+		Orders.units(side, "attack_move", [other_centre])
+	Orders.local_player = main.me
+	var start := Sim.time()
+	while Sim.time() - start < 180.0:
+		var alive := [1, 2].map(func(t: int) -> int: return Unit.all_units.filter(func(u: Unit) -> bool: return u.team == t and u.is_alive()).size())
+		if alive[0] == 0 or alive[1] == 0:
+			break
+		await get_tree().physics_frame
+	for team in [1, 2]:
+		var side := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == team and u.is_alive())
+		print("DUEL team %d (%d): %d left, energy %s" % [team, a if team == 1 else b, side.size(),
+				side.map(func(u: Unit) -> int: return int(u.health))])
+	print("DUEL took %.0f s" % (Sim.time() - start))
+	get_tree().quit()

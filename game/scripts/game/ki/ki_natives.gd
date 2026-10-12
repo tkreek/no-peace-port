@@ -573,14 +573,23 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id :
 			MissionStats.build_failed(id, task, guid, "no such building")
 		return false
 	var owner := worker.team
+	var nav := NavGrid.current
+	# The placement test wants the price at every spot: without it there is none (and the
+	# spiral of up to 3969 spots, each looking at every unit and building, is spared).
+	var people: Player = Player.by_index.get(owner)
+	if people == null or not people.can_afford(BuildController._cost_of(type)):
+		if MissionStats.on:
+			MissionStats.no_spot(id, task, owner, type, guid)
+		return false
 	for ring in range(0, BUILD_SEARCH / 16 + 1):
 		for dy in range(-ring, ring + 1):
 			for dx in range(-ring, ring + 1):
 				if absi(dx) != ring and absi(dy) != ring:
 					continue
 				var spot := at + Vector2(dx, dy) * 16.0
-				if BuildController.can_place_for(type, spot, owner) and AiBuilder.footprint_free(type, spot, NavGrid.current) \
-						and (guid != MapObject.FIELD_GUID or true):
+				# Ground first: cheap, and footprint_free wants it anyway.
+				if _walkable(type, spot, nav) and BuildController.can_place_for(type, spot, owner) \
+						and AiBuilder.footprint_free(type, spot, nav):
 					var site := Orders.build_controller.place_site(owner, type.id, spot, false, null, [worker]) \
 							if Orders.build_controller else null
 					if site == null:
@@ -592,6 +601,16 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id :
 	if MissionStats.on:
 		MissionStats.no_spot(id, task, owner, type, guid)
 	return false
+
+
+## Whether every cell of `type`'s footprint at `at` can be walked on (AiBuilder.footprint_free's
+## first test).
+static func _walkable(type: ObjectTypes.ObjectType, at: Vector2, nav: NavGrid) -> bool:
+	var origin := nav.cell_of(MapObject.footprint_rect_for(type, at).position)
+	for i in type.footprint_cells.size():
+		if not nav.is_walkable(origin + Vector2i(i % type.footprint_grid.x, i / type.footprint_grid.x)):
+			return false
+	return true
 
 
 static func _tree_near(at: Vector2) -> MapObject:

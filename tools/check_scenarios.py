@@ -39,6 +39,7 @@ CHECKS = {
     # The campaign driver (game/scripts/dev/mission_driver.gd) cheats a mission's script to its
     # win: Native 3 the long way (15 horses for the Sioux, the ambush, Fetterman's patrol),
     # American 1 with a headquarters where the player may build it.
+    "stealwagon": (["--mission=base/des_01", "--time-scale=4"], 0, [r"wagon P7 at"]),
     "drive_ind03": (["--mission=base/ind_03", "--time-scale=8"], 0, [r"fired 17 [\s\S]*fired 3 ", r"DRIVE base/ind_03 WON"]),
     "drive_usa01": (["--mission=base/usa_01", "--time-scale=8"], 0, [r"cheat for trigger 19 .*-> 1", r"DRIVE base/usa_01 WON"]),
     "abandoned": (["--map=[4 Players] - forts.ulf"], 0, [r"store left \d+; guns (\d+) -> (?!\1;)\d+; loads of at most 2"]),

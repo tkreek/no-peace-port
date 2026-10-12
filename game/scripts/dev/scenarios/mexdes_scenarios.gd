@@ -174,6 +174,30 @@ func _scenario_track() -> void:
 	get_tree().quit()
 
 
+## --mission=base/des_01: a barber (spawned beside it, a test shortcut) is ordered to steal
+## one of the eastern town's covered wagons (player 8), as a right click does; what happens.
+func _scenario_stealwagon() -> void:
+	await _until(func() -> bool: return Sim.time() >= 2.0, 30.0, "the start")
+	var wagons := Unit.all_units.filter(func(u: Unit) -> bool: return u.is_alive() and u.unit_type.guid() == 455)
+	for w: Unit in wagons:
+		print("wagon %d of P%d at %s state %d transport %s hostile %s inside %s" % [w.sim_id, w.team, w.position, w.state,
+				w.unit_type.is_transport(), Diplomacy.hostile(main.me, w.team), w.inside])
+	var wagon: Unit = wagons[0]
+	main.mission.spawn(main.me, 2, 353, wagon.position + Vector2(140, 0))
+	var barbers := _own(func(u: Unit) -> bool: return u.unit_type.guid() == 353)
+	print("barbers %d can steal %s" % [barbers.size(), barbers.map(func(u: Unit) -> bool: return u.work.can_steal())])
+	Orders.units(barbers, "steal", [wagon])
+	for i in 20:
+		await _until(func() -> bool: return Sim.time() >= 2.0 + 2.0 * (i + 1), 30.0, "time")
+		var b: Unit = barbers[0]
+		print("t=%.0f wagon P%d at %s state %d; barber at %s state %d dist %.0f alive %s steal_target %s" % [Sim.time(),
+				wagon.team, wagon.position, wagon.state, b.position, b.state, b.position.distance_to(wagon.position),
+				b.is_alive(), b.work._steal_target != null])
+		if wagon.team == main.me:
+			break
+	get_tree().quit()
+
+
 func _fired(mission: Mission, index: int) -> bool:
 	return mission.fired_log.any(func(e: PackedInt32Array) -> bool: return e[1] == index)
 

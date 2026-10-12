@@ -106,6 +106,41 @@ func _own_building(guid: int) -> MapObject:
 	return null
 
 
+## --mission=...: save a mission after a minute and load it; the AI modules carry on with
+## the same units (their handles still name them) and the script with its timers.
+func _scenario_mission_saveload() -> void:
+	if not main.loaded_game:
+		await _until(func() -> bool: return Sim.time() >= 60.0, 120.0, "a minute")
+		print("before: %s" % _ki_snapshot())
+		SaveGame.save(main)
+		Match.load_data = SaveGame.read()
+		get_tree().reload_current_scene()
+		return
+	await get_tree().physics_frame
+	print("after:  %s" % _ki_snapshot())
+	await _until(func() -> bool: return Sim.time() >= 120.0, 120.0, "another minute")
+	print("later:  %s" % _ki_snapshot())
+	get_tree().quit()
+
+
+## Modules running, handles the modules hold that still name something, the script's goal.
+func _ki_snapshot() -> String:
+	var modules := 0
+	var held := 0
+	var alive := 0
+	for index in main.ki.players:
+		var ki: KiPlayer = main.ki.players[index]
+		for task: KiTask in ki.slots:
+			if task == null:
+				continue
+			modules += 1
+			for value in task.store.values.values():
+				if value >= 1 << KiWorld.OWNER_SHIFT and value < 9 << KiWorld.OWNER_SHIFT:
+					held += 1
+					alive += int(KiWorld.resolve(value) != null)
+	return "modules %d, handles %d alive %d, goal %d, claims %d" % [modules, held, alive, main.mission.goal, KiWorld.claims.size()]
+
+
 func _own(filter: Callable) -> Array:
 	return Unit.all_units.filter(func(u: Unit) -> bool: return u.is_alive() and u.team == main.me and filter.call(u))
 

@@ -427,7 +427,7 @@ static func field_allowance(team: int) -> int:
 
 ## Saved games: a building's or field's state (`unit_ids` numbers the units, for the garrison).
 func save_state(unit_ids: Dictionary) -> Dictionary:
-	var entry := {"type": object_type.id, "x": position.x, "y": position.y, "owner": owner_index,
+	var entry := {"type": object_type.id, "sim": sim_id, "x": position.x, "y": position.y, "owner": owner_index,
 			"complete": complete, "progress": build_progress, "health": health,
 			"amount": stock.amount, "field_state": stock.field_state, "field_progress": stock.field_progress,
 			"stored_gold": stock.stored_gold, "loot_kind": stock.loot_kind, "loot": stock.loot}

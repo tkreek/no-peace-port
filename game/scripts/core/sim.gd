@@ -92,6 +92,25 @@ static func identify(node: Node) -> void:
 	_by_id[_next_id] = node
 
 
+## A loaded game: `node` takes back the number it had when the game was saved (so orders,
+## and the KI's handles, still name it).
+static func reidentify(node: Node, id: int) -> void:
+	if id <= 0 or node.sim_id == id:
+		return
+	_by_id.erase(node.sim_id)
+	node.sim_id = id
+	_by_id[id] = node
+
+
+## The next number identify hands out (kept in saved games).
+static func next_id() -> int:
+	return _next_id + 1
+
+
+static func set_next_id(id: int) -> void:
+	_next_id = maxi(_next_id, id - 1)
+
+
 static func forget(node: Node) -> void:
 	_by_id.erase(node.sim_id)
 

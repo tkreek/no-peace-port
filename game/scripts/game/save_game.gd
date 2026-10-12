@@ -20,7 +20,7 @@ static func save(main: Node, path := QUICK) -> bool:
 				"difficulty": Match.difficulty},
 		"players": [], "objects": [], "resources": [], "units": [],
 		"explored": Marshalls.raw_to_base64(main.fog.explored) if main.fog.enabled else "",
-		"diplomacy": Diplomacy.save_state(),
+		"diplomacy": Diplomacy.save_state(), "next_sim_id": Sim.next_id(),
 	}
 	if main.mission:
 		data["campaign"] = Match.campaign
@@ -50,7 +50,7 @@ static func save(main: Node, path := QUICK) -> bool:
 		if not unit.is_alive():
 			continue
 		var source := unit.work.gather_source
-		data.units.append({"id": unit_ids[unit], "dir": unit.unit_type.directory, "mounted": unit.unit_type.mounted,
+		data.units.append({"id": unit_ids[unit], "sim": unit.sim_id, "dir": unit.unit_type.directory, "mounted": unit.unit_type.mounted,
 				"type": unit.unit_type.type_id, "team": unit.team, "x": unit.position.x, "y": unit.position.y,
 				"health": unit.health, "stance": unit.stance, "formation": unit.formation, "carried": unit.work.carried,
 				"carrying": unit.work.carrying, "cattle": unit.animal.cattle_value, "magic": unit.magic.magic_energy,
@@ -125,8 +125,11 @@ static func restore(main: Node, data: Dictionary) -> void:
 			object.get_parent().remove_child(object)
 			object.queue_free()
 			continue
-		object.stock.restore_resource(int(entry.amount), int(entry.stock.tree_state), float(entry.stock.mine_work))
+		object.stock.restore_resource(int(entry.amount), int(entry.tree_state), float(entry.mine_work))
 		by_key[_key(object)] = object
+	# What was made during the game gets its own number back (Sim.reidentify); new numbers
+	# handed out meanwhile start above the saved ones so they never collide.
+	Sim.set_next_id(int(data.get("next_sim_id", 0)))
 	# Buildings and fields.
 	var garrisons := []
 	for entry in data.objects:
@@ -139,6 +142,7 @@ static func restore(main: Node, data: Dictionary) -> void:
 			object.free()
 			continue
 		main.units_root.add_child(object)
+		Sim.reidentify(object, int(entry.get("sim", 0)))
 		object.restore_state(entry)
 		if object.is_building() and not object.is_trap():
 			main.nav.block_footprint(type, object.position)
@@ -155,11 +159,12 @@ static func restore(main: Node, data: Dictionary) -> void:
 		unit.position = Vector2(entry.x, entry.y)
 		main.units_root.add_child(unit)
 		unit.setup(unit_type, int(entry.team))
+		Sim.reidentify(unit, int(entry.get("sim", 0)))
 		unit.health = float(entry.health)
 		unit.stance = int(entry.stance)
 		unit.formation = int(entry.formation)
-		unit.work.carried = int(entry.work.carried)
-		unit.work.carrying = entry.work.carrying
+		unit.work.carried = int(entry.carried)
+		unit.work.carrying = entry.carrying
 		unit.animal.cattle_value = float(entry.cattle)
 		unit.magic.magic_energy = float(entry.magic)
 		var packed: Dictionary = entry.get("packed_tepee", {})

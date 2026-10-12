@@ -276,9 +276,9 @@ func _process(delta: float) -> void:
 
 ## One step of the game (Sim): fields grow, buildings defend, burn and produce.
 func sim_tick(delta: float) -> void:
-	if is_field():
-		stock.grow(delta)
 	if not _is_building:
+		if is_field():
+			stock.grow(delta)
 		return
 	defence.update(delta)
 	if condition.burning > 0.0:
@@ -360,6 +360,9 @@ func wall_point(from: Vector2) -> Vector2:
 
 ## Whether `point` is within `reach` of the walls (workers at a site, units at quarters...).
 func near_walls(point: Vector2, reach: float) -> bool:
+	var rect := work_rect()  # the walls lie within it: well beyond it is beyond them (a pixel to spare for rounding)
+	if point.distance_to(point.clamp(rect.position, rect.end)) > reach + 1.0:
+		return false
 	return wall_point(point).distance_to(point) <= reach
 
 

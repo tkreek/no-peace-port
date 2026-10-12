@@ -20,7 +20,8 @@ static func _refresh() -> void:
 	_tick = Sim.tick
 	_cells.clear()
 	for unit in Unit.all_units:
-		var key := _key(floori(unit.position.x / CELL), floori(unit.position.y / CELL))
+		var at := unit.position
+		var key := (floori(at.x / CELL) + 4096) * 8192 + floori(at.y / CELL) + 4096  # _key, inline: once per unit and step
 		var bucket = _cells.get(key)
 		if bucket == null:
 			_cells[key] = [unit]

@@ -8,6 +8,7 @@ Usage: tools/campaign/runtime_report.py [options] [set/code ...]   (no codes: ev
   --out DIR       where the per-mission JSON and logs go (default /tmp/mission-stats)
   --report FILE   the markdown report (default DIR/runtime-report.md)
   --notes FILE    markdown put in the report after the summary (the analysis)
+  --before DIR    JSON of an earlier run: adds a before -> after comparison per mission
   --no-run        only build the report from the JSON already in DIR
 
 Each run is `godot --headless --fixed-fps 30 -- --mission=<set>/<code> --time-scale=4
@@ -295,7 +296,42 @@ def peoples_table(d):
     return rows
 
 
-def report(stats, logs, out, notes):
+def computer_totals(d):
+    """What the computer players have at the end: fields, food, buildings and units gained."""
+    out = {"fields": 0, "food": 0, "buildings": 0, "units": 0}
+    for p in d["players"]:
+        index = str(p["index"])
+        if p["control"] != 2 or index not in d["end"] or index not in d["start"]:
+            continue
+        end, start = d["end"][index], d["start"][index]
+        out["fields"] += end["buildings"].get("149", 0)
+        out["food"] += end["resources"].get("food", 0)
+        out["buildings"] += sum(end["buildings"].values()) - sum(start["buildings"].values())
+        out["units"] += sum(end["units"].values()) - sum(start["units"].values())
+    return out
+
+
+def comparison(before, stats, logs):
+    lines = ["## Before -> after", "",
+             "The same 20 idle minutes (seed 1) before and after the fixes on this branch. Computer players: "
+             "fields and food at the end, buildings (fields included) and units gained; KI wall-clock ms per game minute; "
+             "modules still running at the end; orders that came to nothing.", "",
+             "| Mission | Ended | Fields | Food | Buildings | Units | KI ms/min | Running | Failed orders |",
+             "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
+    for code, d in stats.items():
+        if code not in before:
+            continue
+        b, a = before[code], d
+        rb, ra = summarise(code, b, {}), summarise(code, a, logs.get(code, {}))
+        cb, ca = computer_totals(b), computer_totals(a)
+        lines.append("| %s | %s → %s | %d → %d | %d → %d | %+d → %+d | %+d → %+d | %.0f → %.0f | %d → %d | %d → %d |" % (
+            code, rb["end"], ra["end"], cb["fields"], ca["fields"], cb["food"], ca["food"], cb["buildings"],
+            ca["buildings"], cb["units"], ca["units"], rb["ki_avg"], ra["ki_avg"], rb["running"], ra["running"],
+            rb["fails"], ra["fails"]))
+    return "\n".join(lines) + "\n"
+
+
+def report(stats, logs, out, notes, before=None):
     lines = []
     w = lines.append
     rows = {code: summarise(code, d, logs.get(code, {})) for code, d in stats.items()}
@@ -327,6 +363,8 @@ def report(stats, logs, out, notes):
     if notes:
         w(notes.rstrip())
         w("")
+    if before:
+        w(comparison(before, stats, logs))
 
     # ---------------------------------------------------------- failures
     by_mission, by_module = failure_rows(stats)
@@ -560,6 +598,7 @@ def main():
     parser.add_argument("--out", default="/tmp/mission-stats")
     parser.add_argument("--report")
     parser.add_argument("--notes")
+    parser.add_argument("--before")
     parser.add_argument("--no-run", action="store_true")
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)
@@ -580,7 +619,13 @@ def main():
     notes = open(args.notes, encoding="utf-8").read() if args.notes else ""
     out = args.report or os.path.join(args.out, "runtime-report.md")
     with open(out, "w", encoding="utf-8") as f:
-        f.write(report(stats, logs, out, notes))
+        before = {}
+        if args.before:
+            for code in codes:
+                path = os.path.join(args.before, code.replace("/", "_") + ".json")
+                if os.path.exists(path):
+                    before[code] = load_json(path)
+        f.write(report(stats, logs, out, notes, before))
     print("report: %s" % out)
 
 

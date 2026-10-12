@@ -610,7 +610,7 @@ static func _level(nav: NavGrid, at: Vector2) -> int:
 
 
 static func _tree_near(at: Vector2) -> MapObject:
-	return KiWorld.nearest(KiWorld.trees(), at, func(_n: Node) -> bool: return true) as MapObject
+	return KiWorld.nearest_tree(at)
 
 
 static func _nearest_wall(player: int, at: Vector2, radius: int) -> int:

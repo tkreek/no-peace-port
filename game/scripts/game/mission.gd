@@ -292,20 +292,54 @@ func _resource(player: int, which: int) -> int:
 ## `outside`: units in buildings and boats do not count (the KI's 375); `any_owner`:
 ## animals count whoever owns them (the KI's area counts).
 static func count(player: int, what: int, rect := Rect2(), outside := false, any_owner := false) -> int:
+	_refresh_groups()
 	var within := rect.has_area()
 	var total := 0
 	if what < 100 or _is_unit(what) or EITHER.has(what) or what in ANIMALS:
 		var any := what == BUFFALO or (any_owner and what in ANIMALS)
-		for unit in Unit.all_units:
-			if unit.is_alive() and (unit.team == player or any) and unit_matches(unit, what) \
-					and (not within or rect.has_point(unit.position)) and not (outside and unit.inside):
-				total += 1
+		var groups: Dictionary = _all_unit_groups if any else _unit_groups.get(player, {})
+		for type in groups:
+			var units: Array = groups[type]
+			if not unit_matches(units[0], what):
+				continue
+			for unit: Unit in units:
+				if unit.is_alive() and (not within or rect.has_point(unit.position)) and not (outside and unit.inside):
+					total += 1
 	if what < 100 or not (_is_unit(what) or what in ANIMALS):  # buildings and fields
-		for object in MapObject.structures:
-			if object.owner_index == player and (object.is_building() or _sown(object)) and object.is_alive() and object.complete \
-					and matches(object.guid, what) and (not within or rect.has_point(object.position)):
-				total += 1
+		var groups: Dictionary = _structure_groups.get(player, {})
+		for guid in groups:
+			if not matches(guid, what):
+				continue
+			for object: MapObject in groups[guid]:
+				if (object.is_building() or _sown(object)) and object.is_alive() and object.complete \
+						and (not within or rect.has_point(object.position)):
+					total += 1
 	return total
+
+
+## count's lists, the dead in them too, rebuilt when Unit.roster_version or
+## MapObject.roster_version moves: units by people and type (what a unit counts as goes by
+## its type), all peoples' units by type, and structures by owner and GUID.
+static var _unit_groups := {}  # people -> {UnitType: Array of units}
+static var _all_unit_groups := {}  # UnitType -> Array of units
+static var _structure_groups := {}  # people -> {GUID: Array of map objects}
+static var _unit_roster := -1
+static var _object_roster := -1
+
+
+static func _refresh_groups() -> void:
+	if _unit_roster != Unit.roster_version:
+		_unit_roster = Unit.roster_version
+		_unit_groups.clear()
+		_all_unit_groups.clear()
+		for unit in Unit.all_units:
+			_unit_groups.get_or_add(unit.team, {}).get_or_add(unit.unit_type, []).append(unit)
+			_all_unit_groups.get_or_add(unit.unit_type, []).append(unit)
+	if _object_roster != MapObject.roster_version:
+		_object_roster = MapObject.roster_version
+		_structure_groups.clear()
+		for object in MapObject.structures:
+			_structure_groups.get_or_add(object.owner_index, {}).get_or_add(object.guid, []).append(object)
 
 
 ## A field counts while it is sown: a fallow one (harvested, or hailed on by a medicine

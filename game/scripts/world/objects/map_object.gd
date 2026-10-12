@@ -50,6 +50,9 @@ var sim_id := 0  ## names the object in orders (Sim.identify)
 ## thousands of trees, rocks and mines).
 static var structures: Array[MapObject] = []
 static var abandoned_stores: Array[MapObject] = []
+## Moves whenever all_objects or structures change or a building changes hands (for caches
+## of who has what).
+static var roster_version := 0
 
 var object_type: ObjectTypes.ObjectType
 var is_ghost := false  ## placement preview: not part of the world
@@ -151,6 +154,7 @@ func capture(new_owner: int) -> void:
 	production.cancel_all()
 	production.rally_point = Vector2.INF
 	owner_index = new_owner
+	roster_version += 1
 	accepts = drop_off_for(guid) if complete else PackedStringArray()
 	_team_row = mini(new_owner, _bob.teams - 1)
 	_body.set_instance_shader_parameter("palette_row", _palette_row(_body_anim))
@@ -169,6 +173,7 @@ func _enter_tree() -> void:
 			structures.append(self)
 		if is_abandoned_store():
 			abandoned_stores.append(self)
+		roster_version += 1
 
 
 func _exit_tree() -> void:
@@ -181,6 +186,7 @@ func forget() -> void:
 	all_objects.erase(self)
 	structures.erase(self)
 	abandoned_stores.erase(self)
+	roster_version += 1
 
 
 ## Godot turns on per-frame processing for every node with a _process when it enters the

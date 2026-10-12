@@ -31,6 +31,8 @@ const FOLLOW_DISTANCE := 48.0
 
 static var debug_paths := false
 static var all_units: Array[Unit] = []
+## Moves whenever all_units changes or a unit changes team (for caches of who has what).
+static var roster_version := 0
 var _sim_on := false
 var _sim_listed := false
 var sim_id := 0  ## names the unit in orders (Sim.identify)
@@ -96,6 +98,7 @@ func setup(type: UnitType, team_index: int) -> void:
 	ring_on_top = water.is_boat()
 	_parts = [riding, animal, magic, work, tepees, water, stealth, saboteur]
 	all_units.append(self)
+	roster_version += 1
 	Sim.identify(self)
 	Sim.activate(self)
 	play("idle")
@@ -103,6 +106,7 @@ func setup(type: UnitType, team_index: int) -> void:
 
 func _exit_tree() -> void:
 	all_units.erase(self)
+	roster_version += 1
 	Sim.forget(self)
 	UnitGrid.invalidate()  # never hand out a unit that is gone
 
@@ -314,6 +318,7 @@ func change_team(new_team: int) -> void:
 	if new_team == Orders.local_player and team != new_team:
 		Sound.play_gained()
 	team = new_team
+	roster_version += 1
 	set_palette_row(team)
 	flash(Color(1.0, 0.9, 0.4))
 

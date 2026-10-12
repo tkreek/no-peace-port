@@ -50,6 +50,7 @@ func update(_delta: float) -> bool:
 		# The mounted unit's "order" line is the rider's call as he swings up.
 		Sound.play_event(rider.unit_type.guid(), Sound.Event.ORDER, rider.position, 0)
 		Unit.all_units.erase(horse)
+		Unit.roster_version += 1
 		horse.queue_free()
 	return false
 
@@ -114,6 +115,7 @@ func become(guid: int) -> Unit:
 	other.stance = unit.stance
 	other.direction = unit.direction
 	Unit.all_units.erase(unit)
+	Unit.roster_version += 1
 	unit.state = Unit.State.DEAD  # gone: shots already in flight find nothing here
 	unit.visible = false
 	unit.queue_free()

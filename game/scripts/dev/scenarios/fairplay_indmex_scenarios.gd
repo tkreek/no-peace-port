@@ -36,6 +36,12 @@ func _scenario_indmex_info() -> void:
 				MapRules.allows(me, guid), MapRules.stats(me, guid).get("cost", {}), s.get("produced_at", "-"),
 				Array(GameData.prerequisites(guid)), MapRules.stats(me, guid).get("health", "-"),
 				MapRules.stats(me, guid).get("damage", "-"), MapRules.stats(me, guid).get("housing", "-")])
+	var field_type := ObjectTypes.get_type(GameData.type_for_guid(MapObject.FIELD_GUID, main.terrain.biome))
+	var stores := MapObject.structures.filter(func(o: MapObject) -> bool: return o.owner_index == me and o.guid in MapObject.FOOD_STORES)
+	var spot := AiBuilder.find_spot(field_type, stores[0].position, 110) if not stores.is_empty() and field_type else Vector2.INF
+	print("INFO fields allowed %s allowance %d cost %s; a spot by the first food store %s placeable %s explored %s" % [MapRules.allows(me, MapObject.FIELD_GUID),
+			MapObject.field_allowance(me), MapRules.stats(me, MapObject.FIELD_GUID).get("cost", {}), spot,
+			BuildController.can_place_for(field_type, spot, me) if spot != Vector2.INF else false, main.fog.is_explored_at(spot)])
 	var seen_types := {}
 	for u: Unit in Unit.all_units:
 		if u.team == me and not seen_types.has(u.unit_type.guid()):
@@ -253,6 +259,9 @@ func _plan_base_mex_05() -> void:
 	bot.mode = "home"
 
 
+var _ind08_south := [Vector2(1900, 7600), Vector2(1600, 8400), Vector2(900, 8900), Vector2(800, 9800), Vector2(2600, 8600)]
+
+
 ## Native 8, Little Big Horn: get ready (Reno attacks), then destroy the training camps and
 ## trappers' cabins in the south, stop Capt. Weirs before the river, destroy Custer's camp
 ## (everyone of his); Crazy Horse and Gall must live.
@@ -264,10 +273,12 @@ func _plan_base_ind_08() -> void:
 		bot.farmer_target = 8
 		bot.soldier_cap = 80
 		bot.build_plan = [[104, 1], [107, 1], [115, 1], [101, 1]]
-		bot.soldier_kinds = [158, 160, 162, 163, 156]
+		bot.soldier_kinds = [163, 158, 160, 162, 156]
 		bot.research = [900, 903, 917, 919, 901, 904]
 		bot.casters_wanted = 2
-		bot.defend_radius = 1500.0
+		bot.max_production = 4
+		bot.defend_outposts = false
+		bot.defend_radius = 1800.0
 		bot.scout_route = [Vector2(2000, 6500), Vector2(1600, 8000), Vector2(800, 9000), Vector2(1200, 10000)]
 		bot.rally = bot.home + Vector2(0, 300)
 	var goal := mission.goal
@@ -288,11 +299,17 @@ func _plan_base_ind_08() -> void:
 		bot.mode = "home"
 		return
 	var camps := bot.known_of([403, 406]).filter(func(o: Dictionary) -> bool: return o.pos.x < 3500)
-	if goal == 430 and (bot.army().size() >= 18 or (bot.mode == "attack" and bot.army().size() >= 8)):
+	var going := bot.mode != "home" and bot.army().size() >= 10
+	if goal == 430 and (bot.army().size() >= 25 or going):
 		if not camps.is_empty():
 			bot.mode = "attack"
 			bot.target = bot.nearest_known(camps, bot.army_centre())
 			return
+		# "In the south": the army walks there and looks.
+		bot.mode = "hunt"
+		bot.hunt_units = bot.visible_enemies()
+		bot.hunt_point = bot.next_look(_ind08_south)
+		return
 	bot.mode = "home"
 
 
@@ -318,6 +335,7 @@ class FairBot:
 	const WORKER := {"ind": 152, "mex": 252}
 	const FARMER := {"ind": 153, "mex": 253}
 	const GOLD_STORE := {"ind": 104, "mex": 206}
+	const PRODUCTION := {"ind": 103, "mex": 203}
 	const BREAKERS := [154, 158, 159, 265]
 	const LIGHTNING := 919
 
@@ -341,6 +359,8 @@ class FairBot:
 	var casters_wanted := 0
 	var gun_reserve := 0
 	var max_food_stores := 3
+	var max_production := 3  ## training tepees / barracks to have when rich
+	var defend_outposts := true  ## also answer enemies near buildings far from home
 	var home_guard := 0  ## soldiers that stay at the rally point when the army goes out
 	var defend_radius := 1200.0
 	var build_plan: Array = []  ## [guid, how many] in order
@@ -438,10 +458,20 @@ class FairBot:
 		return _visible.filter(func(u: Unit) -> bool:
 			if u.position.distance_to(home) < radius:
 				return true
+			if not defend_outposts:
+				return false
 			for b: MapObject in mine:
 				if b.position.distance_to(u.position) < radius * 0.6:
 					return true
 			return false)
+
+
+	## The first of `points` the army has not been near yet (looking for what the goal names).
+	func next_look(points: Array) -> Vector2:
+		var c := army_centre()
+		while not points.is_empty() and (c.distance_to(points[0]) < 300.0 or main.fog.is_visible_at(points[0])):
+			points.pop_front()
+		return points[0] if not points.is_empty() else home
 
 
 	func known_targets() -> Array:
@@ -558,7 +588,9 @@ class FairBot:
 
 
 	func _may_build(guid: int) -> bool:
-		return guid >= 0 and MapRules.allows(me, guid) and player.meets_prerequisites(guid) and player.can_afford(_cost(guid))
+		# Fields need only a food store (field_allowance), whatever people (as the build menu).
+		return guid >= 0 and MapRules.allows(me, guid) and (guid == MapObject.FIELD_GUID or player.meets_prerequisites(guid)) \
+				and player.can_afford(_cost(guid))
 
 
 	func count_buildings(guid: int, with_sites := true) -> int:
@@ -662,7 +694,9 @@ class FairBot:
 				and int(player.resources.get("food", 0)) < 600 and count_buildings(store) < max_food_stores \
 				and my_buildings().filter(func(b: MapObject) -> bool: return b.guid == store and not b.complete).is_empty():
 			place(store, home, 300, 2)
-		var idle := fs.filter(func(u: Unit) -> bool: return u.state == Unit.State.IDLE and u.work.build_site == null)
+		# Farmers who are not on a field (idle, or cutting wood) are the ones to work one.
+		var idle := fs.filter(func(u: Unit) -> bool: return u.work.build_site == null \
+				and (u.state == Unit.State.IDLE or (u.state == Unit.State.GATHERING and u.work.gather_resource != "food")))
 		for f: Unit in idle:
 			var free_field: MapObject = null
 			for field: MapObject in fields:
@@ -676,7 +710,7 @@ class FairBot:
 				var stores := my_buildings().filter(func(b: MapObject) -> bool: return b.guid == store and b.complete)
 				if not stores.is_empty() and place(MapObject.FIELD_GUID, stores[0].position, 110, 1):
 					return
-			elif f.unit_type.can_gather("wood"):
+			elif f.unit_type.can_gather("wood") and f.state == Unit.State.IDLE:
 				var tree := f.work.nearest_source("wood", 2500.0)
 				if tree:
 					Orders.unit(f, "gather", [tree])
@@ -739,6 +773,11 @@ class FairBot:
 					continue
 				place(guid, home, 250, 3)
 				return  # one thing at a time, in order
+		# Rich and short of soldiers: more places to train them.
+		var barracks: int = PRODUCTION.get(faction, -1)
+		if count_buildings(barracks) < max_production and army().size() < soldier_cap \
+				and int(player.resources.get("food", 0)) > 800 and int(player.resources.get("wood", 0)) > 600:
+			place(barracks, home, 300, 3)
 
 
 	func _train_army() -> void:
@@ -766,16 +805,22 @@ class FairBot:
 			if not b.complete or b.production.queue.size() >= 2:
 				continue
 			var can := b.production.trainable_units()
+			# A mixed army: of the kinds that can be had now, the one we have fewest of.
+			var best := -1
+			var best_have := 1 << 30
 			for guid: int in soldier_kinds:
-				if guid not in can or not MapRules.allows(me, guid):
+				if guid not in can or not MapRules.allows(me, guid) or not b.production.can_enqueue(guid):
 					continue
 				if guid in BREAKERS and breakers > a.size() / 3:
 					continue  # a third of building breakers is enough
-				if b.production.can_enqueue(guid):
-					Orders.building(b, "enqueue", [guid])
-					var name: String = GameData.stats(guid).get("name", str(guid))
-					trained[name] = trained.get(name, 0) + 1
-					break
+				var have := a.filter(func(u: Unit) -> bool: return u.unit_type.guid() == guid).size()
+				if have < best_have:
+					best = guid
+					best_have = have
+			if best >= 0:
+				Orders.building(b, "enqueue", [best])
+				var name: String = GameData.stats(best).get("name", str(best))
+				trained[name] = trained.get(name, 0) + 1
 
 
 	## Spare wood sold for gold, gold for food when the people go hungry.

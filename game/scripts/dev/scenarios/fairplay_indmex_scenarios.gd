@@ -6,7 +6,7 @@ extends Scenario
 ## mission's goal and message texts), and prints what happens, to judge whether the
 ## missions can be won and how hard they are at each difficulty.
 ##
-##   --scenario=fair_play  the bot plays the --mission given (a plan per mission below)
+##   --scenario=indmex_play  the bot plays the --mission given (a plan per mission below)
 ##   --limit=<s>           game seconds before giving up (default 5400)
 ##   --log-every=<s>       status lines (default 60)
 ## Lines: "FAIR t=..." status, "ATTACK ..." an enemy force in sight of our buildings,
@@ -16,7 +16,7 @@ extends Scenario
 
 ## Any mission: what the human has and may make, the full goal texts; then (for the tester,
 ## not the bot) every player's buildings and units by kind.
-func _scenario_fair_info() -> void:
+func _scenario_indmex_info() -> void:
 	await _wait(2.0)
 	var me := main.me
 	var player: Player = main.players[me]
@@ -49,6 +49,23 @@ func _scenario_fair_info() -> void:
 	get_tree().quit()
 
 
+## Any mission: screenshots of the map at --look=x,y;x,y;... (start with --fog=off, --zoom=...;
+## not headless), to see how a place is laid out.
+func _scenario_indmex_look() -> void:
+	await _wait(1.0)
+	_label = "%s/%s" % [Match.campaign.get("set", "?"), Match.campaign.get("code", "?")]
+	for pair in GameData.cmdline_option("paths", "").split(";", false):
+		var v := Array(pair.split(",")).map(func(t: String) -> float: return t.to_float())
+		var path := main.nav.find_path(Vector2(v[0], v[1]), Vector2(v[2], v[3]))
+		print("PATH %s -> %s: %d points, ends %s (%.0f px short)" % [Vector2i(v[0], v[1]), Vector2i(v[2], v[3]), path.size(),
+				Vector2i(path[path.size() - 1]) if path.size() > 0 else Vector2i.ZERO,
+				path[path.size() - 1].distance_to(Vector2(v[2], v[3])) if path.size() > 0 else -1.0])
+	for spot in GameData.cmdline_option("look", "").split(";", false):
+		var xy := spot.split(",")
+		await _shot(Vector2(xy[0].to_float(), xy[1].to_float()), "look_%s_%s" % [xy[0], xy[1]])
+	get_tree().quit()
+
+
 func _diag_player(p: int) -> void:
 	var kinds := {}
 	for o: MapObject in MapObject.structures:
@@ -72,7 +89,7 @@ var _episode: Dictionary = {}
 var _quiet_since := 0.0
 
 
-func _scenario_fair_play() -> void:
+func _scenario_indmex_play() -> void:
 	var mission := main.mission
 	if mission == null:
 		print("FAIR needs --mission")
@@ -89,6 +106,7 @@ func _scenario_fair_play() -> void:
 		plan = "_plan_generic"
 	print("FAIR %s difficulty %d (%s) plan %s" % [_label, Match.difficulty, Match.DIFFICULTY_NAMES[Match.difficulty], plan])
 	var limit := GameData.cmdline_option("limit", "5400").to_float()
+	var shots := Array(GameData.cmdline_option("shots", "").split(",", false)).map(func(t: String) -> float: return t.to_float())
 	var log_every := GameData.cmdline_option("log-every", "60").to_float()
 	var next_log := 0.0
 	var next_think := 1.0
@@ -107,6 +125,9 @@ func _scenario_fair_play() -> void:
 		if Sim.time() >= next_log:
 			next_log += log_every
 			print(bot.status())
+		if not shots.is_empty() and Sim.time() >= shots[0]:
+			shots.pop_front()
+			await _shot(bot.army_centre())
 	_close_episode()
 	var outcome := "WON" if mission.outcome > 0 else ("LOST" if mission.outcome < 0 else "TIMEOUT")
 	print("FAIR RESULT %s d%d %s at %.0f s (%.1f min); trained %s; lost %d units, %d buildings" % [_label, Match.difficulty, outcome,
@@ -124,6 +145,19 @@ func _scenario_fair_play() -> void:
 		for p in ki.players:
 			print("DIAG P%d KI modules: %s" % [p, ki.players[p].running()])
 	get_tree().quit()
+
+
+## A screenshot of the view at `at` (--shot-dir; not headless).
+func _shot(at: Vector2, name := "") -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	main.camera.position = at
+	for i in 3:
+		await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var file := "%s/%s_%s.png" % [GameData.cmdline_option("shot-dir", "/tmp"), _label.replace("/", "_"), name if name else str(int(Sim.time()))]
+	get_viewport().get_texture().get_image().save_png(file)
+	print("FAIR shot %s at %s" % [file, Vector2i(at)])
 
 
 ## An enemy force in sight within reach of our buildings: one episode while it lasts.
@@ -756,7 +790,8 @@ class FairBot:
 			return
 		var sell_wood := BuildingProduction.TRADE_GUID + 3
 		var buy_food := BuildingProduction.TRADE_GUID + 0
-		if int(player.resources.get("food", 0)) < buy_food_below and int(player.resources.get("gold", 0)) > 400 \
+		var gold := int(player.resources.get("gold", 0))
+		if int(player.resources.get("food", 0)) < (buy_food_below * 3 if gold > 1500 else buy_food_below) and gold > 400 \
 				and MapRules.allows(me, buy_food) and post.production.can_enqueue(buy_food):
 			Orders.building(post, "enqueue", [buy_food])
 		elif int(player.resources.get("wood", 0)) > trade_wood_above and MapRules.allows(me, sell_wood) and post.production.can_enqueue(sell_wood):
@@ -771,9 +806,12 @@ class FairBot:
 				if b.complete and b.production.queue.is_empty() and guid in b.production.researchable_upgrades() \
 						and b.production.can_enqueue(guid):
 					var cost := _cost(guid)
-					# Only from what is left over after the army's next few soldiers.
-					if int(player.resources.get("food", 0)) - int(cost.get("food", 0)) > 200 \
-							and int(player.resources.get("gold", 0)) - int(cost.get("gold", 0)) > 150:
+					# Only from what is left over after the army's next few soldiers (all of it
+					# when the people are at their limit).
+					var keep := 0 if not player.has_room() else 1
+					if int(player.resources.get("food", 0)) - int(cost.get("food", 0)) >= 200 * keep \
+							and int(player.resources.get("gold", 0)) - int(cost.get("gold", 0)) >= 150 * keep \
+							and int(player.resources.get("wood", 0)) >= int(cost.get("wood", 0)):
 						Orders.building(b, "enqueue", [guid])
 						return
 
@@ -868,29 +906,34 @@ class FairBot:
 		if _breach == null and d_now > 300.0 and Sim.time() - _stall_since > 25.0:
 			var best: MapObject = null
 			for k: Dictionary in _known.values():
-				if is_instance_valid(k.o) and k.o.is_alive() and k.o != target.o and k.pos.distance_to(centre) < 700.0 \
-						and k.pos.distance_to(goal) < d_now:
+				if is_instance_valid(k.o) and k.o.is_alive() and k.o != target.o and k.pos.distance_to(centre) < 700.0:
 					if best == null or k.pos.distance_to(centre) < best.position.distance_to(centre):
 						best = k.o
 			if best:
 				_breach = best
 				print("FAIR t=%.0f army stuck %.0f px from %s: breaking through %s at %s" % [Sim.time(), d_now, target.name, best.display_name(), Vector2i(best.position)])
+				for u: Unit in a.slice(0, 6):
+					print("  unit at %s %s target %s path %d" % [Vector2i(u.position), Unit.State.keys()[u.state],
+							u.target.display_name() if is_instance_valid(u.target) else "-", u.path.size()])
 		if _breach:
 			for u: Unit in a:
 				if u.state != Unit.State.ATTACKING or u.target == null:
 					_order(u, "order_attack", [_breach], _breach.sim_id)
 			return
+		# The target clicked (an attack order walks there and ignores palisades on the way);
+		# enemy soldiers that come close are fought first; stragglers catch up.
 		for u: Unit in a:
-			if u.state == Unit.State.ATTACKING:
+			var foe := nearest_unit(_visible, u.position)
+			if foe and foe.position.distance_to(u.position) < 350.0:
+				if not (u.state == Unit.State.ATTACKING and u.target is Unit):
+					_order(u, "attack_move", [foe.position], Vector2i(foe.position / 100.0))
 				continue
-			var d := u.position.distance_to(goal)
-			if d < 450.0 and target.o.is_alive():
-				if u.target != target.o:
-					_order(u, "order_attack", [target.o], target.o.sim_id)
-			elif u.position.distance_to(centre) > 700.0 and centre.distance_to(goal) < u.position.distance_to(goal):
-				_order(u, "attack_move", [centre], "catch up")
-			else:
-				_order(u, "attack_move", [goal], Vector2i(goal))
+			if u.state == Unit.State.ATTACKING and u.target is Unit:
+				continue
+			if u.position.distance_to(centre) > 700.0 and centre.distance_to(goal) < u.position.distance_to(goal) - 300.0:
+				_order(u, "move_to", [centre], "catch up")
+			elif u.target != target.o:
+				_order(u, "order_attack", [target.o], target.o.sim_id)
 
 
 	func _hunt_units(a: Array) -> void:
@@ -943,8 +986,15 @@ class FairBot:
 		var hs := heroes().map(func(h: Unit) -> String: return "%s %d%%" % [h.display_name(), roundi(100.0 * h.health / h.max_health)])
 		var aim := mode
 		if mode == "attack" and not target.is_empty():
-			aim += "->%s%s" % [target.get("name", ""), Vector2i(target.pos)]
-		return "FAIR t=%.0f mode %s goal %d res %s pop %d/%d workers %d farmers %d army %d %s heroes %s support %d known %d visible %d buildings %d lost %d/%d" % [
+			aim += "->%s%s hp %.0f" % [target.get("name", ""), Vector2i(target.pos), target.o.health if is_instance_valid(target.o) else -1.0]
+			var states := {}
+			for u: Unit in a:
+				var key := "%s:%s" % [Unit.State.keys()[u.state], u.target.display_name() if is_instance_valid(u.target) else "-"]
+				states[key] = states.get(key, 0) + 1
+			aim += " %s" % states
+		var fields := MapObject.structures.filter(func(o: MapObject) -> bool: return o.is_field() and o.owner_index == me and o.is_alive())
+		var worked := fields.filter(func(f: MapObject) -> bool: return UnitWork.field_worker(f) != null).size()
+		return "FAIR t=%.0f mode %s goal %d res %s pop %d/%d workers %d farmers %d fields %d/%d army %d %s heroes %s support %d known %d visible %d buildings %d lost %d/%d" % [
 				Sim.time(), aim, main.mission.goal, player.resources, player.population(), player.population_cap(), workers().size(),
-				farmers().size(), a.size(), kinds, hs, support().size(), _known.size(), _visible.size(), my_buildings().size(),
+				farmers().size(), worked, fields.size(), a.size(), kinds, hs, support().size(), _known.size(), _visible.size(), my_buildings().size(),
 				lost_units, lost_buildings]

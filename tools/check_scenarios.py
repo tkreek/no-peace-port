@@ -45,6 +45,8 @@ CHECKS = {
     "rob": (["--faction=des"], 1200, [r"robber can rob true, barber can steal true", r"our gold \+[1-9]"]),
     "horses": ([], 0, [r"mounted: true \(horse gone true\)", r"horses 1 / 5, cowboy on foot again true"]),
     "cattle": (["--faction=usa"], 0, [r"cow team 1", r"sold: cow gone true"]),
+    "horseroom": (["--faction=usa", "--time-scale=4"], 0, [r"horse room: offered true, queued 3, horses 5 / 5, next waits true, "
+                                                            r"offered when full false, queued when full false"]),
     "camouflage": (["--faction=ind"], 0, [r"after the trapper: energy"]),
     "pitfall": (["--faction=ind"], 0, [r"pit spent"]),
     "quarters": ([], 0, [r"capacity \d, quartered \d", r"hit beyond the open range: true", r"after release: quartered 0, outside (\d+) on \1 cells"]),

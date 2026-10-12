@@ -39,11 +39,14 @@ CHECKS = {
     # The campaign driver (game/scripts/dev/mission_driver.gd) cheats a mission's script to its
     # win: Native 3 the long way (15 horses for the Sioux, the ambush, Fetterman's patrol),
     # American 1 with a headquarters where the player may build it.
-    "stealwagon": (["--mission=base/des_01", "--time-scale=4"], 0, [r"wagon P7 at"]),
+    "stealwagon": (["--mission=base/des_01", "--time-scale=4"], 0, [r"barbers \d+ can steal \[true",
+                                                                   r"stolen after \d+ s with (8\d|9\d)% energy left, unordered"]),
     "drive_ind03": (["--mission=base/ind_03", "--time-scale=8"], 0, [r"fired 17 [\s\S]*fired 3 ", r"DRIVE base/ind_03 WON"]),
     "drive_usa01": (["--mission=base/usa_01", "--time-scale=8"], 0, [r"cheat for trigger 19 .*-> 1", r"DRIVE base/usa_01 WON"]),
     "abandoned": (["--map=[4 Players] - forts.ulf"], 0, [r"store left \d+; guns (\d+) -> (?!\1;)\d+; loads of at most 2"]),
-    "rob": (["--faction=des"], 1200, [r"robber can rob true, barber can steal true", r"our gold \+[1-9]"]),
+    "repairshot": (["--faction=usa", "--enemy=mex"], 0, [r"computer true, repairing 2, soldiers at workers [1-9]\d*, workers dead 2, back at the house [1-9]"]),
+    "rob": (["--faction=des"], 1200, [r"robber can rob true, barber can steal true", r"our gold \+[1-9]",
+                                      r"wagon team 1"]),
     "horses": ([], 0, [r"mounted: true \(horse gone true\)", r"horses 1 / 5, cowboy on foot again true"]),
     "cattle": (["--faction=usa"], 0, [r"cow team 1", r"sold: cow gone true"]),
     "horseroom": (["--faction=usa", "--time-scale=4"], 0, [r"horse room: offered true, queued 3, horses 5 / 5, next waits true, "

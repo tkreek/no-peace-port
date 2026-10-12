@@ -419,15 +419,15 @@ func _shore_near(point: Vector2) -> Vector2:
 	return nav.center_of(cell) if cell.x >= 0 else point
 
 
-## Robbers rob enemy banks, missions and gold warehouses in reach; thieves steal the enemy's
-## wagons when they see one.
+## Robbers rob enemy banks, missions and gold warehouses in reach; thieves go for the enemy's
+## wagons when they see one (attacking a wagon is how it is stolen).
 func _raid(soldiers: Array) -> void:
 	for unit: Unit in soldiers:
 		if unit.state != Unit.State.IDLE and unit.state != Unit.State.MOVING:
 			continue
 		if unit.work.can_steal():
 			for other in Unit.all_units:
-				if other.is_alive() and other.team > 0 and other.team != ai.player.index and other.unit_type.is_transport() \
+				if other.is_alive() and UnitWork.is_wagon(other) and Diplomacy.hostile(ai.player.index, other.team) \
 						and other.position.distance_to(unit.position) < unit.sight():
 					unit.steal(other)
 					break

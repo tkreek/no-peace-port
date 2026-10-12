@@ -12,6 +12,8 @@ signal ended(won: bool)
 ## A text (and maybe speech) for the local player: text, seconds on screen, speech asset.
 signal message(text: String, seconds: float, speech: String)
 signal goal_changed(text: String)
+## A trigger's conditions held and its actions are about to run (for tools that follow a script).
+signal fired(index: int)
 
 ## The original's script step.
 const STEP_MS := 20
@@ -170,6 +172,7 @@ func _fire(index: int, forced: bool) -> void:
 	fired_log.append(PackedInt32Array([Sim.msec(), index, int(forced)]))
 	if fired_log.size() > FIRED_LOG_SIZE:
 		fired_log.pop_front()
+	fired.emit(index)
 	if _trace:
 		print("MISSION t=%.1f trigger %d %s: %s" % [Sim.time(), index, trigger.name,
 				", ".join(trigger.actions.map(func(a: PackedInt32Array) -> String: return str(Array(a))))])
@@ -502,6 +505,8 @@ func spawn(player: int, amount: int, guid: int, at: Vector2) -> void:
 				unit.position = nav.center_of(cell)
 				main.units_root.add_child(unit)
 				unit.setup(unit_type, player)
+				if player > 0 and unit.animal.is_horse():
+					unit.animal.wild_timer = UnitAnimal.OWNED_HORSE_SECONDS  # a while its people's, like a rider's
 				placed += 1
 		ring += 1
 

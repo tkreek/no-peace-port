@@ -496,6 +496,8 @@ func spawn(player: int, amount: int, guid: int, at: Vector2) -> void:
 		push_warning("Mission: no unit for GUID %d" % guid)
 		return
 	var nav := main.nav
+	# Boats on the water (the Mexicans' last mission brings riverboats), the rest ashore.
+	var layer := NavGrid.Layer.WATER if guid in UnitWater.BOATS else NavGrid.Layer.GROUND
 	var centre := nav.cell_of(at)
 	var placed := 0
 	var ring := 0
@@ -505,7 +507,7 @@ func spawn(player: int, amount: int, guid: int, at: Vector2) -> void:
 				if placed >= amount or (absi(dx) != ring and absi(dy) != ring):
 					continue
 				var cell := centre + Vector2i(dx, dy)
-				if not nav.is_walkable(cell) or _occupied(cell):
+				if not nav.is_walkable(cell, layer) or _occupied(cell):
 					continue
 				var unit := Unit.new()
 				unit.position = nav.center_of(cell)

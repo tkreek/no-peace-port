@@ -122,6 +122,22 @@ func _scenario_des03_duel() -> void:
 	get_tree().quit()
 
 
+## Any mission: at --at=<s> game seconds (30) trigger --fire=<n> fires (Mission.force),
+## then what it spawned for the local player: kind, place, on land or on water.
+func _scenario_force_trigger() -> void:
+	var mission := main.mission
+	await _until(func() -> bool: return Sim.time() >= GameData.cmdline_option("at", "30").to_float(), 600.0, "the time")
+	var before := Unit.all_units.duplicate()
+	mission.force(GameData.cmdline_option("fire", "0").to_int())
+	await get_tree().physics_frame
+	var nav := main.nav
+	for u: Unit in Unit.all_units.filter(func(u: Unit) -> bool: return u not in before):
+		var cell := nav.cell_of(u.position)
+		print("spawned %s P%d at %s: land %s water %s" % [u.display_name(), u.team, u.position,
+				nav.is_walkable(cell), nav.is_walkable(cell, NavGrid.Layer.WATER)])
+	get_tree().quit()
+
+
 ## Any mission, idle: every --every=<s> game seconds (60) the units of the peoples in
 ## --track=<p,q,...> (their kind, place, state), until --until=<s> (1200).
 func _scenario_track() -> void:

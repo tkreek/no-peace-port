@@ -794,11 +794,13 @@ func nearest_target(radius: float) -> Node2D:
 	var best: MapObject = null
 	var best_distance := radius
 	for object in MapObject.structures:
-		if object.is_building() and Diplomacy.hostile(team, object.owner_index) and object.is_alive() \
+		if not object.is_building():
+			continue
+		var bounds := object.work_rect()
+		if position.distance_to(position.clamp(bounds.position, bounds.end)) >= best_distance:
+			continue  # the walls are no nearer than their bounding rectangle (asked first: it is cheap)
+		if Diplomacy.hostile(team, object.owner_index) and object.is_alive() \
 				and not (object.is_trap() and not UnitStealth.detected(object.position, team)):
-			var bounds := object.work_rect()
-			if position.distance_to(position.clamp(bounds.position, bounds.end)) >= best_distance:
-				continue  # the walls are no nearer than their bounding rectangle
 			var distance := position.distance_to(aim_point(object))
 			if distance < best_distance:
 				best = object
@@ -810,11 +812,10 @@ func nearest_enemy(radius: float) -> Unit:
 	var best: Unit = null
 	var best_distance := radius
 	for other: Unit in UnitGrid.near(position, radius):
-		if other.is_alive() and is_enemy_of(other):
-			var distance := position.distance_to(other.position)
-			if distance < best_distance:
-				best = other
-				best_distance = distance
+		var distance := position.distance_to(other.position)
+		if distance < best_distance and other.is_alive() and is_enemy_of(other):
+			best = other
+			best_distance = distance
 	return best
 
 

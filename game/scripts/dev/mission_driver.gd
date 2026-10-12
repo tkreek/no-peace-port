@@ -48,6 +48,7 @@ var story := false
 var win: Array[int] = []
 var lose: Array[int] = []
 var lose_only := {}
+var winning := {}  ## the win's triggers and those they wait on
 ## What sets what: "t<n>" timer, "f<n>" flag set, "c<n>" flag cleared, "v<n>" variable,
 ## "cd" the countdown -> trigger indices.
 var _producers := {}
@@ -128,7 +129,7 @@ func _analyse() -> void:
 					_producers[key] = []
 				if i not in _producers[key]:
 					_producers[key].append(i)
-	var winning := _closure(win)
+	winning = _closure(win)
 	for i: int in _closure(lose):
 		if not winning.has(i):
 			lose_only[i] = true
@@ -190,10 +191,10 @@ func _plan() -> Dictionary:
 	return wanted
 
 
-## In story mode, the armed triggers fired on the way that neither win, nor lose, nor keep
-## firing (stay armed), nor need the human's own people killed.
+## In story mode, the armed triggers off the way to the win that neither lose, nor keep
+## firing (stay armed), nor need the human's own people killed (the win's own come after).
 func _story_trigger(i: int) -> bool:
-	if not mission._armed[i] or i in win or lose_only.has(i):
+	if not mission._armed[i] or winning.has(i) or lose_only.has(i):
 		return false
 	for a in data.triggers[i].actions:
 		if a[0] == 10:

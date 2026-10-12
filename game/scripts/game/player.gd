@@ -118,14 +118,6 @@ func queued_units() -> int:
 	return count
 
 
-func queued_horses() -> int:
-	var count := 0
-	for object in MapObject.structures:
-		if object.owner_index == index and object.is_building():
-			count += Array(object.production.queue).count(BuildingProduction.HORSE_GUID)
-	return count
-
-
 ## Room for horses: five in every finished corral, hacienda or ranch.
 func horse_capacity() -> int:
 	var cap := 0
@@ -133,6 +125,11 @@ func horse_capacity() -> int:
 		if object.owner_index == index and object.guid in BuildingProduction.HORSE_BUILDINGS and object.complete and object.is_alive():
 			cap += BuildingProduction.HORSES_PER_BUILDING
 	return cap
+
+
+## Whether a corral has room for one more horse (AmericaAddOn.exe 0x40cf76: room > horses).
+func has_horse_room() -> bool:
+	return int(resources.get("horses", 0)) < horse_capacity()
 
 
 ## Commanders (on foot or mounted): a people may only ever have one.

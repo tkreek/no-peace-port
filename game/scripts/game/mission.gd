@@ -56,6 +56,10 @@ var main: Main
 var texts := {}
 var speech_dir := ""
 var goal := -1  ## the text id the "Mission goals" button shows
+## Every goal text set so far, oldest first (the goals page crosses out the ones gone).
+var goals := PackedInt32Array()
+## Per trigger: has it ever fired (the goals page crosses out a goal's parts by it).
+var ever_fired := PackedByteArray()
 var clock_shown := false
 var countdown := 0  ## seconds
 var countdown_running := false
@@ -86,6 +90,7 @@ func setup(mission: MissionData, game: Main, text_table: Dictionary, speech_fold
 	speech_dir = speech_folder
 	_armed.resize(data.triggers.size())
 	_armed.fill(true)
+	ever_fired.resize(data.triggers.size())
 	_timers.resize(TIMERS)
 	_timers.fill(-1)
 	_flags.resize(FLAGS)
@@ -174,6 +179,7 @@ func _check(index: int) -> void:
 func _fire(index: int, forced: bool) -> void:
 	var trigger: MissionData.Trigger = data.triggers[index]
 	_armed[index] = false
+	ever_fired[index] = 1
 	fired_log.append(PackedInt32Array([Sim.msec(), index, int(forced)]))
 	if fired_log.size() > FIRED_LOG_SIZE:
 		fired_log.pop_front()
@@ -504,6 +510,8 @@ func _action(a: PackedInt32Array) -> bool:
 				_timers[p1] = -1
 		27:
 			goal = p1
+			if goals.is_empty() or goals[-1] != p1:
+				goals.append(p1)
 			goal_changed.emit(goal_text())
 		28, 29:
 			Diplomacy.share_vision(p1, p2, a[0] == 28)
@@ -693,7 +701,8 @@ func save_state() -> Dictionary:
 			"timers": Array(_timers), "flags": Array(_flags), "vars": Array(_variables), "goal": goal,
 			"clock": clock_shown, "countdown": countdown, "counting": countdown_running,
 			"countdown_ms": _countdown_ms, "budget": _budget, "outcome": outcome, "end_at": _end_at,
-			"told": told.map(func(m: PackedInt32Array) -> Array: return Array(m))}
+			"told": told.map(func(m: PackedInt32Array) -> Array: return Array(m)),
+			"goals": Array(goals), "ever_fired": Array(ever_fired)}
 
 
 func restore_state(state: Dictionary) -> void:
@@ -715,4 +724,7 @@ func restore_state(state: Dictionary) -> void:
 	told.clear()
 	for m in state.get("told", []):
 		told.append(PackedInt32Array(m))
+	goals = PackedInt32Array(state.get("goals", [goal] if goal >= 0 else []))
+	for i in mini(ever_fired.size(), state.get("ever_fired", []).size()):
+		ever_fired[i] = int(state.ever_fired[i])
 	goal_changed.emit(goal_text())

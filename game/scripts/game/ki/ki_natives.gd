@@ -341,6 +341,7 @@ static func call_native(id: int, task: KiTask) -> void:
 			var boat := KiWorld.resolve(a[1]) as Unit
 			if unit and boat:
 				unit.board(boat)
+				boat.water.meet(unit)
 		214, 358:
 			var boat := _own_unit(a[0])
 			if boat and not boat.water.passengers.is_empty():

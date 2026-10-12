@@ -545,7 +545,7 @@ func take_damage(amount: float, attacker: Node2D = null, horse_too := false) -> 
 		if not horse_too and riding.shot_from_saddle():
 			return
 		die()
-	elif state == State.IDLE and attacker and attacker.is_alive() and _may_engage(attacker):
+	elif state == State.IDLE and attacker and attacker.is_alive() and _may_engage(attacker) and not work.stealing():
 		attack(attacker)  # fight back
 
 
@@ -601,7 +601,7 @@ func sim_tick(delta: float) -> void:
 				_scan_timer = SCAN_INTERVAL
 				if magic.is_healer():
 					magic.look_for_wounded()
-				else:
+				elif not work.stealing():
 					var enemy := nearest_enemy(_engage_radius())
 					if enemy:
 						attack(enemy)

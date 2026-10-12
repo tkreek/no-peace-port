@@ -590,7 +590,7 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id :
 					task.build_spot = Vector2i(spot)
 					return true
 	if MissionStats.on:
-		MissionStats.build_failed(id, task, guid, "no spot")
+		MissionStats.no_spot(id, task, owner, type, guid)
 	return false
 
 

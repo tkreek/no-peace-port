@@ -484,6 +484,24 @@ def report(stats, logs, out, notes):
         w("| %s | %.0f | %.0f | %.1f | %d |" % (code, r["ki_avg"], r["ki_max"], r["trig_avg"], r["running"]))
     w("")
 
+    native_ms = collections.Counter()
+    native_calls = collections.Counter()
+    for d in stats.values():
+        for nid, ms in d.get("native_ms", {}).items():
+            native_ms[int(nid)] += ms
+            native_calls[int(nid)] += d["natives"].get(nid, 0)
+    if native_ms:
+        total_ki = sum(c[1] for d in stats.values() for c in d["cost"])
+        w("### Natives by wall-clock time")
+        w("")
+        w("All missions together: %.0f s of KI, %.0f s of it inside natives." % (total_ki / 1000, sum(native_ms.values()) / 1000))
+        w("")
+        w("| Native | ms | Calls | µs per call |")
+        w("| --- | --- | --- | --- |")
+        for nid, ms in native_ms.most_common(15):
+            w("| %d %s | %.0f | %d | %.1f |" % (nid, native_name(nid), ms, native_calls[nid], 1000.0 * ms / max(1, native_calls[nid])))
+        w("")
+
     # ---------------------------------------------------------- errors
     w("## Errors in the logs")
     w("")

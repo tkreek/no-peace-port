@@ -147,6 +147,8 @@ class FairBot:
 	var attack_size := 12
 	var retreat_share := 0.3
 	var target := Vector2.INF  ## where the next wave goes
+	var via := Vector2.INF  ## a way round (seen defences) the wave takes to the target
+	var _via_done := false
 	var target_radius := 900.0
 	var protect: Array = []  ## unit GUIDs that stay home (heroes who must live)
 	var research := true
@@ -778,7 +780,8 @@ class FairBot:
 				if there >= wave.size() * 0.8 or now() - _gather_started > 60.0:
 					mode = "attacking"
 					_wave_ordered.clear()
-					_spread(wave, "attack_move", target)
+					_via_done = via == Vector2.INF
+					_spread(wave, "attack_move", target if _via_done else via)
 					note("attacks with %d" % wave.size())
 			"attacking":
 				_attack(enemies, at_home)
@@ -798,6 +801,13 @@ class FairBot:
 				Orders.unit(u, "attack_move", [centre(wave)])
 			wave_size = maxi(wave_size, wave.size())
 		var c := centre(wave)
+		var goal := target
+		if not _via_done:
+			if c.distance_to(via) < 400.0:
+				_via_done = true
+				note("wave reached the way round at (%d,%d)" % [via.x, via.y])
+			else:
+				goal = via
 		var buildings_near := known_enemy_buildings().filter(func(o: MapObject) -> bool:
 			return o.position.distance_to(c) < 900.0 and not WallLine.is_wall(o.guid))
 		for u: Unit in wave:
@@ -815,7 +825,7 @@ class FairBot:
 			elif u.position.distance_to(c) > 500.0:
 				Orders.unit(u, "attack_move", [c])
 			else:
-				Orders.unit(u, "attack_move", [target + Vector2(Sim.randf_range(-150, 150), Sim.randf_range(-150, 150))])
+				Orders.unit(u, "attack_move", [goal + Vector2(Sim.randf_range(-150, 150), Sim.randf_range(-150, 150))])
 
 	## Whether the target is taken: nothing hostile seen round it and the wave there.
 	func target_clear() -> bool:
@@ -945,7 +955,7 @@ func _neutral_buildings_seen() -> Array:
 ## whip crackers and barbers), then the western band town, the northern one, and the green
 ## band leader's camp across the river.
 func _scenario_fair_des03() -> void:
-	_begin([462, 363], [300, 308, 303, 308, 306, 309, 301, 303, 308, 301, 303, 301, 301])
+	_begin([462, 462, 363], [300, 308, 303, 308, 306, 309, 301, 303, 302, 305, 310, 308, 301, 301, 301])
 	bot.extra_production = [303]
 	bot.worker_target = 14
 	bot.farmer_target = 5
@@ -983,9 +993,14 @@ func _des03_step() -> void:
 		"build up", "west town":
 			if phase == "build up":
 				bot.target = _area_centre(4)  # the town in the west the cowboy showed
+				# The road from the east runs into the band's barricades and lookouts (the
+				# scout sees them); --via=north takes the valley north of them instead.
+				if GameData.cmdline_option("via", "north") == "north":
+					bot.via = Vector2(2300, 6150)
 				_set_phase("west town")
 			if mission.goal == 828:
 				bot.target = _area_centre(8)
+				bot.via = Vector2.INF
 				_set_phase("north town")
 		"north town":
 			if mission.goal == 831:

@@ -86,8 +86,10 @@ func _read_players(bytes: PackedByteArray) -> void:
 		p.faction = PEOPLES[people] if people < PEOPLES.size() else "usa"
 		p.control = bytes.decode_s32(at + 0x110) as Seat
 		p.allies = bytes.decode_s32(at + 0x114)
-		p.resources = {"food": bytes.decode_s32(at + 0x118), "wood": bytes.decode_s32(at + 0x11C),
-				"gold": bytes.decode_s32(at + 0x120), "guns": bytes.decode_s32(at + 0x124)}
+		# guns, wood, gold, food: the order 0x422a40 hands them to the stocks the scripts' resource
+		# conditions read (5 guns, 2 wood, 4 gold, 1 food)
+		p.resources = {"guns": bytes.decode_s32(at + 0x118), "wood": bytes.decode_s32(at + 0x11C),
+				"gold": bytes.decode_s32(at + 0x120), "food": bytes.decode_s32(at + 0x124)}
 		p.level_resources = bytes.decode_s32(at + 0x128) != 0
 		players.append(p)
 

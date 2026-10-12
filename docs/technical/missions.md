@@ -21,7 +21,7 @@ The remake's side: `MissionData` (reading), `Mission` (running), `Diplomacy`, `C
 | 0x10C | people: 0 Native Americans, 1 Mexicans, 2 outlaws, 3 Americans; -1 unused slot |
 | 0x110 | who plays: 1 human, 2 computer, 3 independent |
 | 0x114 | side: a bit per slot; players whose masks share a bit are allied |
-| 0x118 | food, wood, gold, guns |
+| 0x118 | guns, wood, gold, food (0x422a40 copies them to the stocks the conditions read) |
 | 0x128 | 1: take the level's start resources (`LVL_INFO`) instead |
 
 The player number is not the slot: the first tutorial's human is slot 3, player 4.

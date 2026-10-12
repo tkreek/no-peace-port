@@ -584,15 +584,15 @@ func convert_owner(what: int, rect: Rect2, player: int) -> void:
 			object.capture(player)
 
 
-## Units of a people neutral to a passer-by's join the passer-by (the original's
-## independent tribesmen: a unit of yours walks up and they are yours).
+## Units and buildings of a people neutral to a passer-by's join the passer-by (the
+## original's independent tribesmen: a unit of yours walks up and they are yours).
 func _join_neutrals() -> void:
-	var any := false
+	var takers := {}  # people whose buildings a passer-by can take -> true
 	for p in data.players:
 		for q in data.players:
-			if Diplomacy.neutral(p.index, q.index):
-				any = true
-	if not any:
+			if Diplomacy.neutral(p.index, q.index) and q.control != MissionData.Seat.INDEPENDENT:
+				takers[p.index] = true
+	if takers.is_empty():
 		return
 	for unit in Unit.all_units:
 		if not unit.is_alive() or unit.team <= 0:
@@ -604,6 +604,20 @@ func _join_neutrals() -> void:
 			if other.is_alive() and Diplomacy.neutral(unit.team, other.team) \
 					and other.position.distance_to(unit.position) <= JOIN_REACH:
 				other.change_team(unit.team)
+	# Buildings too: the original looks through the map's grid round the unit, where
+	# buildings stand as well (the outlaws' first mission: "take over the two houses and
+	# the distilleries", an independent people's buildings with nobody in them).
+	for object in MapObject.structures:
+		if not takers.has(object.owner_index) or not object.is_building() or not object.is_alive():
+			continue
+		var reach := object.footprint_rect().grow(JOIN_REACH)
+		for unit: Unit in UnitGrid.near(reach.get_center(), maxf(reach.size.x, reach.size.y) / 2.0):
+			var slot := data.player(unit.team) if unit.team > 0 else null
+			if unit.is_alive() and unit.team > 0 and reach.has_point(unit.position) \
+					and Diplomacy.neutral(unit.team, object.owner_index) \
+					and not (slot and slot.control == MissionData.Seat.INDEPENDENT):
+				object.capture(unit.team)
+				break
 
 
 ## What the local player has been told so far: [game ms, text id], oldest first (the goals

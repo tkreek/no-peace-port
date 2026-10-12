@@ -335,8 +335,10 @@ static func _refresh_lists() -> void:
 					and (object.is_mine() or object.is_abandoned_store() or object.is_building()):
 				loose.append(object)
 		_objects_by_player[0] = loose
+		# Wall pieces are not in a people's list: the original keeps them in list 10
+		# (AmericaAddOn.exe 0x42698e), which only nearest_wall looks through.
 		for object in MapObject.structures:
-			if object.owner_index != 0:
+			if object.owner_index != 0 and not WallLine.is_wall(object.guid):
 				_objects_by_player.get_or_add(object.owner_index, []).append(object)
 
 

@@ -82,6 +82,7 @@ var _remains: UnitRemains
 
 func setup(type: UnitType, team_index: int) -> void:
 	team = team_index
+	type = MapRules.unit_type(type, team)  # the map may change the kind's values for its people
 	_setup_sprites(type, team)
 	max_health = type.health
 	health = max_health
@@ -162,7 +163,7 @@ func move_speed() -> float:
 	var tiers := int(bonus("speed_tiers"))
 	if tiers == 0:
 		return unit_type.speed
-	var tier := int(GameData.stats(unit_type.guid()).get("speed_tier", 2)) + tiers
+	var tier := int(MapRules.stats(team, unit_type.guid()).get("speed_tier", 2)) + tiers
 	return GameData.def_tier("walk_speed", mini(tier, 5), 100) * UnitType.PX_PER_SPEED
 
 

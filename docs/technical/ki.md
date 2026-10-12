@@ -335,7 +335,9 @@ There is no messaging between modules beyond these, and no way to stop another m
 Script values for units, buildings and neutral objects are 32-bit handles built by
 0x4325f0: `list<<28 | (guid & 0xfff)<<16 | slot` from obj+0x10 (list), obj+0xc (type) and
 obj+0x8 (slot). Lists: 0 neutral objects (animals, mines, ...), 1-8 the players' objects,
-9 trees and other map objects, 10 wall segments. 0x42b820(world, handle) maps a handle back to
+9 trees and other map objects, 10 wall segments (every wall, barricade and stockade piece,
+whoever owns it: 0x427925 ... -> 0x42698e; so no search or count over a player's list sees
+walls, only `nearest_wall`). 0x42b820(world, handle) maps a handle back to
 the object: 0 if the slot is empty, holds another type, or the object is dying and no longer
 shown. Natives then return their error value (0 or -1), and orders to such a handle do nothing;
 0 is "no object". Natives 110-112 test whether a handle still resolves. Slots are reused only

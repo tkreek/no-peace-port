@@ -102,6 +102,22 @@ static func record_won(entry: Dictionary) -> void:
 		return
 	_load_progress()
 	_progress["%s/%s" % [entry.set, entry.code]] = true
+	_save_progress()
+
+
+## The difficulty chosen for campaign missions (Match.DIFFICULTY_NAMES; medium at first).
+static func difficulty() -> int:
+	_load_progress()
+	return clampi(int(_progress.get("difficulty", 2)), 0, Match.DIFFICULTY_TEXT.size() - 1)
+
+
+static func set_difficulty(level: int) -> void:
+	_load_progress()
+	_progress["difficulty"] = level
+	_save_progress()
+
+
+static func _save_progress() -> void:
 	var file := FileAccess.open(PROGRESS, FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(_progress))

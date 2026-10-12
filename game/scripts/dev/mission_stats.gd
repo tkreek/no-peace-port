@@ -226,14 +226,14 @@ static func build_failed(id: int, task: KiTask, guid: int, reason: String) -> vo
 ## A site could not be placed: whether the people could pay for it.
 static func site_refused(id: int, task: KiTask, owner: int, type: ObjectTypes.ObjectType, guid: int) -> void:
 	var people: Player = Player.by_index.get(owner)
-	var affordable := people != null and people.can_afford(BuildController._cost_of(type))
+	var affordable := people != null and people.can_afford(BuildController._cost_of(type, owner))
 	build_failed(id, task, guid, "site refused" if affordable else "site refused: cannot pay")
 
 
 ## No spot within reach: the placement test also wants the price, so say when it was that.
 static func no_spot(id: int, task: KiTask, owner: int, type: ObjectTypes.ObjectType, guid: int) -> void:
 	var people: Player = Player.by_index.get(owner)
-	var affordable := people != null and people.can_afford(BuildController._cost_of(type))
+	var affordable := people != null and people.can_afford(BuildController._cost_of(type, owner))
 	build_failed(id, task, guid, "no spot" if affordable else "no spot: cannot pay")
 
 

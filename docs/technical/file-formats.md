@@ -85,11 +85,45 @@ LZW (MSB-first, 9–13-bit codes, 256 clear, 257 end, early change).
 | `LVMATRIX` | u32 per cell; low 16 bits = 32×32 tile index in the biome atlas (20 tiles per row), high 16 bits = the editor's shape code (see terrain rules) |
 | `BOBLISTE` | u32 count + 24-byte placements `{u32 x, y, type_id, owner, amount, ?}` (0xCDCDCDCD = unset) |
 | `BITARRAY`, `PINSMATR` | probably passability / height data (TODO) |
-| `EINHEIT`, `EIGENSCH` | per-object property overrides `{u32 object, property, value, ?}` (TODO) |
+| `EINHEIT`, `EIGENSCH` | per-player switches and property values: see "Per-player tables" below |
 | `SPIELER` | players: number, people, human/computer/independent, side, stock (see missions.md) |
 | `AREA`, `ABLAUF` | mission areas and script: [missions.md](missions.md) |
 
 Player start points are placements of type `Editor_Start` (owner = player).
+
+### Per-player tables (`EINHEIT`, `EIGENSCH`)
+Read by AmericaAddOn.exe's level loader (0x442b08..0x442e5b) into a table per player and
+object (world+0x1ef3c + (player * 1000 + id) * 0xE0: +4 has a switch, +8 the switch,
++0xC/+0x70 up to 25 property ids/values, +0xD4/+0xD8 the upgrade list, +0xDC the property
+count). Objects are named by `IDS.INI` id (`data/ids.json`), not GUID or BobListe type; a few
+GUIDs share an id (wall pieces 412/425/426, scenery variants). Both chunks hold 9 blocks: the
+neutral player's, then one per `SPIELER` record, which counts for the record's player number
+(for player 1 when the record has no people or no number from 1 to 8; base/des_03 has two
+records for player 7, the later one's switches win). Remake: `MapRules`.
+
+- `EINHEIT`: `u32 count` + `{i32 id, i32 value}` (0x461830: sets the switch, a later record
+  replaces it). Its one reader, 0x42c3d0 (value != 0), is asked by the menu builder 0x46a600:
+  0 takes the structure's, unit's or upgrade's button out of that player's menus; horses,
+  cows, guns, liquor and fields (480, 482, 710, 711, 149) ask the neutral player's table. The
+  computer players are not held to it. It is not "researched": research flags are set only
+  when research finishes (0x42cd00, from 0x40cfc5), and the spell buttons need them
+  (0x474bd1 asks 0x42cc70). Campaign maps list each player's people (most values 1); e.g.
+  base/ind_06's human (player 4) has no building but may research swimming, camouflage, the
+  medicine man's dances but rain, ... at the buildings of the independent village it takes
+  over; several maps switch horses (ind_01, ind_03, tut_02, tut_03, usa_01) or cows (mex_03,
+  usa_01) off for everyone. Skirmish maps have one record per player slot, id 0 (the chief's
+  tepee) with a stray value (0 in rio grande, beggar's canyon and around the mount, which
+  hides a second chief's tepee from a Native player there).
+- `EIGENSCH`: `u32 count` + `{i32 id, i32 property, i32 value, i32 use_default}`. Every map
+  carries the editor's whole table in it, `use_default` 1; records with 0 (1 to 54 per
+  campaign map, none in skirmish maps) set the property for that player (0x461850: the first
+  one for a property counts). Examples: base/des_03's duel sheriff (player 8) 1 hit point and
+  1 attack, base/ind_01's human chief 180 hit points, base/mex_03 player 4's trappers 150 hit
+  points and 12 attack, research times (base/ind_06's swimming 20 s for the human), housing of
+  main buildings, bank energy, wagon loads.
+- Then (0x442e2b, 0x461940) every player's table is filled from Defaults.bin's: a switch the
+  map did not set, the upgrade list always, and every property the map did not set. Only
+  objects Defaults.bin's `EINHEIT` lists get anything.
 
 ## Terrain rules (`Steppe.gfs`, `wiese.gfs`, expansion archives)
 The expansion level editor's auto-tiling rules (`"RDGS"`, atlas path, own name; u32 values from 0xA8).
@@ -136,9 +170,16 @@ stages and 2/3 for the finished building.
   `guids2/`); `u32 unpacked_size`). `EIGENSCH`: 5 blocks (scenery/animals, then the four
   factions) of `u32 count` + `count × {i32 type_id, prop_id, value, value}`; type ids map to
   GUIDs through `IDS.INI`, property ids are the editor's (`Einheiten.cfg`, `Gebaeude.cfg`).
-  The expansion's table equals the editor's `Defaults.dat` "+" properties exactly; it doubles
-  every regular unit's hit points over the base game's. `EINHEIT`: per-type availability and
-  prerequisites (tech tree).
+  The expansion's table equals the editor's `Defaults.dat` "+" properties exactly. The base
+  game's (`global/guids/`) differs for 106 GUIDs (`data/defaults_base.json`): the expansion
+  doubles 54 of the 87 regular units' hit points (not the heroes'), has no minimum range
+  tiers (base: 2 for most bow and gun units, 4 for the Mexican cannon), more energy for
+  walls, towers and the fort, a few other carry loads and times. The remake plays the base
+  campaign's missions with the base values (MapRules), everything else with the expansion's. `EINHEIT`: 5 blocks of
+  `u32 count` + `{i32 id, i32 switch, u32 n, i32 upgrades[n]}`: every object the game makes,
+  switched on, and per unit the ids of the upgrades that apply to it (0x461ab0, asked with
+  "researched" by 0x42cc70, e.g. the medicine man: the four dances, eagle eye, magic
+  energy, swimming).
 - `sfx/sfxguids.dat`: sound ID table, TODO.
 
 ## Combat in the executable
@@ -148,8 +189,12 @@ one is packed and wrapped in a try-and-buy layer). Addresses are that file's.
 
 - Load (0x442b08): a map's `EIGENSCH` (9 blocks, neutral + 8 players, records
   `{type, prop, value, use_default}`; only `use_default == 0` applies, and no skirmish map
-  has any) goes into per-player tables first, then `guids2/Defaults.bin` fills the rest.
-  The expansion reads only `guids2/`, never the base `Defaults.bin`.
+  has any) goes into per-player tables first, then `guids2/Defaults.bin` fills the rest
+  (see "Per-player tables"). The expansion reads only `guids2/`, never the base
+  `Defaults.bin`; the base game's America.exe reads its own.
+- Lookup (0x4298c0: player, type, property): the player's table; units read theirs when made
+  and keep the values (0x419e50 copies them into the unit), so a unit that changes hands keeps
+  its hit points and attack.
 - Lookup (0x461900): a property that is not in the table reads as 0.
 - Unit setup (0x419e50, properties 107-120): HP = max(1, 107); walk speed =
   `LaufenSpeed[110]`; sight = max(`Sichtweite[112]`, attack range); range =
@@ -233,7 +278,7 @@ then per GUID `{u32 guid, u32 count, u32 event[20], u32 sound[20]}`.
   clicked.
 
 ## TODO
-- `.alf` `BITARRAY`/`PINSMATR`, `EIGENSCH` property ids, triggers and scripts.
+- `.alf` `BITARRAY`/`PINSMATR`.
 - Fonts, `.pk`.
 - `rules.def`, `sfxguids.dat`, `kimodules/*.mod`.
 - `.bik` videos (Bink 1; ffmpeg can decode).

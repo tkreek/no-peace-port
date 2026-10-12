@@ -163,10 +163,12 @@ func refresh() -> void:
 	layout(hud.command_area())
 
 
-## One of the two building menus: its structures, then a way back.
+## One of the two building menus: its structures (those the map allows the player), then a
+## way back.
 func _add_build_menu() -> void:
 	for guid in _faction_guids("structure"):
-		if guid == MapObject.FIELD_GUID or (guid in EXPANDED_STRUCTURES) != (build_menu == "expanded"):
+		if guid == MapObject.FIELD_GUID or (guid in EXPANDED_STRUCTURES) != (build_menu == "expanded") \
+				or not MapRules.allows(hud.player.index, guid):
 			continue
 		var type_id := GameData.type_for_guid(guid, hud.biome)
 		if type_id >= 0:
@@ -182,7 +184,7 @@ func _add_unit_commands(units: Array, builders: Array, farmers: Array, fighters:
 		_add_icon(command_icons, ICON_BUILD_EXPANDED, "Build expanded structure (V)", func() -> void: open_build_menu("expanded"))
 		_add_icon(repair_icon(command_icons), 0, "Repair (R): click a damaged building",
 				func() -> void: selection.begin_targeting("repair"), selection.pending == "repair")
-	if not farmers.is_empty():
+	if not farmers.is_empty() and MapRules.allows(hud.player.index, MapObject.FIELD_GUID):
 		var field_type := GameData.type_for_guid(MapObject.FIELD_GUID, hud.biome)
 		if field_type >= 0:
 			var button := _add_card(field_type, MapObject.FIELD_GUID, func() -> void: hud.build_controller.start(field_type))
@@ -237,10 +239,12 @@ func _add_building_commands(building: MapObject) -> void:
 		if production.can_enqueue(item):
 			Orders.building(building, "enqueue", [item])
 			return
-		var cost: Dictionary = GameData.stats(item).get("cost", {}).duplicate()
+		var cost: Dictionary = MapRules.stats(hud.player.index, item).get("cost", {}).duplicate()
 		cost.erase("population")
 		hud.player.alert_shortage(cost)  # the original's shortage warnings; nothing else sounds
 	for guid in production.trainable_units():
+		if not MapRules.allows(hud.player.index, guid):
+			continue  # the map takes this one out of the player's menus
 		if BuildingProduction.is_trade(guid):
 			var trade: Dictionary = BuildingProduction.TRADES[guid - BuildingProduction.TRADE_GUID]
 			var button := _add_icon(command_icons, trade.icon, "", enqueue.bind(guid))
@@ -274,7 +278,8 @@ func _add_building_commands(building: MapObject) -> void:
 		_add_icon(extra_icons, ICON_RALLY, "Specify assembly location (I)",
 				func() -> void: hud.selection.begin_targeting("rally"), hud.selection.pending == "rally")
 	for upgrade in production.researchable_upgrades():
-		_add_card(-1, upgrade, enqueue.bind(upgrade))
+		if MapRules.allows(hud.player.index, upgrade):
+			_add_card(-1, upgrade, enqueue.bind(upgrade))
 
 
 func _add_icon(sheet: RdSprite, frame: int, tip: String, action: Callable, active := false) -> Button:
@@ -372,7 +377,7 @@ func _faction_guids(kind: String) -> Array:
 
 func _cost_text(guid: int) -> String:
 	var parts := PackedStringArray()
-	var cost: Dictionary = GameData.stats(guid).get("cost", {})
+	var cost: Dictionary = MapRules.stats(hud.player.index, guid).get("cost", {})
 	for key in cost:
 		if key != "population":
 			parts.append("%d %s" % [cost[key], key])
@@ -390,7 +395,7 @@ func _update_affordability() -> void:
 		var guid: int = button.get_meta("guid", -1)
 		if guid < 0:
 			continue
-		var cost: Dictionary = GameData.stats(guid).get("cost", {}).duplicate()
+		var cost: Dictionary = MapRules.stats(hud.player.index, guid).get("cost", {}).duplicate()
 		cost.erase("population")
 		cost.erase("horses")
 		var reason := unavailable_reason(guid, cost)
@@ -574,7 +579,8 @@ func handle_key(key: int) -> bool:
 				open_build_menu("basic" if key == KEY_B else "expanded")
 		KEY_F:
 			var field_type := GameData.type_for_guid(MapObject.FIELD_GUID, hud.biome)
-			if field_type >= 0 and not units.is_empty() and units.all(func(u: Unit) -> bool: return u.unit_type.is_farmer()):
+			if field_type >= 0 and not units.is_empty() and units.all(func(u: Unit) -> bool: return u.unit_type.is_farmer()) \
+					and MapRules.allows(hud.player.index, MapObject.FIELD_GUID):
 				hud.build_controller.start(field_type)
 		_:
 			if not STANCE_KEYS.has(key):

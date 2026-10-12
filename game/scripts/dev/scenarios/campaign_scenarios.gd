@@ -158,7 +158,7 @@ func _keep_farming(women: Array) -> void:
 ## A building (or field) of `guid` put up near `around` by `builders`; waits until it stands.
 func _build(guid: int, around: Vector2, builders: Array, wait := true) -> MapObject:
 	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
-	var cost: Dictionary = BuildController._cost_of(type)
+	var cost: Dictionary = BuildController._cost_of(type, main.me)
 	await _until(func() -> bool: return (main.players[main.me] as Player).can_afford(cost), 900.0, "the cost of %d" % guid)
 	var spot := AiBuilder.find_spot(type, around, 120)
 	var had := MapObject.structures.filter(func(o: MapObject) -> bool: return o.owner_index == main.me and o.guid == guid).size()

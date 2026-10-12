@@ -25,7 +25,7 @@ func _init(owner: MapObject) -> void:
 func capacity() -> int:
 	if not building.complete or building.health <= 0.0:
 		return 0
-	return int(GameData.stats(building.guid).get("capacity", 0))
+	return int(MapRules.stats(building.owner_index, building.guid).get("capacity", 0))
 
 
 func has_room_for(unit: Unit) -> bool:

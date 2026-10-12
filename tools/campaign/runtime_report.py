@@ -217,7 +217,8 @@ def summarise(code, d, log_info):
     stuck = sum(1 for r in d["running"] if _waiting(r))
     fails = sum(n for nid, reasons in d["failures"].items() if int(nid) not in STUBS
                 for reason, modules in reasons.items()
-                if not reason.startswith(("found nothing", "object:", "no:", "stub")) for n in modules.values())
+                if not reason.startswith(("found nothing", "object:", "no:", "stub", "as original"))
+                for n in modules.values())
     computers = [str(p["index"]) for p in d["players"] if p["control"] == 2]
     grown = [0, 0]
     for index in computers:
@@ -377,7 +378,7 @@ def report(stats, logs, out, notes, before=None):
     ranked = sorted(by_mission, key=lambda k: -sum(by_mission[k].values()))
     groups = [
         ("Orders and building", "Orders whose unit, target or building is missing, build_near without a site, "
-         "production refused.", lambda nid, reason: not reason.startswith(("object:", "no:"))),
+         "production refused (`as original`: the original's order turns it away too, not counted as failed).", lambda nid, reason: not reason.startswith(("object:", "no:"))),
         ("Can I have it (136, 137, 290, 291 answering no)", "Prerequisites missing or not affordable, per GUID.",
          lambda nid, reason: reason.startswith("no:")),
         ("Questions about a missing object", "Mostly harmless: the VM has no short-circuit, so "

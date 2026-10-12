@@ -132,13 +132,28 @@ static func load_type(dir: String, riding := false, forced_type_id := -1) -> Uni
 	return unit_type
 
 
-## Combat and movement values from the unit's stats, as AmericaAddOn.exe sets them up
-## (its unit setup, 0x419e50): tiers index DEFS.INI's tables (sight and ranges in pixels,
-## walk speed in px/s) and are clamped to them; sight is at least the attack range. Workers
-## hit at DEFS.INI's melee rate (x 10 ms); fighters at a rate fixed per unit class
-## (DefaultsData.RELOAD_MS). A range tier of 0 (64 px) is hand to hand.
-func _setup_combat() -> void:
-	var stats := GameData.stats(guid())
+## This kind as `player`'s units have it where the map changes its properties for that
+## player (MapRules.unit_type keeps them): the same pictures, its own combat values.
+func for_player(player: int) -> UnitType:
+	var copy := UnitType.new()
+	copy.directory = directory
+	copy.set_path = set_path
+	copy.mounted = mounted
+	copy.bob = bob
+	copy.ramps = ramps
+	copy.type_id = type_id
+	copy._setup_combat(player)
+	return copy
+
+
+## Combat and movement values from the unit's stats (as `player` has them in this map; the
+## defaults without one), as AmericaAddOn.exe sets them up (its unit setup, 0x419e50):
+## tiers index DEFS.INI's tables (sight and ranges in pixels, walk speed in px/s) and are
+## clamped to them; sight is at least the attack range. Workers hit at DEFS.INI's melee
+## rate (x 10 ms); fighters at a rate fixed per unit class (DefaultsData.RELOAD_MS). A
+## range tier of 0 (64 px) is hand to hand.
+func _setup_combat(player := -1) -> void:
+	var stats := MapRules.stats(player, guid()) if player >= 0 else GameData.stats(guid())
 	health = maxi(1, int(stats.get("health", health)))
 	if int(stats.get("carry", 0)) > 0:
 		carry = int(stats.carry)

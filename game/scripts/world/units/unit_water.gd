@@ -12,7 +12,10 @@ extends UnitPart
 const BOATS := [254, 454, 364]  # Mexican and American riverboats, the outlaws' raft
 const CANOE := 154
 const SWIM_UPGRADES := [914, 995]  # the base game's and the expansion's Swim
-const BOAT_CAPACITY := {254: 10, 454: 10, 364: 8}  # the raft "transports up to 8 units"
+## Seats (obj+0x3d4, one per passenger, 0x41ab00): the Mexican riverboat's constructor
+## (0x457e90) sets 8, the American one's (0x466760) 10, the raft's (0x412e90) 8; every other
+## unit has none (0x418af0). Mission scripts wait for these exact numbers (free_seats).
+const BOAT_CAPACITY := {254: 8, 454: 10, 364: 8}
 const COACH := 266
 const ENLARGE_COACH := 971
 const COACH_CAPACITY := 2
@@ -129,6 +132,19 @@ func board(boat: Unit) -> void:
 	busy = true
 	unit.state = Unit.State.MOVING
 	unit.path = unit.find_path(boat.position)
+
+
+## The board order moves the boat too (AmericaAddOn.exe 0x41a900): the meeting point is
+## the cell nearest the boat that `passenger` can stand on (0x419ba0), and the boat sails
+## there as well (0x416d80), so a boat lying off the bank still gets its crew.
+func meet(passenger: Unit) -> void:
+	var nav := NavGrid.current
+	if nav == null or not _boat or passenger.water.vessel != unit:
+		return
+	var land := nav.nearest_passable(nav.cell_of(unit.position), 32, passenger.water.nav_layer())
+	var spot := nav.nearest_passable(land, 8, NavGrid.Layer.WATER) if land.x >= 0 else land
+	if spot.x >= 0 and nav.center_of(spot).distance_to(unit.position) > BOARD_REACH:
+		unit.move_to(nav.center_of(spot))
 
 
 func _update_board() -> void:

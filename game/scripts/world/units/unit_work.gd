@@ -214,6 +214,11 @@ func can_steal() -> bool:
 	return _may(THIEVES)
 
 
+## On the way to a vehicle, or beside it taking it over (not drawn into fights meanwhile).
+func stealing() -> bool:
+	return _steal_target != null
+
+
 ## Gold an enemy building holds for the taking: a gold warehouse's store, or for a bank or
 ## mission its owner's treasury.
 static func loot_of(building: MapObject) -> int:

@@ -3,6 +3,8 @@ extends RefCounted
 ## The in-game menu (Esc; it pauses the game): continue, save, load, options, restart, back
 ## to the main menu. Also the statistics shown after a game.
 
+const DONE_COLOR := Color(0.62, 0.56, 0.45)  ## a mission goal done, crossed out
+
 var hud: Hud
 var _panel: Control  # the open menu (its dimmed backdrop), or null
 
@@ -87,39 +89,47 @@ func show_goals() -> void:
 	var box: Control = _panel.get_child(0)
 	var column: VBoxContainer = box.get_child(0)
 	var width := 560 * scale
-	var goal := mission.goal_text().strip_edges()
+	var page := MissionGoals.of(mission)
+	var lines := PackedStringArray()
+	for i in page.goals.size():
+		var goal: Dictionary = page.goals[i]
+		var line := "%d. %s" % [i + 1, _escape(goal.text)]
+		lines.append("[color=#%s][s]%s[/s][/color]" % [DONE_COLOR.to_html(false), line] if goal.done else line)
+	var text := _goal_text("\n".join(lines) if not lines.is_empty() else "No goals given yet.", width, 17)
 	var at := 1
-	column.add_child(_goal_text(goal if goal != "" else "No goals given yet.", width, 17))
-	column.move_child(column.get_child(-1), at)
-	var told := mission.told.filter(func(m: PackedInt32Array) -> bool: return m[1] != mission.goal)
-	if not told.is_empty():
-		var heading := MenuStyle.label("What you have been told", int(18 * scale))
-		column.add_child(heading)
-		column.move_child(heading, at + 1)
-		var scroll := ScrollContainer.new()
-		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		scroll.custom_minimum_size = Vector2(width + 16 * scale, minf(320 * scale, hud.get_viewport().get_visible_rect().size.y * 0.4))
-		var log := VBoxContainer.new()
-		log.add_theme_constant_override("separation", int(8 * scale))
-		for i in range(told.size() - 1, -1, -1):
-			var seconds: int = told[i][0] / 1000
-			var time := _goal_text("%d:%02d" % [seconds / 60, seconds % 60], width, 13)
-			time.add_theme_color_override("font_color", MenuStyle.TEXT_DIM)
-			log.add_child(time)
-			log.add_child(_goal_text(mission.text(told[i][1]).strip_edges(), width, 15))
-		scroll.add_child(log)
-		column.add_child(scroll)
-		column.move_child(scroll, at + 2)
+	if not page.tips.is_empty():
+		text.text += "\n\n[font_size=%d]Tips[/font_size]\n" % int(18 * scale) \
+				+ "\n".join(page.tips.map(func(t: String) -> String: return "• " + _escape(t)))
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.add_child(text)
+	column.add_child(scroll)
+	column.move_child(scroll, at)
+	text.reset_size()
+	var tall := hud.get_viewport().get_visible_rect().size.y * 0.65
+	scroll.custom_minimum_size = Vector2(width + 16 * scale, minf(text.get_content_height() + 4, tall))
 	box.reset_size()
 	box.position = hud.get_viewport().get_visible_rect().size / 2.0 - box.get_combined_minimum_size() / 2.0
 
 
-func _goal_text(text: String, width: float, size: int) -> Label:
-	var label := HudStyle.label(int(size * hud.ui_scale))
-	label.text = text
+func _goal_text(text: String, width: float, size: int) -> RichTextLabel:
+	var label := RichTextLabel.new()
+	label.bbcode_enabled = true
+	label.fit_content = true
+	label.scroll_active = false
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.custom_minimum_size.x = width
+	label.add_theme_color_override("default_color", HudStyle.TEXT_COLOR)
+	label.add_theme_color_override("font_outline_color", Color(0.1, 0.06, 0.03))
+	label.add_theme_constant_override("outline_size", 4)
+	label.add_theme_constant_override("paragraph_separation", int(6 * hud.ui_scale))
+	label.add_theme_font_size_override("normal_font_size", int(size * hud.ui_scale))
+	label.text = text
 	return label
+
+
+static func _escape(text: String) -> String:
+	return text.replace("[", "[lb]")
 
 
 ## Sound, scrolling, interface and display settings (SettingsPanel), kept between sessions.

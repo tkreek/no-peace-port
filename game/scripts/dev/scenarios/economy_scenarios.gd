@@ -375,6 +375,47 @@ func _scenario_horses() -> void:
 	get_tree().quit()
 
 
+## Horses and corral room, as the original's build menu has it: the horse is offered while
+## the people has fewer horses than room, whatever is queued; a horse done while the
+## corrals are full waits in the ranch, and a full corral takes the button away.
+func _scenario_horseroom() -> void:
+	var player: Player = main.players[1]
+	var hq: MapObject = player.main_building()
+	var type := ObjectTypes.get_type(GameData.type_for_guid(405, main.terrain.biome))
+	var ranch := MapObject.new()
+	ranch.position = AiBuilder.find_spot(type, hq.position)
+	ranch.setup(type, 1)
+	main.units_root.add_child(ranch)
+	main.nav.block_footprint(type, ranch.position)
+	player.resources.horses = BuildingProduction.HORSES_PER_BUILDING - 1
+	for key in ["food", "wood", "gold"]:
+		player.add(key, 2000)
+	var offered := func() -> bool:
+		main.selection.select_building(ranch)
+		main.hud.commands.signature = ""
+		main.hud.commands.refresh()
+		return main.hud.commands.grid.get_children().any(func(b: Node) -> bool:
+			return not b.is_queued_for_deletion() and b.get_meta("guid", -1) == BuildingProduction.HORSE_GUID)
+	var before: bool = offered.call()
+	for i in 3:
+		Orders.building(ranch, "enqueue", [BuildingProduction.HORSE_GUID])
+	for i in 10:
+		await get_tree().physics_frame
+	var queued := ranch.production.queue.size()
+	var until := Sim.time() + 120.0
+	while Sim.time() < until and not (ranch.production.queue.size() == queued - 1 and ranch.production.progress >= 1.0):
+		await get_tree().physics_frame
+	var waits := ranch.production.progress >= 1.0 and ranch.production.queue.size() == queued - 1
+	var after: bool = offered.call()
+	Orders.building(ranch, "enqueue", [BuildingProduction.HORSE_GUID])
+	for i in 10:
+		await get_tree().physics_frame
+	print("horse room: offered %s, queued %d, horses %d / %d, next waits %s, offered when full %s, queued when full %s" % [
+			before, queued, player.resources.horses, player.horse_capacity(), waits, after,
+			ranch.production.queue.size() > queued - 1])
+	get_tree().quit()
+
+
 ## A wagon empties the nearest abandoned warehouse into the main building.
 func _scenario_abandoned() -> void:
 	var hq: MapObject = main.players[1].main_building()

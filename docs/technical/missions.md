@@ -123,7 +123,7 @@ owns them, 483 a horse of nobody's. Buildings under construction count.
 | 24 | player, area | covers the area again |
 | 25 | timer, seconds | starts a timer |
 | 26 | timer | stops a timer |
-| 27 | text | the mission goals ("Mission goals" in the game menu) |
+| 27 | text | the mission goals ("Mission goals" in the game menu: its numbered parts are crossed out once a later goal text drops them or a trigger listed for them in game/data/campaign_goals.json has fired; tools/campaign/goal_parts.py reviews that table) |
 | 28, 29 | player, player | share / stop sharing sight, both ways |
 | 30 | player, player | allied, both ways |
 | 31 | player, player | at war |

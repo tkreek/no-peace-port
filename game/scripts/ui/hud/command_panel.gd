@@ -136,7 +136,8 @@ func refresh() -> void:
 		formations[u.formation] = true
 	if builders.is_empty():
 		build_menu = ""
-	var wanted := "%d/%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [hud.player.researched.size(),
+	var horse_room := building != null and building.guid in BuildingProduction.HORSE_BUILDINGS and hud.player.has_horse_room()
+	var wanted := "%d/%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [hud.player.researched.size(), horse_room,
 			building.production.queue if building else [], builders.size() > 0,
 			farmers.size() > 0, building.get_instance_id() if building else 0,
 			building.complete if building else false, build_menu, fighters.size() > 0, stances.keys(),
@@ -245,6 +246,8 @@ func _add_building_commands(building: MapObject) -> void:
 	for guid in production.trainable_units():
 		if not MapRules.allows(hud.player.index, guid):
 			continue  # the map takes this one out of the player's menus
+		if guid == BuildingProduction.HORSE_GUID and not hud.player.has_horse_room():
+			continue  # full corrals take the horse out of the menu (0x46f650); queued ones still come
 		if BuildingProduction.is_trade(guid):
 			var trade: Dictionary = BuildingProduction.TRADES[guid - BuildingProduction.TRADE_GUID]
 			var button := _add_icon(command_icons, trade.icon, "", enqueue.bind(guid))
@@ -468,8 +471,6 @@ func unavailable_reason(guid: int, cost: Dictionary) -> String:
 	var stats := GameData.stats(guid)
 	if guid in MapObject.SHIPYARDS and not NavGrid.current.has_water:
 		return "Needs water (this map has none)"
-	if guid == BuildingProduction.HORSE_GUID and int(player.resources.get("horses", 0)) + player.queued_horses() >= player.horse_capacity():
-		return "No room for more horses (%d per corral, hacienda or ranch)" % BuildingProduction.HORSES_PER_BUILDING
 	if stats.get("kind") == "upgrade" and not player.can_research(guid):
 		return "Already researched or in progress" if player.researched.has(guid) or player.is_researching(guid) \
 				else "Research the previous level first"

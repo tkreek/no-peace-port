@@ -245,7 +245,10 @@ func _price(item: int) -> Dictionary:
 	if item == COW_GUID or item == GUN_GUID or item == LIQUOR_GUID:
 		return {"cost": stats.cost}
 	if item == HORSE_GUID:
-		if int(player.resources.get("horses", 0)) + player.queued_horses() >= player.horse_capacity():
+		# The build menu offers the horse only while the people has fewer horses than its
+		# corrals hold (0x46f650, 0x4730a5, 0x473b41, 0x4749b0: horses 0x58fdd4 < room
+		# 0x58fdf4); horses in the queues do not count, they wait when done (see _train).
+		if not player.has_horse_room():
 			return {}
 		return {"cost": stats.cost}
 	if item in Player.COMMANDERS and player.has_commander():
@@ -324,7 +327,7 @@ func _train(delta: float) -> void:
 	# A finished horse waits the same way while its people's corrals are full (0x40cf78,
 	# alert 823); the produce order does not ask for room.
 	var no_room: bool = stats.get("kind") == "unit" and player != null and not player.can_house(int(stats.get("cost", {}).get("population", 1)))
-	var no_stable: bool = item == HORSE_GUID and player != null and int(player.resources.get("horses", 0)) >= player.horse_capacity()
+	var no_stable: bool = item == HORSE_GUID and player != null and not player.has_horse_room()
 	if no_room or no_stable:
 		progress = 1.0
 		if not _room_alerted:

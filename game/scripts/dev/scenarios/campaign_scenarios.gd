@@ -3,6 +3,16 @@ extends Scenario
 ## --mission=...): checks that the mission's script, the units joining and the goals work.
 
 
+## --mission=<set>/<code>: the mission pushed to its win by cheating its script's
+## conditions true (MissionDriver); prints DRIVE ... WON / STUCK / LOST.
+func _scenario_drive() -> void:
+	var driver := MissionDriver.new()
+	driver.main = main
+	add_child(driver)
+	await driver.run()
+	get_tree().quit()
+
+
 ## --mission=base/tut_01: walk the chief to the four tribesmen waiting in the mountains,
 ## set up the chief's tepee on its marked spot, gather 100 wood: the tutorial is won.
 func _scenario_tutorial1() -> void:

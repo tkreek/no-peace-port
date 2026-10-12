@@ -375,11 +375,13 @@ func _action(a: PackedInt32Array) -> bool:
 			finish(p1, false)
 		5:
 			if p2 == main.me:
+				_log_message(p1)
 				message.emit(text(p1), float(p3), "")
 		6, 34:
 			remove(p1, p2, area(p3))
 		9:
 			if main.me > 0:
+				_log_message(p1)
 				var speech := "%s/%03d.mp3" % [speech_dir, p1]
 				message.emit(text(p1), -1.0, speech if speech_dir != "" and GameData.exists(speech) else "")
 		10:
@@ -582,13 +584,24 @@ func _join_neutrals() -> void:
 				other.change_team(unit.team)
 
 
+## What the local player has been told so far: [game ms, text id], oldest first (the goals
+## panel's log; nothing in the game reads it).
+var told: Array[PackedInt32Array] = []
+
+
+func _log_message(text_id: int) -> void:
+	if text(text_id) != "":
+		told.append(PackedInt32Array([Sim.msec(), text_id]))
+
+
 # ------------------------------------------------------------------ saving
 
 func save_state() -> Dictionary:
 	return {"armed": _armed.map(func(b: bool) -> int: return int(b)), "cursor": _cursor, "running": _running,
 			"timers": Array(_timers), "flags": Array(_flags), "vars": Array(_variables), "goal": goal,
 			"clock": clock_shown, "countdown": countdown, "counting": countdown_running,
-			"countdown_ms": _countdown_ms, "budget": _budget, "outcome": outcome, "end_at": _end_at}
+			"countdown_ms": _countdown_ms, "budget": _budget, "outcome": outcome, "end_at": _end_at,
+			"told": told.map(func(m: PackedInt32Array) -> Array: return Array(m))}
 
 
 func restore_state(state: Dictionary) -> void:
@@ -607,4 +620,7 @@ func restore_state(state: Dictionary) -> void:
 	_budget = int(state.budget)
 	outcome = int(state.outcome)
 	_end_at = int(state.end_at)
+	told.clear()
+	for m in state.get("told", []):
+		told.append(PackedInt32Array(m))
 	goal_changed.emit(goal_text())

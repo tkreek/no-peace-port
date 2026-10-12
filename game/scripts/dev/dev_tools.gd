@@ -98,6 +98,10 @@ func screenshot(path: String) -> void:
 					object.redraw_overlay()
 	for i in GameData.cmdline_option("frames", "90").to_int():
 		await get_tree().process_frame
+	if GameData.cmdline_option("menu-goals") != "" and main.mission:  # --menu-goals=1: the game menu's goals page
+		main.hud.menu.toggle()
+		main.hud.menu.show_goals()
+		await get_tree().process_frame
 	if GameData.cmdline_option("look") != "":  # --look=x,y: the view there for the capture
 		main.camera.position = main._vector_option("look", main.camera.position)
 		for i in 3:

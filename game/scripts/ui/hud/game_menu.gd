@@ -29,7 +29,7 @@ func toggle() -> void:
 		return
 	hud.get_tree().paused = true
 	var goals := []
-	if hud.mission and hud.mission.goal_text() != "":
+	if hud.mission and (hud.mission.goal_text() != "" or not hud.mission.told.is_empty()):
 		goals = [[hud.mission.text(56) if hud.mission.text(56) != "" else "Mission goals", show_goals]]
 	_panel = _menu_panel(GameData.menu_text(50, "Settings"), [
 		[GameData.menu_text(57, "Continue"), toggle]] + goals + [
@@ -74,23 +74,52 @@ func quick_load() -> void:
 	hud.get_tree().reload_current_scene()
 
 
-## The mission's current goals (the script's last goal text).
+## The mission's current goals (the script's last goal text), and below them everything the
+## mission has told the player so far (tips, people talking), newest first.
 func show_goals() -> void:
 	if _panel:
 		_panel.queue_free()
-	_panel = _menu_panel(hud.mission.text(56) if hud.mission.text(56) != "" else "Mission goals", [["Back", func() -> void:
+	var mission := hud.mission
+	_panel = _menu_panel(mission.text(56) if mission.text(56) != "" else "Mission goals", [["Back", func() -> void:
 		_close()
 		toggle()]])
+	var scale := hud.ui_scale
 	var box: Control = _panel.get_child(0)
 	var column: VBoxContainer = box.get_child(0)
-	var label := HudStyle.label(int(17 * hud.ui_scale))
-	label.text = hud.mission.goal_text()
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.custom_minimum_size.x = 520 * hud.ui_scale
-	column.add_child(label)
-	column.move_child(label, 1)
+	var width := 560 * scale
+	var goal := mission.goal_text().strip_edges()
+	var at := 1
+	column.add_child(_goal_text(goal if goal != "" else "No goals given yet.", width, 17))
+	column.move_child(column.get_child(-1), at)
+	var told := mission.told.filter(func(m: PackedInt32Array) -> bool: return m[1] != mission.goal)
+	if not told.is_empty():
+		var heading := MenuStyle.label("What you have been told", int(18 * scale))
+		column.add_child(heading)
+		column.move_child(heading, at + 1)
+		var scroll := ScrollContainer.new()
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.custom_minimum_size = Vector2(width + 16 * scale, minf(320 * scale, hud.get_viewport().get_visible_rect().size.y * 0.4))
+		var log := VBoxContainer.new()
+		log.add_theme_constant_override("separation", int(8 * scale))
+		for i in range(told.size() - 1, -1, -1):
+			var seconds: int = told[i][0] / 1000
+			var time := _goal_text("%d:%02d" % [seconds / 60, seconds % 60], width, 13)
+			time.add_theme_color_override("font_color", MenuStyle.TEXT_DIM)
+			log.add_child(time)
+			log.add_child(_goal_text(mission.text(told[i][1]).strip_edges(), width, 15))
+		scroll.add_child(log)
+		column.add_child(scroll)
+		column.move_child(scroll, at + 2)
 	box.reset_size()
 	box.position = hud.get_viewport().get_visible_rect().size / 2.0 - box.get_combined_minimum_size() / 2.0
+
+
+func _goal_text(text: String, width: float, size: int) -> Label:
+	var label := HudStyle.label(int(size * hud.ui_scale))
+	label.text = text
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.custom_minimum_size.x = width
+	return label
 
 
 ## Sound, scrolling, interface and display settings (SettingsPanel), kept between sessions.

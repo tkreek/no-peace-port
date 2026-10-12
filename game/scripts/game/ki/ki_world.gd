@@ -82,6 +82,9 @@ static var _building_classes := {}  # building GUID -> class bits but the garris
 static var _units_by_list := {}  # list -> Array of units
 static var _objects_by_player := {}  # people -> Array of map objects
 static var _tree_list: Array[MapObject] = []
+## Parts of those lists, the dead in them too: Vector3i(list, 0, GUID) what is of that type
+## (as Mission counts it), Vector3i(list, 1, mask) what may have all the class bits of mask.
+static var _parts := {}
 static var _unit_roster := -1
 static var _object_roster := -1
 
@@ -315,11 +318,13 @@ static func objects_of(player: int) -> Array:
 static func _refresh_lists() -> void:
 	if _unit_roster != Unit.roster_version:
 		_unit_roster = Unit.roster_version
+		_parts.clear()
 		_units_by_list.clear()
 		for unit in Unit.all_units:
 			_units_by_list.get_or_add(list_of(unit), []).append(unit)
 	if _object_roster != MapObject.roster_version:
 		_object_roster = MapObject.roster_version
+		_parts.clear()
 		_objects_by_player.clear()
 		_tree_list.clear()
 		var loose := []
@@ -333,6 +338,32 @@ static func _refresh_lists() -> void:
 		for object in MapObject.structures:
 			if object.owner_index != 0:
 				_objects_by_player.get_or_add(object.owner_index, []).append(object)
+
+
+## What of list `player` is of type `guid` (by_class false) or may have every class bit of
+## `guid` (true: the bits that come and go, garrison and fallow, taken as there), in the
+## list's order: a search looks only at these, and asks the rest at the time.
+static func _part(player: int, guid: int, by_class: bool) -> Array:
+	_refresh_lists()
+	var key := Vector3i(player, int(by_class), guid)
+	var part = _parts.get(key)
+	if part == null:
+		part = []
+		for list: Array in [_units_by_list.get(player, []), _objects_by_player.get(player, [])]:
+			for node: Node in list:
+				if (_class_bound(node) & guid == guid) if by_class else _is_type(node, guid):
+					part.append(node)
+		_parts[key] = part
+	return part
+
+
+## Every class bit `node` may have.
+static func _class_bound(node: Node) -> int:
+	if node is MapObject and (node as MapObject).is_field():
+		return C_BUILDING | C_FIELD | C_FALLOW
+	if node is MapObject and (node as MapObject).is_building():
+		return class_bits(node) | C_GARRISON
+	return class_bits(node)
 
 
 static func trees() -> Array:
@@ -363,8 +394,9 @@ static func nearest(candidates: Array, at: Vector2, accept: Callable) -> Node:
 static func find_claiming(me: int, player: int, mask: int, at: Vector2, state: int) -> int:
 	if mask & (C_TREE | C_TENT):
 		return handle(nearest_tree(at))
-	var found := nearest(objects_of(player), at, func(n: Node) -> bool:
-		return class_bits(n) & mask == mask and (state == 0 or state_bits(n) & state != 0) and not claimed(n, me))
+	var found := nearest(_part(player, mask, true), at, func(n: Node) -> bool:
+		return n.is_alive() and class_bits(n) & mask == mask and (state == 0 or state_bits(n) & state != 0) \
+				and not claimed(n, me))
 	if found:
 		claim(found, me)
 	return handle(found)
@@ -372,11 +404,10 @@ static func find_claiming(me: int, player: int, mask: int, at: Vector2, state: i
 
 ## Searches by type with a state any-of filter, claiming (139-141, 203-205).
 static func find_type_claiming(me: int, player: int, guid: int, at: Vector2, state: int, owned_by := -1) -> int:
-	var list := objects_of(player)
-	if owned_by >= 0:
-		list = objects_of(0).filter(func(n: Node) -> bool: return is_animal(n) and owner_of(n) == owned_by)
+	var list := _part(0 if owned_by >= 0 else player, guid, false)
 	var found := nearest(list, at, func(n: Node) -> bool:
-		return _is_type(n, guid) and (state == 0 or state_bits(n) & state != 0) and not claimed(n, me))
+		return n.is_alive() and (owned_by < 0 or is_animal(n) and owner_of(n) == owned_by) \
+				and (state == 0 or state_bits(n) & state != 0) and not claimed(n, me))
 	if found:
 		claim(found, me)
 	return handle(found)
@@ -390,8 +421,8 @@ static func _is_type(node: Node, guid: int) -> bool:
 
 ## Claiming search with a "none of these states" filter (383, 384).
 static func claim_nearest(me: int, player: int, at: Vector2, mask: int, guid: int, notstate: int) -> int:
-	var found := nearest(objects_of(player), at, func(n: Node) -> bool:
-		return (guid < 0 or _is_type(n, guid)) and (mask == 0 or class_bits(n) & mask == mask) \
+	var found := nearest(_candidates(player, mask, guid), at, func(n: Node) -> bool:
+		return n.is_alive() and (guid < 0 or _is_type(n, guid)) and (mask == 0 or class_bits(n) & mask == mask) \
 				and state_bits(n) & notstate == 0 and not claimed(n, me))
 	if found:
 		claim(found, me)
@@ -402,9 +433,19 @@ static func claim_nearest(me: int, player: int, at: Vector2, mask: int, guid: in
 static func nearest_plain(player: int, at: Vector2, mask: int, guid: int, state: int, notstate: int) -> int:
 	if player < 0 or player > 8:
 		return 0
-	return handle(nearest(objects_of(player), at, func(n: Node) -> bool:
-		return (guid < 0 or _is_type(n, guid)) and (mask == 0 or class_bits(n) & mask == mask) \
+	return handle(nearest(_candidates(player, mask, guid), at, func(n: Node) -> bool:
+		return n.is_alive() and (guid < 0 or _is_type(n, guid)) and (mask == 0 or class_bits(n) & mask == mask) \
 				and (state == 0 or state_bits(n) & state != 0) and state_bits(n) & notstate == 0))
+
+
+## What of list `player` a search for type `guid` (-1: any) with class `mask` (0: any) looks at.
+static func _candidates(player: int, mask: int, guid: int) -> Array:
+	if guid >= 0:
+		return _part(player, guid, false)
+	if mask != 0:
+		return _part(player, mask, true)
+	_refresh_lists()
+	return _units_by_list.get(player, []) + _objects_by_player.get(player, [])
 
 
 ## A foe of `me` within 500 px of `at` with any of `classany` and none of `notstate` (387).

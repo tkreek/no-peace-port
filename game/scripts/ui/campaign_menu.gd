@@ -36,6 +36,7 @@ var _list := VBoxContainer.new()
 var _picture := TextureRect.new()
 var _mission_title := Label.new()
 var _mission_state := Label.new()
+var _difficulty: Button
 var _brief_title := Label.new()
 var _brief_text := RichTextLabel.new()
 var _brief_map := TextureRect.new()
@@ -163,6 +164,9 @@ func _build_missions() -> void:
 	missions_screen.add_child(_mission_state)
 	missions_screen.add_child(_bar_button(LEFT_BARS[0], "Briefing", _brief))
 	missions_screen.add_child(_bar_button(LEFT_BARS[1], "Start mission", _start))
+	_difficulty = _bar_button(LEFT_BARS[2], "", _next_difficulty)
+	_show_difficulty()
+	missions_screen.add_child(_difficulty)
 	missions_screen.add_child(_bar_button(LEFT_BARS[3], GameData.menu_text(16, "Back"), func() -> void: menu._show("campaign")))
 
 
@@ -209,6 +213,18 @@ func _pick(entry: Dictionary, button: Button) -> void:
 	var count := Campaign.missions(entry.set, entry.people).size()
 	_mission_state.text = "Mission %d of %d%s" % [int(entry.number), count,
 			" — won" if Campaign.won(entry.set, entry.code) else ""]
+
+
+## The original's four levels, read by the mission scripts (KI native 352): how many
+## attack, how soon and how often.
+func _next_difficulty() -> void:
+	Campaign.set_difficulty((Campaign.difficulty() + 1) % Match.DIFFICULTY_TEXT.size())
+	_show_difficulty()
+
+
+func _show_difficulty() -> void:
+	var level := Campaign.difficulty()
+	_difficulty.text = "Difficulty: %s" % GameData.menu_text(Match.DIFFICULTY_TEXT[level], Match.DIFFICULTY_NAMES[level])
 
 
 # ------------------------------------------------------------------ briefing
@@ -290,7 +306,7 @@ func _start() -> void:
 	Match.campaign = selected
 	Match.population_limit = Match.POPULATION_LIMITS[-1]
 	Match.speed = 1.0
-	Match.difficulty = 2
+	Match.difficulty = Campaign.difficulty()
 	Match.game_type = Match.GameType.EVERYBODY
 	menu._show_loading()
 	await menu.get_tree().process_frame

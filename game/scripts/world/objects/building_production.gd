@@ -13,6 +13,8 @@ const DEFAULT_PRODUCTION_TIME := 10
 const HORSE_GUID := 9001
 const HORSE_BUILDINGS := [105, 205, 305, 405]
 const HORSES_PER_BUILDING := 5
+## "Our horses need more room!": a finished horse waits for room (AmericaAddOn.exe 0x40cf98).
+const HORSE_ROOM_ALERT := 823
 ## Cattle (manual 2.5): raised at the hacienda and ranch, sold alive at animal processing.
 const COW_GUID := 9002
 const COW_BUILDINGS := [205, 405]
@@ -186,12 +188,53 @@ func enqueue(item: int) -> bool:
 	return true
 
 
+## Why the original's produce order would turn `item` away here, "" when it takes it
+## (AmericaAddOn.exe 0x40cd10): only a full queue, a second leader (0x590a63, 0x42c1f0) and
+## an upgrade its people has researched or is researching at any building (0x590b18,
+## 0x590e38). Unlike the build menu (0x4750a0, which offers the next level of an upgrade
+## only when no level is in research) it asks nothing about the level before or the
+## prerequisites, so the KI's next level waits behind the one in research.
+func order_refusal(item: int) -> String:
+	var player := owner()
+	if player == null:
+		return "no owner"
+	if queue.size() >= QUEUE_LIMIT:
+		return "queue full"
+	if GameData.stats(item).get("kind") == "upgrade":
+		if player.researched.has(item):
+			return "researched"
+		if player.is_researching(item):
+			return "in research"
+	elif item in Player.COMMANDERS and player.has_commander():
+		return "leader"
+	return ""
+
+
+## Queue `item` as the produce order does (0x4564a0 -> 0x40cd10), which is how the KI
+## produces: the price (props 101-105) is taken whether or not it can be paid (0x422580; the
+## scripts ask can_train first), living space and the horses' room are needed only when it
+## is done. False when order_refusal turns it away.
+func order(item: int) -> bool:
+	if is_trade(item):
+		return enqueue(item)
+	if not order_refusal(item).is_empty():
+		return false
+	var player := owner()
+	var cost: Dictionary = GameData.stats(item).get("cost", {})
+	for key in cost:
+		if Player.RESOURCES.has(key):
+			player.resources[key] = int(player.resources.get(key, 0)) - int(cost[key])
+	player.resources_changed.emit()
+	queue.append(item)
+	return true
+
+
 ## {"cost": what `item` takes now}, or {} when it cannot be queued at all.
 func _price(item: int) -> Dictionary:
 	var player := owner()
 	if queue.size() >= QUEUE_LIMIT or player == null:
 		return {}
-	var stats := GameData.stats(item)
+	var stats := MapRules.stats(player.index, item)
 	if stats.get("kind") == "upgrade":
 		return {"cost": stats.get("cost", {})} if player.can_research(item) else {}
 	if is_trade(item):
@@ -202,7 +245,10 @@ func _price(item: int) -> Dictionary:
 	if item == COW_GUID or item == GUN_GUID or item == LIQUOR_GUID:
 		return {"cost": stats.cost}
 	if item == HORSE_GUID:
-		if int(player.resources.get("horses", 0)) + player.queued_horses() >= player.horse_capacity():
+		# The build menu offers the horse only while the people has fewer horses than its
+		# corrals hold (0x46f650, 0x4730a5, 0x473b41, 0x4749b0: horses 0x58fdd4 < room
+		# 0x58fdf4); horses in the queues do not count, they wait when done (see _train).
+		if not player.has_horse_room():
 			return {}
 		return {"cost": stats.cost}
 	if item in Player.COMMANDERS and player.has_commander():
@@ -232,7 +278,7 @@ func cancel(index: int) -> void:
 	if index < 0 or index >= queue.size():
 		return
 	var item := queue[index]
-	var refund: Dictionary = GameData.stats(item).get("cost", {})
+	var refund: Dictionary = MapRules.stats(building.owner_index, item).get("cost", {})
 	if is_trade(item):
 		var position_in_trades := 0
 		for k in index:
@@ -271,18 +317,22 @@ func update(delta: float) -> void:
 
 func _train(delta: float) -> void:
 	var item := queue[0]
-	var stats := GameData.stats(item)
+	var stats := MapRules.stats(building.owner_index, item)
 	progress += delta / production_seconds(int(stats.get("build_time", DEFAULT_PRODUCTION_TIME)))
 	if progress < 1.0:
 		return
 	var player := owner()
 	# A finished unit waits in the building until its people have living space for it,
 	# announced once (AmericaAddOn.exe 0x40d103, alert 805).
-	if stats.get("kind") == "unit" and player and not player.can_house(int(stats.get("cost", {}).get("population", 1))):
+	# A finished horse waits the same way while its people's corrals are full (0x40cf78,
+	# alert 823); the produce order does not ask for room.
+	var no_room: bool = stats.get("kind") == "unit" and player != null and not player.can_house(int(stats.get("cost", {}).get("population", 1)))
+	var no_stable: bool = item == HORSE_GUID and player != null and not player.has_horse_room()
+	if no_room or no_stable:
 		progress = 1.0
 		if not _room_alerted:
 			_room_alerted = true
-			player.alert(Player.LIVING_SPACE_ALERT, building.position, 0)
+			player.alert(Player.LIVING_SPACE_ALERT if no_room else HORSE_ROOM_ALERT, building.position, 0)
 		return
 	_room_alerted = false
 	progress = 0.0

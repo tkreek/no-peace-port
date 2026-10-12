@@ -12,6 +12,8 @@ signal ended(won: bool)
 ## A text (and maybe speech) for the local player: text, seconds on screen, speech asset.
 signal message(text: String, seconds: float, speech: String)
 signal goal_changed(text: String)
+## A trigger's conditions held and its actions are about to run (for tools that follow a script).
+signal fired(index: int)
 
 ## The original's script step.
 const STEP_MS := 20
@@ -54,6 +56,10 @@ var main: Main
 var texts := {}
 var speech_dir := ""
 var goal := -1  ## the text id the "Mission goals" button shows
+## Every goal text set so far, oldest first (the goals page crosses out the ones gone).
+var goals := PackedInt32Array()
+## Per trigger: has it ever fired (the goals page crosses out a goal's parts by it).
+var ever_fired := PackedByteArray()
 var clock_shown := false
 var countdown := 0  ## seconds
 var countdown_running := false
@@ -84,6 +90,7 @@ func setup(mission: MissionData, game: Main, text_table: Dictionary, speech_fold
 	speech_dir = speech_folder
 	_armed.resize(data.triggers.size())
 	_armed.fill(true)
+	ever_fired.resize(data.triggers.size())
 	_timers.resize(TIMERS)
 	_timers.fill(-1)
 	_flags.resize(FLAGS)
@@ -172,9 +179,11 @@ func _check(index: int) -> void:
 func _fire(index: int, forced: bool) -> void:
 	var trigger: MissionData.Trigger = data.triggers[index]
 	_armed[index] = false
+	ever_fired[index] = 1
 	fired_log.append(PackedInt32Array([Sim.msec(), index, int(forced)]))
 	if fired_log.size() > FIRED_LOG_SIZE:
 		fired_log.pop_front()
+	fired.emit(index)
 	if MissionStats.on:
 		MissionStats.fired(index)
 	if _trace:
@@ -299,10 +308,18 @@ static func count(player: int, what: int, rect := Rect2(), outside := false, any
 				total += 1
 	if what < 100 or not (_is_unit(what) or what in ANIMALS):  # buildings and fields
 		for object in MapObject.structures:
-			if object.owner_index == player and (object.is_building() or object.is_field()) and object.is_alive() and object.complete \
+			if object.owner_index == player and (object.is_building() or _sown(object)) and object.is_alive() and object.complete \
 					and matches(object.guid, what) and (not within or rect.has_point(object.position)):
 				total += 1
 	return total
+
+
+## A field counts while it is sown: a fallow one (harvested, or hailed on by a medicine
+## man) is not a "field" to the scripts. The second tutorial says how to rework a fallow
+## field when the player has fewer than two fields, and base/ind_06 is won by hailing on
+## all the settlers' fields.
+static func _sown(object: MapObject) -> bool:
+	return object.is_field() and object.stock != null and object.stock.field_state != ObjectStock.Field.FALLOW
 
 
 ## Whether `unit` counts as `what` (animals by their kind).
@@ -439,6 +456,8 @@ func _action(a: PackedInt32Array) -> bool:
 				_timers[p1] = -1
 		27:
 			goal = p1
+			if goals.is_empty() or goals[-1] != p1:
+				goals.append(p1)
 			goal_changed.emit(goal_text())
 		28, 29:
 			Diplomacy.share_vision(p1, p2, a[0] == 28)
@@ -496,6 +515,8 @@ func spawn(player: int, amount: int, guid: int, at: Vector2) -> void:
 		push_warning("Mission: no unit for GUID %d" % guid)
 		return
 	var nav := main.nav
+	# Boats on the water (the Mexicans' last mission brings riverboats), the rest ashore.
+	var layer := NavGrid.Layer.WATER if guid in UnitWater.BOATS else NavGrid.Layer.GROUND
 	var centre := nav.cell_of(at)
 	var placed := 0
 	var ring := 0
@@ -505,12 +526,14 @@ func spawn(player: int, amount: int, guid: int, at: Vector2) -> void:
 				if placed >= amount or (absi(dx) != ring and absi(dy) != ring):
 					continue
 				var cell := centre + Vector2i(dx, dy)
-				if not nav.is_walkable(cell) or _occupied(cell):
+				if not nav.is_walkable(cell, layer) or _occupied(cell):
 					continue
 				var unit := Unit.new()
 				unit.position = nav.center_of(cell)
 				main.units_root.add_child(unit)
 				unit.setup(unit_type, player)
+				if player > 0 and unit.animal.is_horse():
+					unit.animal.wild_timer = UnitAnimal.OWNED_HORSE_SECONDS  # a while its people's, like a rider's
 				placed += 1
 		ring += 1
 
@@ -571,15 +594,15 @@ func convert_owner(what: int, rect: Rect2, player: int) -> void:
 			object.capture(player)
 
 
-## Units of a people neutral to a passer-by's join the passer-by (the original's
-## independent tribesmen: a unit of yours walks up and they are yours).
+## Units and buildings of a people neutral to a passer-by's join the passer-by (the
+## original's independent tribesmen: a unit of yours walks up and they are yours).
 func _join_neutrals() -> void:
-	var any := false
+	var takers := {}  # people whose buildings a passer-by can take -> true
 	for p in data.players:
 		for q in data.players:
-			if Diplomacy.neutral(p.index, q.index):
-				any = true
-	if not any:
+			if Diplomacy.neutral(p.index, q.index) and q.control != MissionData.Seat.INDEPENDENT:
+				takers[p.index] = true
+	if takers.is_empty():
 		return
 	for unit in Unit.all_units:
 		if not unit.is_alive() or unit.team <= 0:
@@ -591,6 +614,20 @@ func _join_neutrals() -> void:
 			if other.is_alive() and Diplomacy.neutral(unit.team, other.team) \
 					and other.position.distance_to(unit.position) <= JOIN_REACH:
 				other.change_team(unit.team)
+	# Buildings too: the original looks through the map's grid round the unit, where
+	# buildings stand as well (the outlaws' first mission: "take over the two houses and
+	# the distilleries", an independent people's buildings with nobody in them).
+	for object in MapObject.structures:
+		if not takers.has(object.owner_index) or not object.is_building() or not object.is_alive():
+			continue
+		var reach := object.footprint_rect().grow(JOIN_REACH)
+		for unit: Unit in UnitGrid.near(reach.get_center(), maxf(reach.size.x, reach.size.y) / 2.0):
+			var slot := data.player(unit.team) if unit.team > 0 else null
+			if unit.is_alive() and unit.team > 0 and reach.has_point(unit.position) \
+					and Diplomacy.neutral(unit.team, object.owner_index) \
+					and not (slot and slot.control == MissionData.Seat.INDEPENDENT):
+				object.capture(unit.team)
+				break
 
 
 ## What the local player has been told so far: [game ms, text id], oldest first (the goals
@@ -610,7 +647,8 @@ func save_state() -> Dictionary:
 			"timers": Array(_timers), "flags": Array(_flags), "vars": Array(_variables), "goal": goal,
 			"clock": clock_shown, "countdown": countdown, "counting": countdown_running,
 			"countdown_ms": _countdown_ms, "budget": _budget, "outcome": outcome, "end_at": _end_at,
-			"told": told.map(func(m: PackedInt32Array) -> Array: return Array(m))}
+			"told": told.map(func(m: PackedInt32Array) -> Array: return Array(m)),
+			"goals": Array(goals), "ever_fired": Array(ever_fired)}
 
 
 func restore_state(state: Dictionary) -> void:
@@ -632,4 +670,7 @@ func restore_state(state: Dictionary) -> void:
 	told.clear()
 	for m in state.get("told", []):
 		told.append(PackedInt32Array(m))
+	goals = PackedInt32Array(state.get("goals", [goal] if goal >= 0 else []))
+	for i in mini(ever_fired.size(), state.get("ever_fired", []).size()):
+		ever_fired[i] = int(state.ever_fired[i])
 	goal_changed.emit(goal_text())

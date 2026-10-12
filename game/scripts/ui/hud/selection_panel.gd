@@ -185,7 +185,7 @@ func _object_stats(object: MapObject) -> Array:
 	if not object.is_building():
 		return []
 	var stats := [[ICON_ENERGY, "%d/%d" % [object.health, object.max_health], "Energy"]]
-	var housing := int(GameData.stats(object.guid).get("housing", 0))
+	var housing := int(MapRules.stats(object.owner_index, object.guid).get("housing", 0))
 	if housing > 0 and object.complete:
 		stats.append([ICON_PEOPLE, "%d" % housing, "Houses %d" % housing])
 	return stats

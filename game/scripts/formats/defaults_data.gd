@@ -100,6 +100,35 @@ static func to_stats(entry: Dictionary, base: Dictionary) -> Dictionary:
 	return stats
 
 
+## Properties a map changes (id -> value, see MapRules) into `stats` as to_stats reads them:
+## structures 1-10, everything else (units, upgrades, horses, cows, guns, liquor) 101-120.
+static func apply_properties(stats: Dictionary, p: Dictionary) -> void:
+	var structure: bool = stats.get("kind") == "structure"
+	var cost: Dictionary = stats.get("cost", {}).duplicate()
+	var cost_ids := STRUCTURE_COST if structure else UNIT_COST
+	for key in cost_ids:
+		if p.has(cost_ids[key]):
+			if int(p[cost_ids[key]]) > 0:
+				cost[key] = int(p[cost_ids[key]])
+			else:
+				cost.erase(key)
+	if not structure and p.has(119):
+		cost["population"] = int(p[119])
+	stats.cost = cost
+	if p.has(7 if structure else 107):
+		stats.health = int(p[7 if structure else 107])
+	if p.has(6 if structure else 106):
+		stats.build_time = int(p[6 if structure else 106])
+	var fields := {8: "capacity", 9: "housing", 10: "sight_tier"} if structure else {110: "speed_tier",
+			111: "carry", 112: "sight_tier", 113: "melee", 114: "ranged", 115: "range_tier",
+			116: "melee_rate_tier", 120: "min_range_tier"}
+	for id in fields:
+		if p.has(id):
+			stats[fields[id]] = int(p[id])
+	if not structure and (p.has(113) or p.has(114)):
+		stats.damage = int(stats.get("ranged", 0)) if int(stats.get("ranged", 0)) > 0 else int(stats.get("melee", 0))
+
+
 ## An upgrade's cost and production time (106) into `stats` (the manual's entry, which
 ## names it and says what it does; its costs and times are not the game's).
 static func apply_upgrade(entry: Dictionary, stats: Dictionary) -> void:

@@ -8,6 +8,7 @@ Usage: tools/campaign/runtime_report.py [options] [set/code ...]   (no codes: ev
   --out DIR       where the per-mission JSON and logs go (default /tmp/mission-stats)
   --report FILE   the markdown report (default DIR/runtime-report.md)
   --notes FILE    markdown put in the report after the summary (the analysis)
+  --before DIR    JSON of an earlier run: adds a before -> after comparison per mission
   --no-run        only build the report from the JSON already in DIR
 
 Each run is `godot --headless --fixed-fps 30 -- --mission=<set>/<code> --time-scale=4
@@ -216,7 +217,8 @@ def summarise(code, d, log_info):
     stuck = sum(1 for r in d["running"] if _waiting(r))
     fails = sum(n for nid, reasons in d["failures"].items() if int(nid) not in STUBS
                 for reason, modules in reasons.items()
-                if not reason.startswith(("found nothing", "object:", "no:")) for n in modules.values())
+                if not reason.startswith(("found nothing", "object:", "no:", "stub", "as original"))
+                for n in modules.values())
     computers = [str(p["index"]) for p in d["players"] if p["control"] == 2]
     grown = [0, 0]
     for index in computers:
@@ -295,7 +297,42 @@ def peoples_table(d):
     return rows
 
 
-def report(stats, logs, out, notes):
+def computer_totals(d):
+    """What the computer players have at the end: fields, food, buildings and units gained."""
+    out = {"fields": 0, "food": 0, "buildings": 0, "units": 0}
+    for p in d["players"]:
+        index = str(p["index"])
+        if p["control"] != 2 or index not in d["end"] or index not in d["start"]:
+            continue
+        end, start = d["end"][index], d["start"][index]
+        out["fields"] += end["buildings"].get("149", 0)
+        out["food"] += end["resources"].get("food", 0)
+        out["buildings"] += sum(end["buildings"].values()) - sum(start["buildings"].values())
+        out["units"] += sum(end["units"].values()) - sum(start["units"].values())
+    return out
+
+
+def comparison(before, stats, logs):
+    lines = ["## Before -> after", "",
+             "The same 20 idle minutes (seed 1) before and after the fixes on this branch. Computer players: "
+             "fields and food at the end, buildings (fields included) and units gained; KI wall-clock ms per game minute; "
+             "modules still running at the end; orders that came to nothing.", "",
+             "| Mission | Ended | Fields | Food | Buildings | Units | KI ms/min | Running | Failed orders |",
+             "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
+    for code, d in stats.items():
+        if code not in before:
+            continue
+        b, a = before[code], d
+        rb, ra = summarise(code, b, {}), summarise(code, a, logs.get(code, {}))
+        cb, ca = computer_totals(b), computer_totals(a)
+        lines.append("| %s | %s → %s | %d → %d | %d → %d | %+d → %+d | %+d → %+d | %.0f → %.0f | %d → %d | %d → %d |" % (
+            code, rb["end"], ra["end"], cb["fields"], ca["fields"], cb["food"], ca["food"], cb["buildings"],
+            ca["buildings"], cb["units"], ca["units"], rb["ki_avg"], ra["ki_avg"], rb["running"], ra["running"],
+            rb["fails"], ra["fails"]))
+    return "\n".join(lines) + "\n"
+
+
+def report(stats, logs, out, notes, before=None):
     lines = []
     w = lines.append
     rows = {code: summarise(code, d, logs.get(code, {})) for code, d in stats.items()}
@@ -327,6 +364,8 @@ def report(stats, logs, out, notes):
     if notes:
         w(notes.rstrip())
         w("")
+    if before:
+        w(comparison(before, stats, logs))
 
     # ---------------------------------------------------------- failures
     by_mission, by_module = failure_rows(stats)
@@ -339,7 +378,7 @@ def report(stats, logs, out, notes):
     ranked = sorted(by_mission, key=lambda k: -sum(by_mission[k].values()))
     groups = [
         ("Orders and building", "Orders whose unit, target or building is missing, build_near without a site, "
-         "production refused.", lambda nid, reason: not reason.startswith(("object:", "no:"))),
+         "production refused (`as original`: the original's order turns it away too, not counted as failed).", lambda nid, reason: not reason.startswith(("object:", "no:"))),
         ("Can I have it (136, 137, 290, 291 answering no)", "Prerequisites missing or not affordable, per GUID.",
          lambda nid, reason: reason.startswith("no:")),
         ("Questions about a missing object", "Mostly harmless: the VM has no short-circuit, so "
@@ -484,6 +523,24 @@ def report(stats, logs, out, notes):
         w("| %s | %.0f | %.0f | %.1f | %d |" % (code, r["ki_avg"], r["ki_max"], r["trig_avg"], r["running"]))
     w("")
 
+    native_ms = collections.Counter()
+    native_calls = collections.Counter()
+    for d in stats.values():
+        for nid, ms in d.get("native_ms", {}).items():
+            native_ms[int(nid)] += ms
+            native_calls[int(nid)] += d["natives"].get(nid, 0)
+    if native_ms:
+        total_ki = sum(c[1] for d in stats.values() for c in d["cost"])
+        w("### Natives by wall-clock time")
+        w("")
+        w("All missions together: %.0f s of KI, %.0f s of it inside natives." % (total_ki / 1000, sum(native_ms.values()) / 1000))
+        w("")
+        w("| Native | ms | Calls | µs per call |")
+        w("| --- | --- | --- | --- |")
+        for nid, ms in native_ms.most_common(15):
+            w("| %d %s | %.0f | %d | %.1f |" % (nid, native_name(nid), ms, native_calls[nid], 1000.0 * ms / max(1, native_calls[nid])))
+        w("")
+
     # ---------------------------------------------------------- errors
     w("## Errors in the logs")
     w("")
@@ -542,6 +599,7 @@ def main():
     parser.add_argument("--out", default="/tmp/mission-stats")
     parser.add_argument("--report")
     parser.add_argument("--notes")
+    parser.add_argument("--before")
     parser.add_argument("--no-run", action="store_true")
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)
@@ -562,7 +620,13 @@ def main():
     notes = open(args.notes, encoding="utf-8").read() if args.notes else ""
     out = args.report or os.path.join(args.out, "runtime-report.md")
     with open(out, "w", encoding="utf-8") as f:
-        f.write(report(stats, logs, out, notes))
+        before = {}
+        if args.before:
+            for code in codes:
+                path = os.path.join(args.before, code.replace("/", "_") + ".json")
+                if os.path.exists(path):
+                    before[code] = load_json(path)
+        f.write(report(stats, logs, out, notes, before))
     print("report: %s" % out)
 
 

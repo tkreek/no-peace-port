@@ -235,7 +235,7 @@ func _build_wall(workers: Array, hq: MapObject) -> bool:
 	if _passes_walled(built) >= WALL_TARGET[ai.difficulty] or not player.meets_prerequisites(corner) \
 			or not _worth_trying(corner):
 		return false
-	var cost: Dictionary = GameData.stats(corner).get("cost", {})
+	var cost: Dictionary = MapRules.stats(player.index, corner).get("cost", {})
 	var stock := player.resources.duplicate()
 	for i in (WALL_MAX_SIDE + 1) * 2:
 		if not BuildController._take(stock, cost):
@@ -499,7 +499,7 @@ func place(guid: int, around: Vector2, builders: Array, min_radius := 220, max_d
 	if spot == Vector2.INF or spot.distance_to(around) > max_distance:
 		_failed[guid] = ai.elapsed
 		return false
-	var cost: Dictionary = GameData.stats(guid).get("cost", {}).duplicate()
+	var cost: Dictionary = MapRules.stats(ai.player.index, guid).get("cost", {}).duplicate()
 	cost.erase("population")
 	if not ai.player.spend(cost):
 		return false
@@ -528,7 +528,7 @@ func plant_field(near: Vector2) -> MapObject:
 	var spot := find_spot(type, near, 120)
 	if spot == Vector2.INF:
 		return null
-	var cost: Dictionary = GameData.stats(MapObject.FIELD_GUID).get("cost", {}).duplicate()
+	var cost: Dictionary = MapRules.stats(ai.player.index, MapObject.FIELD_GUID).get("cost", {}).duplicate()
 	cost.erase("population")
 	if not ai.player.spend(cost):
 		return null

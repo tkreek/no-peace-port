@@ -3,6 +3,16 @@ extends Scenario
 ## --mission=...): checks that the mission's script, the units joining and the goals work.
 
 
+## --mission=<set>/<code>: the mission pushed to its win by cheating its script's
+## conditions true (MissionDriver); prints DRIVE ... WON / STUCK / LOST.
+func _scenario_drive() -> void:
+	var driver := MissionDriver.new()
+	driver.main = main
+	add_child(driver)
+	await driver.run()
+	get_tree().quit()
+
+
 ## --mission=base/tut_01: walk the chief to the four tribesmen waiting in the mountains,
 ## set up the chief's tepee on its marked spot, gather 100 wood: the tutorial is won.
 func _scenario_tutorial1() -> void:
@@ -148,7 +158,7 @@ func _keep_farming(women: Array) -> void:
 ## A building (or field) of `guid` put up near `around` by `builders`; waits until it stands.
 func _build(guid: int, around: Vector2, builders: Array, wait := true) -> MapObject:
 	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
-	var cost: Dictionary = BuildController._cost_of(type)
+	var cost: Dictionary = BuildController._cost_of(type, main.me)
 	await _until(func() -> bool: return (main.players[main.me] as Player).can_afford(cost), 900.0, "the cost of %d" % guid)
 	var spot := AiBuilder.find_spot(type, around, 120)
 	var had := MapObject.structures.filter(func(o: MapObject) -> bool: return o.owner_index == main.me and o.guid == guid).size()

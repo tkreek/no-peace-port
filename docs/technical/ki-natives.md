@@ -398,7 +398,7 @@ Pushed constants: class/state flag masks, stance values, diplomacy values and GU
 | 307 | `health_building (h) -> percent` | 498 (168+330) | 0x43c0a9 | Hit points in percent: obj+0x4 * 100 / obj+0x578 (buildings); -1 if gone. *(0x438e20)* |
 | 132 | `resource_left (h) -> amount` | 41 (18+23) | 0x43b11a | obj+0x9c (0x423c70): what is left in a gold mine (class 0x8, types 700-703); the scripts test `> 0` before sending miners. 0 if gone. *(0x4385f0)* |
 | 217 | `free_garrison (building) -> n` | 1 (1+0) | 0x43b094 | Garrison capacity obj+0xdc (building property 8, max 10) minus units inside obj+0xd8. *(0x438f80)* |
-| 218 | `free_seats (transport) -> n` | 45 (12+33) | 0x43b0be | Passenger capacity obj+0x3d4 (raft 8, riverboats 8/10, stagecoach 2, default 4) minus passengers obj+0x3d0. *(0x438fb0)* |
+| 218 | `free_seats (transport) -> n` | 45 (12+33) | 0x43b0be | Seats obj+0x3d4 minus passengers obj+0x3d0 (one seat each, boarding 0x41ab00 refuses when full). Seats are set by the constructors, not Defaults.bin: Mexican riverboat 254 8 (0x457e90), American riverboat 454 10 (0x466760), raft 364 8 (0x412e90), armored stagecoach 266 2 (0x459170; 4 once upgrade 971 is researched, 0x41b20d); every other unit, the canoe too, 0 (0x418af0). Scripts compare it exactly: in base/mex_06 `mex06_allgemeines_turmbesetzten` boards 1 cannon and 2 infantrymen into player 6's riverboat (8 - 3 = 5, what `mex06_geteinheittype` waits for before the attack boat sails) and 2 cannons and 2 infantrymen into each American riverboat (10 - 4 = 6, `a_patroloneship`'s count). (`a_einbooten`, which `*_sonderaktion` spawn to crew newly trained boats, searches for `guid - (global 210 + 20)`, which is no type, so it never finds anyone, in the original too.) *(0x438fb0)* |
 | 300 | `stored_gold (building) -> n` | 13 (8+5) | 0x43bfb4 | obj+0x6fc of a storage building: amount stored (gold in a gold warehouse); -1 if gone. (Other classes use +0x6fc differently: a gatherer's resource object, a fighter's leash radius.) *(0x438db0)* |
 | 359 | `stored_gold_ (building) -> n` | 7 (1+6) | 0x43c8c2 | Same field as 300, 0 if gone. *(0x439800)* |
 | 303 | `cargo (wagon) -> n` | 20 (0+20) | 0x43c02b | obj+0x6b0: cargo loaded on a wagon (travois, covered wagon, stagecoach); kind at +0x6b4. 0 if gone. *(0x438df0)* |
@@ -483,7 +483,7 @@ Pushed constants: class/state flag masks, stance values, diplomacy values and GU
 | 285 | `free_living_space (player) -> n` | 0 (0+0) | 0x43b87d | Same for any player. *(0x438cb0)* |
 | 279 | `my_population () -> n` | 32 (32+0) | 0x43b755 | Own population (living space used, 0x58fd74[p]); 0 if p not 1..8. *(0x439720)* |
 | 289 | `unit_limit () -> n` | 138 (53+85) | 0x43b778 | The match unit limit 0x58fd74[0] = (menu choice + 3) * 25, 75..200. *(0x439740)* |
-| 270 | `my_count (guid) -> n` | 983 (585+398) | 0x43b60c | Number of own objects of type guid (world 0x42a0b0(player, guid)). *(0x438c50)* |
+| 270 | `my_count (guid) -> n` | 983 (585+398) | 0x43b60c | Number of own objects of type guid (world 0x42a0b0(player, guid)): the tally of the player's object list, which has no wall pieces (walls, barricades, stockades are in list 10, created at 0x42698e), so this is 0 for them. *(0x438c50)* |
 | 280 | `count (player, guid) -> n` | 107 (96+11) | 0x43b79b | Number of objects of type guid owned by player. *(0x438c50)* |
 | 340 | `count_checked (player, guid) -> n` | 1 (1+0) | 0x43c523 | Same as 280 but 0 unless 0 <= player <= 10 (player 0 = neutral: `native_340(0, 482)` counts free cows). *(0x4393a0)* |
 | 276 | `my_farms () -> n` | 73 (70+3) | 0x43b6ec | Own count of GUIDs 408 + 208 + 108 (USA farm, Mexican finca, Native field). *(0x438cd0)* |
@@ -513,7 +513,7 @@ Pushed constants: class/state flag masks, stance values, diplomacy values and GU
 | --- | --- | --- | --- | --- |
 | 143 | `move (unit, x, y)` | 542 (162+380) | 0x43b42c | Move to (x, y) (order 0x20000001 -> 0x41bb20, the normal right-click move; ignored while the unit is inside a building or transport). Not sent unless x > 0 and y > 0. *(0x438b00)* |
 | 311 | `move_ (unit, x, y)` | 8 (6+2) | 0x43b42c | Same handler as 143. *(0x438b00)* |
-| 328 | `attack_move (unit, x, y)` | 891 (444+447) | 0x43c30f | Move to (x, y) attacking enemies met on the way and stay there (order 0x2000001a -> 0x41bb50, a one-way patrol leg; only the AI sends it). Not sent unless x > 0 and y > 0. The most used order. *(0x439240)* |
+| 328 | `attack_move (unit, x, y)` | 891 (444+447) | 0x43c30f | Move to (x, y) attacking enemies met on the way and stay there (order 0x2000001a -> 0x41bb50, a one-way patrol leg; only the AI sends it). Not sent unless x > 0 and y > 0; a handle of 0 is sent and dropped when the queue finds no object (0x456760). Scripts do send 0: `addon_verteidigeposition` and `addon_verteidigepositionandstay` (expansion) attack-move each group's first man `einheit[nulleinheit]` without checking the group got anyone, and their `addon_geteinheitfast` (`claim_nearest(me, x, y, 0x1000, 0xc00)`) finds nobody while an earlier defence still holds every free soldier (they are released only back at their posts, leaders never), so in expansion/mex_01 nearly every defence after the first sends one (about 70 in 20 minutes); `a_verteidigegebäude` and `a_kanonenangriff` do the same with an empty slot. The most used order. *(0x439240)* |
 | 327 | `patrol (unit, x, y)` | 2 (2+0) | 0x43c2cd | Patrol between the current position and (x, y) (order 0x20000019 -> 0x41b9b0). *(0x439210)* |
 | 145 | `attack (unit, target)` | 101 (6+95) | 0x43b4a0 | Attack (or hunt) an object (order 0x20000007 -> virtual +0xc8; fighters 0x436290, no effect for workers and wagons). *(0x438b50)* |
 | 251 | `hunt (unit, animal)` | 36 (12+24) | 0x43b4a0 | Same handler as 145; the scripts use it on buffalo and cows. *(0x438b50)* |
@@ -525,7 +525,7 @@ Pushed constants: class/state flag masks, stance values, diplomacy values and GU
 | 374 | `follow_ (unit, target)` | 10 (8+2) | 0x43c29b | Same handler as 326. *(0x4391f0)* |
 | 211 | `enter (unit, building)` | 86 (14+72) | 0x43af8c | Enter / garrison a building (order 0x20000012 -> 0x41a640; unit and building need class 0x4000: towers, forts, quarters). *(0x438ec0)* |
 | 212 | `into_corral (horse, corral)` | 0 (0+0) | 0x43afbe | Put a horse into a corral (order 0x20000011 -> 0x461540; target class 0x40000000). *(0x438ee0)* |
-| 213 | `board (unit, transport)` | 8 (5+3) | 0x43aff0 | Board a boat / raft / coach (order 0x20000013 -> 0x41a900; transport class 0x8000000). *(0x438f00)* |
+| 213 | `board (unit, transport)` | 8 (5+3) | 0x43aff0 | Board a boat / raft / coach (order 0x20000013 -> 0x41a900; transport class 0x8000000). The order moves the boat too: the meeting point is the cell nearest the boat the unit can stand on (0x419ba0), and both the unit and the boat are sent there (0x416d80 twice), so a boat lying off the bank gets its crew. *(0x438f00)* |
 | 214 | `unload (transport, index)` | 0 (0+0) | 0x43b022 | Unload passenger number `index` (order 0x20000014 -> 0x41ac30; needs a free landing cell within 128 px). *(0x438f20)* |
 | 358 | `unload_all (transport)` | 11 (3+8) | 0x43c8a2 | If the object has class 0x8000000: send order 0x20000014(t, 0) once per passenger (count obj+0x3d0). *(0x4397a0)* |
 | 130 | `chop_wood (worker, tree)` | 7 (6+1) | 0x43b144 | Order 0x20000005(worker, tree.x, tree.y) -> 0x402860: cut wood at the tree nearest to the given tree's position (nearest class-0x10 object within 1000 px). *(0x4385b0)* |
@@ -565,7 +565,7 @@ Pushed constants: class/state flag masks, stance values, diplomacy values and GU
 
 | id | signature | uses (base+exp) | handler | behaviour |
 | --- | --- | --- | --- | --- |
-| 138 | `produce (building, guid)` | 47 (8+39) | 0x43b303 | Queue a unit/upgrade (order 0x10000001 -> 0x40cd10): costs (props 101-105) from the owner's table are deducted only if the queue accepts it (max 10, one leader, upgrade not already done). No affordability check - test 136 first. *(0x438a40)* |
+| 138 | `produce (building, guid)` | 47 (8+39) | 0x43b303 | Queue a unit/upgrade (order 0x10000001 -> 0x40cd10), the order the build menu sends too, without the menu's limits. Refused only for a full queue (10), a second leader (in production 0x590a63, or alive 0x42c1f0) and an upgrade researched (0x590b18) or in research at any building (0x590e38, set here; cleared when done 0x42cd00 or cancelled 0x40d8e0). Nothing about the level before (the menu 0x4750a0 offers the next level only when no level is in research) or prerequisites, so Sight 2 waits behind Sight 1. Costs (props 101-105) from the owner's table are then deducted unconditionally (0x422580, may go below 0) - test 136 first. Horses need no room: a finished one waits while the corrals are full (0x40cf78, alert 823). The human's menu is no stricter in effect: the corral/hacienda/ranch menus (0x46f650, 0x4730a5, 0x473b41, 0x4749b0) leave the horse button out while the people's horses (0x58fdd4) are not fewer than its room (0x58fdf4), and horses already queued do not count. *(0x438a40)* |
 | 142 | `produce_neutral (building, guid)` | 11 (6+5) | 0x43b3fa | Same with costs from the neutral table (order 0x10000002): horses 480, cows 482, guns 710, liquor 711. *(0x438ae0)* |
 | 210 | `release_unit (building, index)` | 0 (0+0) | 0x43af5a | Let garrisoned unit `index` out (order 0x10000003 -> 0x40d7b0). *(0x438ea0)* |
 | 338 | `cancel_production (building)` | 0 (0+0) | 0x43c48f | Cancel the first queue entry with refund (order 0x10000004 index 0). *(0x439320)* |
@@ -717,3 +717,11 @@ Player orders: 0x40000003 declare enemy, 0x40000004 ally, 0x40000008/9/a add woo
 | 0x20000000 | dug in |  |
 | 0x40000000 | animal |  |
 | 0x80000000 | hero |  |
+
+Units: 0x41a2f0, then the unit class's extra bits (virtual +0x8c: farm and wagon task bits,
+herders, healers; none sets 0x400 or 0x800). 0x400 and 0x800 come only from unit+0x3f0
+("inside"), which only quartering in a building (0x41a80d, +0x3a0 = 0: 0x800) and boarding a
+transport (0x41aac4, +0x3a0 = 1: 0x400) set. So `find_my_unit(military, x, y, 0x800)` in
+a_initeinheiten registers only quartered soldiers, and units standing free never get into the
+unit tables (base mex_04: mex04_grün_austragen waits for the green patrol's commander for
+good). Searches take the state argument as "any of these bits, or 0 for any" (0x424b2b).

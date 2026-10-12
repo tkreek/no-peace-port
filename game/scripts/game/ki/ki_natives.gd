@@ -42,7 +42,8 @@ const STOCKS := {271: "wood", 272: "gold", 273: "horses", 274: "food", 278: "gun
 		281: "wood", 282: "gold", 283: "horses", 284: "food", 288: "guns"}
 ## Stances 0..3 (constants 182-185) and the remake's.
 const STANCES := [Unit.Stance.AGGRESSIVE, Unit.Stance.DEFENSIVE, Unit.Stance.HOLD, Unit.Stance.PASSIVE]
-## Things the neutral production order makes (142) and the remake's queue entries.
+## Things the neutral production order (142, or 138 given the same GUIDs) makes and the
+## remake's queue entries.
 const NEUTRAL_PRODUCTS := {480: BuildingProduction.HORSE_GUID, 482: BuildingProduction.COW_GUID,
 		710: BuildingProduction.GUN_GUID, 711: BuildingProduction.LIQUOR_GUID}
 ## Spells by native (320-324).
@@ -250,8 +251,8 @@ static func call_native(id: int, task: KiTask) -> void:
 		285: task.push(_free_space(a[0]))
 		279: task.push(_people(me).population() if _people(me) else 0)
 		289: task.push(Match.population_limit)
-		270: task.push(Mission.count(me, a[0]))
-		280, 340: task.push(Mission.count(a[0], a[1]) if a[0] >= 0 and a[0] <= 10 else 0)
+		270: task.push(_count(me, a[0]))
+		280, 340: task.push(_count(a[0], a[1]) if a[0] >= 0 and a[0] <= 10 else 0)
 		276: task.push(Mission.count(me, 108) + Mission.count(me, 208) + Mission.count(me, 408))
 		286: task.push(Mission.count(a[0], 108) + Mission.count(a[0], 208) + Mission.count(a[0], 408))
 		277: task.push(Mission.count(me, MapObject.FIELD_GUID))
@@ -339,6 +340,7 @@ static func call_native(id: int, task: KiTask) -> void:
 			var boat := KiWorld.resolve(a[1]) as Unit
 			if unit and boat:
 				unit.board(boat)
+				boat.water.meet(unit)
 		214, 358:
 			var boat := _own_unit(a[0])
 			if boat and not boat.water.passengers.is_empty():
@@ -441,9 +443,13 @@ static func call_native(id: int, task: KiTask) -> void:
 		138, 142:
 			var building := _own_building(a[0])
 			if building and building.production:
-				var queued := building.production.enqueue(NEUTRAL_PRODUCTS.get(a[1], a[1]) if id == 142 else a[1])
-				if not queued and MissionStats.on:
-					MissionStats.refused(id, task, "refused: GUID %d" % a[1])
+				# The human player's order, without the build menu's limits (0x40cd10).
+				var item: int = NEUTRAL_PRODUCTS.get(a[1], a[1])
+				if not building.production.order(item) and MissionStats.on:
+					var why := building.production.order_refusal(item)
+					# The original turns these away too: the scripts poll until it takes them.
+					var same := why in ["researched", "in research", "leader", "queue full"]
+					MissionStats.refused(id, task, "%s: GUID %d (%s)" % ["as original" if same else "refused", a[1], why])
 			elif building and MissionStats.on:
 				MissionStats.refused(id, task, "building makes nothing")
 		210, 351:
@@ -521,7 +527,7 @@ static func _nation(index: int) -> int:
 
 
 static func _difficulty() -> int:
-	return Match.difficulty if Match.configured else 2
+	return Match.difficulty if Match.configured or not Match.campaign.is_empty() else 2
 
 
 ## The relation bits the scripts read: 1 hostile, 2 neutral, 4 allied, 0x20 sharing sight,
@@ -533,6 +539,13 @@ static func _relation(a: int, b: int) -> int:
 		return 0x10
 	var bits := Diplomacy.relation(a, b) & (Diplomacy.ENEMY | Diplomacy.NEUTRAL | Diplomacy.ALLY | Diplomacy.VISION)
 	return bits | (0x80 if b == Orders.local_player else 0x40)
+
+
+## How many `guid` people `index` has (0x42a0b0): its list's tally by type, which has no wall
+## pieces (they are in list 10, see KiWorld.objects_of), so the scripts that start a
+## production module for every building they own leave walls out.
+static func _count(index: int, guid: int) -> int:
+	return 0 if WallLine.is_wall(guid) else Mission.count(index, guid)
 
 
 ## Whether people `index` has what `guid` needs (and can pay for it, building costs for
@@ -549,7 +562,7 @@ static func _can_have(index: int, guid: int, train: bool) -> bool:
 	elif not people.meets_prerequisites(guid):
 		return false
 	# Horses, cows, guns and liquor cost what the neutral production order (142) takes.
-	var cost: Dictionary = GameData.stats(NEUTRAL_PRODUCTS.get(guid, guid)).get("cost", {}).duplicate()
+	var cost: Dictionary = MapRules.stats(index, NEUTRAL_PRODUCTS.get(guid, guid)).get("cost", {}).duplicate()
 	if not train:
 		if GameData.stats(guid).get("kind") == "unit":
 			return true  # the scripts ask can_build about units for their prerequisites
@@ -561,8 +574,10 @@ static func _can_have(index: int, guid: int, train: bool) -> bool:
 	return people.can_afford(cost)
 
 
-## A site of `guid` for `worker` near `at` (spiral in 16 px steps up to 500 px away), its
-## cost paid and the worker sent to build it; fields the same (AmericaAddOn.exe 0x438670).
+## A site of `guid` for `worker` near `at` (spiral in 16 px steps up to 500 px away) on the
+## worker's height level where the footprint fits as it would for a player (the original's
+## placement helper 0x429a20 knows no margins or gaps), its cost paid and the worker sent to
+## build it; fields the same (AmericaAddOn.exe 0x438670).
 static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id := 135) -> bool:
 	var manager := KiManager.current
 	if worker == null or manager == null:
@@ -573,14 +588,22 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id :
 			MissionStats.build_failed(id, task, guid, "no such building")
 		return false
 	var owner := worker.team
+	var nav := NavGrid.current
+	var level := _level(nav, worker.position)
+	# The placement test wants the price at every spot: without it there is none (and the
+	# spiral of up to 3969 spots, each looking at every unit, is spared).
+	var people: Player = Player.by_index.get(owner)
+	if people == null or not people.can_afford(BuildController._cost_of(type, owner)):
+		if MissionStats.on:
+			MissionStats.no_spot(id, task, owner, type, guid)
+		return false
 	for ring in range(0, BUILD_SEARCH / 16 + 1):
 		for dy in range(-ring, ring + 1):
 			for dx in range(-ring, ring + 1):
 				if absi(dx) != ring and absi(dy) != ring:
 					continue
 				var spot := at + Vector2(dx, dy) * 16.0
-				if BuildController.can_place_for(type, spot, owner) and AiBuilder.footprint_free(type, spot, NavGrid.current) \
-						and (guid != MapObject.FIELD_GUID or true):
+				if _level(nav, spot) == level and BuildController.can_place_for(type, spot, owner):
 					var site := Orders.build_controller.place_site(owner, type.id, spot, false, null, [worker]) \
 							if Orders.build_controller else null
 					if site == null:
@@ -590,8 +613,13 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id :
 					task.build_spot = Vector2i(spot)
 					return true
 	if MissionStats.on:
-		MissionStats.build_failed(id, task, guid, "no spot")
+		MissionStats.no_spot(id, task, owner, type, guid)
 	return false
+
+
+## The height level (ground, plateau ...) at `at` (cell flag bits 12-13).
+static func _level(nav: NavGrid, at: Vector2) -> int:
+	return (nav.flags_at(nav.cell_of(at)) >> 12) & 3
 
 
 static func _tree_near(at: Vector2) -> MapObject:

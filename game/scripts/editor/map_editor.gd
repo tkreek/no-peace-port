@@ -57,6 +57,7 @@ func _ready() -> void:
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF  # nothing here runs on game steps
 	if not GameData.is_ready():
 		return
+	MapRules.clear()  # the editor shows every object with the game's own values
 	_start_type = ObjectTypes.named(START_NAME)
 	pieces.y_sort_enabled = true
 	add_child(pieces)

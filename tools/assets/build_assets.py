@@ -43,7 +43,7 @@ ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(HERE, "..", "formats"))
 sys.path.insert(0, HERE)
 from rd_archive import GameFiles, normalize  # noqa: E402
-from rd_chunks import parse_chunks  # noqa: E402
+from rd_chunks import lzw_decompress, parse_chunks  # noqa: E402
 import glossary  # noqa: E402
 
 # Files the game's code loads by name (original paths), beyond what the data tables name.
@@ -71,7 +71,11 @@ TABLES = {
     "guids_prairie": ["global/guids2/guids.ini", "global/guids/guids.ini"],
     "guids_meadow": ["global/guids2/guids2.ini", "global/guids/guids2.ini"],
     "defs": ["global/guids2/defs.ini", "global/guids/defs.ini"],
+    "ids": ["global/guids2/ids.ini", "global/guids/ids.ini"],
 }
+# The two games' stat tables (and the ids they use): the expansion's and the base game's.
+STAT_TABLES = {"expansion": ("global/guids2/defaults.bin", "global/guids2/ids.ini"),
+               "base": ("global/guids/defaults.bin", "global/guids/ids.ini")}
 TEXTS = ["global/guids2/texte-add-on.eng", "global/guids2/text2-add-on.eng",
          "global/guids/texte.eng", "global/guids/text2.eng"]
 MENU_TEXTS = ["global/guids2/menu.eng", "global/guids/menu.eng"]
@@ -330,6 +334,7 @@ class Builder:
                 if k.lstrip("-").isdigit() and v.lstrip("-").isdigit():
                     guids[k] = int(v)
         self.write_json("data/guids.json", guids)
+        self.ids()
         defs = {}
         for k, v in self.ini_pairs(self.read_first(TABLES["defs"])):
             m = re.match(r"([A-Za-zäöü]+?)(Werte)?(\d*)$", k)
@@ -357,6 +362,62 @@ class Builder:
                     if "=" in line and k.isdigit() and k not in texts:
                         texts[k] = line[line.find("=") + 1:].strip()
             self.write_json(out, texts)
+
+    def ids(self):
+        """IDS.INI (GUID = id) -> data/ids.json: the numbers maps' EINHEIT and EIGENSCH chunks
+        and Defaults.bin give objects (a few GUIDs share one: wall pieces, scenery variants)."""
+        ids = {k: int(v) for k, v in self.ini_pairs(self.read_first(TABLES["ids"]))
+               if k.isdigit() and v.lstrip("-").isdigit()}
+        self.write_json("data/ids.json", ids)
+
+    def stat_table(self, game):
+        """`game`'s Defaults.bin EIGENSCH as {GUID: {property: value}}: "RDCHUNK\\0", then
+        chunks as in a map; 5 blocks of `u32 count` + `{id, property, value, value}`, the
+        first value for an id and property counts (AmericaAddOn.exe 0x442db2)."""
+        table, ids_file = STAT_TABLES[game]
+        guids = collections.defaultdict(list)
+        for k, v in self.ini_pairs(self.read(ids_file)):
+            if k.isdigit() and v.lstrip("-").isdigit():
+                guids[int(v)].append(int(k))
+        data = self.read(table)
+        pos, body = 8, b""
+        while pos + 16 <= len(data):
+            name = data[pos:pos + 8].rstrip(b"\0")
+            end, packed = struct.unpack_from("<II", data, pos + 8)
+            if name == b"EIGENSCH":
+                body = data[pos + 16:end]
+                if packed:
+                    size = struct.unpack_from("<I", body)[0]
+                    body = lzw_decompress(body[4:], size) if packed == 1 else zlib.decompress(body[4:])
+            pos = end
+        out, at = {}, 0
+        for _ in range(5):
+            count = struct.unpack_from("<i", body, at)[0]
+            at += 4
+            for _ in range(count):
+                i, prop, value, _ = struct.unpack_from("<4i", body, at)
+                at += 16
+                for guid in guids.get(i, []):
+                    out.setdefault(guid, {}).setdefault(prop, value)
+        return out
+
+    def defaults_base(self):
+        """The base game's stat table where it differs from the expansion's ->
+        data/defaults_base.json ({GUID: {property: value}}, 0 for a property only the
+        expansion has): the base campaign's maps were made for it (the expansion doubles
+        most units' hit points, sets no minimum ranges, ...)."""
+        if not all(self.files.exists(t) for t, _ in STAT_TABLES.values()):
+            self.missing.append(("global/guids/defaults.bin", "base game or expansion missing"))
+            return
+        base, expansion = self.stat_table("base"), self.stat_table("expansion")
+        out = {}
+        for guid, props in base.items():
+            theirs = expansion.get(guid, {})
+            differ = {p: v for p, v in props.items() if v != theirs.get(p, 0)}
+            differ.update({p: 0 for p, v in theirs.items() if p not in props and v != 0})
+            if differ:
+                out[str(guid)] = {str(p): v for p, v in sorted(differ.items())}
+        self.write_json("data/defaults_base.json", out)
 
     def defaults(self):
         """Defaults.dat (the expansion editor's object data) -> data/defaults.json."""
@@ -648,6 +709,7 @@ class Builder:
         for image in CODE_IMAGES:
             self.image(image)
         self.defaults()
+        self.defaults_base()
         self.portraits()
         self.sounds()
         self.extras()

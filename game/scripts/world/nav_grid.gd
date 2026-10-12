@@ -191,12 +191,10 @@ func center_of(cell: Vector2i) -> Vector2:
 
 
 ## World-space waypoints from `from` to `to`, smoothed by line-of-sight. Empty if unreachable.
+## A point off the map (the AI scripts work some out) heads for the nearest edge.
 func find_path(from: Vector2, to: Vector2, layer := Layer.GROUND) -> PackedVector2Array:
-	# Points off the map (AI scripts compute some) are taken to its edge: the grid has no
-	# cells out there.
-	var last := size - Vector2i.ONE
-	var start := nearest_walkable(cell_of(from).clamp(Vector2i.ZERO, last), 24, layer)
-	var goal := nearest_walkable(cell_of(to).clamp(Vector2i.ZERO, last), 24, layer)
+	var start := nearest_walkable(cell_of(from).clamp(Vector2i.ZERO, size - Vector2i.ONE), 24, layer)
+	var goal := nearest_walkable(cell_of(to).clamp(Vector2i.ZERO, size - Vector2i.ONE), 24, layer)
 	# A goal out of reach (up a cliff with no ramp to it) gives the path to the nearest
 	# reachable cell instead.
 	var cells := _layers[layer].get_id_path(start, goal, true)

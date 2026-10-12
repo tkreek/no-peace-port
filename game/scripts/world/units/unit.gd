@@ -80,6 +80,7 @@ var _remains: UnitRemains
 
 func setup(type: UnitType, team_index: int) -> void:
 	team = team_index
+	type = MapRules.unit_type(type, team)  # the map may change the kind's values for its people
 	_setup_sprites(type, team)
 	max_health = type.health
 	health = max_health
@@ -158,7 +159,7 @@ func move_speed() -> float:
 	var tiers := int(bonus("speed_tiers"))
 	if tiers == 0:
 		return unit_type.speed
-	var tier := int(GameData.stats(unit_type.guid()).get("speed_tier", 2)) + tiers
+	var tier := int(MapRules.stats(team, unit_type.guid()).get("speed_tier", 2)) + tiers
 	return GameData.def_tier("walk_speed", mini(tier, 5), 100) * UnitType.PX_PER_SPEED
 
 
@@ -295,6 +296,8 @@ func _may_engage(enemy: Node2D) -> bool:
 func is_enemy_of(other: Unit) -> bool:
 	if not Diplomacy.hostile(team, other.team):
 		return false
+	if other.animal.is_cow() or other.animal.is_horse():
+		return false  # livestock is taken (herders), hunted or ordered shot, not fought
 	var other_player: Player = Player.by_index.get(other.team)
 	if other_player and other_player.surrendered:
 		return false  # laid down their arms
@@ -537,7 +540,7 @@ func take_damage(amount: float, attacker: Node2D = null, horse_too := false) -> 
 		if not horse_too and riding.shot_from_saddle():
 			return
 		die()
-	elif state == State.IDLE and attacker and attacker.is_alive() and _may_engage(attacker):
+	elif state == State.IDLE and attacker and attacker.is_alive() and _may_engage(attacker) and not work.stealing():
 		attack(attacker)  # fight back
 
 
@@ -593,7 +596,7 @@ func sim_tick(delta: float) -> void:
 				_scan_timer = SCAN_INTERVAL
 				if magic.is_healer():
 					magic.look_for_wounded()
-				else:
+				elif not work.stealing():
 					var enemy := nearest_enemy(_engage_radius())
 					if enemy:
 						attack(enemy)

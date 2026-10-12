@@ -299,10 +299,18 @@ static func count(player: int, what: int, rect := Rect2(), outside := false, any
 				total += 1
 	if what < 100 or not (_is_unit(what) or what in ANIMALS):  # buildings and fields
 		for object in MapObject.structures:
-			if object.owner_index == player and (object.is_building() or object.is_field()) and object.is_alive() and object.complete \
+			if object.owner_index == player and (object.is_building() or _sown(object)) and object.is_alive() and object.complete \
 					and matches(object.guid, what) and (not within or rect.has_point(object.position)):
 				total += 1
 	return total
+
+
+## A field counts while it is sown: a fallow one (harvested, or hailed on by a medicine
+## man) is not a "field" to the scripts. The second tutorial says how to rework a fallow
+## field when the player has fewer than two fields, and base/ind_06 is won by hailing on
+## all the settlers' fields.
+static func _sown(object: MapObject) -> bool:
+	return object.is_field() and object.stock != null and object.stock.field_state != ObjectStock.Field.FALLOW
 
 
 ## Whether `unit` counts as `what` (animals by their kind).

@@ -42,7 +42,8 @@ const STOCKS := {271: "wood", 272: "gold", 273: "horses", 274: "food", 278: "gun
 		281: "wood", 282: "gold", 283: "horses", 284: "food", 288: "guns"}
 ## Stances 0..3 (constants 182-185) and the remake's.
 const STANCES := [Unit.Stance.AGGRESSIVE, Unit.Stance.DEFENSIVE, Unit.Stance.HOLD, Unit.Stance.PASSIVE]
-## Things the neutral production order makes (142) and the remake's queue entries.
+## Things the neutral production order (142, or 138 given the same GUIDs) makes and the
+## remake's queue entries.
 const NEUTRAL_PRODUCTS := {480: BuildingProduction.HORSE_GUID, 482: BuildingProduction.COW_GUID,
 		710: BuildingProduction.GUN_GUID, 711: BuildingProduction.LIQUOR_GUID}
 ## Spells by native (320-324).
@@ -441,9 +442,13 @@ static func call_native(id: int, task: KiTask) -> void:
 		138, 142:
 			var building := _own_building(a[0])
 			if building and building.production:
-				var queued := building.production.enqueue(NEUTRAL_PRODUCTS.get(a[1], a[1]) if id == 142 else a[1])
-				if not queued and MissionStats.on:
-					MissionStats.refused(id, task, "refused: GUID %d" % a[1])
+				# The human player's order, without the build menu's limits (0x40cd10).
+				var item: int = NEUTRAL_PRODUCTS.get(a[1], a[1])
+				if not building.production.order(item) and MissionStats.on:
+					var why := building.production.order_refusal(item)
+					# The original turns these away too: the scripts poll until it takes them.
+					var same := why in ["researched", "in research", "leader", "queue full"]
+					MissionStats.refused(id, task, "%s: GUID %d (%s)" % ["as original" if same else "refused", a[1], why])
 			elif building and MissionStats.on:
 				MissionStats.refused(id, task, "building makes nothing")
 		210, 351:

@@ -82,6 +82,10 @@ static var _building_classes := {}  # building GUID -> class bits but the garris
 static var _units_by_list := {}  # list -> Array of units
 static var _objects_by_player := {}  # people -> Array of map objects
 static var _tree_list: Array[MapObject] = []
+## _tree_list by 256 px cell, each tree with its place in the list (built when first asked).
+static var _tree_cells := {}  # Vector2i -> Array of [index, tree]
+static var _tree_extent := Rect2i()  # the cells there are
+const TREE_CELL := 256.0
 ## Parts of those lists, the dead in them too: Vector3i(list, 0, GUID) what is of that type
 ## (as Mission counts it), Vector3i(list, 1, mask) what may have all the class bits of mask.
 static var _parts := {}
@@ -327,6 +331,7 @@ static func _refresh_lists() -> void:
 		_parts.clear()
 		_objects_by_player.clear()
 		_tree_list.clear()
+		_tree_cells.clear()
 		var loose := []
 		for object in MapObject.all_objects:
 			if object.is_tree():
@@ -376,15 +381,46 @@ static func trees() -> Array:
 ## The nearest tree with wood left (ties: the earlier one).
 static func nearest_tree(at: Vector2) -> MapObject:
 	_refresh_lists()
-	return nearest(_tree_list, at, func(o: MapObject) -> bool: return o.stock.amount > 0) as MapObject
+	if _tree_list.is_empty():
+		return null
+	if _tree_cells.is_empty():
+		var low := Vector2i(1 << 30, 1 << 30)
+		var high := -low
+		for i in _tree_list.size():
+			var cell := Vector2i((_tree_list[i].position / TREE_CELL).floor())
+			_tree_cells.get_or_add(cell, []).append([i, _tree_list[i]])
+			low = low.min(cell)
+			high = high.max(cell)
+		_tree_extent = Rect2i(low, high - low + Vector2i.ONE)
+	# Rings of cells round `at` until no nearer tree can be left; what nearest over the whole
+	# list gives: the least distance, of equals the earliest in the list.
+	var centre := Vector2i((at / TREE_CELL).floor())
+	var best: MapObject = null
+	var best_distance := INF
+	var best_index := -1
+	var rings := maxi(maxi(absi(centre.x - _tree_extent.position.x), absi(centre.x - _tree_extent.end.x)),
+			maxi(absi(centre.y - _tree_extent.position.y), absi(centre.y - _tree_extent.end.y)))
+	for r in rings + 1:
+		if best and (r - 1) * TREE_CELL - 1.0 > 0.0 and ((r - 1) * TREE_CELL - 1.0) ** 2 > best_distance:
+			break  # every cell of this ring is further off than the best found
+		for dy in range(-r, r + 1):
+			for dx in range(-r, r + 1, 1 if absi(dy) == r else maxi(1, 2 * r)):
+				for entry: Array in _tree_cells.get(centre + Vector2i(dx, dy), []):
+					var tree: MapObject = entry[1]
+					var d := at.distance_squared_to(tree.position)
+					if (d < best_distance or (d == best_distance and entry[0] < best_index)) and tree.stock.amount > 0:
+						best = tree
+						best_distance = d
+						best_index = entry[0]
+	return best
 
 
 ## The nearest of `candidates` to `at` that `accept` takes (ties: the earlier one).
 static func nearest(candidates: Array, at: Vector2, accept: Callable) -> Node:
 	var best: Node = null
 	var best_distance := INF
-	for node in candidates:
-		var d: float = at.distance_squared_to(node.position)
+	for node: Node2D in candidates:
+		var d := at.distance_squared_to(node.position)
 		if d < best_distance and accept.call(node):
 			best = node
 			best_distance = d
@@ -436,8 +472,10 @@ static func nearest_plain(player: int, at: Vector2, mask: int, guid: int, state:
 	if player < 0 or player > 8:
 		return 0
 	return handle(nearest(_candidates(player, mask, guid), at, func(n: Node) -> bool:
-		return n.is_alive() and (guid < 0 or _is_type(n, guid)) and (mask == 0 or class_bits(n) & mask == mask) \
-				and (state == 0 or state_bits(n) & state != 0) and state_bits(n) & notstate == 0))
+		if not n.is_alive() or not (guid < 0 or _is_type(n, guid)) or not (mask == 0 or class_bits(n) & mask == mask):
+			return false
+		var bits := state_bits(n)
+		return (state == 0 or bits & state != 0) and bits & notstate == 0))
 
 
 ## What of list `player` a search for type `guid` (-1: any) with class `mask` (0: any) looks at.

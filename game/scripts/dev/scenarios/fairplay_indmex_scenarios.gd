@@ -259,6 +259,7 @@ func _plan_base_mex_05() -> void:
 	bot.mode = "home"
 
 
+var _custer_since := -1.0
 var _ind08_south := [Vector2(1900, 7600), Vector2(1600, 8400), Vector2(900, 8900), Vector2(800, 9800), Vector2(2600, 8600)]
 
 
@@ -268,17 +269,17 @@ var _ind08_south := [Vector2(1900, 7600), Vector2(1600, 8400), Vector2(900, 8900
 func _plan_base_ind_08() -> void:
 	var mission := main.mission
 	if bot.plan_once("ind08"):
-		bot.hero_retreat = 0.45
+		bot.heroes_behind = true  # both must live: they keep behind the army, out of the fighting
 		bot.worker_target = 12
-		bot.farmer_target = 8
+		bot.farmer_target = 14
+		bot.hunters_wanted = 2
 		bot.soldier_cap = 80
 		bot.build_plan = [[104, 1], [107, 1], [115, 1], [101, 1]]
 		bot.soldier_kinds = [163, 158, 160, 162, 156]
 		bot.research = [900, 903, 917, 919, 901, 904]
 		bot.casters_wanted = 2
 		bot.max_production = 4
-		bot.defend_outposts = false
-		bot.defend_radius = 1800.0
+		bot.defend_radius = 2400.0
 		bot.scout_route = [Vector2(2000, 6500), Vector2(1600, 8000), Vector2(800, 9000), Vector2(1200, 10000)]
 		bot.rally = bot.home + Vector2(0, 300)
 	var goal := mission.goal
@@ -287,6 +288,11 @@ func _plan_base_ind_08() -> void:
 		bot.mode = "hunt"
 		bot.hunt_units = weirs
 		bot.hunt_point = Vector2(6300, 6500) if weirs.is_empty() else weirs[0].position
+		return
+	if goal == 435 and _custer_since < 0.0:
+		_custer_since = Sim.time()
+	if goal == 435 and Sim.time() - _custer_since < 150.0:  # "Attack!": Custer comes first
+		bot.mode = "home"
 		return
 	if goal == 435:  # Custer's camp, in the north-east where the camera showed him
 		bot.scout_route = [Vector2(4500, 2500), Vector2(6000, 1600), Vector2(6800, 1000), Vector2(7600, 600)]
@@ -352,6 +358,7 @@ class FairBot:
 	var hunt_point := Vector2.INF
 	var keep_back: Array = []  ## heroes that stay home
 	var hero_retreat := 0.5  ## heroes with less health than this go home
+	var heroes_behind := false  ## heroes walk behind the army (not fighting in front) instead of with it
 	var worker_target := 10
 	var farmer_target := 5
 	var soldier_cap := 50
@@ -1001,9 +1008,22 @@ class FairBot:
 				if h.position.distance_to(home) > 300.0 or (hurt and h.state == Unit.State.ATTACKING):
 					_order(h, "move_to", [home + Vector2(60, 60)], "home")
 				continue
+			if a.is_empty():
+				continue
+			var c := _centroid(a)
+			if heroes_behind:
+				# Behind the army on the side of home, away from the enemies in sight.
+				var away := (home - c).normalized() if home.distance_to(c) > 1.0 else Vector2.ZERO
+				var spot := c + away * 250.0
+				var foe := nearest_unit(_visible, h.position)
+				if foe and foe.position.distance_to(h.position) < 300.0 and h.health < h.max_health * 0.8:
+					_order(h, "move_to", [c + (c - foe.position).normalized() * 150.0], "dodge")
+				elif h.position.distance_to(spot) > 300.0 and h.state != Unit.State.ATTACKING:
+					_order(h, "move_to", [spot], Vector2i(spot / 200.0))
+				continue
 			# A fighting hero keeps with the army.
-			if not a.is_empty() and h.state == Unit.State.IDLE and h.position.distance_to(_centroid(a)) > 300.0:
-				_order(h, "attack_move", [_centroid(a)], "with army")
+			if h.state == Unit.State.IDLE and h.position.distance_to(c) > 300.0:
+				_order(h, "attack_move", [c], "with army")
 
 
 	func _support(a: Array) -> void:

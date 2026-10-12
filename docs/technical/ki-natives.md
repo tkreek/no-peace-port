@@ -361,8 +361,8 @@ Pushed constants: class/state flag masks, stance values, diplomacy values and GU
 | 193 | `const_193 () -> 2` | 2 (2+0) | 0x43a983 | Pushes 2 (relation bit 0x2). |
 | 194 | `const_194 () -> 4` | 1 (1+0) | 0x43a996 | Pushes 4 (relation bit: allied). |
 | 195 | `const_195 () -> 8` | 3 (1+2) | 0x43a75c | Pushes 8 (relation: same player (8)). |
-| 196 | `const_196 () -> 0x400` | 344 (10+334) | 0x43a9bc | Pushes 0x400 (state inside a building). |
-| 197 | `const_197 () -> 0x800` | 401 (34+367) | 0x43a9d2 | Pushes 0x800 (state inside a transport). |
+| 196 | `const_196 () -> 0x400` | 344 (10+334) | 0x43a9bc | Pushes 0x400 (state inside a transport). |
+| 197 | `const_197 () -> 0x800` | 401 (34+367) | 0x43a9d2 | Pushes 0x800 (state inside a building). |
 | 198 | `const_198 () -> 0x10` | 5 (1+4) | 0x43a9a9 | Pushes 0x10 (relation: player absent (0x10)). |
 | 310 | `const_310 () -> 0x20` | 0 (0+0) | 0x43a9e8 | Pushes 0x20 (class bit: livestock (buffalo, cow)). |
 | 350 | `const_350 () -> 0x1000` | 0 (0+0) | 0x43c6a5 | Pushes 0x1000 (class bit: military). |
@@ -699,8 +699,8 @@ Player orders: 0x40000003 declare enemy, 0x40000004 ally, 0x40000008/9/a add woo
 | 0x80 | worker task bit |  |
 | 0x100 | moving |  |
 | 0x200 |  | under construction |
-| 0x400 | inside a building |  |
-| 0x800 | inside a transport |  |
+| 0x400 | inside a transport (boarded: unit+0x3f0 and +0x3a0 set, 0x41aacb) |  |
+| 0x800 | inside a building (quartered: +0x3f0 set, +0x3a0 clear, 0x41a814) |  |
 | 0x1000 |  | below 40% HP |
 | 0x2000 | fighter in combat |  |
 | 0x4000 | task 0x40000/0x80000 |  |

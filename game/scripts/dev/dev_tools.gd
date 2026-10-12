@@ -108,6 +108,9 @@ func screenshot(path: String) -> void:
 		if given.size() > 1:
 			main.mission.goals = PackedInt32Array(Array(given).map(func(g: String) -> int: return g.to_int()))
 			main.mission.goal = main.mission.goals[-1]
+		for t in GameData.cmdline_option("menu-fired").split(",", false):  # --menu-fired=11,18: as if fired
+			if t.to_int() < main.mission.ever_fired.size():
+				main.mission.ever_fired[t.to_int()] = 1
 		main.hud.menu.toggle()
 		main.hud.menu.show_goals()
 		await get_tree().process_frame

@@ -58,6 +58,7 @@ var _tries := {}  ## "<trigger>:<condition>" -> cheats that left it false
 var _notes := {}  ## "<trigger>:<condition>" -> why its cheat does not take
 var _said := {}  ## cheats logged once
 var _delays := {}
+var _goals_shown := ""
 
 
 func run() -> void:
@@ -77,8 +78,12 @@ func run() -> void:
 			win, lose, lose_only.keys()])
 	_census()
 	var next_check := 0.0
+	var seen_fired := 0
 	while true:
 		await get_tree().physics_frame
+		if fired.size() != seen_fired:  # after the triggers' actions (a new goal text)
+			seen_fired = fired.size()
+			_show_goals()
 		if mission.outcome != 0:
 			break
 		var now := Sim.time()
@@ -730,6 +735,15 @@ func _on_fired(index: int) -> void:
 	print("DRIVE t=%.0f fired %d %s%s: %s" % [Sim.time(), index, _name(index),
 			" (lose)" if index in lose else (" (win)" if index in win else ""),
 			", ".join(data.triggers[index].actions.map(func(a: PackedInt32Array) -> String: return str(Array(a))))])
+
+
+## The goals page's list when it changed: "[x]" crossed out (data/campaign_goals.json).
+func _show_goals() -> void:
+	var line := " | ".join(MissionGoals.of(mission).goals.map(func(g: Dictionary) -> String:
+		return ("[x] " if g.done else "[ ] ") + String(g.text).left(60)))
+	if line != _goals_shown:
+		_goals_shown = line
+		print("DRIVE t=%.0f goals: %s" % [Sim.time(), line])
 
 
 func _finish_stuck(wanted: Dictionary, why: String) -> void:

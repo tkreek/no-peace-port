@@ -2,15 +2,18 @@ class_name MissionGoals
 extends RefCounted
 ## The "Mission goals" page's contents: the goals given so far as one numbered list, the
 ## done ones crossed out, and the tips. A goal text ("MISSION GOALS: @ @1. ... @ @2. ...
-## @ @TIP: ...") gives one goal per numbered paragraph (unnumbered paragraphs belong to the
-## goal before them, or make one goal) and its TIP paragraphs are tips, as are the TIP
-## messages. A goal is done when a later goal text no longer has it, or when a trigger that
+## @ @TIP: ...") gives one goal per numbered paragraph and per SECONDARY GOAL (unnumbered
+## paragraphs belong to the goal or tip before them, or make one goal) and its TIPs are
+## tips (also one in the middle of a line: expansion 160), as are the TIP messages. A goal
+## is done when a later goal text no longer has it, or when a trigger that
 ## data/campaign_goals.json names for it has fired: {"set/code": {"<goal text id>":
-## [[trigger, ...] per numbered goal]}} (the triggers that tell the player it is done).
+## [[trigger, ...] per goal of the text, in parse's order]}} (the triggers that fire when
+## it is accomplished; tools/campaign/goal_parts.py shows them for review).
 
 const TABLE := "res://data/campaign_goals.json"
-const HEADER := "^\\s*(MISSION GOALS?|GOAL CHANGES?|MISSION OBJECTIVES?)\\s*:?\\s*"
+const HEADER := "^\\s*(MISSIONS? GOALS?|GOAL CHANGES?|MISSION OBJECTIVES?)\\s*:?\\s*"  # 1150: "MISSIONS GOAL"
 const NUMBER := "^\\s*\\d+\\s*[.)]\\s*"
+const SECONDARY := "SECONDARY GOAL"
 
 static var _table := {}
 static var _header := RegEx.create_from_string("(?i)" + HEADER)
@@ -59,19 +62,17 @@ static func parse(text: String) -> Dictionary:
 	var goals: Array[String] = []
 	var tips: Array[String] = []
 	var last := ""  # what the line before went to: "goal", "tip"
-	var gap := false  # a blank line since
-	for raw in text.split("\n"):
+	for raw in text.replace(" TIP:", "\nTIP:").split("\n"):
 		var line := _plain(_header.sub(raw.strip_edges(), ""))
 		if line == "":
-			gap = true
 			continue
 		if line.to_upper().begins_with("TIP"):
 			tips.append(line)
 			last = "tip"
-		elif _number.search(line):
+		elif _number.search(line) or line.to_upper().begins_with(SECONDARY):
 			goals.append(_number.sub(line, ""))
 			last = "goal"
-		elif last == "tip" and not gap:
+		elif last == "tip":
 			tips[-1] += " " + line
 		elif goals.is_empty():
 			goals.append(line)
@@ -79,7 +80,6 @@ static func parse(text: String) -> Dictionary:
 		else:
 			goals[-1] += " " + line
 			last = "goal"
-		gap = false
 	return {"goals": goals, "tips": tips}
 
 

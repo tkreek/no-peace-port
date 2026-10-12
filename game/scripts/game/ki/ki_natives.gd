@@ -251,8 +251,8 @@ static func call_native(id: int, task: KiTask) -> void:
 		285: task.push(_free_space(a[0]))
 		279: task.push(_people(me).population() if _people(me) else 0)
 		289: task.push(Match.population_limit)
-		270: task.push(Mission.count(me, a[0]))
-		280, 340: task.push(Mission.count(a[0], a[1]) if a[0] >= 0 and a[0] <= 10 else 0)
+		270: task.push(_count(me, a[0]))
+		280, 340: task.push(_count(a[0], a[1]) if a[0] >= 0 and a[0] <= 10 else 0)
 		276: task.push(Mission.count(me, 108) + Mission.count(me, 208) + Mission.count(me, 408))
 		286: task.push(Mission.count(a[0], 108) + Mission.count(a[0], 208) + Mission.count(a[0], 408))
 		277: task.push(Mission.count(me, MapObject.FIELD_GUID))
@@ -538,6 +538,13 @@ static func _relation(a: int, b: int) -> int:
 		return 0x10
 	var bits := Diplomacy.relation(a, b) & (Diplomacy.ENEMY | Diplomacy.NEUTRAL | Diplomacy.ALLY | Diplomacy.VISION)
 	return bits | (0x80 if b == Orders.local_player else 0x40)
+
+
+## How many `guid` people `index` has (0x42a0b0): its list's tally by type, which has no wall
+## pieces (they are in list 10, see KiWorld.objects_of), so the scripts that start a
+## production module for every building they own leave walls out.
+static func _count(index: int, guid: int) -> int:
+	return 0 if WallLine.is_wall(guid) else Mission.count(index, guid)
 
 
 ## Whether people `index` has what `guid` needs (and can pay for it, building costs for

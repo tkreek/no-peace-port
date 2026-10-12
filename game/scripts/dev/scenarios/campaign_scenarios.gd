@@ -74,6 +74,68 @@ func _scenario_tutorial2() -> void:
 	get_tree().quit()
 
 
+## --mission=base/tut_03: a corral and a wood processing tepee, a wild horse caught,
+## ridden home and put in the corral, a travois built; five more horses for the arrow
+## shooters, who ride ahead to the settlers' warehouse (the trappers there flee, run by
+## their AI module), and the travois takes the guns: won.
+func _scenario_tutorial3() -> void:
+	var mission := main.mission
+	var me := main.players[main.me] as Player
+	var hq := _own_building(100)
+	var women := _own(func(u: Unit) -> bool: return u.unit_type.is_farmer())
+	var cutters := _own(func(u: Unit) -> bool: return u.unit_type.guid() == 152)
+	Orders.units(cutters, "gather", [_nearest_tree(hq.position)])
+	var corral := await _build(105, hq.position, women)
+	var works := await _build(109, hq.position, women)
+	await _until(func() -> bool: return mission.goal == 162, 300.0, "the wild horse")
+	var rider := _own(func(u: Unit) -> bool: return u.unit_type.guid() == 156)[0] as Unit
+	var horse := _nearest_unit(mission.area(8).get_center(), func(u: Unit) -> bool: return u.animal.is_horse() and u.team == 0)
+	Orders.unit(rider, "mount", [horse])
+	await _until(func() -> bool: return mission.count(main.me, 157) > 0, 300.0, "a mounted shooter")
+	print("caught a horse at %.0f s" % Sim.time())
+	var mounted := _own(func(u: Unit) -> bool: return u.unit_type.guid() == 157)[0] as Unit
+	Orders.unit(mounted, "move_to", [corral.position + Vector2(0, 90)])
+	await _until(func() -> bool: return mounted.position.distance_to(corral.position + Vector2(0, 90)) < 40.0, 300.0, "the ride home")
+	Orders.unit(mounted, "dismount")
+	await get_tree().create_timer(0.5).timeout
+	var loose := _nearest_unit(corral.position, func(u: Unit) -> bool: return u.animal.is_horse() and u.is_alive())
+	Orders.unit(loose, "stable", [corral])
+	await _until(func() -> bool: return int(me.resources.horses) >= 1, 120.0, "the horse in the corral")
+	print("horse in the corral at %.0f s" % Sim.time())
+	await _until(func() -> bool:
+		if works.production.queue.is_empty() and mission.count(main.me, 155) == 0:
+			Orders.building(works, "enqueue", [155])
+		return mission.count(main.me, 155) > 0, 600.0, "the travois")
+	print("travois at %.0f s" % Sim.time())
+	# The script lets five horses loose in the southeast: one for each arrow shooter.
+	await get_tree().create_timer(1.0).timeout
+	var horses := Unit.all_units.filter(func(u: Unit) -> bool: return u.is_alive() and u.animal.is_horse() and u.team == 0)
+	var shooters := _own(func(u: Unit) -> bool: return u.unit_type.guid() == 156)
+	for i in mini(horses.size(), shooters.size()):
+		Orders.unit(shooters[i], "mount", [horses[i]])
+	await _until(func() -> bool: return mission.count(main.me, 157) > 4, 600.0, "five mounted shooters")
+	print("five mounted shooters at %.0f s" % Sim.time())
+	var store := _nearest_store(mission.area(1).get_center())
+	var escort := _own(func(u: Unit) -> bool: return u.unit_type.guid() == 157)
+	Orders.units(escort, "move_to", [store.position + Vector2(120, 120)])
+	await _until(func() -> bool: return mission.goal == 171, 600.0, "the way clear")
+	print("trappers gone at %.0f s" % Sim.time())
+	var travois := _own(func(u: Unit) -> bool: return u.unit_type.guid() == 155)[0] as Unit
+	Orders.unit(travois, "haul", [store])
+	await _until(func() -> bool: return mission.outcome != 0, 900.0, "the guns")
+	print("TUTORIAL 3 %s at %.0f s, guns %d" % ["WON" if mission.outcome > 0 else "LOST", Sim.time(), me.resources.guns])
+	get_tree().quit()
+
+
+func _nearest_unit(at: Vector2, filter: Callable) -> Unit:
+	return KiWorld.nearest(Unit.all_units.filter(func(u: Unit) -> bool: return u.is_alive() and filter.call(u)), at,
+			func(_n: Node) -> bool: return true) as Unit
+
+
+func _nearest_store(at: Vector2) -> MapObject:
+	return KiWorld.nearest(MapObject.abandoned_stores, at, func(_n: Node) -> bool: return true) as MapObject
+
+
 ## Idle women back onto our fields (a harvested field lies fallow until worked again).
 func _keep_farming(women: Array) -> void:
 	var fields := MapObject.structures.filter(func(o: MapObject) -> bool: return o.owner_index == main.me and o.is_field())
@@ -86,6 +148,8 @@ func _keep_farming(women: Array) -> void:
 ## A building (or field) of `guid` put up near `around` by `builders`; waits until it stands.
 func _build(guid: int, around: Vector2, builders: Array, wait := true) -> MapObject:
 	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
+	var cost: Dictionary = BuildController._cost_of(type)
+	await _until(func() -> bool: return (main.players[main.me] as Player).can_afford(cost), 900.0, "the cost of %d" % guid)
 	var spot := AiBuilder.find_spot(type, around, 120)
 	var had := MapObject.structures.filter(func(o: MapObject) -> bool: return o.owner_index == main.me and o.guid == guid).size()
 	Orders.place(type.id, spot, false, null, builders)

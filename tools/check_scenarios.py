@@ -29,6 +29,8 @@ CHECKS = {
     "mission_saveload": (["--mission=base/ind_02", "--time-scale=4"], 0, [r"before: modules \d+, handles (\d+) alive \1,",
                                                                          r"after: +modules \d+, handles (\d+) alive \1,",
                                                                          r"later: +modules [1-9]"]),
+    "tutorial3": (["--mission=base/tut_03", "--time-scale=6"], 0, [r"caught a horse", r"horse in the corral", r"five mounted shooters",
+                                                                   r"trappers gone", r"TUTORIAL 3 WON"]),
     "tutorial2": (["--mission=base/tut_02", "--time-scale=6", "--trace-mission=1"], 0, [r"trigger 15 : \[9, 143\]",
                                                                    r"five arrow shooters", r"TUTORIAL 2 WON"]),
     "abandoned": (["--map=[4 Players] - forts.ulf"], 0, [r"store left \d+; guns (\d+) -> (?!\1;)\d+; loads of at most 2"]),

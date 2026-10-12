@@ -549,7 +549,7 @@ static func _can_have(index: int, guid: int, train: bool) -> bool:
 	elif not people.meets_prerequisites(guid):
 		return false
 	# Horses, cows, guns and liquor cost what the neutral production order (142) takes.
-	var cost: Dictionary = GameData.stats(NEUTRAL_PRODUCTS.get(guid, guid)).get("cost", {}).duplicate()
+	var cost: Dictionary = MapRules.stats(index, NEUTRAL_PRODUCTS.get(guid, guid)).get("cost", {}).duplicate()
 	if not train:
 		if GameData.stats(guid).get("kind") == "unit":
 			return true  # the scripts ask can_build about units for their prerequisites
@@ -580,7 +580,7 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id :
 	# The placement test wants the price at every spot: without it there is none (and the
 	# spiral of up to 3969 spots, each looking at every unit, is spared).
 	var people: Player = Player.by_index.get(owner)
-	if people == null or not people.can_afford(BuildController._cost_of(type)):
+	if people == null or not people.can_afford(BuildController._cost_of(type, owner)):
 		if MissionStats.on:
 			MissionStats.no_spot(id, task, owner, type, guid)
 		return false

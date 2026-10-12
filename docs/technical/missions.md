@@ -29,9 +29,21 @@ The player number is not the slot: the first tutorial's human is slot 3, player 
 Starting relations (0x42be70), per ordered pair: an independent player is neutral to
 everyone and everyone to it; otherwise allied when the side masks share a bit, at war when
 not; a player is allied to itself and shares its own sight. Relation flags (world+0x8CC,
-`[from*8+to]`): 1 at war, 2 neutral, 4 allied, 0x20 shares sight. Units of a player neutral
-to yours join you when one of your units comes within 96 px (0x42c580, from the unit
-update); independent players' own units never take others over.
+`[from*8+to]`): 1 at war, 2 neutral, 4 allied, 0x20 shares sight. What a player neutral to
+yours has joins you when one of your units comes within 96 px (0x42c580, from the unit
+update; independent players' own units never take others over): the unit searches the
+object grid (world+0x24206c, where every unit and building stamps its footprint) in a square
+96 px each way round itself (0x45dbb0, 16 px steps, the first object whose owner has the
+neutral bit towards the unit's people) and that object changes hands (0x42cd70: off the old
+owner's list onto the new one's; walls 212/312/412 only take the new colour). So an
+independent village's tepees join as well as its people: base/ind_06's human gets its
+medicine man's tepees, researches the hail dance there (the map's `EINHEIT` allows that
+upgrade but no building) and wins with the village's medicine men. Joined objects keep their
+values; research and spells are the new owner's.
+
+Each player's menus and object values come from the map's `EINHEIT` and `EIGENSCH` over
+Defaults.bin ([file-formats.md](file-formats.md), "Per-player tables"); the base campaign's
+maps from the base game's Defaults.bin.
 
 ### `AREA`: named rectangles
 `u32 count`, then `{u32 id, left, top, right, bottom, name length; char name[length]}` in map

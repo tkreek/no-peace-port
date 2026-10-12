@@ -103,7 +103,7 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 		condition = BuildingCondition.new(self)
 		production = BuildingProduction.new(self)
 		defence = BuildingDefence.new(self)
-		max_health = GameData.stats(guid).get("health", 1000)
+		max_health = MapRules.stats(owner, guid).get("health", 1000)
 		health = max_health
 		if under_construction:
 			complete = false

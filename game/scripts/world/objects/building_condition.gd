@@ -53,7 +53,7 @@ func needs_repair() -> bool:
 
 
 func _total_work() -> float:
-	var time := float(GameData.stats(building.guid).get("build_time", building.max_health * BUILD_WORK_PER_HEALTH))
+	var time := float(MapRules.stats(building.owner_index, building.guid).get("build_time", building.max_health * BUILD_WORK_PER_HEALTH))
 	return maxf(1.0, time) * BUILD_STEP_SECONDS
 
 
@@ -99,7 +99,7 @@ func add_repair_work(seconds: float) -> bool:
 	extinguish()
 	var max_health := building.max_health
 	var restore := minf(max_health - building.health, max_health * seconds / _total_work())
-	var cost: Dictionary = GameData.stats(building.guid).get("cost", {})
+	var cost: Dictionary = MapRules.stats(building.owner_index, building.guid).get("cost", {})
 	_repair_debt += restore / max_health * 0.5  # settled in whole units
 	var bill := {}
 	for key in cost:
@@ -126,7 +126,7 @@ func refresh_upgrades() -> void:
 	var player: Player = Player.by_index.get(building.owner_index)
 	if player == null or not building.complete:
 		return
-	var base := float(GameData.stats(building.guid).get("health", building.max_health))
+	var base := float(MapRules.stats(building.owner_index, building.guid).get("health", building.max_health))
 	var ratio := building.health / building.max_health if building.max_health > 0 else 1.0
 	building.max_health = base * (1.0 + player.bonus(building.guid, "health_pct") / 100.0)
 	building.health = building.max_health * ratio
@@ -223,7 +223,7 @@ func demolish() -> void:
 	building.production.cancel_all()
 	var player: Player = Player.by_index.get(building.owner_index)
 	if player and not building.complete:
-		var cost: Dictionary = GameData.stats(building.guid).get("cost", {})
+		var cost: Dictionary = MapRules.stats(building.owner_index, building.guid).get("cost", {})
 		for key in cost:
 			if Player.RESOURCES.has(key):
 				player.add(key, int(int(cost[key]) * (1.0 - building.build_progress)))

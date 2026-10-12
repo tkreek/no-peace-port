@@ -101,7 +101,7 @@ func _update_wall_ghosts() -> void:
 			_wall_ghosts.append(ghost)
 	var stock := player.resources.duplicate()
 	for ghost in _wall_ghosts:
-		var cost := _cost_of(ghost.object_type)
+		var cost := _cost_of(ghost.object_type, player.index)
 		var ok := _take(stock, cost) and can_place_for(ghost.object_type, ghost.position, player.index, true)
 		ghost.modulate = VALID if ok else INVALID
 
@@ -141,15 +141,16 @@ static func can_place_for(type: ObjectTypes.ObjectType, at: Vector2, owner: int,
 	if guid in MapObject.SHIPYARDS and not MapObject.by_water(type, at):
 		return false
 	var people: Player = Player.by_index.get(owner)
-	return free or (people != null and people.can_afford(_cost_of(type)))
+	return free or (people != null and people.can_afford(_cost_of(type, owner)))
 
 
 func _cost() -> Dictionary:
-	return _cost_of(placing_type)
+	return _cost_of(placing_type, player.index)
 
 
-static func _cost_of(type: ObjectTypes.ObjectType) -> Dictionary:
-	var cost: Dictionary = GameData.stats(GameData.guid_for_type(type.id)).get("cost", {}).duplicate()
+## What people `owner` pays for a site of `type` (the map may change it per people).
+static func _cost_of(type: ObjectTypes.ObjectType, owner: int) -> Dictionary:
+	var cost: Dictionary = MapRules.stats(owner, GameData.guid_for_type(type.id)).get("cost", {}).duplicate()
 	cost.erase("population")
 	return cost
 
@@ -215,7 +216,7 @@ func _place_wall(keep_placing: bool) -> void:
 	var ordered := 0
 	for piece in plan:
 		var type := ObjectTypes.get_type(piece.type_id)
-		var cost := _cost_of(type)
+		var cost := _cost_of(type, player.index)
 		if not can_place_for(type, piece.position, player.index, true):
 			continue
 		if not _take(stock, cost):
@@ -237,7 +238,7 @@ func place_site(owner: int, type_id: int, at: Vector2, keep_placing: bool, unpac
 	var people: Player = Player.by_index.get(owner)
 	if type == null or people == null or not can_place_for(type, at, owner, unpacker != null):
 		return null
-	if unpacker == null and not people.spend(_cost_of(type)):
+	if unpacker == null and not people.spend(_cost_of(type, owner)):
 		return null
 	var site := MapObject.new()
 	site.position = at

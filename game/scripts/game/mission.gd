@@ -23,6 +23,8 @@ const JOIN_REACH := 96.0
 const JOIN_CHECK_STEPS := 25
 ## The original's end of a mission: won or lost, the game goes on this long.
 const END_DELAY_MS := 6000
+## Fired triggers the overlay can list.
+const FIRED_LOG_SIZE := 30
 
 ## Resource selector in conditions and actions (2 wood: the first tutorial's 100 wood more).
 const RESOURCES := {1: "food", 2: "wood", 3: "horses", 4: "gold", 5: "guns"}
@@ -69,6 +71,9 @@ var _join_wait := 0
 var _end_at := -1
 ## AI modules the script started: [player, module number].
 var started_modules: Array[PackedInt32Array] = []
+## The triggers that fired lately, oldest first: [game ms, trigger index, forced by a cheat]
+## (for the overlay; not part of the game).
+var fired_log: Array[PackedInt32Array] = []
 var _sim_on := false
 var _sim_listed := false
 var _trace := GameData.cmdline_option("trace-mission") != ""  ## --trace-mission=1: print what fires
@@ -156,13 +161,68 @@ func _check(index: int) -> void:
 			break
 	if not result:
 		return
+	_fire(index, false)
+
+
+## Trigger `index` fires: disarms and does its actions (whatever its conditions say when
+## `forced`, the cheat's way to get past a stuck one).
+func _fire(index: int, forced: bool) -> void:
+	var trigger: MissionData.Trigger = data.triggers[index]
 	_armed[index] = false
+	fired_log.append(PackedInt32Array([Sim.msec(), index, int(forced)]))
+	if fired_log.size() > FIRED_LOG_SIZE:
+		fired_log.pop_front()
 	if _trace:
 		print("MISSION t=%.1f trigger %d %s: %s" % [Sim.time(), index, trigger.name,
 				", ".join(trigger.actions.map(func(a: PackedInt32Array) -> String: return str(Array(a))))])
 	for action in trigger.actions:
 		if _action(action):
 			_armed[index] = true
+
+
+## Cheat: trigger `index` fires now, its conditions ignored (Cheats, in a game step).
+func force(index: int) -> void:
+	if index >= 0 and index < data.triggers.size():
+		_fire(index, true)
+		_running = true
+
+
+# ------------------------------------------------------------------ the overlay's view
+
+func is_armed(index: int) -> bool:
+	return _armed[index]
+
+
+## The trigger checked next.
+func cursor() -> int:
+	return _cursor
+
+
+func is_running() -> bool:
+	return _running
+
+
+## Timer `i` in ms: -1 stopped, 0 run out.
+func timer_ms(i: int) -> int:
+	return _timers[i]
+
+
+func flag(i: int) -> bool:
+	return _flags[i] != 0
+
+
+## Variable `i`, -1 unset.
+func variable(i: int) -> int:
+	return _variables[i]
+
+
+## Whether condition `c` holds now, as the trigger check sees it (a variable that holds
+## another value counts as false here, although the check then disarms the trigger).
+func holds(c: PackedInt32Array) -> bool:
+	if c[0] == 17:
+		var i := _param(c, 1)
+		return i >= 0 and i < VARIABLES and _variables[i] != -1 and _variables[i] == _param(c, 2)
+	return _condition(c)
 
 
 static func _param(item: PackedInt32Array, at: int) -> int:
@@ -315,7 +375,7 @@ func _action(a: PackedInt32Array) -> bool:
 		3:
 			spawn(p1, p2, p3, area(p4).get_center())
 		4:
-			_finish(p1, false)
+			finish(p1, false)
 		5:
 			if p2 == main.me:
 				message.emit(text(p1), float(p3), "")
@@ -335,7 +395,7 @@ func _action(a: PackedInt32Array) -> bool:
 			if p1 >= 0 and p1 < FLAGS:
 				_flags[p1] = 1
 		13:
-			_finish(p1, true)
+			finish(p1, true)
 		14:
 			create(p1, 0, Vector2(p2, p3))
 		15:
@@ -394,7 +454,8 @@ func _action(a: PackedInt32Array) -> bool:
 	return false
 
 
-func _finish(player: int, won: bool) -> void:
+## People `player` has won or lost (the end screen follows for the local player).
+func finish(player: int, won: bool) -> void:
 	if player != main.me or outcome != 0:
 		return
 	outcome = 1 if won else -1

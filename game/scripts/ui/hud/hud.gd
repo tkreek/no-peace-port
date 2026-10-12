@@ -42,6 +42,8 @@ var menu := GameMenu.new(self)
 ## The campaign mission being played, or null (its messages show in `mission_panel`).
 var mission: Mission
 var mission_panel := MissionPanel.new(self)
+## The playtesting overlay and cheat keys (campaign missions, --cheats=1), or null.
+var debug: MissionDebug
 
 var _left := TextureRect.new()
 var _right := TextureRect.new()
@@ -182,6 +184,8 @@ func blocks_point(screen_point: Vector2) -> bool:
 	for panel: Control in [_left, _right, _top]:
 		if panel.get_global_rect().has_point(screen_point):
 			return true
+	if debug and debug.blocks_point(screen_point):
+		return true
 	return groups.blocks_point(screen_point)
 
 
@@ -245,6 +249,8 @@ func _layout() -> void:
 	mission_panel.clock.add_theme_font_size_override("font_size", int(28 * ui_scale))
 	commands.layout(command_area())
 	selected.layout()
+	if debug:
+		debug.layout()
 	var gap := 8.0 * ui_scale
 	var groups_left := _left.position.x + _left.size.x + gap
 	groups.layout(Rect2(groups_left, view.y - (GroupBar.CARD * ui_scale + gap), _right.position.x - gap - groups_left,

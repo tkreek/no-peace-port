@@ -10,6 +10,8 @@ extends RefCounted
 ##   "unit"     each unit in "ids" (owned by "p") does a[0] (a name in UNIT_ORDERS) with a[1..]
 ##   "building" building ids[0] (owned by "p") does a[0] (a name in BUILDING_ORDERS) with a[1..]
 ##   "place"    put down a site: [type id, spot, keep placing, travois or null], builders in "ids"
+##   "cheat"    a playtesting cheat a[0] (a name in Cheats.KINDS) with a[1..], on "ids";
+##              carried out only where Cheats.enabled (campaign missions, or --cheats=1)
 ## Feedback (sounds, flashes, markers) stays with the interface, at once.
 
 ## Steps between the one after giving an order and carrying it out: none alone, Net.DELAY
@@ -78,9 +80,15 @@ static func place(type_id: int, at: Vector2, keep_placing: bool, unpacker: Unit,
 	give({"op": "place", "ids": _ids(builders), "a": [type_id, at, keep_placing, unpacker]})
 
 
-## Queue an order from this machine's people for a coming step.
-static func give(order: Dictionary) -> void:
-	if replaying or locked:
+## A cheat (Cheats) on `targets`; also while a scene locks the interface.
+static func cheat(kind: String, args := [], targets := []) -> void:
+	give({"op": "cheat", "ids": _ids(targets), "a": [kind] + args}, true)
+
+
+## Queue an order from this machine's people for a coming step (`unlocked`: even while a
+## mission's scene locks the interface).
+static func give(order: Dictionary, unlocked := false) -> void:
+	if replaying or (locked and not unlocked):
 		return
 	_count += 1
 	order["t"] = Sim.tick + 1 + delay
@@ -196,6 +204,8 @@ static func execute(order: Dictionary) -> void:
 			if unpacker != null and unpacker.team != people:
 				return
 			build_controller.place_site(people, int(args[0]), args[1], bool(args[2]), unpacker, _owned_units(order.ids, people))
+		"cheat":
+			Cheats.execute(people, String(args.pop_front()), args, order.ids)
 
 
 static func _owned_units(ids: Array, people: int) -> Array[Unit]:

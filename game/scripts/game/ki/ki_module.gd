@@ -3,7 +3,8 @@ extends RefCounted
 ## One of the original's compiled AI scripts ("KI modules", campaign/<set>/ai/%08d.mod):
 ## "KIMODULE", u32 size, then sections {char[8] name, u32 length}: HEADER, VARIABLE (slot
 ## declarations), CONSTDAT (initial values, literals included), CODEDATA (one instruction
-## per word: opcode in the top 4 bits), VARMAP and DEBUGGER (names, unused here).
+## per word: opcode in the top 4 bits), VARMAP (names, unused here) and DEBUGGER (the
+## source file's name, for the mission overlay; its line table is unused).
 ## docs/technical/ki.md describes the machine that runs them (KiTask, KiPlayer).
 
 const FOLDERS := ["campaign/base/ai", "campaign/expansion/ai"]
@@ -16,6 +17,8 @@ var code := PackedInt32Array()
 var blocks: Array[PackedInt32Array] = []
 ## CONSTDAT: variable id -> initial value.
 var initial := {}
+## DEBUGGER: the script it was compiled from, without ".aml" (e.g. "ind01_angriff").
+var source := ""
 
 
 ## Module `number` (the base game's and the expansion's numbers never overlap), or null.
@@ -53,4 +56,7 @@ static func from_bytes(bytes: PackedByteArray, module_number: int) -> KiModule:
 					module.initial[body.decode_u32(4 + i * 8)] = body.decode_s32(8 + i * 8)
 			"CODEDATA":
 				module.code = body.to_int32_array()
+			"DEBUGGER":
+				var end := body.find(0)
+				module.source = body.slice(0, end if end >= 0 and end < 256 else 256).get_string_from_ascii().get_basename()
 	return module

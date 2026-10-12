@@ -483,7 +483,7 @@ Pushed constants: class/state flag masks, stance values, diplomacy values and GU
 | 285 | `free_living_space (player) -> n` | 0 (0+0) | 0x43b87d | Same for any player. *(0x438cb0)* |
 | 279 | `my_population () -> n` | 32 (32+0) | 0x43b755 | Own population (living space used, 0x58fd74[p]); 0 if p not 1..8. *(0x439720)* |
 | 289 | `unit_limit () -> n` | 138 (53+85) | 0x43b778 | The match unit limit 0x58fd74[0] = (menu choice + 3) * 25, 75..200. *(0x439740)* |
-| 270 | `my_count (guid) -> n` | 983 (585+398) | 0x43b60c | Number of own objects of type guid (world 0x42a0b0(player, guid)). *(0x438c50)* |
+| 270 | `my_count (guid) -> n` | 983 (585+398) | 0x43b60c | Number of own objects of type guid (world 0x42a0b0(player, guid)): the tally of the player's object list, which has no wall pieces (walls, barricades, stockades are in list 10, created at 0x42698e), so this is 0 for them. *(0x438c50)* |
 | 280 | `count (player, guid) -> n` | 107 (96+11) | 0x43b79b | Number of objects of type guid owned by player. *(0x438c50)* |
 | 340 | `count_checked (player, guid) -> n` | 1 (1+0) | 0x43c523 | Same as 280 but 0 unless 0 <= player <= 10 (player 0 = neutral: `native_340(0, 482)` counts free cows). *(0x4393a0)* |
 | 276 | `my_farms () -> n` | 73 (70+3) | 0x43b6ec | Own count of GUIDs 408 + 208 + 108 (USA farm, Mexican finca, Native field). *(0x438cd0)* |
@@ -565,7 +565,7 @@ Pushed constants: class/state flag masks, stance values, diplomacy values and GU
 
 | id | signature | uses (base+exp) | handler | behaviour |
 | --- | --- | --- | --- | --- |
-| 138 | `produce (building, guid)` | 47 (8+39) | 0x43b303 | Queue a unit/upgrade (order 0x10000001 -> 0x40cd10): costs (props 101-105) from the owner's table are deducted only if the queue accepts it (max 10, one leader, upgrade not already done). No affordability check - test 136 first. *(0x438a40)* |
+| 138 | `produce (building, guid)` | 47 (8+39) | 0x43b303 | Queue a unit/upgrade (order 0x10000001 -> 0x40cd10), the order the build menu sends too, without the menu's limits. Refused only for a full queue (10), a second leader (in production 0x590a63, or alive 0x42c1f0) and an upgrade researched (0x590b18) or in research at any building (0x590e38, set here; cleared when done 0x42cd00 or cancelled 0x40d8e0). Nothing about the level before (the menu 0x4750a0 offers the next level only when no level is in research) or prerequisites, so Sight 2 waits behind Sight 1. Costs (props 101-105) from the owner's table are then deducted unconditionally (0x422580, may go below 0) - test 136 first. Horses need no room: a finished one waits while the corrals are full (0x40cf78, alert 823). *(0x438a40)* |
 | 142 | `produce_neutral (building, guid)` | 11 (6+5) | 0x43b3fa | Same with costs from the neutral table (order 0x10000002): horses 480, cows 482, guns 710, liquor 711. *(0x438ae0)* |
 | 210 | `release_unit (building, index)` | 0 (0+0) | 0x43af5a | Let garrisoned unit `index` out (order 0x10000003 -> 0x40d7b0). *(0x438ea0)* |
 | 338 | `cancel_production (building)` | 0 (0+0) | 0x43c48f | Cancel the first queue entry with refund (order 0x10000004 index 0). *(0x439320)* |

@@ -170,6 +170,7 @@ func _ready() -> void:
 		computer[1] = GameData.cmdline_option("ai-vs-ai") != ""
 	for player in players:
 		var slot := mission_data.player(player) if mission_data else null
+		players[player].computer = slot.control == MissionData.Seat.COMPUTER if slot else computer.get(player, false)
 		if slot:
 			players[player].set_start_resources(map.start_resources if slot.level_resources else slot.resources)
 			continue  # a mission's peoples have what the map gives them

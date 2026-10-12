@@ -118,6 +118,49 @@ func _scenario_damage() -> void:
 	print("damage: ", built.map(func(b: MapObject) -> String: return "%d%% anim %d fires %d" % [int(100 * b.health / b.max_health), b._body_anim, b.condition._fires.size()]))
 
 
+## A computer player's soldiers attacking a damaged house go for the workers repairing it,
+## then back to the house; a human player's soldiers keep at the house.
+func _scenario_repairshot() -> void:
+	var hq: MapObject = null
+	for object in MapObject.all_objects:
+		if object.is_building() and object.owner_index == 1:
+			hq = object
+	var guid: int = {"mex": 208, "usa": 408, "ind": 108, "des": 308}[main.players[1].faction]
+	var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
+	var house := MapObject.new()
+	house.position = AiBuilder.find_spot(type, hq.position + Vector2(-500, 300))
+	house.setup(type, 1)
+	main.units_root.add_child(house)
+	main.nav.block_footprint(type, house.position)
+	house.take_damage(house.max_health * 0.9)
+	var builders := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.anim_index("build") >= 0)
+	builders = builders.slice(0, 2)
+	main.selection._select(builders, false)
+	main.selection.order_build(house)
+	await get_tree().create_timer(6.0).timeout
+	var repairing := builders.filter(func(u: Unit) -> bool: return u.state == Unit.State.BUILDING)
+	main.players[2].computer = GameData.cmdline_option("human-attackers") == ""
+	main._spawn_squad(main.FACTIONS[main.players[2].faction].army, 2, house.position + Vector2(0, -260), 3)
+	var soldiers := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 and n.is_alive())
+	for i in soldiers.size():
+		var soldier: Unit = soldiers[i]
+		soldier.position = house.position + Vector2(-60 + 40 * (i % 4), -200 - 30 * (i / 4))  # a test shortcut
+		soldier.guard_position = soldier.position
+		soldier.attack(house, true)
+	var at_workers := 0
+	for i in 60:
+		await get_tree().create_timer(0.5).timeout
+		at_workers = maxi(at_workers, soldiers.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.target is Unit).size())
+		if repairing.all(func(u: Unit) -> bool: return not u.is_alive()):
+			break
+	await get_tree().create_timer(3.0).timeout
+	print("repairshot: computer %s, repairing %d, soldiers at workers %d, workers dead %d, back at the house %d" % [
+			main.players[2].computer, repairing.size(), at_workers,
+			repairing.filter(func(u: Unit) -> bool: return not u.is_alive()).size(),
+			soldiers.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive() and u.target == house).size()])
+	get_tree().quit()
+
+
 ## Outlaws rob an enemy gold warehouse and a barber steals an enemy wagon.
 func _scenario_rob() -> void:
 	var hq: MapObject = null

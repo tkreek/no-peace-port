@@ -41,6 +41,7 @@ var health := 100.0
 var path := PackedVector2Array()
 var state := State.IDLE
 var target: Node2D  ## Unit or MapObject being attacked
+var _besieged: MapObject  ## the building it left for its repairer, to go back to
 var attack_moving := false  ## moving, but engage enemies met on the way
 var stance := Stance.AGGRESSIVE
 var formation := Formation.RELAXED
@@ -681,8 +682,10 @@ func _update_attack(delta: float) -> void:
 				stop()
 			return
 		if _attack_step < 0:
-			# Look for the next enemy nearby before standing down.
-			var enemy := nearest_target(_engage_radius())
+			# Back to the building whose repairer it shot; else the next enemy nearby.
+			var enemy: Node2D = _besieged if is_instance_valid(_besieged) and _besieged.is_alive() \
+					and Diplomacy.hostile(team, _besieged.owner_index) else nearest_target(_engage_radius())
+			_besieged = null
 			if enemy:
 				target = enemy
 			elif (position.distance_to(guard_position) > 64.0 or _patrol.size() == 2) and guard_position != Vector2.ZERO:
@@ -727,6 +730,12 @@ func _update_attack(delta: float) -> void:
 		play("walk")
 		return
 	path.clear()
+	if _cooldown <= 0.0 and target is MapObject and _computer():
+		var worker := _repairer_of(target)
+		if worker:
+			_besieged = target
+			target = worker
+			return
 	face(to_target)
 	if _cooldown <= 0.0:
 		_attack_step = 0
@@ -734,6 +743,28 @@ func _update_attack(delta: float) -> void:
 		_play_index(unit_type.attack_anims[0])
 	else:
 		play("idle")
+
+
+## A computer player's unit attacking a building goes for the enemy workers repairing or
+## building it first, the nearest (they are at the building, if round the far side), then
+## the building again.
+func _repairer_of(building: MapObject) -> Unit:
+	var best: Unit = null
+	var best_distance := INF
+	for unit in Unit.all_units:
+		if unit.state != State.BUILDING or unit.work.build_site != building or not unit.is_alive() \
+				or unit.inside or not is_enemy_of(unit):
+			continue
+		var distance := position.distance_to(unit.position)
+		if distance < best_distance and distance >= unit_type.min_range:
+			best = unit
+			best_distance = distance
+	return best
+
+
+func _computer() -> bool:
+	var owner: Player = Player.by_index.get(team)
+	return owner != null and owner.computer
 
 
 func _continue_attack() -> void:

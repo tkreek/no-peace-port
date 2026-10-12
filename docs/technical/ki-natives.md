@@ -717,3 +717,11 @@ Player orders: 0x40000003 declare enemy, 0x40000004 ally, 0x40000008/9/a add woo
 | 0x20000000 | dug in |  |
 | 0x40000000 | animal |  |
 | 0x80000000 | hero |  |
+
+Units: 0x41a2f0, then the unit class's extra bits (virtual +0x8c: farm and wagon task bits,
+herders, healers; none sets 0x400 or 0x800). 0x400 and 0x800 come only from unit+0x3f0
+("inside"), which only quartering in a building (0x41a80d, +0x3a0 = 0: 0x800) and boarding a
+transport (0x41aac4, +0x3a0 = 1: 0x400) set. So `find_my_unit(military, x, y, 0x800)` in
+a_initeinheiten registers only quartered soldiers, and units standing free never get into the
+unit tables (base mex_04: mex04_grün_austragen waits for the green patrol's commander for
+good). Searches take the state argument as "any of these bits, or 0 for any" (0x424b2b).

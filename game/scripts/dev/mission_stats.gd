@@ -44,6 +44,8 @@ static var _actions := {}  # opcode -> count
 static var _endings: Array = []  # {t, op, player}
 static var _script_modules: Array = []  # [player, module] the script started (its action 1)
 static var _natives := {}  # id -> calls
+static var _native_usec := {}  # id -> wall-clock usec spent in it
+static var _native_clock := 0
 static var _failures := {}  # id -> {reason -> {module -> count}}
 static var _unimplemented := {}  # id -> {module -> count}
 static var _modules := {}  # module number -> counters (see _module)
@@ -69,7 +71,7 @@ static func begin(mission: Mission, file: String) -> void:
 	_first = PackedFloat32Array()
 	_first.resize(n)
 	_first.fill(-1.0)
-	for d in [_actions, _natives, _failures, _unimplemented, _modules, _waits, _locks, _cost]:
+	for d in [_actions, _natives, _native_usec, _failures, _unimplemented, _modules, _waits, _locks, _cost]:
 		d.clear()
 	_endings.clear()
 	_script_modules.clear()
@@ -190,6 +192,7 @@ static func native(id: int, task: KiTask, a: PackedInt32Array) -> void:
 		why = _handle(a[0], "")
 		if why != "":
 			_fail(id, task, "object: " + why)
+	_native_clock = Time.get_ticks_usec()
 	if id in STUBS:
 		_fail(id, task, "stub")
 	if id == 221 and a[0] >= 0 and a[0] < KiPlayer.SEMAPHORES and task.player.semaphores[a[0]] == 0:
@@ -200,6 +203,7 @@ static func native(id: int, task: KiTask, a: PackedInt32Array) -> void:
 
 ## The native has run: what it pushed tells whether a search found anything.
 static func native_done(id: int, task: KiTask, a: PackedInt32Array) -> void:
+	_native_usec[id] = _native_usec.get(id, 0) + Time.get_ticks_usec() - _native_clock
 	if task.stack.size() <= _depth:
 		return
 	var result: int = task.stack.back()
@@ -224,6 +228,13 @@ static func site_refused(id: int, task: KiTask, owner: int, type: ObjectTypes.Ob
 	var people: Player = Player.by_index.get(owner)
 	var affordable := people != null and people.can_afford(BuildController._cost_of(type, owner))
 	build_failed(id, task, guid, "site refused" if affordable else "site refused: cannot pay")
+
+
+## No spot within reach: the placement test also wants the price, so say when it was that.
+static func no_spot(id: int, task: KiTask, owner: int, type: ObjectTypes.ObjectType, guid: int) -> void:
+	var people: Player = Player.by_index.get(owner)
+	var affordable := people != null and people.can_afford(BuildController._cost_of(type))
+	build_failed(id, task, guid, "no spot" if affordable else "no spot: cannot pay")
 
 
 static func refused(id: int, task: KiTask, reason: String) -> void:
@@ -322,6 +333,9 @@ static func write(main: Main) -> void:
 		"running": running,
 		"semaphores": semaphores,
 		"natives": _keys_to_str(_natives),
+		"native_ms": _native_usec.keys().reduce(func(out: Dictionary, id: int) -> Dictionary:
+			out[str(id)] = _native_usec[id] / 1000.0
+			return out, {}),
 		"failures": failures,
 		"unimplemented": unimplemented,
 		"cost": _cost.keys().map(func(minute: int) -> Array: return [minute, _cost[minute][0] / 1000.0, _cost[minute][1] / 1000.0]),

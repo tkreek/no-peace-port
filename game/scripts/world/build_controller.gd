@@ -125,16 +125,17 @@ static func can_place_for(type: ObjectTypes.ObjectType, at: Vector2, owner: int,
 	var nav := NavGrid.current
 	var rect := MapObject.footprint_rect_for(type, at)
 	var origin := nav.cell_of(rect.position)
+	var guid := GameData.guid_for_type(type.id)
+	var wall := WallLine.is_wall(guid)
 	for i in type.footprint_cells.size():
 		if (type.footprint_cells[i] & NavGrid.BLOCKED) == 0:
 			continue
 		var cell := origin + Vector2i(i % type.footprint_grid.x, i / type.footprint_grid.x)
-		if not nav.can_build_on(cell, type.footprint_cells[i]):
+		if not nav.can_build_on(cell, type.footprint_cells[i], wall):
 			return false
 	for unit in Unit.all_units:
 		if unit.is_alive() and unit.team != owner and rect.has_point(unit.position):
 			return false
-	var guid := GameData.guid_for_type(type.id)
 	if guid == MapObject.FIELD_GUID and MapObject.field_allowance(owner) <= 0:
 		return false
 	if guid in MapObject.SHIPYARDS and not MapObject.by_water(type, at):

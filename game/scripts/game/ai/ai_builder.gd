@@ -16,6 +16,17 @@ const FOREST_TREES := 10  # a wood store only by a forest this big
 const FAR_FROM_HQ := 380.0  # a resource this far away gets its own drop-off building
 const RETRY_SECONDS := 90.0  # after a structure found no room
 const CAMOUFLAGE_SCHOOL := 112
+## Walls (Mexicans, outlaws, Americans), once wood piles up, where the ground makes them
+## worth it: across the narrowest choke on the way from home to an enemy (between cliffs,
+## water, forest or buildings), from one side of it to the other, with a gate left open
+## where the way crosses. On open ground, where a wall is simply walked round, none.
+const WALL_TARGET := [0, 1, 2, 3]  # passes walled, per difficulty
+const WALL_NEAR := 260.0  # how far along the way from home the choke may lie
+const WALL_FAR := 1800.0
+const WALL_MAX_SIDE := 14  # pieces from the way to either side of the choke, at most
+const WALL_GATE := 1  # pieces left out each side of the way (a gate three pieces wide)
+const WALL_CLEARANCE := 64.0  # from mines, fields and buildings
+const WALL_DETOUR := 1.3  # the way to the enemy may grow by this much, and a little
 
 var ai: AiPlayer
 var _failed := {}  # structure GUID -> when it last found no room
@@ -31,8 +42,17 @@ func think(workers: Array, hq: MapObject) -> void:
 	_build_extras(workers, hq)
 
 
+## Construction sites going on (a wall's pieces count once, as one project).
 func sites() -> int:
-	return ai.my_buildings().filter(func(b: MapObject) -> bool: return not b.complete).size()
+	var walls := 0
+	var count := 0
+	for b: MapObject in ai.my_buildings():
+		if not b.complete:
+			if WallLine.is_wall(b.guid):
+				walls = 1
+			else:
+				count += 1
+	return count + walls
 
 
 func unfinished_site() -> MapObject:
@@ -167,6 +187,9 @@ func _build_extras(workers: Array, hq: MapObject) -> void:
 			and count.call([CAMOUFLAGE_SCHOOL]) == 0:
 		build_with_prerequisites(CAMOUFLAGE_SCHOOL, hq.position, workers)
 		return
+	# Walls cost wood alone: they go up once wood piles up, whatever the gold and food.
+	if _build_wall(workers, hq):
+		return
 	if not ai.rich():
 		return
 	var tower := ai.faction_guid(TOWERS)
@@ -196,6 +219,233 @@ func _build_extras(workers: Array, hq: MapObject) -> void:
 	if served < 2 and next_mine and gold_store >= 0 and ai.affordable(gold_store) and _worth_trying(gold_store) \
 			and player.meets_prerequisites(gold_store):
 		place(gold_store, next_mine.position, workers, 110, FAR_FROM_HQ * 0.8)
+
+
+## The next stretch of wall, if this people builds walls and it's time for one.
+func _build_wall(workers: Array, hq: MapObject) -> bool:
+	var player := ai.player
+	var pieces: Array = WallLine.PIECES.get(player.faction, [])
+	if pieces.is_empty() or int(player.resources.get("wood", 0)) < AiPlayer.RICH_WOOD \
+			or ai.enemy_base() == Vector2.INF or not ai.army.land_route:
+		return false
+	var corner: int = pieces[0]
+	var built := ai.my_buildings().filter(func(b: MapObject) -> bool: return WallLine.is_wall(b.guid))
+	if built.any(func(b: MapObject) -> bool: return not b.complete):
+		return false  # one stretch at a time
+	if _passes_walled(built) >= WALL_TARGET[ai.difficulty] or not player.meets_prerequisites(corner) \
+			or not _worth_trying(corner):
+		return false
+	var cost: Dictionary = GameData.stats(corner).get("cost", {})
+	var stock := player.resources.duplicate()
+	for i in (WALL_MAX_SIDE + 1) * 2:
+		if not BuildController._take(stock, cost):
+			return false  # not before the widest choke could be paid
+	var plan := _wall_plan(hq, corner, built)
+	if plan.is_empty():
+		_failed[corner] = ai.elapsed
+		return false
+	var nearest := workers.duplicate()
+	nearest.sort_custom(func(a: Unit, b: Unit) -> bool: return a.position.distance_to(plan[0].position) < b.position.distance_to(plan[0].position))
+	for piece in plan:
+		var type := ObjectTypes.get_type(piece.type_id)
+		if not player.spend(cost):
+			break
+		var site := MapObject.new()
+		site.position = piece.position
+		if not site.setup(type, player.index, 0, true):
+			site.free()
+			continue
+		ai.units_root.add_child(site)
+		NavGrid.current.block_footprint(type, piece.position)
+		for worker: Unit in nearest.slice(0, 2):
+			worker.work.queue_build(site)  # one piece after another, then back to work
+	ai.forget_buildings()
+	ai.trace("walls a choke: %d pieces at %s" % [plan.size(), plan[0].position])
+	return true
+
+
+## How many passes this people has walled: its wall pieces in groups, the two sides of a
+## gate counting as one.
+func _passes_walled(walls: Array) -> int:
+	var left := walls.duplicate()
+	var groups := 0
+	while not left.is_empty():
+		groups += 1
+		var reach := [left.pop_back()]
+		while not reach.is_empty():
+			var piece: MapObject = reach.pop_back()
+			for other: MapObject in left.duplicate():
+				if other.position.distance_to(piece.position) < WallLine.STEP_LEFT.length() * (WALL_GATE * 2 + 2.5):
+					left.erase(other)
+					reach.append(other)
+	return groups
+
+
+## The wall for the best choke: on the way from home to each enemy (nearest first), the
+## narrowest crossing of open ground along one of the wall's two diagonals, the pieces
+## running from edge to edge with the gate on the way. Every piece has to fit and the way
+## has to stay open through the gate, or the next narrowest is tried. [] when there's none.
+func _wall_plan(hq: MapObject, corner: int, walls: Array) -> Array[Dictionary]:
+	var nav := NavGrid.current
+	var candidates := []
+	for goal in _enemy_bases(hq.position):
+		var path := nav.find_path(hq.position, goal)
+		var walked := 0.0
+		var at := hq.position
+		for point in path:
+			var leg := point - at
+			var steps := int(leg.length() / 32.0)
+			for k in steps:
+				var spot := at + leg * (k / float(maxi(steps, 1)))
+				var travelled := walked + leg.length() * k / float(maxi(steps, 1))
+				if travelled >= WALL_NEAR and travelled <= WALL_FAR:
+					_measure_pass(candidates, (spot / NavGrid.CELL).round() * NavGrid.CELL, leg.normalized(), travelled, walls, goal)
+			walked += leg.length()
+			at = point
+			if walked > WALL_FAR:
+				break
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.score < b.score)
+	var unfit := 0
+	var closing := 0
+	for choke: Dictionary in candidates.slice(0, 12):
+		var plan := _pass_pieces(choke, corner)
+		if plan.is_empty():
+			unfit += 1
+		elif not _leaves_way_out(plan, hq.position, choke.goal, choke.at):
+			closing += 1
+		else:
+			return plan
+	ai.trace("no pass to wall: %d found, %d with ground a wall can't stand on, %d not closed by it" % [
+			candidates.size(), unfit, closing])
+	return []
+
+
+## The choke at `at` across each diagonal that cuts the way (`dir`): how many pieces of open
+## ground lie to either side before cliff, water or anything standing stops it.
+func _measure_pass(candidates: Array, at: Vector2, dir: Vector2, travelled: float, walls: Array, goal: Vector2) -> void:
+	for wall: MapObject in walls:
+		if wall.position.distance_to(at) < 320.0:
+			return  # walled already
+	for axis: Vector2 in [WallLine.STEP_LEFT, WallLine.STEP_RIGHT]:
+		if absf(dir.dot(axis.normalized())) > 0.95:
+			continue  # running along the way, not across it (the diagonals are shallow: an
+			# east-west way is crossed at 27 degrees)
+		var back := _open_steps(at, -axis)
+		var ahead := _open_steps(at, axis)
+		if back > WALL_MAX_SIDE or ahead > WALL_MAX_SIDE or back + ahead < WALL_GATE * 2 + 2:
+			continue  # open ground, or too narrow to need more than the gate
+		if _own_building_at(at - axis * (back + 1)) or _own_building_at(at + axis * (ahead + 1)):
+			continue  # a lane between its own buildings, not a pass
+		candidates.append({"at": at, "axis": axis, "back": back, "ahead": ahead, "goal": goal,
+				"score": (back + ahead) * 32.0 + travelled * 0.2})
+
+
+func _own_building_at(point: Vector2) -> bool:
+	for building: MapObject in ai.my_buildings():
+		if not WallLine.is_wall(building.guid) and building.footprint_rect().grow(24.0).has_point(point):
+			return true
+	return false
+
+
+## Wall pieces' worth of ground from `from` in steps of `step` up to the pass's solid edge:
+## three steps of cliff, water or anything standing in a row. A lone tree or rock in the
+## way is stepped past (it closes its own spot in the line). Beyond the limit: open ground.
+func _open_steps(from: Vector2, step: Vector2) -> int:
+	var last_open := 0
+	var blocked := 0
+	for k in range(1, WALL_MAX_SIDE + 4):
+		if _open_at(from + step * k):
+			last_open = k
+			blocked = 0
+			if k > WALL_MAX_SIDE:
+				return WALL_MAX_SIDE + 1
+		else:
+			blocked += 1
+			if blocked >= 3:
+				return last_open
+	return WALL_MAX_SIDE + 1
+
+
+## Whether a wall piece at `piece` would stand on walkable ground (both its cells).
+func _open_at(piece: Vector2) -> bool:
+	var nav := NavGrid.current
+	return nav.is_walkable(nav.cell_of(piece + Vector2(-8, 8))) and nav.is_walkable(nav.cell_of(piece + Vector2(8, 8)))
+
+
+## The pieces closing `choke`, both sides of the gate, in runs between whatever already
+## stands in the line; [] if any of them can't go there.
+func _pass_pieces(choke: Dictionary, corner: int) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var axis: Vector2 = choke.axis
+	for side in [[-1.0, choke.back], [1.0, choke.ahead]]:
+		var step: Vector2 = axis * side[0]
+		var run_from := -1
+		for k in range(WALL_GATE + 1, int(side[1]) + 2):
+			var open := k <= int(side[1]) and _open_at(choke.at + step * k)
+			if open and run_from < 0:
+				run_from = k
+			elif not open and run_from >= 0:
+				for piece in WallLine.plan(corner, choke.at + step * run_from, choke.at + step * (k - 1), ai.biome):
+					var type := ObjectTypes.get_type(piece.type_id)
+					if not BuildController.can_place_for(type, piece.position, ai.player.index, true) or not _wall_clear(piece.position):
+						return []
+					out.append(piece)
+				run_from = -1
+	return out
+
+
+func _wall_clear(at: Vector2) -> bool:
+	for object in MapObject.structures:
+		if object.position.distance_to(at) < WALL_CLEARANCE * 3.0 and not WallLine.is_wall(object.guid) \
+				and (object.is_building() or object.is_field()) \
+				and object.footprint_rect().grow(WALL_CLEARANCE).has_point(at):
+			return false
+	for object in MapObject.all_objects:
+		if object.stock.resource == "gold" and object.position.distance_to(at) < WALL_CLEARANCE * 2.0:
+			return false  # not across a mine's mouth
+	return true
+
+
+## Enemy main buildings (else any of their buildings), nearest first.
+func _enemy_bases(from: Vector2) -> Array:
+	var mains := []
+	var others := []
+	for object in MapObject.structures:
+		if object.is_building() and object.owner_index > 0 and object.owner_index != ai.player.index and object.is_alive():
+			(mains if object.guid in MapObject.MAIN_BUILDINGS else others).append(object.position)
+	var out := mains if not mains.is_empty() else others.slice(0, 1)
+	out.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.distance_to(from) < b.distance_to(from))
+	return out
+
+
+## Whether, with the wall in place, the way from home to the enemy still goes through, by
+## the gate (`gate`; not round the wall's ends, which would leave the pass open) and
+## without much of a detour. Tried with the pieces' cells blocked for a moment.
+func _leaves_way_out(plan: Array[Dictionary], from: Vector2, goal: Vector2, gate: Vector2) -> bool:
+	var nav := NavGrid.current
+	var before := _path_length(nav.find_path(from, goal), from)
+	for piece in plan:
+		nav.block_footprint(ObjectTypes.get_type(piece.type_id), piece.position)
+	var path := nav.find_path(from, goal)
+	var after := _path_length(path, from)
+	for piece in plan:
+		nav.unblock_footprint(ObjectTypes.get_type(piece.type_id), piece.position)
+	var reaches := not path.is_empty() and path[path.size() - 1].distance_to(goal) < 200.0
+	var by_gate := false
+	var at := from
+	for point in path:
+		by_gate = by_gate or Geometry2D.get_closest_point_to_segment(gate, at, point).distance_to(gate) < 64.0
+		at = point
+	return reaches and by_gate and after <= before * WALL_DETOUR + 200.0
+
+
+static func _path_length(path: PackedVector2Array, from: Vector2) -> float:
+	var length := 0.0
+	var at := from
+	for point in path:
+		length += at.distance_to(point)
+		at = point
+	return length
 
 
 # ------------------------------------------------------------------ resources

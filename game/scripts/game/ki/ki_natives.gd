@@ -539,7 +539,14 @@ static func _relation(a: int, b: int) -> int:
 ## buildings; units: what training takes).
 static func _can_have(index: int, guid: int, train: bool) -> bool:
 	var people := _people(index)
-	if people == null or not people.meets_prerequisites(guid):
+	if people == null:
+		return false
+	if guid == MapObject.FIELD_GUID:
+		# One field for every people; the stats file names the Native granary as what it
+		# needs. As the build menu: a food store of one's own with room for another field.
+		if MapObject.field_allowance(index) <= 0:
+			return false
+	elif not people.meets_prerequisites(guid):
 		return false
 	var cost: Dictionary = GameData.stats(guid).get("cost", {}).duplicate()
 	if not train:

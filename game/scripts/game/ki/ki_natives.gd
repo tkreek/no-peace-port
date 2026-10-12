@@ -521,7 +521,7 @@ static func _nation(index: int) -> int:
 
 
 static func _difficulty() -> int:
-	return Match.difficulty if Match.configured else 2
+	return Match.difficulty if Match.configured or not Match.campaign.is_empty() else 2
 
 
 ## The relation bits the scripts read: 1 hostile, 2 neutral, 4 allied, 0x20 sharing sight,

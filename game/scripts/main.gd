@@ -77,9 +77,11 @@ func _ready() -> void:
 	Match.load_data = {}
 	if GameData.cmdline_option("mission") != "" and loading.is_empty():
 		Match.campaign = Campaign.mission_entry(GameData.cmdline_option("mission"))
+		Match.difficulty = GameData.cmdline_option("difficulty", "2").to_int()
 	if not loading.is_empty():
 		map_path = loading.map
 		Match.campaign = loading.get("campaign", {})
+		Match.difficulty = int(loading.match.get("difficulty", Match.difficulty))
 	elif not Match.campaign.is_empty():
 		map_path = GameData.path(Match.campaign.map)
 	elif Match.configured:

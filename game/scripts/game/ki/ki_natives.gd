@@ -561,8 +561,10 @@ static func _can_have(index: int, guid: int, train: bool) -> bool:
 	return people.can_afford(cost)
 
 
-## A site of `guid` for `worker` near `at` (spiral in 16 px steps up to 500 px away), its
-## cost paid and the worker sent to build it; fields the same (AmericaAddOn.exe 0x438670).
+## A site of `guid` for `worker` near `at` (spiral in 16 px steps up to 500 px away) on the
+## worker's height level where the footprint fits as it would for a player (the original's
+## placement helper 0x429a20 knows no margins or gaps), its cost paid and the worker sent to
+## build it; fields the same (AmericaAddOn.exe 0x438670).
 static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id := 135) -> bool:
 	var manager := KiManager.current
 	if worker == null or manager == null:
@@ -574,8 +576,9 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id :
 		return false
 	var owner := worker.team
 	var nav := NavGrid.current
+	var level := _level(nav, worker.position)
 	# The placement test wants the price at every spot: without it there is none (and the
-	# spiral of up to 3969 spots, each looking at every unit and building, is spared).
+	# spiral of up to 3969 spots, each looking at every unit, is spared).
 	var people: Player = Player.by_index.get(owner)
 	if people == null or not people.can_afford(BuildController._cost_of(type)):
 		if MissionStats.on:
@@ -587,9 +590,7 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id :
 				if absi(dx) != ring and absi(dy) != ring:
 					continue
 				var spot := at + Vector2(dx, dy) * 16.0
-				# Ground first: cheap, and footprint_free wants it anyway.
-				if _walkable(type, spot, nav) and BuildController.can_place_for(type, spot, owner) \
-						and AiBuilder.footprint_free(type, spot, nav):
+				if _level(nav, spot) == level and BuildController.can_place_for(type, spot, owner):
 					var site := Orders.build_controller.place_site(owner, type.id, spot, false, null, [worker]) \
 							if Orders.build_controller else null
 					if site == null:
@@ -603,14 +604,9 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id :
 	return false
 
 
-## Whether every cell of `type`'s footprint at `at` can be walked on (AiBuilder.footprint_free's
-## first test).
-static func _walkable(type: ObjectTypes.ObjectType, at: Vector2, nav: NavGrid) -> bool:
-	var origin := nav.cell_of(MapObject.footprint_rect_for(type, at).position)
-	for i in type.footprint_cells.size():
-		if not nav.is_walkable(origin + Vector2i(i % type.footprint_grid.x, i / type.footprint_grid.x)):
-			return false
-	return true
+## The height level (ground, plateau ...) at `at` (cell flag bits 12-13).
+static func _level(nav: NavGrid, at: Vector2) -> int:
+	return (nav.flags_at(nav.cell_of(at)) >> 12) & 3
 
 
 static func _tree_near(at: Vector2) -> MapObject:

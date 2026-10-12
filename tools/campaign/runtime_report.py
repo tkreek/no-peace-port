@@ -217,7 +217,7 @@ def summarise(code, d, log_info):
     stuck = sum(1 for r in d["running"] if _waiting(r))
     fails = sum(n for nid, reasons in d["failures"].items() if int(nid) not in STUBS
                 for reason, modules in reasons.items()
-                if not reason.startswith(("found nothing", "object:", "no:")) for n in modules.values())
+                if not reason.startswith(("found nothing", "object:", "no:", "stub")) for n in modules.values())
     computers = [str(p["index"]) for p in d["players"] if p["control"] == 2]
     grown = [0, 0]
     for index in computers:

@@ -594,7 +594,8 @@ class FairBot:
 			var near: MapObject = null
 			for o in list:
 				if is_instance_valid(o) and o.stock.amount > 0 and main.fog.is_explored_at(o.position) \
-						and o.position.distance_to(home) < 2200.0 and (near == null or o.position.distance_to(home) < near.position.distance_to(home)):
+						and o.stock.amount > 0 and o.position.distance_to(home) < 3000.0 \
+						and not known_enemy_buildings().any(func(e: MapObject) -> bool: return e.position.distance_to(o.position) < 900.0) and (near == null or o.position.distance_to(home) < near.position.distance_to(home)):
 					near = o
 			if GameData.cmdline_option("debug-drop") != "" and res == "gold":
 				print("mines %s home %s" % [_mines.map(func(o: MapObject) -> String: return "%s %s %d %s" % [is_instance_valid(o), o.position if is_instance_valid(o) else Vector2.ZERO, o.stock.amount if is_instance_valid(o) else -1, main.fog.is_explored_at(o.position) if is_instance_valid(o) else false]), home])
@@ -602,7 +603,7 @@ class FairBot:
 				print("drop %s: near %s far %s failed %s" % [res, near.position if near else Vector2.INF,
 						_drop_offs(res).map(func(d: MapObject) -> float: return d.position.distance_to(near.position)) if near else [], _failed.get(drop)])
 			if near and _drop_offs(res).all(func(d: MapObject) -> bool: return d.position.distance_to(near.position) > 600.0) \
-					and count_buildings(drop) < 2 \
+					and count_buildings(drop) < 3 \
 					and (res == "gold" or _sources("wood", home).size() < 15) and now() - float(_failed.get(drop, -1000.0)) > 60.0:
 				if _place(drop, near.position, _builders(workers, 2), 140):
 					return
@@ -1074,7 +1075,7 @@ func _unexplored_points(from: Vector2, n: int) -> Array:
 ## training camps and a weapons factory; infantry, cavalry and cannons in waves at the
 ## nearest settlement known, scouts (the mounted cowboys) finding the next.
 func _scenario_fair_usa06() -> void:
-	_begin([462, 458, 458, 460, 465, 458], [408, 407, 401, 409, 401, 417, 403, 411, 401, 403, 401, 401, 401])
+	_begin([462, 458, 458, 460, 465, 458], [408, 407, 401, 409, 410, 401, 417, 403, 416, 411, 401, 403, 416, 401, 401])
 	bot.extra_production = [403]
 	bot.worker_target = 12
 	bot.farmer_target = 6

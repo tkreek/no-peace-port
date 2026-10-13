@@ -1006,7 +1006,7 @@ class FairBot:
 	func _heroes(a: Array) -> void:
 		for h: Unit in heroes():
 			var hurt := h.health < h.max_health * hero_retreat
-			var army_away := mode != "home" and not a.is_empty() and _centroid(a).distance_to(home) > 1500.0
+			var army_away := not a.is_empty() and _centroid(a).distance_to(home) > 1500.0
 			if h.unit_type.guid() in keep_back or hurt or (heroes_behind and not army_away):
 				if h.position.distance_to(home) > 300.0 or (hurt and h.state == Unit.State.ATTACKING):
 					_order(h, "move_to", [home + Vector2(60, 60)], "home")

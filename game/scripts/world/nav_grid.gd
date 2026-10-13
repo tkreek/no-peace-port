@@ -33,6 +33,8 @@ static var current: NavGrid
 var size := Vector2i.ZERO
 var flags := PackedInt32Array()
 var has_water := false
+## Counts footprints stamped or cleared, for the drawing to look at cover again (UnitSprite).
+var footprints_changed := 0
 var _astar := AStarGrid2D.new()
 var _layers: Array[AStarGrid2D] = []
 
@@ -142,6 +144,7 @@ func can_build_on(cell: Vector2i, own: int, wall := false) -> bool:
 func block_footprint(type: ObjectTypes.ObjectType, position: Vector2) -> void:
 	if type == null or type.footprint_cells.is_empty():
 		return
+	footprints_changed += 1
 	var origin := cell_of(position - Vector2(type.footprint_anchor))
 	for i in type.footprint_cells.size():
 		if (type.footprint_cells[i] & BLOCKED) == 0:
@@ -156,6 +159,7 @@ func block_footprint(type: ObjectTypes.ObjectType, position: Vector2) -> void:
 func unblock_footprint(type: ObjectTypes.ObjectType, position: Vector2) -> void:
 	if type == null or type.footprint_cells.is_empty():
 		return
+	footprints_changed += 1
 	var origin := cell_of(position - Vector2(type.footprint_anchor))
 	for i in type.footprint_cells.size():
 		if (type.footprint_cells[i] & BLOCKED) == 0:

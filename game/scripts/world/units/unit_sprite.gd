@@ -1,8 +1,18 @@
 class_name UnitSprite
 extends Node2D
 ## How a unit looks: its original 8-direction sprite animations with team palette and
-## shadow, the facing, the selection ring and a brief tint when picked as a target.
+## shadow, the facing, the selection ring and a brief tint when picked as a target, and
+## its picture showing through a roof or a canopy drawn over it.
 ## Unit builds the rules on top of this.
+
+## In cover (on a grid cell a building's roof or a tree's crown is drawn over, bit 29 of the
+## objects' footprints), the original draws a unit's picture once more after everything
+## else, blended half and half with what is there (draw passes 0x4625d0: the last one, 0x10;
+## unit draw 0x417f80 does it when [unit+0x41c], which 0x417310 sets from the grid at its
+## feet as it moves; blit 0x409f90 adds src >> 1 and dst >> 1). It shows through what hides
+## it and looks the same where nothing does. All units, whoever's; a selected one's marker too.
+const COVER_Z := 5  ## over every sprite, under the weather (6) and the fog of war (90)
+const COVER_ALPHA := 0.5
 
 var unit_type: UnitType
 var direction := 1  # sprite direction row: 0 = SE, then clockwise (1 = S ... 7 = E)
@@ -10,6 +20,7 @@ var selected := false:
 	set(value):
 		selected = value
 		queue_redraw()
+		_cover.queue_redraw()
 		if is_instance_valid(_overlay):
 			_overlay.queue_redraw()
 
@@ -18,6 +29,11 @@ var ring_on_top := false
 var _overlay := DrawOverlay.new()
 var _body := Sprite2D.new()
 var _shadow := Sprite2D.new()
+## The picture again over everything while in cover (with the selection ring under it).
+var _cover := Node2D.new()
+var _cover_body := Sprite2D.new()
+var _cover_at := Vector2.INF  # where the cover was last looked up
+var _cover_grid := -1  # and NavGrid.footprints_changed then
 var _action := ""
 var _anim := -1
 var _shadow_anim := -1
@@ -42,6 +58,15 @@ func _setup_sprites(type: UnitType, palette_row: int) -> void:
 	SpriteMaterials.make_shadow(_shadow)
 	add_child(_shadow)
 	add_child(_body)
+	_cover_body.centered = false
+	_cover_body.region_enabled = true
+	_cover.z_index = COVER_Z
+	_cover.z_as_relative = false
+	_cover.modulate.a = COVER_ALPHA
+	_cover.visible = false
+	_cover.draw.connect(_draw_cover_ring)
+	_cover.add_child(_cover_body)
+	add_child(_cover)
 	add_child(_overlay)
 	set_palette_row(palette_row)
 
@@ -56,10 +81,12 @@ func _draw_overlay(_canvas: Node2D) -> void:
 func hide_body() -> void:
 	_body.visible = false
 	_shadow.visible = false
+	_cover_body.visible = false
 
 
 func set_palette_row(row: int) -> void:
 	_body.set_instance_shader_parameter("palette_row", clampi(row, 0, unit_type.bob.teams - 1))
+	_cover_body.set_instance_shader_parameter("palette_row", clampi(row, 0, unit_type.bob.teams - 1))
 
 
 ## Whether the unit is standing (dead ones lose their selection ring). Unit overrides it.
@@ -73,6 +100,7 @@ func flash(color := Color(1.0, 0.35, 0.3), ring := false) -> void:
 	_flash_time = 1.2 if ring else 0.8
 	_flash_ring = ring
 	_body.self_modulate = color
+	_cover_body.self_modulate = color
 
 
 func _fade_flash(delta: float) -> void:
@@ -82,6 +110,7 @@ func _fade_flash(delta: float) -> void:
 			queue_redraw()
 		if _flash_time <= 0.0:
 			_body.self_modulate = Color.WHITE
+			_cover_body.self_modulate = Color.WHITE
 			_flash_ring = false
 
 
@@ -148,6 +177,7 @@ func _start_anim(index: int) -> void:
 
 
 func _advance(delta: float) -> void:
+	_update_cover()
 	var anim := unit_type.bob.anims[_anim]
 	var shown_step := _step
 	_step_time += delta * 1000.0
@@ -196,6 +226,40 @@ func _set_frame(sprite: Sprite2D, anim_index: int) -> void:
 		if sprite == _body:
 			sprite.material = SpriteMaterials.body(sheet, unit_type.ramps)
 	sheet.apply(sprite, frame)
+	if sprite == _body and _cover.visible:
+		_show_cover_frame()
+
+
+## Whether the unit is shown through what is drawn over it (see COVER_Z).
+func shows_through() -> bool:
+	return _cover.visible
+
+
+## Look up the cover where the unit stands, when it has moved or a building went up or a
+## tree came down (and once it has died, take the picture away). Only the drawing reads it.
+func _update_cover() -> void:
+	if not is_alive():
+		_cover.visible = false
+		return
+	var grid := NavGrid.current
+	if grid == null or (position == _cover_at and grid.footprints_changed == _cover_grid):
+		return
+	_cover_at = position
+	_cover_grid = grid.footprints_changed
+	var covered := (grid.flags_at(grid.cell_of(position)) & NavGrid.COVER) != 0
+	if covered != _cover.visible:
+		_cover.visible = covered
+		if covered:
+			_show_cover_frame()
+
+
+func _show_cover_frame() -> void:
+	_cover_body.texture = _body.texture
+	_cover_body.texture_filter = _body.texture_filter
+	_cover_body.material = _body.material
+	_cover_body.region_rect = _body.region_rect
+	_cover_body.offset = _body.offset
+	_cover_body.scale = _body.scale
 
 
 ## Whether `point` (world) is on a solid pixel of the unit's current picture.
@@ -212,6 +276,11 @@ func _draw() -> void:
 		_draw_ring(self, 16.0)
 	elif _flash_ring and int(_flash_time * 5.0) % 2 == 0:
 		StatusBar.ring(self, Vector2.ZERO, 22.0, _body.self_modulate)
+
+
+func _draw_cover_ring() -> void:
+	if selected and is_alive() and not ring_on_top:
+		_draw_ring(_cover, 16.0)
 
 
 func _draw_ring(canvas: CanvasItem, radius: float) -> void:

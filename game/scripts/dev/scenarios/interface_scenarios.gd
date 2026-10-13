@@ -444,3 +444,73 @@ func _key(key: Key, ctrl := false) -> void:
 		Input.parse_input_event(event)
 		Input.flush_buffered_events()
 		await get_tree().process_frame
+
+
+## Units where buildings and trees are drawn over them (the cover cells, grid bit 29):
+## three behind our main building and four under the thickest canopy (one of each an
+## enemy's, our three in the forest selected), and one in the open. Prints which show through.
+## --cover-view=building|forest points the camera there for a screenshot.
+func _scenario_cover() -> void:
+	main.get_viewport().gui_disable_input = true  # keys pressed elsewhere while the window pops up
+	var nav := NavGrid.current
+	var hq: MapObject = main.players[1].main_building()
+	var picture := hq.visual_rect()
+	var behind := _cover_spots(picture, picture.position + picture.size * Vector2(0.5, 0.4), 3)
+	var forest: MapObject = null
+	var thickest := 0
+	var inland := Rect2(Vector2.ZERO, main.terrain.map.pixel_size()).grow(-400.0)  # the view not up against an edge
+	for tree in MapObject.all_objects:
+		if tree.is_tree() and tree.position.distance_to(hq.position) > 500.0 and inland.has_point(tree.position):
+			var near := MapObject.all_objects.filter(func(o: MapObject) -> bool:
+				return o.is_tree() and o.position.distance_to(tree.position) < 120.0).size()
+			if near > thickest:
+				thickest = near
+				forest = tree
+	var under := _cover_spots(Rect2(forest.position - Vector2(96, 128), Vector2(192, 160)), forest.position, 4)
+	var worker: int = hq.production.trainable_units()[0]
+	var soldier: int = hq.production.trainable_units()[-1]
+	var enemy: int = main.players[2].main_building().production.trainable_units()[0]
+	var placed: Array[Unit] = []
+	for i in behind.size():
+		placed.append(_cover_unit(enemy if i == 1 else worker, 2 if i == 1 else 1, behind[i]))
+	var mine: Array[Unit] = []
+	for i in under.size():
+		(mine if i < 3 else placed).append(_cover_unit([soldier, worker, worker, enemy][i], 2 if i == 3 else 1, under[i]))
+	var open := _cover_unit(soldier, 1, (Vector2(nav.nearest_walkable(nav.cell_of(hq.position + Vector2(0, 260)))) + Vector2(0.5, 0.5)) * NavGrid.CELL)
+	main.selection.select_units(mine)
+	main.camera.position = forest.position if GameData.cmdline_option("cover-view") == "forest" else picture.get_center()
+	for i in 4:
+		await get_tree().physics_frame
+	var through := func(units: Array) -> int:
+		return units.filter(func(u: Unit) -> bool: return u.has_method("shows_through") and u.shows_through()).size()
+	print("cover views: building %s, forest %s" % [picture.get_center().round(), forest.position.round()])
+	print("cover: behind the building and in a forest of %d trees %d spots, %d show through; in the open shows through %s" % [
+			thickest, behind.size() + under.size(), through.call(placed + mine), through.call([open]) == 1])
+	if GameData.cmdline_option("screenshot") == "":
+		get_tree().quit()
+
+
+## Up to `count` walkable cover cells in `area`, nearest `toward` first, a cell apart.
+func _cover_spots(area: Rect2, toward: Vector2, count: int) -> Array[Vector2]:
+	var nav := NavGrid.current
+	var spots: Array[Vector2] = []
+	for y in range(int(area.position.y), int(area.end.y), NavGrid.CELL):
+		for x in range(int(area.position.x), int(area.end.x), NavGrid.CELL):
+			var cell := nav.cell_of(Vector2(x, y))
+			if nav.flags_at(cell) & NavGrid.COVER and nav.is_walkable(cell):
+				spots.append(nav.center_of(cell))
+	spots.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.distance_to(toward) < b.distance_to(toward))
+	var picked: Array[Vector2] = []
+	for spot in spots:
+		if picked.size() < count and picked.all(func(p: Vector2) -> bool: return p.distance_to(spot) >= 30.0):
+			picked.append(spot)
+	return picked
+
+
+func _cover_unit(guid: int, team: int, at: Vector2) -> Unit:
+	var unit := Unit.new()
+	unit.position = at
+	main.units_root.add_child(unit)
+	unit.setup(UnitType.for_guid(guid), team)
+	unit.direction = 1
+	return unit

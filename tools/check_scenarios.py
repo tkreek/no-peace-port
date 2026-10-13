@@ -69,6 +69,7 @@ CHECKS = {
     "magic": ([], 0, [r"conversion: target now team 1"]),
     "spells": (["--faction=ind"], 300, [r"spells ready: 2 medicine men with Eagle eye, Lightning dance, Hail dance, Rain dance, Protective dance; our field food 300, enemy field food 300, 5 enemies"]),
     "magic_ind": (["--faction=ind"], 0, [r"eagle eye: eagles circling 1", r"lightning: enemy energy", r"warrior shielded [1-9]"]),
+    "cover": ([], 0, [r"cover: .* (\d+) spots, \1 show through; in the open shows through false"]),
     "inspect": ([], 120, [r"clicked 481: selected true, panel 'Buffalo' with 2 stats, 0 command buttons, ordered false",
                           r"clicked \d+: selected true, panel '\w+' with 4 stats, 0 command buttons, ordered false",
                           r"mount order rings the horse: true"]),

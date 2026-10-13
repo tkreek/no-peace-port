@@ -354,8 +354,10 @@ func _check_victory() -> void:
 
 # ------------------------------------------------------------------ campaign missions
 
-## The sides as the level editor set them (AmericaAddOn.exe 0x42be70): an independent people
-## is neutral to everyone, the others allied when they share a side and at war otherwise.
+## The sides as the level editor set them (AmericaAddOn.exe 0x42be40): an independent people
+## is neutral to everyone; otherwise `a` stands allied to `b` when b's side mask holds the
+## bit of a's slot (its SPIELER record's place, world+0xa20, 0x442ecf) and at war if not.
+## The masks are not compared with each other. No map has a pair whose masks disagree.
 func _setup_diplomacy() -> void:
 	for a in mission_data.players:
 		for b in mission_data.players:
@@ -364,7 +366,7 @@ func _setup_diplomacy() -> void:
 			var flags := Diplomacy.ENEMY
 			if a.control == MissionData.Seat.INDEPENDENT or b.control == MissionData.Seat.INDEPENDENT:
 				flags = Diplomacy.NEUTRAL
-			elif a.allies & (1 << b.slot):
+			elif b.allies & (1 << a.slot):
 				flags = Diplomacy.ALLY
 			Diplomacy.set_relation(a.index, b.index, flags)
 

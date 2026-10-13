@@ -20,16 +20,21 @@ The remake's side: `MissionData` (reading), `Mission` (running), `Diplomacy`, `C
 | 0x00C | name: a text id in `kampagnen.eng` (100+) or a literal name |
 | 0x10C | people: 0 Native Americans, 1 Mexicans, 2 outlaws, 3 Americans; -1 unused slot |
 | 0x110 | who plays: 1 human, 2 computer, 3 independent |
-| 0x114 | side: a bit per slot; players whose masks share a bit are allied |
+| 0x114 | side: a bit per slot (the record's place in the chunk, 0..7) for each player this one is allied with, its own included |
 | 0x118 | guns, wood, gold, food (0x422a40 copies them to the stocks the conditions read) |
 | 0x128 | 1: take the level's start resources (`LVL_INFO`) instead |
 
 The player number is not the slot: the first tutorial's human is slot 3, player 4.
 
-Starting relations (0x42be70), per ordered pair: an independent player is neutral to
-everyone and everyone to it; otherwise allied when the side masks share a bit, at war when
-not; a player is allied to itself and shares its own sight. Relation flags (world+0x8CC,
-`[from*8+to]`): 1 at war, 2 neutral, 4 allied, 0x20 shares sight. What a player neutral to
+Starting relations (0x42be40), per ordered pair: an independent player is neutral to
+everyone and everyone to it; otherwise player `a` is allied to `b` when b's side mask holds
+the bit of a's slot (`mask[b] & 1 << slot[a]`, the slot from world+0xa20, which the loader
+fills with each player's record index at 0x442ecf), at war when not. The masks are not
+compared with each other: in base/des_05 the human's 0x21 and the computers' 0x3e share bit
+5 (an unused slot), but they are at war. The test is one-sided, but every shipped map's
+masks agree both ways. A player is allied to itself and shares its own sight. Relation
+flags (world+0x8CC, `[from*8+to]`, read by native 206 as `[me][player]`, 0x42bdd0):
+1 at war, 2 neutral, 4 allied, 0x20 shares sight. What a player neutral to
 yours has joins you when one of your units comes within 96 px (0x42c580, from the unit
 update; independent players' own units never take others over): the unit searches the
 object grid (world+0x24206c, where every unit and building stamps its footprint) in a square

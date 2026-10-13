@@ -194,7 +194,8 @@ func _modules(people: int) -> Dictionary:
 ## --mission=base/usa_03: everybody aboard the riverboats and across to the landing place,
 ## on to Malibrán (the goal changes), its command post attacked (killed by cheat if it
 ## still stands after two minutes): the counter-attacks start. Later the orange command
-## post by cheat (the green attacks start), then the forts: won.
+## post by cheat (the green attacks start), then the forts: won. --usa03-away=1: the army
+## goes back to Malibrán at the forts goal.
 func _scenario_usa03() -> void:
 	var mission := main.mission
 	_watch(30.0)
@@ -211,6 +212,11 @@ func _scenario_usa03() -> void:
 	Orders.cheat("kill", [], _buildings_of(8, 200))
 	await _until(func() -> bool: return _fired(7), 60.0, "the forts goal")
 	print("forts goal at %.0f s: %s; player 7 %s" % [Sim.time(), _kinds(_own(_any)), _modules(7)])
+	if GameData.cmdline_option("usa03-away") != "":
+		# Back to Malibrán, out of orange's camp watch (a_lagerüberwachung: within global 244,
+		# about 1900 px, of its command post), which otherwise keeps taking the wave's leader.
+		await _until(func() -> bool: return not Orders.locked, 60.0, "the forts scene")
+		_go(_own(func(u: Unit) -> bool: return not u.water.is_boat()), 0)
 	await _track(7, 600.0, [256941, 41821, 157307], GameData.cmdline_option("track-every", "30").to_float())
 	Orders.cheat("kill", [], _buildings_of(7, 200))
 	await _until(func() -> bool: return _fired(12), 60.0, "green's attacks")

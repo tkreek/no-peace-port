@@ -607,6 +607,40 @@ Each object carries a per-player bitmask "claimed by this AI". Virtual +0x28 (0x
 `e = claim_nearest_type(me(), x, y, 459, 0xc00)` hands out each idle cavalryman only once until
 someone releases it. The non-claiming searches (368-371, 389, 392, 393, 387) ignore claims.
 
+A claim is one bit per player, not per module: every object vtable (about 150, 0x4a12cc ...
+0x4a9888) has the base 0x4325d0/0x4325b0 at +0x24/+0x28, and 0x4325bd is the only `or` into
+obj+0x1c, so no order (move, follow, attack) and no unit state sets or clears it. The search
+loop (0x424ad0) skips an object only on `obj+0x1c & 1<<me`; it does not know which module took
+it, so a unit one module claimed and another module of the same player released is free for
+a third. Releases (0x43ab81 -> 0x438620 -> virtual +0x24) clear the bit whoever set it.
+
+#### Original behaviour: base/usa_03, orange's waves held at home
+
+Orange (player 7) attacks with `usa03_angrifforange` (256941) -> `a_overkill` (41821): the
+wave's members come from `a_geteinheit` (`find_my_unit(0x1000, ...)`, claimed), the slowest
+becomes the leader and attack-moves on the human's unit nearest (1728, 11104), and every
+escort's `a_folgen` (21597) does `release_unit(planwagen)` on the leader before following it.
+So the leader is the one unclaimed wave member. Orange's camp watch `a_lagerüberwachung`
+(217867, started with the command post at (432, 11808)) looks every 4 to 7 s for the human's
+unit nearest the command post (`find_unit_of`, claimed) and, when it is nearer than global 244,
+spawns `a_verteidigepositionlager` (591067) for it. Global 244 starts at 0 (`a_init`) and
+grows, through `a_entfernungscheck` (`distance`, below 4000), to the distance of the farthest
+building orange's `a_gebäude_v`/`a_gwohnung_v` put up from the command post: about 1900 px here
+(the buildings it is told to keep near (2400, 11600)). 591067 takes orange's free military
+units nearest the human's unit one by one with `a_geteinheit` (the free leader, walking toward
+the human, among them), but its check after the fifth (line 58, `distance(...) > e`) reads `e`
+before it is set (0, as every variable not in CONSTDAT), so it always gives up there: stance 1,
+`move` back to where each was taken, release. The leader walks back, `a_overkill` sees it idle
+and sends it on again, and the next 591067 takes it again. Every native in this (134 `distance`
+0x43b1a8, 109/202 0x42bce0 -> 0x424ad0, 125 0x438620, 326 `follow`, 143 `move`) does what the
+remake does, so while any of the human's units stays within that ~1900 px of orange's command
+post (the human's army attacking Malibrán's south side does), orange's waves stay at home in
+the original too; once the army moves off (to the forts, the goal after Malibrán), the watch
+finds no one and the next wave leaves. In the remake (`--scenario=usa03`, seed 1): with the
+army at (2000-2150, 10000) a 591067 starts every ~7 s from 235 s on and the wave of 658 s stays
+700-800 px off as long as it is watched (to 826 s); with `--usa03-away=1` (the army back at Malibrán from 229 s)
+none starts after 236 s, and the wave of 658 s reaches the army by 800 s.
+
 ### Searches
 
 All are linear scans of one player's object list with squared-distance comparison (ties keep the

@@ -32,6 +32,7 @@ func _scenario_track_units() -> void:
 ##   shot:name:x:y            a screenshot of the view at x,y (--shot-dir; not headless)
 ##   teleport:P:G:n:x:y[:team] n of P's G put down at x,y (and given to `team`): a test
 ##                            shortcut outside the game step, to reach a mission's next point
+##   hurt:P:G:percent         P's G left with that share of their hit points (shortcut)
 ##   cast:G:spell:x:y[:n:k]  the local people's G (n of them from the k-th) cast a spell at x,y
 ##   research:G               the local people has upgrade G (shortcut)
 ##   order:G                  one of the local people's buildings whose buttons offer G (what
@@ -115,6 +116,15 @@ func _scenario_steps() -> void:
 								unit.animal.wild_timer = UnitAnimal.OWNED_HORSE_SECONDS
 						moved += 1
 				print("STEP t=%.1f teleport %d of P%d %d" % [Sim.time(), moved, p, what])
+			"hurt":  # hurt:P:G:percent: people P's living G left with that share of their hit points (a test shortcut)
+				var p := part[2].to_int()
+				var what := part[3].to_int()
+				var hurt := []
+				for unit in Unit.all_units:
+					if unit.is_alive() and unit.team == p and Mission.unit_matches(unit, what):
+						unit.health = unit.max_health * part[4].to_float() / 100.0
+						hurt.append("%d@%s" % [unit.sim_id, Vector2i(unit.position)])
+				print("STEP t=%.1f hurt %d of P%d %d: %s" % [Sim.time(), hurt.size(), p, what, hurt])
 			"cast":  # cast:G:spell:x:y[:n:k]: the local people's units of G (n from the k-th) cast the spell at x,y
 				var what := part[2].to_int()
 				var group := _own(func(u: Unit) -> bool: return Mission.unit_matches(u, what))

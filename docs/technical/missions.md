@@ -145,6 +145,25 @@ expansion). Its picture `global/gfx/menues/kampagne/<people>0<n>.pic` (`<people>
 the expansion) is the bottom-left corner (0, 330) of the storyteller's backdrop
 `<people>.pic` with the mission's map drawn on the parchment.
 
+## Script quirks the original has too
+
+* base/ind_08: Capt. Weirs (291, player 8) walks `ind08_wpdef`'s waypoints with
+  `ind08_wpabklappern` (224269), which, once his hit points are below 50 %, sends him
+  (`move`) to the nearest of three map exits: (8010, 5235), (8010, 7867) or (5220, 12104).
+  The middle one lies in area 13 and is the nearest from about waypoint 3 to waypoint 6 of
+  his route. There trigger 11 (after timer 7's 30 s) takes him off the map and clears flag 1
+  ("Capt. Weirs has crossed the river.", the text of the defeat trigger 4, but no defeat).
+  Then neither trigger 5 (flag 1 and no Weirs: Custer's attack and the next goal) nor 4 (Weirs
+  in area 1) can fire. The mission is still won through trigger 19 (every unit of player 2,
+  Kearny included, dead) -> 10 (player 3's camps went for trigger 1) -> 16, only without Custer's attack or the goal telling the
+  player so. The remake does the same (`--scenario=steps` with `teleport`/`hurt` on Weirs near
+  waypoint 5: trigger 11 at 67 s, then 19 -> 10 -> 16 wins); the original's trigger runtime
+  (0x464ed0, actions 6 and 23) and `health_unit` (306, 0x43c07f, integer percent) leave no
+  room for anything else.
+* base/usa_03: orange's attack waves stay at home while the human's units stand within
+  about 1900 px of orange's command post (its camp watch keeps taking the wave's leader);
+  see [ki-natives.md](ki-natives.md), "Claims".
+
 ## Checking the missions
 
 `tools/campaign/check_missions.py` reads every campaign map's script and the AI modules it

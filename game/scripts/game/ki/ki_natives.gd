@@ -68,9 +68,10 @@ static func call_native(id: int, task: KiTask) -> void:
 		MissionStats.native(id, task, a)
 	match id:
 		# ---------------------------------------------------------- arithmetic
-		1: task.push(a[0] + a[1])
-		2: task.push(a[0] - a[1])
-		3: task.push(a[0] * a[1])
+		# 32-bit add/sub/imul (0x43a26e, 0x43a2ce): sums and products wrap (65536 * 65536 is 0).
+		1: task.push(_i32(a[0] + a[1]))
+		2: task.push(_i32(a[0] - a[1]))
+		3: task.push(_i32(a[0] * a[1]))
 		4: task.push(_div(a[0], a[1] if a[1] != 0 else 1))
 		5: task.push(a[0] & a[1])
 		6: task.push(a[0] | a[1])
@@ -142,13 +143,13 @@ static func call_native(id: int, task: KiTask) -> void:
 			task.push(int(node != null and KiWorld.state_bits(node) & KiWorld.bits32(a[1]) == KiWorld.bits32(a[1])))
 		116, 117, 118:
 			var node := KiWorld.resolve(a[0])
-			task.push(int(node != null and KiWorld.state_bits(node) & a[1] != 0))
+			task.push(int(node != null and KiWorld.state_bits(node) & KiWorld.bits32(a[1]) != 0))
 		365:
 			var node := KiWorld.resolve(a[0])
 			task.push(int(node != null and KiWorld.class_bits(node) & KiWorld.bits32(a[1]) == KiWorld.bits32(a[1])))
 		366:
 			var node := KiWorld.resolve(a[0])
-			task.push(int(node != null and KiWorld.class_bits(node) & a[1] != 0))
+			task.push(int(node != null and KiWorld.class_bits(node) & KiWorld.bits32(a[1]) != 0))
 		295, 296, 297:
 			var node := KiWorld.resolve(a[0])
 			task.push(KiWorld.guid_of(node) if node else -1)
@@ -476,6 +477,12 @@ static func call_native(id: int, task: KiTask) -> void:
 				MissionStats.unimplemented(id, task)
 	if MissionStats.on:
 		MissionStats.native_done(id, task, a)
+
+
+## A value as a signed 32-bit C int.
+static func _i32(x: int) -> int:
+	x &= 0xFFFFFFFF
+	return x - 0x100000000 if x >= 0x80000000 else x
 
 
 ## C division: truncates toward zero.

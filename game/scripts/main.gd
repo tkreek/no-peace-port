@@ -14,6 +14,8 @@ extends Node2D
 ##   --fog=off  disable the fog of war
 ##   --ai=off  no computer opponent (for isolated tests)
 ##   --ai-vs-ai=1  computer controls player 1 as well
+##   --players=mex,usa,ind,...  one people per start point, all but the first computer players
+##   --teams=1,1,2,2  their teams (0: none): teammates start allied, sharing their sight
 ##   --report-after=<frames>  print stockpiles every 300 frames, then quit (use --fixed-fps)
 ##   --seed=n  the game's randomness; --checksum-every=<s>  print a state fingerprint (Sim)
 ##   --record=<file>  keep the match's orders (written on leaving); --replay=<file>  play them
@@ -42,6 +44,8 @@ var mission_data: MissionData
 ## The original's AI scripts the mission starts (null in a skirmish).
 var ki: KiManager
 var _game_over := false
+var _out := {}  # peoples out of the game (told so), -> true
+var _checked := false  # whether the victory check has run yet
 var players := {}
 var start_positions := {}  # player -> Vector2, from the map's Editor_Start markers
 ## Players the map gives units or buildings of their own: they start with exactly those
@@ -60,6 +64,7 @@ const FACTIONS := {
 	"des": {"main": 300, "army": 356, "commander": 351},
 	"usa": {"main": 400, "army": 458, "commander": 451},
 }
+const DIPLOMACY_SOUND := 58  # field_harvested.wav, as the original plays it for alliances and enmities
 const START_BUILDERS := 5
 const START_FARMERS := 3
 
@@ -152,10 +157,14 @@ func _ready() -> void:
 		Match.configured = true
 		for entry in loading.players:
 			players[int(entry.index)] = Player.new(int(entry.index), entry.faction)
+			players[int(entry.index)].team = int(entry.get("team", 0))
+			players[int(entry.index)].player_name = entry.get("name", "")
 			computer[int(entry.index)] = not entry.ai.is_empty()
 	elif Match.configured:
 		for i in Match.players.size():
 			players[i + 1] = Player.new(i + 1, Match.players[i].faction)
+			players[i + 1].team = int(Match.players[i].get("team", 0))
+			players[i + 1].player_name = Match.players[i].get("name", "")
 			computer[i + 1] = Match.players[i].ai
 	elif GameData.cmdline_option("players") != "":
 		# --players=mex,usa,ind,...: one people per start point, all but the first computer
@@ -169,6 +178,10 @@ func _ready() -> void:
 		players[2] = Player.new(2, _faction_option("enemy", "usa"))
 		computer[2] = GameData.cmdline_option("ai") != "off"
 		computer[1] = GameData.cmdline_option("ai-vs-ai") != ""
+	if not Match.configured and loading.is_empty() and mission_data == null:
+		var teams := Match.teams_option(players.keys().max())  # --teams=1,1,2,2
+		for player in players:
+			players[player].team = teams[player - 1]
 	for player in players:
 		var slot := mission_data.player(player) if mission_data else null
 		players[player].computer = slot.control == MissionData.Seat.COMPUTER if slot else computer.get(player, false)
@@ -178,6 +191,11 @@ func _ready() -> void:
 		players[player].set_start_resources(Match.start_resources(map.start_resources))
 		if loading.is_empty() and not placed_owners.has(player):
 			_setup_player(player, start_positions.get(player, _fallback_start(player, size)))
+	if mission_data == null and loading.is_empty():
+		_setup_teams()
+	Diplomacy.negotiable = mission_data == null
+	Diplomacy.declared = _on_declared
+	Diplomacy.sent = _on_sent
 	camera.position = _vector_option("camera", start_positions.get(me, _own_centre(size / 2.0)))
 	# --time-scale=N runs the simulation N times faster (long AI tests).
 	var speed := clampf(GameData.cmdline_option("time-scale", "1").to_float(), 0.1, 8.0)
@@ -223,6 +241,8 @@ func _ready() -> void:
 			ai.difficulty = Match.difficulty if Match.configured else GameData.cmdline_option("difficulty", "2").to_int()
 			add_child(ai)
 			ais.append(ai)
+	if loading.is_empty() and players.values().all(func(p: Player) -> bool: return p.team == 0):
+		AiPlayer.plan_pacts(ais)  # computer players ally among themselves
 	if mission_data:
 		_start_mission()
 	Cheats.setup(self, speed)
@@ -307,9 +327,18 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE and not event.echo:
 		hud.toggle_menu()
 		get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.pressed and event.keycode == KEY_D and not event.echo \
+			and not (event.ctrl_pressed or event.shift_pressed or event.alt_pressed) \
+			and Diplomacy.negotiable and not hud.menu.is_open():
+		hud.toggle_menu()  # D: the Diplomacy page at once (0x4448b3)
+		hud.menu.show_diplomacy()
+		get_viewport().set_input_as_handled()
 
 
-## A player is out when they have no buildings and no units left.
+## A player is out when they have no buildings and no units left (or by the game type, no
+## commander or no main building), and is told so (texts 820..822, as 0x432140 has it). The
+## local player has won once nobody left is at war with them, either way round (0x432260):
+## allies win together, but an alliance one side has not answered keeps both in the fight.
 func _check_victory() -> void:
 	if mission:
 		mission.check_wiped_out()
@@ -319,7 +348,8 @@ func _check_victory() -> void:
 	# Who is still in the game depends on the game type: anyone with units or buildings left,
 	# anyone whose leader lives, or anyone whose main building stands.
 	var alive := {}
-	match Match.game_type if Match.configured else Match.GameType.EVERYBODY:
+	var game_type: int = Match.game_type if Match.configured else Match.GameType.EVERYBODY
+	match game_type:
 		Match.GameType.KILL_LEADER:
 			for index in players:
 				if players[index].leader() != null:
@@ -340,17 +370,54 @@ func _check_victory() -> void:
 						alive[owner] = true
 	for index in players:
 		if players[index].surrendered:
+			_out[index] = true
 			alive.erase(index)
+		elif not alive.has(index) and not _out.has(index):
+			_out[index] = true
+			var text: String = [GameData.text(820, "%s is out of the game"), GameData.text(821, "The commander of %s is dead"),
+					GameData.text(822, "The main building of %s is destroyed")][game_type]
+			if _checked or not loaded_game:  # not again for those already out in a loaded game
+				hud.notify(text % players[index].title())
+	_checked = true
 	var human_alive: bool = alive.has(me)
-	var others_alive := alive.keys().any(func(k: int) -> bool: return k != me)
-	if human_alive and others_alive:
+	if human_alive and alive.keys().any(func(other: int) -> bool:
+			return Diplomacy.hostile(me, other) or Diplomacy.hostile(other, me)):
 		return
 	_game_over = true
 	var won := human_alive
-	print("GAME OVER: ", "player %d %s" % [me, "wins" if won else "lost"])
+	print("GAME OVER: ", "player %d %s" % [me, "wins" if won else "lost"], " (left: %s)" % [alive.keys()])
 	Sound.play_mission_result(won)
 	hud.show_banner(GameData.text(1 if won else 2, "Victory!" if won else "Defeat"))
 	hud.show_statistics(players)
+
+
+## A skirmish's teams (Match.players) start allied, sharing what they see; everyone else is
+## at war, as in the original, whose setup has no teams (alliances are made in the game's
+## Diplomacy screen, GameMenu.show_diplomacy).
+func _setup_teams() -> void:
+	for a in players:
+		for b in players:
+			if a < b and players[a].team > 0 and players[a].team == players[b].team:
+				Diplomacy.set_stance(a, b, Diplomacy.ALLY)
+				Diplomacy.share_vision(a, b, true)
+
+
+## Everyone hears of a side taken (menu texts 372, 373, with the diplomacy sound, 58).
+func _on_declared(from: int, to: int, allied: bool) -> void:
+	var text := GameData.menu_text(372, "%s is now allied with %s") if allied \
+			else GameData.menu_text(373, "%s has declared %s an enemy")
+	text = text % [players[from].title(), players[to].title()]
+	print("DIPLOMACY: ", text)
+	Sound.play_sound(DIPLOMACY_SOUND)
+	hud.notify(text, false)
+
+
+## A package arrived: its receiver hears of it (texts 813..816, 0x45723e).
+func _on_sent(from: int, to: int, good: String, amount: int) -> void:
+	print("SENT: %d %s from %d to %d" % [amount, good, from, to])
+	if to == me:
+		var id: int = {"food": 813, "wood": 814, "gold": 815, "guns": 816}[good]
+		hud.notify(GameData.text(id, "%s sends you %d " + good) % [players[from].title(), amount])
 
 
 # ------------------------------------------------------------------ campaign missions

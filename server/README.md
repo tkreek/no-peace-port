@@ -13,8 +13,8 @@ players' orders travel over the network. The dedicated server is the meeting poi
   order on to the other players;
 - it runs **no game**, so it needs none of the original game's assets, no screen and no GPU.
   It uses about 110 MB of memory and almost no CPU;
-- the **first player to join leads the lobby**: they pick the map, the seats and the settings,
-  and press Start. If they leave, the next player to arrive takes over;
+- the **first player to join leads the lobby**: they pick the map, the seats (and their
+  teams: teammates start allied, sharing their sight) and the settings, and press Start. If they leave, the next player to arrive takes over;
 - one process serves **one match at a time**. Players can't join a match that has already
   started. When everyone has left, the lobby opens again;
 - it listens on **one UDP port**, 47624 by default. Run more instances on other ports for
@@ -121,7 +121,7 @@ journalctl -u america-server@47624 -n 20 --no-pager
 ss -ulpn | grep 47624
 ```
 
-The log should show `Serving on port 47624 (UDP), protocol 2` (or `..., with a password`).
+The log should show `Serving on port 47624 (UDP), protocol 3` (or `..., with a password`).
 
 Then join from the server itself, using the same program as a client for five seconds:
 

@@ -411,7 +411,7 @@ func _enemy_bases(from: Vector2) -> Array:
 	var mains := []
 	var others := []
 	for object in MapObject.structures:
-		if object.is_building() and object.owner_index > 0 and object.owner_index != ai.player.index and object.is_alive():
+		if object.is_building() and Diplomacy.hostile(ai.player.index, object.owner_index) and object.is_alive():
 			(mains if object.guid in MapObject.MAIN_BUILDINGS else others).append(object.position)
 	var out := mains if not mains.is_empty() else others.slice(0, 1)
 	out.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.distance_to(from) < b.distance_to(from))

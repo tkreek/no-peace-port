@@ -7,6 +7,8 @@ signal resources_changed
 ## also its message text and its sound) and where it happened (INF when nowhere).
 signal alerted(guid: int, at: Vector2)
 signal researched_upgrade(upgrade: int)
+## A unit or building of this people was hit by another people's unit (for tests).
+signal hit(victim: Node2D, attacker: Unit)
 
 ## Team colours (the most saturated entry of each original team palette), for UI and minimap.
 const TEAM_COLORS := [
@@ -28,14 +30,26 @@ var index := 1
 var faction := ""
 var resources := {}
 var researched := {}  # upgrade GUID -> true
-var surrendered := false
+var surrendered := false  ## gave up: out of the game, its units lay down their arms
 var computer := false  ## played by the skirmish AI or a mission's scripts
-## For the statistics screen after the game (manual 7.7).
-var stats := {"built": 0, "produced": 0, "gathered": 0, "kills": 0, "razed": 0}
+## The team chosen at the setup screen (Match.players; 0: none). Only the starting
+## alliances come of it: who is allied later is Diplomacy's.
+var team := 0
+## The name a network game's human player goes by ("" for the others).
+var player_name := ""
+## For the statistics screen after the game (manual 7.7) and the score: what it built,
+## trained, gathered, killed and razed, and per resource what came in by gathering or as a
+## tribute (less the tributes it paid).
+var stats := {"built": 0, "produced": 0, "gathered": 0, "kills": 0, "razed": 0,
+		"food": 0, "wood": 0, "gold": 0, "guns": 0, "horses": 0}
 
 
+## The total score, as the statistics screen and the Diplomacy page show it (stat 9, worked
+## out at 0x422e90): 1000 a kill, 500 a building razed, 500 a unit trained, 250 a building
+## built, and a point a unit of wood or food coming in, 2 for gold, 100 for a gun or horse.
 func score() -> int:
-	return stats.built * 50 + stats.produced * 20 + stats.gathered / 10 + stats.kills * 30 + stats.razed * 100  ## gave up: out of the game, its units lay down their arms
+	return stats.kills * 1000 + stats.razed * 500 + stats.produced * 500 + stats.built * 250 \
+			+ stats.wood + stats.gold * 2 + stats.food + stats.guns * 100 + stats.horses * 100
 
 
 
@@ -94,6 +108,18 @@ func set_start_resources(amounts: Dictionary) -> void:
 	for key in RESOURCES:
 		resources[key] = int(amounts.get(key, 0))
 	resources_changed.emit()
+
+
+## How messages and the diplomacy screen name this people: its player's name in a network
+## game, else the people's name, numbered when another player has the same people.
+func title() -> String:
+	if player_name != "":
+		return player_name
+	var name := Match.faction_name(faction)
+	for other: Player in by_index.values():
+		if other != self and other.faction == faction and other.player_name == "":
+			return "%s %d" % [name, index]
+	return name
 
 
 func color() -> Color:
@@ -235,6 +261,7 @@ func alert(guid: int, at := Vector2.INF, repeat_ms := ALERT_REPEAT_MS) -> void:
 func alert_attacked(victim: Node2D, attacker: Node2D) -> void:
 	if not is_instance_valid(attacker) or not attacker is Unit or attacker.team <= 0 or attacker.team == index:
 		return
+	hit.emit(victim, attacker)
 	var now := Time.get_ticks_msec()
 	if now - _attack_alerted_at < ATTACK_ALERT_GAP_MS:
 		return

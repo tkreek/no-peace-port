@@ -395,6 +395,8 @@ func _deliver() -> void:
 		else:
 			owner.add(carrying, carried)
 		owner.stats.gathered += carried
+		if owner.stats.has(carrying):
+			owner.stats[carrying] += carried
 		unit.gain_experience(Unit.EXPERIENCE_PER_LOAD)
 	carried = 0
 	carrying = ""  # walk back empty-handed

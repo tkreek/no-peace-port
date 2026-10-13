@@ -284,8 +284,8 @@ static func call_native(id: int, task: KiTask) -> void:
 			var people := _people(me)
 			if people:
 				people.add({376: "food", 377: "wood", 378: "gold"}[id], a[0])
-		381: Diplomacy.set_stance(a[0], a[1], Diplomacy.ALLY)
-		382: Diplomacy.set_stance(a[0], a[1], Diplomacy.ENEMY)
+		381: Diplomacy.take_side(a[0], a[1], true)  # player order 0x40000004, one way (Diplomacy)
+		382: Diplomacy.take_side(a[0], a[1], false)  # 0x40000003
 		388:
 			var people := _people(me)
 			if people:

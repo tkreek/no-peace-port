@@ -177,6 +177,7 @@ static func checksum() -> String:
 		var people: Player = Player.by_index[index]
 		for resource in people.resources:
 			numbers.append(float(people.resources[resource]))
+	numbers.append_array(Diplomacy.fingerprint())
 	var hashing := HashingContext.new()
 	hashing.start(HashingContext.HASH_MD5)
 	hashing.update(numbers.to_byte_array())

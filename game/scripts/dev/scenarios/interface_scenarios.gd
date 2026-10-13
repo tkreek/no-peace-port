@@ -354,8 +354,10 @@ func _scenario_inspect() -> void:
 
 ## Nothing but a player's orders, given through the interface for 90 s (for --record and
 ## --replay, which must end in the same game): workers gather and build houses, the main
-## building trains, soldiers and workers are sent about, stances change.
+## building trains, soldiers and workers are sent about, stances change; on the Diplomacy
+## page the next people is made an ally and later an enemy again, and allies are sent food.
 func _scenario_commands() -> void:
+	print("teams: %s, %s" % [main.players.values().map(func(p: Player) -> int: return p.team), Diplomacy.fingerprint()])
 	var hq: MapObject = main.players[main.me].main_building()
 	var picker := RandomNumberGenerator.new()
 	picker.seed = 3
@@ -369,6 +371,11 @@ func _scenario_commands() -> void:
 		if own.is_empty() or not is_instance_valid(hq):
 			break
 		var some := own.slice(0, picker.randi_range(1, own.size()))
+		var next_people := main.me % main.players.size() + 1
+		if round in [12, 26]:
+			Orders.declare(next_people, round == 12)
+		elif round in [8, 18]:
+			Orders.send("food", main.players.keys())
 		match round % 5:
 			0:
 				main.selection._select(some, false)

@@ -15,7 +15,8 @@ const ART_SIZE := Vector2(800, 600)
 const SETUP_TITLE := Rect2(277, 103, 247, 30)
 const SETUP_BOARD := Rect2(211, 166, 380, 268)  # the dark board under the title
 const SETUP_LIST_WIDTH := 152.0
-const PLAYER_OPTION_WIDTH := 126.0  # one seat's dropdown in the two-column player grid
+const PLAYER_OPTION_WIDTH := 98.0  # one seat's people dropdown in the two-column player grid
+const TEAM_OPTION_WIDTH := 70.0  # and its team dropdown
 
 var _art := Control.new()  # 800x600 design space, scaled to fit the window
 var _screens := {}
@@ -33,6 +34,7 @@ var _game_type := OptionButton.new()
 var _population := OptionButton.new()
 var _speed := OptionButton.new()
 var _faction := OptionButton.new()
+var _team := OptionButton.new()  # your team
 ## The setup screen doubles as a network game's lobby (Net): the host chooses, others watch.
 var _lobby := false
 var _lobby_slots := GridContainer.new()  # the lobby's places, in _seats instead of _slots
@@ -91,7 +93,8 @@ func _ready() -> void:
 		_start()
 
 
-## --menu-shot=<png> [--menu-screen=setup|network|lobby]: capture a menu screen and quit
+## --menu-shot=<png> [--menu-screen=setup|network|lobby] [--menu-map=<n>] [--teams=1,1,2]:
+## capture a menu screen and quit
 ## (for checks; campaign|missions|briefing: the campaign's screens; "lobby" hosts a game and waits --menu-wait=<s> for others to join first).
 func _menu_screenshot() -> void:
 	var path := GameData.cmdline_option("menu-shot")
@@ -112,6 +115,14 @@ func _menu_screenshot() -> void:
 		for row in _slots.get_children():
 			if not row.has_meta("you"):
 				(row.get_child(1) as OptionButton).select(1 + row.get_index() % 4)
+	var teams := Match.teams_option(Net.slots.size() if screen == "lobby" else _slots.get_child_count())
+	if GameData.cmdline_option("teams") != "":  # --teams=1,1,2,2: the seats' teams
+		for i in teams.size():
+			if screen == "lobby":
+				var slot: Dictionary = Net.slots[i]
+				Net.set_slot(i, slot.faction, slot.kind, teams[i])
+			else:
+				(_slots.get_child(i).get_child(2) as OptionButton).select(teams[i])
 	for i in 10:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
@@ -395,9 +406,10 @@ func _build_setup() -> Control:
 	_slots.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_slots.add_theme_constant_override("h_separation", 12)
 	_slots.add_theme_constant_override("v_separation", 3)
-	var you := _player_cell("You", _faction)
+	var you := _player_cell("You", _faction, _team)
 	you.set_meta("you", true)
 	_fill_factions(_faction, 0)
+	_fill_teams(_team, 0)
 	_slots.add_child(you)
 	_seats.add_child(_slots)
 	_lobby_slots.columns = 2
@@ -428,14 +440,28 @@ func _build_setup() -> Control:
 	return screen
 
 
-func _player_cell(caption: String, option: OptionButton) -> HBoxContainer:
+func _player_cell(caption: String, option: OptionButton, team: OptionButton) -> HBoxContainer:
 	var cell := HBoxContainer.new()
 	cell.add_theme_constant_override("separation", 4)
 	cell.add_child(_fixed_label(caption, 46))
 	_style_option(option, 11)
 	option.custom_minimum_size.x = PLAYER_OPTION_WIDTH
 	cell.add_child(option)
+	_style_option(team, 11)
+	team.custom_minimum_size.x = TEAM_OPTION_WIDTH
+	cell.add_child(team)
 	return cell
+
+
+## No team, or one of Match.TEAMS: teammates start allied, sharing their sight (the remake's
+## own setting; in the original alliances are made only in the game, GameMenu.show_diplomacy).
+func _fill_teams(option: OptionButton, selected: int) -> void:
+	option.clear()
+	option.add_item("No team")
+	for team in Match.TEAMS:
+		option.add_item("Team %d" % (team + 1))
+	option.tooltip_text = "Team: teammates start allied and see what each other sees"
+	option.select(selected)
 
 
 func _fixed_label(text: String, width: float) -> Label:
@@ -558,9 +584,17 @@ func _on_map_selected(index: int) -> void:
 	for slot in range(1, map.players):
 		var option := OptionButton.new()
 		_fill_factions(option, 2 if slot == 1 else 0, true)
-		_slots.add_child(_player_cell("Player %d" % (slot + 1), option))
-	_seats.reset_size()
+		var team := OptionButton.new()
+		_fill_teams(team, 0)
+		_slots.add_child(_player_cell("Player %d" % (slot + 1), option, team))
+	_fit_seats()
 	_map_list.ensure_current_is_visible()
+
+
+## The seats' board, as wide as its rows, centred under the artwork's board.
+func _fit_seats() -> void:
+	_seats.reset_size()
+	_seats.position.x = SETUP_BOARD.get_center().x - _seats.size.x / 2.0
 
 
 ## Quick overview from the biome's per-tile minimap colours.
@@ -577,15 +611,16 @@ func _preview_image(map: AlfMap) -> Image:
 
 func _start() -> void:
 	var map: Dictionary = _maps[_map_list.get_selected_items()[0]] if _map_list.is_anything_selected() else _maps[0]
-	var slots: Array[Dictionary] = [{"faction": Match.FACTIONS[_faction.selected], "ai": false}]
+	var slots: Array[Dictionary] = [{"faction": Match.FACTIONS[_faction.selected], "ai": false, "team": _team.selected}]
 	for row in _slots.get_children():
 		var option: OptionButton = row.get_child(1)
 		if row.has_meta("you"):
 			continue
 		if option.selected > 0:
-			slots.append({"faction": Match.FACTIONS[option.selected - 1], "ai": true})
+			slots.append({"faction": Match.FACTIONS[option.selected - 1], "ai": true,
+					"team": (row.get_child(2) as OptionButton).selected})
 	if slots.size() < 2:
-		slots.append({"faction": "usa", "ai": true})
+		slots.append({"faction": "usa", "ai": true, "team": 0})
 	Match.setup(map.path, slots)
 	Match.supply = _supply.selected
 	Match.difficulty = _difficulty.selected
@@ -725,11 +760,11 @@ func _on_lobby_changed() -> void:
 	for i in Net.slots.size():
 		var cell := HBoxContainer.new()
 		cell.add_theme_constant_override("separation", 4)
-		cell.add_child(_fixed_label(Net.slot_caption(i), 64))
+		cell.add_child(_fixed_label(Net.slot_caption(i), 60))
 		var faction := OptionButton.new()
 		_fill_factions(faction, maxi(0, Match.FACTIONS.find(Net.slots[i].faction)))
 		_style_option(faction, 11)
-		faction.custom_minimum_size.x = 104
+		faction.custom_minimum_size.x = 98
 		faction.disabled = not Net.leads()
 		cell.add_child(faction)
 		var kind := OptionButton.new()
@@ -737,16 +772,23 @@ func _on_lobby_changed() -> void:
 		kind.add_item("Computer")
 		kind.select(0 if Net.slots[i].kind == "human" else 1)
 		_style_option(kind, 11)
-		kind.custom_minimum_size.x = 78
+		kind.custom_minimum_size.x = 74
 		kind.disabled = not Net.leads() or int(Net.slots[i].peer) == Net.leader  # the leader plays
 		cell.add_child(kind)
+		var team := OptionButton.new()
+		_fill_teams(team, clampi(int(Net.slots[i].get("team", 0)), 0, Match.TEAMS))
+		_style_option(team, 11)
+		team.custom_minimum_size.x = TEAM_OPTION_WIDTH
+		team.disabled = not Net.leads()
+		cell.add_child(team)
 		var index := i
 		var changed := func(_selected: int) -> void:
-			Net.set_slot(index, Match.FACTIONS[faction.selected], "human" if kind.selected == 0 else "ai")
+			Net.set_slot(index, Match.FACTIONS[faction.selected], "human" if kind.selected == 0 else "ai", team.selected)
 		faction.item_selected.connect(changed)
 		kind.item_selected.connect(changed)
+		team.item_selected.connect(changed)
 		_lobby_slots.add_child(cell)
-	_seats.reset_size()
+	_fit_seats()
 
 
 func _show_loading() -> void:

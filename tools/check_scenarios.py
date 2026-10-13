@@ -2,7 +2,8 @@
 """Run the game's developer scenarios headless and check what they print.
 
 Usage: tools/check_scenarios.py [name ...]   (no names: all of them)
-       CHECK_ARGS="--opt=value ..." passes extra options to every run.
+       CHECK_ARGS="--opt=value ..." passes extra options to every run;
+       CHECK_JOBS=n runs at most n checks at once (default: half the CPUs).
 
 Each check starts `godot --headless` with a scenario (see game/scripts/dev/scenarios.gd),
 waits for it to finish, and requires every expected pattern in the output and no script
@@ -126,11 +127,34 @@ CHECKS = {
     "replay": ([], 0, [r"replay: (1\d|[2-9]\d) of \1 checksums agree"]),
     # Lockstep over the network: a host at 60 fps and a client at 23 fps each give their own
     # people orders, with a computer player too; their checksums must agree (see run_network).
-    "network": ([], 0, [r"network: (1\d|[2-9]\d) of \1 checksums agree"]),
+    # The host's teams reach the client through the lobby; alliances change on the way.
+    "network": ([], 0, [r"network: (1\d|[2-9]\d) of \1 checksums agree", r"client teams: \[1, 1, 0\]",
+                        r"DIPLOMACY: .*\n[\s\S]*DIPLOMACY: "]),
     # The same through a dedicated server without assets: two clients, the server only relays
     # (see run_dedicated); it compares their checksums too and must find no drift.
-    "dedicated": ([], 0, [r"dedicated: (1\d|[2-9]\d) of \1 checksums agree", r"Match started on",
-                          r"Match over: the lobby is open again"]),
+    "dedicated": ([], 0, [r"dedicated: (1\d|[2-9]\d) of \1 checksums agree", r"Match started on .*team 2.*team 2",
+                          r"Match over: the lobby is open again", r"client teams: \[2, 2, 1\] \[2, 2, 1\]"]),
+    # Teams and diplomacy (game/scripts/dev/scenarios/team_scenarios.gd).
+    "teamgame": (["--ai-vs-ai=1", "--players=mex,usa,ind,des", "--teams=1,1,2,2", "--time-scale=8", "--cheats=1",
+                  "--map=[4 Players] - crossroads.ulf"], 0,
+                 [r"teams at the start: 1:t1 2:A\+v 3:W 4:W \| 2:t1 1:A\+v 3:W 4:W \| 3:t2 1:W 2:W 4:A\+v \| 4:t2 1:W 2:W 3:A\+v",
+                  r"team game: hits between allies 0, between enemies [1-9]\d*; over true",
+                  r"GAME OVER: player 1 wins \(left: \[1, 2\]\)"]),
+    "diplomacy": (["--players=mex,usa,ind", "--cheats=1", "--difficulty=1", "--map=[4 Players] - forts.ulf"], 0,
+                  [r"diplomacy page rows: 2, menu entry true",
+                   r"1 allies 2: 1:t0 2:A 3:W \| 2:t0 1:W\+v 3:W .*; 2 sees for 1 true, 1 sees for 2 false",
+                   r"DIPLOMACY: .*Mexicans.*Americans",
+                   r"the computer does not answer: 1:t0 2:A 3:W \| 2:t0 1:W\+v",
+                   r"sent \(ours/2's/3's\): food -200/\+100/\+100, wood -200/\+100/\+100, gold -200/\+100/\+100, "
+                   r"guns -4/\+2/\+2; 2's score \+6\d\d",
+                   r"short of a second package: ours 50, 2's \+100",
+                   r"1 declares 2 an enemy: 1:t0 2:W 3:W \| 2:t0 1:W 3:W",
+                   r"3 gone, 2 not answering: game over false",
+                   r"2 answered: 1:t0 2:A\+v 3:W \| 2:t0 1:A\+v .*; game over true",
+                   r"GAME OVER: player 1 wins \(left: \[1, 2\]\)"]),
+    "pacts": (["--players=mex,usa,ind,des", "--difficulty=3", "--time-scale=8"], 0,
+              [r"pacts: 1:t0 2:W 3:W 4:W \| 2:t0 1:W 3:A\+v 4:A\+v \| 3:t0 1:W 2:A\+v 4:A\+v \| 4:t0 1:W 2:A\+v 3:A\+v"]),
+    "teamsave": (["--players=mex,usa,ind,des", "--teams=1,1,2,2"], 0, [r"before: (.*)\n[\s\S]*after: +\1\n"]),
     # Six computer players for ten game minutes: no script errors, and the waves go out.
     "aigame": (["--ai-vs-ai=1", "--players=mex,usa,ind,des,mex,usa", "--time-scale=4", "--trace-ai=1",
                 "--map=[6 Players] - oasis.ulf"], 4500, [r"attacks with \d+ units"]),
@@ -158,7 +182,7 @@ def run_network():
     port = str(47800 + os.getpid() % 100)
     common = ["--scenario=commands", "--fog=off", "--checksum-every=5"]
     host = subprocess.Popen(["godot", "--headless", "--fixed-fps", "60", "--path", GAME, "--",
-                             "--host=" + port, "--humans=2", "--players=mex,usa,ind"] + common,
+                             "--host=" + port, "--humans=2", "--players=mex,usa,ind", "--teams=1,1"] + common,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     time.sleep(2)
     client = subprocess.run(["godot", "--headless", "--fixed-fps", "23", "--path", GAME, "--",
@@ -172,7 +196,8 @@ def run_network():
     sums = [dict(re.findall(r"tick (\d+) checksum (\w+)", out)) for out in (hosted, client)]
     shared = [t for t in sums[0] if t in sums[1]]
     agree = sum(sums[0][t] == sums[1][t] for t in shared)
-    return hosted + client + "\nnetwork: %d of %d checksums agree\n" % (agree, len(shared))
+    return hosted + client + "\nnetwork: %d of %d checksums agree\nclient teams: %s\n" % (
+        agree, len(shared), " ".join(re.findall(r"teams: (\[[\d, ]*\])", client)))
 
 
 def run_dedicated():
@@ -180,7 +205,7 @@ def run_dedicated():
     port = str(47900 + os.getpid() % 100)
     common = ["--scenario=commands", "--fog=off", "--checksum-every=5", "--password=check"]
     server = subprocess.Popen(["godot", "--headless", "--path", GAME, "--", "--dedicated=" + port,
-                               "--password=check", "--humans=2", "--players=mex,usa,ind",
+                               "--password=check", "--humans=2", "--players=mex,usa,ind", "--teams=2,2,1",
                                "--assets-dir=/nonexistent"],
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     time.sleep(2)
@@ -199,7 +224,9 @@ def run_dedicated():
     agree = sum(sums[0][t] == sums[1][t] for t in shared)
     if "Out of sync" in served:
         agree = 0
-    return served + "".join(played) + "\ndedicated: %d of %d checksums agree\n" % (agree, len(shared))
+    teams = " ".join(" ".join(re.findall(r"teams: (\[[\d, ]*\])", out)) for out in played)
+    return served + "".join(played) + "\ndedicated: %d of %d checksums agree\nclient teams: %s\n" % (
+        agree, len(shared), teams)
 
 
 def run(name):
@@ -239,7 +266,7 @@ def run(name):
 def main():
     names = sys.argv[1:] or list(CHECKS)
     failed = 0
-    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() // 2 or 2) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=int(os.environ.get("CHECK_JOBS", 0)) or os.cpu_count() // 2 or 2) as pool:
         for name, problems, seconds in pool.map(run, names):
             if problems:
                 failed += 1

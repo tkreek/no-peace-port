@@ -12,6 +12,8 @@ extends RefCounted
 ##   "place"    put down a site: [type id, spot, keep placing, travois or null], builders in "ids"
 ##   "cheat"    a playtesting cheat a[0] (a name in Cheats.KINDS) with a[1..], on "ids";
 ##              carried out only where Cheats.enabled (campaign missions, or --cheats=1)
+##   "declare"  "p" makes people a[1] an ally (a[0] "ally") or an enemy ("enemy") (Diplomacy.declare)
+##   "send"     "p" sends a package of a[0] (Diplomacy.PACKAGES) to each allied people in a[1]
 ## Feedback (sounds, flashes, markers) stays with the interface, at once.
 
 ## Steps between the one after giving an order and carrying it out: none alone, Net.DELAY
@@ -83,6 +85,17 @@ static func place(type_id: int, at: Vector2, keep_placing: bool, unpacker: Unit,
 ## A cheat (Cheats) on `targets`; also while a scene locks the interface.
 static func cheat(kind: String, args := [], targets := []) -> void:
 	give({"op": "cheat", "ids": _ids(targets), "a": [kind] + args}, true)
+
+
+## The Diplomacy page: make people `other` an ally or an enemy.
+static func declare(other: int, ally: bool) -> void:
+	give({"op": "declare", "ids": [], "a": ["ally" if ally else "enemy", other]})
+
+
+## The Diplomacy page: a package of `good` to each of `recipients`.
+static func send(good: String, recipients: Array) -> void:
+	if not recipients.is_empty():
+		give({"op": "send", "ids": [], "a": [good, recipients]})
 
 
 ## Queue an order from this machine's people for a coming step (`unlocked`: even while a
@@ -206,6 +219,12 @@ static func execute(order: Dictionary) -> void:
 			build_controller.place_site(people, int(args[0]), args[1], bool(args[2]), unpacker, _owned_units(order.ids, people))
 		"cheat":
 			Cheats.execute(people, String(args.pop_front()), args, order.ids)
+		"declare":
+			if args.size() == 2 and String(args[0]) in ["ally", "enemy"]:
+				Diplomacy.declare(people, int(args[1]), String(args[0]) == "ally")
+		"send":
+			if args.size() == 2 and args[1] is Array:
+				Diplomacy.send(people, String(args[0]), args[1])
 
 
 static func _owned_units(ids: Array, people: int) -> Array[Unit]:

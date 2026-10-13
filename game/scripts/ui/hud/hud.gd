@@ -141,6 +141,7 @@ func _process(delta: float) -> void:
 	if _resource_timer <= 0.0:
 		_resource_timer = 0.5
 		_refresh_resources()  # horse room and warehoused gold change with buildings too
+		menu.refresh()  # the diplomacy page, when open
 	var population := player.population()
 	_population_label.text = "%d / %d" % [population, player.population_cap()]
 	_check_population_limit(population)

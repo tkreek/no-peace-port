@@ -15,7 +15,8 @@ extends Node
 ## when everyone has left a match the server opens a new lobby.
 ##
 ## Command line (after `--`), for tests without the menu:
-##   --host=port|default --humans=n   host, wait for n - 1 others, then start (--map, --players)
+##   --host=port|default --humans=n   host, wait for n - 1 others, then start (--map, --players,
+##                              --teams)
 ##   --join=address[:port]      join a host and play the next free people
 ##   --dedicated[=port] [--password=word] [--humans=n]   serve, starting once n are in
 
@@ -31,7 +32,7 @@ const MAX_PLAYERS := 8
 const DELAY := 4
 ## Every this many steps a batch carries the sender's checksum.
 const CHECK_EVERY := 30
-const PROTOCOL := 2
+const PROTOCOL := 3
 const NAME_LENGTH := 24
 
 ## True from the start of a network match until it ends.
@@ -45,7 +46,8 @@ var leader := 0
 var password := ""
 var join_password := ""
 ## The lobby, as the host keeps it: one entry per people in start-point order,
-## {"faction", "kind": "human" or "ai", "peer": network id of whoever plays it (humans)}.
+## {"faction", "kind": "human" or "ai", "peer": network id of whoever plays it (humans),
+## "team": 0 or 1..Match.TEAMS}.
 var slots: Array[Dictionary] = []
 var map_path := ""
 var settings := {}  ## game type, population limit, speed, supply, difficulty
@@ -187,17 +189,18 @@ func is_connected_to_game() -> bool:
 			and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
 
 
-## --map and --players=mex,usa,... set up the host's lobby from the command line.
+## --map, --players=mex,usa,... and --teams=1,1,2 set up the host's lobby from the command line.
 func _command_line_lobby() -> void:
 	var map_arg := GameData.cmdline_option("map")
 	if map_arg != "":
 		map_path = map_arg if map_arg.is_absolute_path() else GameData.maps_dir().path_join(map_arg)
 	var factions := GameData.cmdline_option("players", "mex,usa").split(",")
+	var teams := Match.teams_option(factions.size())
 	slots.clear()
 	for i in factions.size():
 		var human := i < _auto_start if _auto_start > 0 else true  # open places, played by the computer if nobody comes
 		slots.append({"faction": factions[i], "kind": "human" if human else "ai",
-				"peer": 1 if i == 0 and not dedicated else 0})
+				"peer": 1 if i == 0 and not dedicated else 0, "team": teams[i]})
 
 
 func _on_peer_connected(id: int) -> void:
@@ -291,24 +294,27 @@ func _from_leader() -> bool:
 	return is_host and not active and multiplayer.get_remote_sender_id() == leader
 
 
-## The leader changes a place: `kind` "human" (open for a player) or "ai", or a faction.
-func set_slot(index: int, faction: String, kind: String) -> void:
+## The leader changes a place: `kind` "human" (open for a player) or "ai", a faction, or
+## the team.
+func set_slot(index: int, faction: String, kind: String, team: int) -> void:
 	if leads() and is_host:
-		_set_slot(index, faction, kind)
+		_set_slot(index, faction, kind, team)
 	elif leads():
-		_ask_slot.rpc_id(1, index, faction, kind)
+		_ask_slot.rpc_id(1, index, faction, kind, team)
 
 
 @rpc("any_peer", "reliable")
-func _ask_slot(index: int, faction: String, kind: String) -> void:
+func _ask_slot(index: int, faction: String, kind: String, team: int) -> void:
 	if _from_leader():
-		_set_slot(index, faction, kind)
+		_set_slot(index, faction, kind, team)
 
 
-func _set_slot(index: int, faction: String, kind: String) -> void:
-	if index < 0 or index >= slots.size() or faction not in Match.FACTIONS or kind not in ["human", "ai"]:
+func _set_slot(index: int, faction: String, kind: String, team: int) -> void:
+	if index < 0 or index >= slots.size() or faction not in Match.FACTIONS or kind not in ["human", "ai"] \
+			or team < 0 or team > Match.TEAMS:
 		return
 	slots[index].faction = faction
+	slots[index].team = team
 	if slots[index].kind != kind and int(slots[index].peer) != leader:  # the leader keeps their place
 		slots[index].kind = kind
 		slots[index].peer = 0
@@ -335,7 +341,7 @@ func _set_map(file: String, player_count: int) -> void:
 		return
 	map_path = file if dedicated else _local_map(file)
 	while slots.size() < player_count:
-		slots.append({"faction": Match.FACTIONS[slots.size() % Match.FACTIONS.size()], "kind": "human", "peer": 0})
+		slots.append({"faction": Match.FACTIONS[slots.size() % Match.FACTIONS.size()], "kind": "human", "peer": 0, "team": 0})
 	slots.resize(player_count)
 	_seat_waiting()
 	_share_lobby()
@@ -449,7 +455,8 @@ func _start(match_slots: Array, map_file: String, match_settings: Dictionary, se
 	for i in slots.size():
 		var slot: Dictionary = slots[i]
 		var human: bool = slot.kind == "human" and slot.peer != 0
-		setup.append({"faction": slot.faction, "ai": not human})
+		setup.append({"faction": slot.faction, "ai": not human, "team": int(slot.get("team", 0)),
+				"name": names.get(int(slot.peer), "Player") if human else ""})
 		if human:
 			_humans[i + 1] = int(slot.peer)
 			if int(slot.peer) == my_id:
@@ -465,7 +472,8 @@ func _start(match_slots: Array, map_file: String, match_settings: Dictionary, se
 	if dedicated:
 		var who := PackedStringArray()
 		for index in _humans:
-			who.append("%s (%s)" % [names.get(_humans[index], "?"), slots[index - 1].faction])
+			var team := int(slots[index - 1].get("team", 0))
+			who.append("%s (%s%s)" % [names.get(_humans[index], "?"), slots[index - 1].faction, ", team %d" % team if team > 0 else ""])
 		_log("Match started on %s: %s, %d computer players" % [map_file, ", ".join(who), slots.size() - _humans.size()])
 		return
 	if not FileAccess.file_exists(_local_map(map_file)):

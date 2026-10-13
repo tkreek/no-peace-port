@@ -29,6 +29,8 @@ const CAMPAIGN_POPULATION_LIMIT := 100
 ## Game speed (Menu.eng 267).
 const SPEEDS := [0.75, 1.0, 1.25, 1.5]
 const SPEED_NAMES := ["Slow", "Normal", "Fast", "Very fast"]
+## Teams a player can be put in at the setup screen and in the lobby.
+const TEAMS := 4
 
 ## The campaign mission being played: {"set": "base"|"expansion", "people": "ind", "code":
 ## "ind_01", "map": asset path}, or empty in a skirmish (Campaign).
@@ -46,7 +48,10 @@ var map_path := ""
 var local_player := 1
 ## The game's seed when it must be the same everywhere (Net), or 0 for a fresh one.
 var seed_value := 0
-## One entry per player in start-point order: {"faction": "mex", "ai": false}
+## One entry per player in start-point order: {"faction": "mex", "ai": false, "team": 0,
+## "name": "Ann"}: a team 1..TEAMS starts allied to the rest of its team, sharing their sight
+## (0: none, at war with everyone; the remake's own setting, the original's lobby has none);
+## a name only for a network game's human players.
 var players: Array[Dictionary] = []
 ## A test game started from the map editor: the map to return to (no victory checks while
 ## it runs), and the editor's own settings to restore.
@@ -61,6 +66,15 @@ func setup(map: String, slots: Array[Dictionary]) -> void:
 	players = slots
 	local_player = 1
 	seed_value = 0
+
+
+## --teams=1,1,2,2: each player's team in start-point order (0 or missing: none).
+func teams_option(count: int) -> Array[int]:
+	var teams: Array[int] = []
+	var given := GameData.cmdline_option("teams").split(",", false)
+	for i in count:
+		teams.append(clampi(given[i].to_int(), 0, TEAMS) if i < given.size() else 0)
+	return teams
 
 
 func faction_name(faction: String) -> String:

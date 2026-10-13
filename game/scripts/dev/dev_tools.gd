@@ -114,6 +114,10 @@ func screenshot(path: String) -> void:
 		main.hud.menu.toggle()
 		main.hud.menu.show_goals()
 		await get_tree().process_frame
+	if GameData.cmdline_option("menu-diplomacy") != "":  # --menu-diplomacy=1: the game menu's diplomacy page
+		main.hud.menu.toggle()
+		main.hud.menu.show_diplomacy()
+		await get_tree().process_frame
 	if GameData.cmdline_option("look") != "":  # --look=x,y: the view there for the capture
 		main.camera.position = main._vector_option("look", main.camera.position)
 		for i in 3:

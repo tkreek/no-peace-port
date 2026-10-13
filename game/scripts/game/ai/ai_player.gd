@@ -5,7 +5,8 @@ extends Node
 ## trading and animals; AiBuilder decides what to build and where; AiArmy trains, researches,
 ## defends and attacks. The four difficulty levels of the original (very easy .. difficult)
 ## set its pace and ambition. Without its main building it rebuilds it if it can, else it
-## surrenders.
+## surrenders. Its enemies are the peoples it is at war with (Diplomacy.hostile): allies,
+## teammates or allied in the game, are neither attacked nor feared.
 
 const DIFFICULTY := [
 	# think s, workers, production buildings, first attack s, wave size, research, building sites at once
@@ -27,6 +28,9 @@ var home := Vector2.ZERO  ## where its main building stands (or stood)
 var economy := AiEconomy.new(self)
 var builder := AiBuilder.new(self)
 var army := AiArmy.new(self)
+## Alliances between the computer players still to make, kept by the first of them:
+## [{"a", "b", "at", "back"}] (game seconds; -1 once made). See plan_pacts.
+var pacts: Array = []
 var _timer := 0.0
 var _lost_since := -1.0
 var _units_cache: Array = []
@@ -45,6 +49,7 @@ func _enter_tree() -> void:
 ## One step of the game (Sim).
 func sim_tick(delta: float) -> void:
 	elapsed += delta
+	_keep_pacts()
 	_timer -= delta
 	if _timer > 0.0:
 		return
@@ -188,7 +193,7 @@ func produces_army(structure_guid: int) -> bool:
 
 func enemy_near(at: Vector2, radius: float) -> bool:
 	for object in MapObject.structures:
-		if object.is_building() and object.owner_index > 0 and object.owner_index != player.index \
+		if object.is_building() and Diplomacy.hostile(player.index, object.owner_index) \
 				and object.position.distance_to(at) < radius:
 			return true
 	return false
@@ -198,7 +203,7 @@ func enemy_near(at: Vector2, radius: float) -> bool:
 func enemy_base() -> Vector2:
 	var best := Vector2.INF
 	for object in MapObject.structures:
-		if object.is_building() and object.owner_index > 0 and object.owner_index != player.index and object.is_alive():
+		if object.is_building() and Diplomacy.hostile(player.index, object.owner_index) and object.is_alive():
 			if best == Vector2.INF or object.guid in MapObject.MAIN_BUILDINGS:
 				best = object.position
 	return best
@@ -210,10 +215,41 @@ func trace(text: String) -> void:
 		print("t=%ds AI %d %s" % [elapsed, player.index, text])
 
 
+# ------------------------------------------------------------------ alliances
+
+## The computer players pair up as the expansion's KI has them (addon_setstatus, run by the
+## first computer player, and addon_setfreunde): at the difficult level every two of them, at
+## medium each two by an even chance, below that none. A pair allies 30..120 s into the game,
+## the first making the second its ally (KI native 381, a one-sided alliance, announced to
+## everyone) and the second answering 3..8 s later. A human's alliance gets no answer: the
+## computer keeps the sides it has. Only in games without teams (a remake setting).
+static func plan_pacts(ais: Array[AiPlayer]) -> void:
+	if ais.size() < 2 or ais[0].difficulty < 2:
+		return
+	var planner := ais[0]
+	for i in ais.size():
+		for j in range(i + 1, ais.size()):
+			if planner.difficulty >= 3 or Sim.randf() < 0.5:
+				var at := Sim.randf_range(30.0, 120.0)
+				planner.pacts.append({"a": ais[i].player.index, "b": ais[j].player.index, "at": at,
+						"back": at + Sim.randf_range(3.0, 8.0)})
+
+
+func _keep_pacts() -> void:
+	for pact: Dictionary in pacts:
+		if pact.at >= 0.0 and elapsed >= pact.at:
+			pact.at = -1.0
+			Diplomacy.take_side(int(pact.a), int(pact.b), true)
+		if pact.at < 0.0 and pact.back >= 0.0 and elapsed >= pact.back:
+			pact.back = -1.0
+			Diplomacy.take_side(int(pact.b), int(pact.a), true)
+
+
 # ------------------------------------------------------------------ saved games
 
 func save_state() -> Dictionary:
-	return {"elapsed": elapsed, "wave": army.attack_wave, "last_attack": army.last_attack, "difficulty": difficulty}
+	return {"elapsed": elapsed, "wave": army.attack_wave, "last_attack": army.last_attack, "difficulty": difficulty,
+			"pacts": pacts}
 
 
 func restore_state(state: Dictionary) -> void:
@@ -221,3 +257,4 @@ func restore_state(state: Dictionary) -> void:
 	army.attack_wave = int(state.wave)
 	army.last_attack = float(state.last_attack)
 	difficulty = int(state.difficulty)
+	pacts = state.get("pacts", [])

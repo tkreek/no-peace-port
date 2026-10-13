@@ -298,6 +298,8 @@ func _order_at(world: Vector2, ctrl: bool) -> void:
 	if _water_order(world):
 		return
 	var enemy: Node2D = _unit_at(world, false)
+	if enemy and not Diplomacy.hostile(player_team, enemy.team):
+		enemy = null  # an ally's or a neutral unit: walk there (the right click at 0x46c309)
 	if enemy == null:
 		enemy = _enemy_building_at(world)
 	var source := _resource_at(world)

@@ -198,7 +198,7 @@ func _check_route() -> void:
 func _intruder(hq: MapObject) -> Unit:
 	var buildings := ai.my_buildings()
 	for unit in Unit.all_units:
-		if unit.team > 0 and unit.team != ai.player.index and unit.is_alive() and not unit.inside:
+		if Diplomacy.hostile(ai.player.index, unit.team) and unit.is_alive() and not unit.inside:
 			for building: MapObject in buildings:
 				if building.position.distance_to(unit.position) < DEFEND_RADIUS * (1.0 if building == hq else 0.5):
 					return unit
@@ -440,7 +440,7 @@ func _raid(soldiers: Array) -> void:
 					break
 		if unit.work.can_rob() and unit.state != Unit.State.GATHERING:
 			for object in MapObject.structures:
-				if object.is_building() and object.owner_index > 0 and object.owner_index != ai.player.index \
+				if object.is_building() and Diplomacy.hostile(ai.player.index, object.owner_index) \
 						and object.is_alive() and UnitWork.loot_of(object) > 0 and object.position.distance_to(unit.position) < 900.0:
 					unit.rob(object)
 					break

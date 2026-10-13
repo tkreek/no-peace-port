@@ -35,7 +35,8 @@ static func save(main: Node, path := QUICK) -> bool:
 			if ai.player == p:
 				ai_state = ai.save_state()
 		data.players.append({"index": index, "faction": p.faction, "resources": p.resources,
-				"researched": p.researched.keys(), "surrendered": p.surrendered, "ai": ai_state})
+				"researched": p.researched.keys(), "surrendered": p.surrendered, "ai": ai_state,
+				"team": p.team, "name": p.player_name, "stats": p.stats})
 	var unit_ids := {}
 	for unit in Unit.all_units:
 		unit_ids[unit] = unit_ids.size()
@@ -99,6 +100,8 @@ static func restore(main: Node, data: Dictionary) -> void:
 		for upgrade in entry.researched:
 			p.researched[int(upgrade)] = true
 		p.surrendered = bool(entry.surrendered)
+		for key in entry.get("stats", {}):
+			p.stats[key] = int(entry.stats[key])
 		for ai: AiPlayer in main.ais:
 			if ai.player == p and not entry.ai.is_empty():
 				ai.restore_state(entry.ai)

@@ -6,7 +6,7 @@ extends Node
 ## one of the groups below; they reach the match through `main`.
 
 const GROUPS := ["economy", "combat", "water", "interface", "terrain", "campaign", "missiontest", "mexdes", "fairplay_desusa",
-		"fairplay_indmex"]  # scripts *_scenarios.gd beside this one
+		"fairplay_indmex", "mission_test"]  # scripts *_scenarios.gd beside this one
 
 var main: Main
 

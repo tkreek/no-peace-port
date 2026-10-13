@@ -139,13 +139,13 @@ static func call_native(id: int, task: KiTask) -> void:
 		110, 111, 112: task.push(int(KiWorld.resolve(a[0]) != null))
 		113, 114, 115:
 			var node := KiWorld.resolve(a[0])
-			task.push(int(node != null and KiWorld.state_bits(node) & a[1] == a[1]))
+			task.push(int(node != null and KiWorld.state_bits(node) & KiWorld.bits32(a[1]) == KiWorld.bits32(a[1])))
 		116, 117, 118:
 			var node := KiWorld.resolve(a[0])
 			task.push(int(node != null and KiWorld.state_bits(node) & a[1] != 0))
 		365:
 			var node := KiWorld.resolve(a[0])
-			task.push(int(node != null and KiWorld.class_bits(node) & a[1] == a[1]))
+			task.push(int(node != null and KiWorld.class_bits(node) & KiWorld.bits32(a[1]) == KiWorld.bits32(a[1])))
 		366:
 			var node := KiWorld.resolve(a[0])
 			task.push(int(node != null and KiWorld.class_bits(node) & a[1] != 0))

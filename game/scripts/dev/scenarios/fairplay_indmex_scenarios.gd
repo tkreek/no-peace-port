@@ -392,7 +392,7 @@ class FairBot:
 	var _scout_leg := 0
 	var _orders := {}  ## sim_id -> [kind, key] last ordered (not to repeat the same order)
 	var _cache_units: Array = []
-	var _stall_target: MapObject
+	var _stall_target := ""
 	var _stall_best := INF
 	var _stall_since := 0.0
 	var _breach: MapObject
@@ -953,32 +953,7 @@ class FairBot:
 			return
 		var goal: Vector2 = target.pos
 		var centre := _centroid(a)
-		# Not getting closer (a palisade in the way): break through the nearest piece of it.
-		var d_now := centre.distance_to(goal)
-		if target.o != _stall_target or d_now < _stall_best - 100.0:
-			_stall_target = target.o
-			_stall_best = d_now
-			_stall_since = Sim.time()
-		if _breach and (not is_instance_valid(_breach) or not _breach.is_alive()):
-			_breach = null
-			_stall_since = Sim.time()
-		if _breach == null and d_now > 300.0 and Sim.time() - _stall_since > 25.0:
-			var best: MapObject = null
-			for k: Dictionary in _known.values():
-				if is_instance_valid(k.o) and k.o.is_alive() and k.o != target.o and k.pos.distance_to(centre) < 700.0 \
-						and (WallLine.is_wall(k.guid) or k.name.to_lower().contains("stockade") or k.name.to_lower().contains("palisade")):
-					if best == null or k.pos.distance_to(centre) < best.position.distance_to(centre):
-						best = k.o
-			if best:
-				_breach = best
-				print("FAIR t=%.0f army stuck %.0f px from %s: breaking through %s at %s" % [Sim.time(), d_now, target.name, best.display_name(), Vector2i(best.position)])
-				for u: Unit in a.slice(0, 6):
-					print("  unit at %s %s target %s path %d" % [Vector2i(u.position), Unit.State.keys()[u.state],
-							u.target.display_name() if is_instance_valid(u.target) else "-", u.path.size()])
-		if _breach:
-			for u: Unit in a:
-				if u.state != Unit.State.ATTACKING or u.target == null:
-					_order(u, "order_attack", [_breach], _breach.sim_id)
+		if _breaking(a, str(target.o.sim_id), goal, centre, target.name):
 			return
 		# The target clicked (an attack order walks there and ignores palisades on the way);
 		# enemy soldiers that come close are fought first; stragglers catch up.
@@ -996,9 +971,45 @@ class FairBot:
 				_order(u, "order_attack", [target.o], target.o.sim_id)
 
 
+	## Not getting closer to `goal` (a palisade in the way): the army breaks through the
+	## nearest piece of it it has seen; true while it does.
+	func _breaking(a: Array, what: String, goal: Vector2, centre: Vector2, label: String) -> bool:
+		var d_now := centre.distance_to(goal)
+		if what != _stall_target or d_now < _stall_best - 100.0:
+			_stall_target = what
+			_stall_best = d_now
+			_stall_since = Sim.time()
+		if _breach and (not is_instance_valid(_breach) or not _breach.is_alive()):
+			_breach = null
+			_stall_since = Sim.time()
+		if _breach == null and d_now > 300.0 and Sim.time() - _stall_since > 25.0:
+			var best: MapObject = null
+			for k: Dictionary in _known.values():
+				if is_instance_valid(k.o) and k.o.is_alive() and str(k.o.sim_id) != what and k.pos.distance_to(centre) < 700.0 \
+						and (WallLine.is_wall(k.guid) or k.name.to_lower().contains("stockade") or k.name.to_lower().contains("palisade")):
+					if best == null or k.pos.distance_to(centre) < best.position.distance_to(centre):
+						best = k.o
+			if best:
+				_breach = best
+				print("FAIR t=%.0f army stuck %.0f px from %s: breaking through %s at %s" % [Sim.time(), d_now, label, best.display_name(), Vector2i(best.position)])
+			else:
+				_stall_since = Sim.time()
+		if _breach:
+			for u: Unit in a:
+				if u.state != Unit.State.ATTACKING or u.target == null:
+					_order(u, "order_attack", [_breach], _breach.sim_id)
+			return true
+		return false
+
+
 	func _hunt_units(a: Array) -> void:
 		var goal := hunt_point
 		var visible_targets := hunt_units.filter(func(u: Unit) -> bool: return is_instance_valid(u) and u.is_alive() and u in _visible)
+		if not visible_targets.is_empty() and not a.is_empty():
+			var centre := _centroid(a)
+			var near := nearest_unit(visible_targets, centre)
+			if _breaking(a, "hunt", near.position, centre, near.display_name()):
+				return
 		for u: Unit in a:
 			if u.state == Unit.State.ATTACKING and (u.target in visible_targets or visible_targets.is_empty()):
 				continue

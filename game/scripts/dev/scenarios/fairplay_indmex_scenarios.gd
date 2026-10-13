@@ -80,10 +80,10 @@ func _diag_player(p: int) -> void:
 	var units := {}
 	for u: Unit in Unit.all_units:
 		if u.team == p and u.is_alive():
-			units[u.display_name()] = units.get(u.display_name(), 0) + 1
+			units.get_or_add(u.display_name(), []).append("(%d,%d)%s" % [u.position.x, u.position.y, " in" if u.inside or u.state == Unit.State.QUARTERED else ""])
 	print("DIAG P%d %s res %s buildings %s" % [p, main.players[p].faction, main.players[p].resources,
 			"; ".join(kinds.keys().map(func(k: String) -> String: return "%s x%d %s" % [k, kinds[k].size(), " ".join(kinds[k].slice(0, 6))]))])
-	print("DIAG P%d units %s" % [p, units])
+	print("DIAG P%d units %s" % [p, "; ".join(units.keys().map(func(k: String) -> String: return "%s x%d %s" % [k, units[k].size(), " ".join(units[k].slice(0, 6))]))])
 
 
 # ================================================================== the fair game
@@ -260,6 +260,10 @@ func _plan_base_mex_05() -> void:
 
 
 var _custer_since := -1.0
+## Custer's camp in the north-east, then the land around it, where the rest of his men may be.
+const CUSTER_ROUTE := [Vector2(6700, 1050), Vector2(5700, 950), Vector2(6300, 1600), Vector2(7600, 700), Vector2(7800, 1900),
+		Vector2(5200, 1900), Vector2(4400, 2600), Vector2(6500, 2700), Vector2(7600, 3400)]
+var _custer_route: Array = []
 var _ind08_south := [Vector2(1900, 7600), Vector2(1600, 8400), Vector2(900, 8900), Vector2(800, 9800), Vector2(2600, 8600)]
 
 
@@ -269,7 +273,8 @@ var _ind08_south := [Vector2(1900, 7600), Vector2(1600, 8400), Vector2(900, 8900
 func _plan_base_ind_08() -> void:
 	var mission := main.mission
 	if bot.plan_once("ind08"):
-		bot.heroes_behind = true  # both must live: they keep behind the army, out of the fighting
+		bot.keep_back = [274, 275, 276, 277]  # both must live: they stay at home with a guard
+		bot.home_guard = 12
 		bot.worker_target = 12
 		bot.farmer_target = 14
 		bot.hunters_wanted = 2
@@ -296,12 +301,13 @@ func _plan_base_ind_08() -> void:
 		bot.mode = "home"
 		return
 	if goal == 435:  # Custer's camp, in the north-east where the camera showed him
-		bot.scout_route = [Vector2(4500, 2500), Vector2(6000, 1600), Vector2(6800, 1000), Vector2(7600, 600)]
 		var custer := bot.visible_enemies().filter(func(u: Unit) -> bool: return u.team == 2)
 		if bot.army().size() >= 18 or (bot.mode == "hunt" and bot.army().size() >= 8):
 			bot.mode = "hunt"
 			bot.hunt_units = custer
-			bot.hunt_point = Vector2(6700, 1050) if custer.is_empty() else bot.nearest_unit(custer, bot.army_centre()).position
+			if _custer_route.is_empty():  # all of them looked at: round again
+				_custer_route = CUSTER_ROUTE.duplicate()
+			bot.hunt_point = bot.next_look(_custer_route) if custer.is_empty() else bot.nearest_unit(custer, bot.army_centre()).position
 			return
 		bot.mode = "home"
 		return

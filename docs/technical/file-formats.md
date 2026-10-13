@@ -366,6 +366,52 @@ then per GUID `{u32 guid, u32 count, u32 event[20], u32 sound[20]}`.
   `burning_buildings_2`, `collapsing_buildings_large_1`; `gold_mine` only when a mine is
   clicked.
 
+## Diplomacy in the executable
+
+Relations as in missions.md (world+0x8CC, `T[from][to]`; 0x42c040 at war, 0x42c070 allied,
+0x42c0b0 neutral, 0x42c120 sees). Besides the bit, each player has a byte mask of whose
+sight lifts its fog (world+0x7B5+p, its own bit from 0x42be40, tested at 0x41397f).
+
+- Player orders go through 0x455f20 / 0x455dd0 (at once alone, through the lockstep queue in
+  a network game) and are carried out at 0x4571f0 (switch on code - 0x40000001, table
+  0x457738): 1 chat, 2 send resources, 3 enemy, 4 ally, 5 defeat, 6 signal, 7 expose leaders,
+  8..11 add wood/food/gold/guns, 12 gave up.
+- Ally (0x4574a2): `T[p1][p2]` loses bits 7 and gains 4; 0x42d1f0 gives p1's sight to p2
+  (`T[p2][p1] |= 0x20`, mask[p2] |= p1). Enemy (0x45742f): bits 7 off, 1 on; 0x42d280 takes
+  the sight back. Only p1's side changes: an alliance is one-sided until answered. Text 372 or
+  373 with both names, sound 58. KI natives 381/382 give the same orders; the campaign's
+  trigger actions 30..32 (0x465da4) instead set both sides and leave sight alone.
+- Every decision to fight reads the fighter's own entry, `T[actor][other] & 1`: the target
+  scans (0x45d940 and siblings, ~20 callers) and the right click (0x46c309, 0x46c3b8: attack
+  if at war, else move). Neutral is never attacked. So whoever allies first stops shooting;
+  the other goes on until it answers.
+- The Diplomacy dialog (0x44ff60, `ingamemulti.bob`, title 141) is offered in the Esc menu
+  (text 58, 0x44b970) and on the D key (0x4448b3) only in network games, never in campaign
+  missions or single-player multi-player maps. One row per player present, computers too:
+  name, people, score; for the others, chat toggle, ally (0x431f30), enemy (0x431f10),
+  resource recipient toggle (0x431f50); buttons 161..164 send food, wood, gold, guns. The ally
+  button is lit while `T[me][p]` has no war bit (0x431ec0).
+- Sending (order 0x40000002, packed at 0x432000, carried out at 0x45723e): for each marked
+  recipient in turn, if the sender still has a package (100; guns 2) it moves over, else
+  that recipient gets nothing. No fee, and no alliance asked for anywhere (the manual says
+  allies). Only the receiver is told (texts 813..816).
+- Score (stat 9, 0x422e90, shown by the dialog via 0x444f5b and on the statistics screen):
+  1000 a kill + 500 a building razed + 500 a unit trained + 250 a building built + wood +
+  2 gold + food + 100 a gun + 100 a horse, the resources as running totals of what came in
+  (income and tributes, a tribute paid counting against). The remake counts deliveries and
+  tributes.
+- Computers do not answer a human's alliance (the KI reads relations only at setup). The
+  expansion's KI pairs computer players up itself (addon_setstatus / addon_setfreunde): every
+  pair at the difficult level, each pair by an even chance at medium, none lower; the first
+  allies 30..120 s in, the second answers 3..8 s later.
+- End of game (0x4320f0): first each player present may be out (0x432140; text 820 nothing
+  left, 821 commander dead, 822 main building gone, by game type), then each player wins
+  once no player present is at war with it either way (0x432260, 0x42c6a0). Allies win
+  together; a one-sided alliance keeps both playing. Campaign missions skip both.
+- The lobby has no teams: its slot records (0x80e628, copied at 0x444331) hold only the
+  player's kind, number, people and name, and every shipped multiplayer map gives each slot
+  only its own side bit. The remake's teams are its own setting (Match.players).
+
 ## TODO
 - `.alf` `BITARRAY`/`PINSMATR`.
 - Fonts, `.pk`.

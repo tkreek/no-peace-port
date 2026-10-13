@@ -582,8 +582,8 @@ Pushed constants: class/state flag masks, stance values, diplomacy values and GU
 | 376 | `add_food (amount)` | 39 (12+27) | 0x43cd21 | Player order 0x40000009(me, amount): adds food (0x422990). The AI's resource cheat (multi_situation_analyser tops itself up when low). *(0x455ea0)* |
 | 377 | `add_wood (amount)` | 37 (12+25) | 0x43cd4d | Player order 0x40000008: adds wood (0x422650). *(0x455ea0)* |
 | 378 | `add_gold (amount)` | 31 (12+19) | 0x43cd79 | Player order 0x4000000a: adds gold (0x422600). *(0x455ea0)* |
-| 381 | `make_allies (p1, p2)` | 2 (0+2) | 0x43cdcc | Player order 0x40000004: p1 allies with p2 (relation bit 4, shared vision, message 372). *(0x439b00)* |
-| 382 | `make_enemies (p1, p2)` | 0 (0+0) | 0x43cdfe | Player order 0x40000003: p1 declares p2 enemy (bit 1, message 373). *(0x439b20)* |
+| 381 | `make_allies (p1, p2)` | 2 (0+2) | 0x43cdcc | Player order 0x40000004 (carried out at 0x4574a2): p1 allies with p2, one-sided ([p1][p2] bit 4; p2 gets p1's sight; message 372). *(0x439b00)* |
+| 382 | `make_enemies (p1, p2)` | 0 (0+0) | 0x43cdfe | Player order 0x40000003 (0x45742f): p1 declares p2 enemy, one-sided ([p1][p2] bit 1; p1's sight taken back from p2; message 373). *(0x439b20)* |
 | 388 | `resign ()` | 2 (0+2) | 0x43cfba | Player order 0x4000000c(me): "player left" message and removal of this player. *(0x439c80)* |
 
 ## Engine notes for the native API

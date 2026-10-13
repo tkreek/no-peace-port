@@ -6,8 +6,8 @@ Last reviewed 2026-10-09 (branch `rebuild-2d`).
 
 ## Not implemented
 
-- Mission goals screen, diplomacy (alliances, sending resources, chat), the signal button.
-  These are multiplayer only.
+- Chat, the signal button and exposing the leaders (multiplayer only). The Diplomacy page
+  (alliances, sending resources) is in, with teams in the setup screen and lobby.
 - Campaign: the mission scripts, menus and briefings run (docs/technical/missions.md), but
   the missions' AI modules (kimodules) do not yet, so computer players stand still.
 - Walls, stockades and barricades are not built by the AI (they are placed in segments).

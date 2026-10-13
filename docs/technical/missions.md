@@ -33,8 +33,10 @@ fills with each player's record index at 0x442ecf), at war when not. The masks a
 compared with each other: in base/des_05 the human's 0x21 and the computers' 0x3e share bit
 5 (an unused slot), but they are at war. The test is one-sided, but every shipped map's
 masks agree both ways. A player is allied to itself and shares its own sight. Relation
-flags (world+0x8CC, `[from*8+to]`, read by native 206 as `[me][player]`, 0x42bdd0):
-1 at war, 2 neutral, 4 allied, 0x20 shares sight. What a player neutral to
+flags (world+0x8CC, a dword per `[from*8+to]`, read by native 206 as `[me][player]`,
+0x42bdd0): 1 at war, 2 neutral, 4 allied, 0x20 `from` sees what `to` sees (0x42c120). How
+players change them in a skirmish or network game: file-formats.md, "Diplomacy in the
+executable". What a player neutral to
 yours has joins you when one of your units comes within 96 px (0x42c580, from the unit
 update; independent players' own units never take others over): the unit searches the
 object grid (world+0x24206c, where every unit and building stamps its footprint) in a square

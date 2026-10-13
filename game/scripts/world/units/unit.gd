@@ -149,7 +149,7 @@ func heal(amount: float) -> void:
 
 
 func attack_damage() -> float:
-	return (unit_type.damage + bonus("attack")) * morale() * effectiveness()
+	return (unit_type.damage + bonus("attack")) * morale() * effectiveness() * spirit_factor()
 
 
 func attack_range() -> float:
@@ -198,16 +198,19 @@ func damage_factor(against: Node2D) -> float:
 	return 1.0
 
 
-## Morale (manual 4.4): 80% .. 120%. The leader's falls the further he is from the main
-## building; everyone else's depends on how close the leader is, and drops to 80% when he
-## is dead. It scales fighting and working alike.
+## Morale (manual 4.5), as AmericaAddOn.exe has it (0x417547, every unit once a second):
+## 120% less one point per 102.4 px (40 points over 4096 px), never below 80%. The leader
+## measures from his people's home (Player.home), everyone else from the leader, whatever
+## the leader's own morale. No leader, the leader in a building or boat (0x42c1b0), no home
+## (0x42c180) or no people (neutral): 80%. It counts in fights only: a blow deals morale%
+## of its damage (0x436cfa) and a unit takes (200 - morale)% of what hits it (0x418fb6);
+## work goes at the same pace at any morale.
 const MORALE_MIN := 0.8
 const MORALE_MAX := 1.2
-const LEADER_REACH := 1200.0  # beyond this the leader's presence no longer helps
-const HOME_REACH := 2400.0  # the leader's own morale is lowest this far from home
+const MORALE_REFRESH := 1.0  # seconds (the exe's once-a-second flag, 0x429433)
 var _morale := 1.0
 var _morale_timer := -1.0
-## The warrior spirit (BuildingProduction.invoke_spirit): extra morale for a while, shown
+## The warrior spirit (BuildingProduction.invoke_spirit): more damage for a while, shown
 ## by an aura round the unit.
 const AURA := "effects/aura/aura.anims.json"
 var _spirit := 0.0
@@ -216,13 +219,36 @@ var _aura: OrderMarker
 
 
 func morale() -> float:
-	return _base_morale() + (_spirit if _spirit_left > 0.0 else 0.0)
+	if team <= 0:
+		return MORALE_MIN
+	var now := Sim.time()
+	if (_morale_timer >= 0.0 and now - _morale_timer < MORALE_REFRESH) or not Sim.stepping:
+		return _morale  # the interface only reads it: refreshed on game steps alone
+	_morale_timer = now
+	var player: Player = Player.by_index.get(team)
+	var leader: Unit = player.leader() if player else null
+	var from: Node2D = null
+	if leader == self:
+		from = player.home()
+	elif leader != null and leader.state != State.QUARTERED:
+		from = leader
+	if from == null:
+		_morale = MORALE_MIN
+	else:
+		var points := 120 - (int(position.distance_to(from.position)) * 40 >> 12)  # 40 points by 4096 px
+		_morale = clampi(points, 80, 120) / 100.0
+	return _morale
 
 
-## Fill the unit with the warrior spirit: `boost` more morale for `seconds`.
+## Warrior spirit: blows deal this much more (0x436d32: x (100 + percent) / 100).
+func spirit_factor() -> float:
+	return 1.0 + (_spirit if _spirit_left > 0.0 else 0.0)
+
+
+## Fill the unit with the warrior spirit: `boost` more damage for `seconds` more.
 func inspire(boost: float, seconds: float) -> void:
 	_spirit = maxf(_spirit if _spirit_left > 0.0 else 0.0, boost)
-	_spirit_left = seconds
+	_spirit_left = maxf(_spirit_left, 0.0) + seconds
 	if not is_instance_valid(_aura):
 		_aura = OrderMarker.effect_loop(self, Vector2.ZERO, AURA, 0)
 
@@ -232,29 +258,6 @@ func _fade_spirit(delta: float) -> void:
 	if _spirit_left <= 0.0 and is_instance_valid(_aura):
 		_aura.queue_free()
 		_aura = null
-
-
-func _base_morale() -> float:
-	if team <= 0:
-		return 1.0
-	var now := Sim.time()
-	if now - _morale_timer < 0.5 or not Sim.stepping:
-		return _morale  # the interface only reads it: refreshed on game steps alone
-	_morale_timer = now
-	var player: Player = Player.by_index.get(team)
-	if player == null:
-		return 1.0
-	var leader := player.leader()
-	if leader == null:
-		_morale = MORALE_MIN
-	elif leader == self:
-		var home := player.main_building()
-		var away := position.distance_to(home.position) if home else HOME_REACH
-		_morale = lerpf(MORALE_MAX, MORALE_MIN, clampf(away / HOME_REACH, 0.0, 1.0))
-	else:
-		var closeness := 1.0 - clampf(position.distance_to(leader.position) / LEADER_REACH, 0.0, 1.0)
-		_morale = MORALE_MIN + (leader._base_morale() - MORALE_MIN) * closeness
-	return _morale
 
 
 ## Native Americans heal over time with herb blends; outlaws once Self-healing is researched.
@@ -530,6 +533,7 @@ func take_damage(amount: float, attacker: Node2D = null, horse_too := false) -> 
 	if not is_alive() or state == State.QUARTERED:
 		return
 	KiManager.note_hurt(self)
+	amount *= 2.0 - morale()  # high morale shrugs blows off, low morale feels them (0x418fb6)
 	if magic.shield_time > 0.0:
 		amount *= 0.5  # the medicine man's protective shield
 	health = maxf(0.0, health - amount)

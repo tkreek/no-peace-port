@@ -111,8 +111,8 @@ CHECKS = {
     "wall_mex": (["--faction=mex"], 0, [r"wall: planned 26 pieces, built 24 \(\w+\), all walls true; inside stays in true, outside stays out true"]),
     "wall_des": (["--faction=des"], 0, [r"wall: planned 26 pieces, built 24 \(\w+\), all walls true; inside stays in true, outside stays out true"]),
     "ambush": (["--faction=des"], 0, [r"ambush: under the mound true, burst out true, then attacking true"]),
-    "spirit": (["--faction=ind"], 0, [r"before upgrade false, invoked true, morale 1\.\d+ -> 1\.\d+, energy left 0, again false, auras 3",
-                                      r"afterwards morale \d\.\d+, auras 0"]),
+    "spirit": (["--faction=ind"], 0, [r"before upgrade false, invoked true, damage x1\.00 -> x1\.05, energy left 0, again false, auras 3",
+                                      r"afterwards damage x1\.00, auras 0"]),
     "coach": (["--faction=mex"], 0, [r"aboard 2 / 2, enlarged 4 / 4, enemy hit true, guards dead with the coach 4"]),
     "saveload": ([], 0, [r"before: units (\d+)", r"after: +units \d+"]),
     # The map editor: paint a lake (its rings grow), place things, save, read back, redraw

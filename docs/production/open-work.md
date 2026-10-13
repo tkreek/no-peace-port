@@ -41,13 +41,11 @@ These live in code as named constants and should be tuned through play.
 
 | What | Value | Where |
 |---|---|---|
-| Trade packages and prices | 100 food/wood or 2 guns; base 60/60/100 gold; ±10% per deal; selling pays 70% | `Player.TRADE_*` |
 | Bank and mission income | 15 gold every 12 s each, at most 5 buildings of each | `MapObject.INCOME_*` |
 | Horse raising | 50 food, 20 s; 5 horses per corral, hacienda or ranch | `GameData` horse stats, `MapObject.HORSES_PER_BUILDING` |
 | Gun making | 40 wood and 40 gold for one rifle, 12 s, at the weapons factory | `GameData` gun stats (`MapObject.GUN_GUID`) |
 | Cow raising and value | 40 food, 15 s; worth up to 25 gold after 200 s grazing | `GameData`, `Unit.COW_*` |
-| Morale | 80–120%; leader helps within 1200 px; his own falls to 80% at 2400 px from home | `Unit.MORALE_*`, `LEADER_REACH`, `HOME_REACH` |
-| Experience | +10% per kill, +1% per load delivered, up to +20% effectiveness | `Unit.EXPERIENCE_*` |
+| Experience | +10% per kill, +1% per load delivered, up to +20% effectiveness (the exe adds half its points to morale in a blow, see file-formats.md "Morale in the executable"; not yet followed) | `Unit.EXPERIENCE_*` |
 | Magic | pool 100 (150 with upgrade), refills 1.5/s; spell costs 30–60 | `Unit.SPELLS`, `MAGIC_*` |
 | Damage matchups | anti-cavalry ×2; fire, dynamite and cannons ×3 against buildings; other weapons ×0.5 | `Unit.damage_factor` |
 | Horses under fire | a mount takes 80 damage before it falls (when told to shoot it) | `Unit.HORSE_HEALTH` |
@@ -56,7 +54,7 @@ These live in code as named constants and should be tuned through play.
 | Repair | half the building cost for the energy restored | `MapObject.add_repair_work` |
 | Robbing | 4 s inside a building; robbers carry 3× their normal load (stealing wagons follows the exe: file-formats.md "Stealing in the executable") | `UnitWork.ROB_SECONDS` |
 | Garrison range bonus | a quarter more range when shooting from a fort or tower, counted from its walls | `BuildingDefence.GARRISON_RANGE_FACTOR` |
-| Hunting | 5 s to cut a load (a harvest's time), the hunter's own load (15) per trip; DEFS.INI has no gathering rates | `UnitWork.BUTCHER_SECONDS` |
+| Hunting | 7.5 s to cut a load (a harvest's time), the hunter's own load (15) per trip; DEFS.INI has no gathering rates | `UnitWork.BUTCHER_SECONDS` |
 | Tepee packing | 6 s to take a tepee down or set it up | `Unit.PACK_SECONDS` |
 | Boarding and landing | board within 72 px of the boat; land within 7 cells of dry ground | `Unit.BOARD_REACH`, `LANDING_REACH` |
 | Shipyards | must have deep water within 3 cells of the footprint | `MapObject.SHORE_REACH` |

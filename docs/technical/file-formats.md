@@ -266,6 +266,53 @@ Same file. There is no steal order, timer or range: a thief steals a wagon by fi
 - The robbing order 0x20000017 (virtual +0x94, 0x41b620; 0x41b710 within 128 px) is for
   buildings only. 0x42c580 (96 px) is the neutral-joining rule (missions.md), not stealing.
 
+## Morale in the executable
+
+Same file. A unit's morale is a whole percentage at +0x39c, 80..120.
+
+- Update (0x417547, in the unit tick): only on the steps where the once-a-second flag
+  0x590a20+0x7ec is up (0x429433: +20 ms a tick, raised at 1000), so every unit refreshes
+  together once a second. The morale switch 0x590a20+0x7ed is set at every game start
+  (0x42573c, 0x42d38e) and never cleared.
+- Distance `d` (0x432560): whole pixels, `sqrt(dx² + dy²)` truncated. Morale =
+  `120 - (d * 40 >> 12)`, clamped to 80..120: one point per 102.4 px, lowest from 4096 px.
+- The leader (class bit 0x80000000; the four peoples' leaders, 0x80003400 in their
+  constructors) measures from home (0x42c180); everyone else from the leader (0x42c1b0),
+  whatever the leader's own morale. 80 when there is no leader, the leader is off the map
+  (+0x3f0: in a building or boat), there is no home, or the unit has no people (player
+  outside 1..8: neutrals and animals).
+- Leader (0x42c1f0): the first of up to 8 slots per people (0x590a20+0x7f0, filled by
+  0x42c220).
+- Home (0x42c350): one slot per people (0x590a20+0x7c4). A main building fills it when
+  placed (vtable +0x4c 0x40c900 -> +0xac 0x466b60 -> 0x42c2f0), so the last one placed
+  wins, not the nearest; any main building leaving the map empties it (+0x38 0x40d720 ->
+  +0x98 0x466b70 -> 0x42c320). It counts only once built (+0x138 == 0, the flag queueing
+  also checks at 0x4564d7).
+- Fights only. A blow deals `(attack + upgrade) * (morale + experience / 2) / 100`
+  (0x436cfa; experience +0x23c only when +0x240 is set), and a unit takes
+  `damage * (200 - morale) / 100`, at least 1 (vtable +0x44, 0x418fb6). Nothing else reads
+  +0x39c but the morale bar (0x41ae70), the status menu (0x475b20) and the save: work is
+  not affected.
+- Warrior spirit, separately: per people a timer (+60000 ms per invocation, 0x432340, for
+  0x4b00 / 256 = 75 of the tepee's energy at 0x40e3c0) and a percentage (0x432320); while
+  it runs, eligible units (+0x8c) deal `x (100 + percent) / 100` more (0x436d32).
+
+## Trading in the executable
+
+Same file. One set of prices for every people, in the resource object 0x58fd30:
++0x2c8 wood, +0x2cc food, +0x2d0 guns, 16.16 fixed point; the whole gold part is shown and
+paid (0x422c50). Trades are 600 sell wood, 601 sell food, 602 sell guns, 610-612 buy.
+
+- Start (0x42246f, again at 0x422559): wood 25, food 33, guns 100 gold per package.
+- Queueing (0x456693..0x4566c3): a purchase pays the current price in gold; a sale hands
+  over 100 wood, 100 food or 2 guns.
+- Done (0x40d010..0x40d0f9): a purchase adds 100 wood, 100 food or 2 guns; a sale pays the
+  current price in full. Then 0x422c90 moves that good's price by half a gold, up for a
+  purchase, down for a sale, kept within 1..200 gold. Nothing else moves a price: no drift
+  back over time, no per-people prices.
+- Cancelling (0x40d8e0): a sale gives its goods back; a purchase refunds 80% of the price
+  at that moment (0x40d9e2), not what was paid.
+
 ## Sound in the executable
 
 From `AmericaAddOn.exe` (addresses are that file's). It loads the expansion's

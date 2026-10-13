@@ -640,16 +640,16 @@ func _scenario_ambush() -> void:
 func _scenario_spirit() -> void:
 	var tepee := _new_building(116, 1, main.camera.position + Vector2(250, 0))
 	var warriors := _new_units(152, 1, tepee.position + Vector2(0, 200), 3)
-	var before: float = warriors[0].morale()
+	var before: float = warriors[0].spirit_factor()
 	var without_upgrade := tepee.production.invoke_spirit()
 	main.players[1].researched[968] = true
 	var invoked := tepee.production.invoke_spirit()
 	var again := tepee.production.invoke_spirit()
 	var auras := warriors.filter(func(u: Unit) -> bool: return is_instance_valid(u._aura)).size()
-	print("spirit: before upgrade %s, invoked %s, morale %.2f -> %.2f, energy left %d, again %s, auras %d" % [
-			without_upgrade, invoked, before, warriors[0].morale(), tepee.production.spirit_energy, again, auras])
+	print("spirit: before upgrade %s, invoked %s, damage x%.2f -> x%.2f, energy left %d, again %s, auras %d" % [
+			without_upgrade, invoked, before, warriors[0].spirit_factor(), tepee.production.spirit_energy, again, auras])
 	await get_tree().create_timer(BuildingProduction.SPIRIT_SECONDS + 1.0).timeout
-	print("spirit: afterwards morale %.2f, auras %d" % [warriors[0].morale(),
+	print("spirit: afterwards damage x%.2f, auras %d" % [warriors[0].spirit_factor(),
 			warriors.filter(func(u: Unit) -> bool: return is_instance_valid(u._aura)).size()])
 	if GameData.cmdline_option("screenshot").is_empty():
 		get_tree().quit()

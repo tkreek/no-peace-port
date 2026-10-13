@@ -207,6 +207,12 @@ one is packed and wrapped in a try-and-buy layer). Addresses are that file's.
   1500 ms for guns and bows, 1000 ms otherwise (chiefs, spearmen, lancers, the hand-to-hand
   heroes, the assassin), 2500 ms dynamite, 5000 ms cannons. Counters drop by 20 per 20 ms
   tick, so the values are ms.
+- Finding a target by itself (0x436059 and on, fighters idle or attack-moving): enemy
+  units first (0x45d940 / 0x45d130, class bit 2), else enemy buildings (0x45d370, class
+  bit 4), spiralling out over the 16 px cells of the object map. The building scan's cell
+  lookup (0x45d7c0) refuses cells whose object handle is from a list above 8 (0x45d7f6:
+  trees 9, walls 10), so wall, stockade and barricade pieces are never picked: only an
+  order sends a unit against them.
 - Damage on firing (0x436cc0) = attack + upgrade bonus, scaled by a few optional
   percentages. The base `America.exe` has the same reloads and formula: the expansion
   doubled most units' HP (54 of 87; heroes unchanged) but kept every attack value, so
@@ -227,6 +233,12 @@ everyone. The expansion editor's `Defaults.dat` lacks those five.
   only while the people has fewer horses than room (0x46f650 and the like), not counting
   horses queued. The queue holds
   10, trades included; liquor is queued at the distillery like a unit.
+- Population limit (0x422ad0): room = min(limit, the people's living space) - its units;
+  one limit (0x58fd74) for every people. Each game starts at 100 (0x422552, called from
+  the map load 0x444158); outside campaigns and tutorials (flags 0x801b62 / 0x801b61, set
+  by 0x4470d0 / 0x447c10) the setup's choice c replaces it with (c + 3) * 25 (0x4444df;
+  Menu.eng 290..295: 75..200 in steps of 25). Campaign missions therefore cap every
+  people at 100, whatever housing the map gives.
 - Production timer (0x40ce30, 0x40cee0): counts to 0x7000 by
   `(0x7000 / t) * 20 / 1000` (whole numbers) every 20 ms tick, `t` = property 106 (at least
   1; 10 if the type has no entry; trades 600-619 take 20). The rounding lengthens long

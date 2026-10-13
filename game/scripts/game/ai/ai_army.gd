@@ -18,6 +18,7 @@ const BOAT_TARGET := 2
 const CANOE_TARGET := 3  # canoes fight only on the water
 const SWIM := 914
 const ROUTE_CHECK_SECONDS := 120.0
+const WALL_STOP := 400.0  # a wave unit idle this far short of the target looks for a wall in the way
 
 enum Wave { HOME, GATHERING, ATTACKING }
 
@@ -334,7 +335,13 @@ func _press_attack() -> void:
 		return
 	for unit: Unit in _wave:
 		if unit.state == Unit.State.IDLE and not unit.inside:
-			unit.attack_move(target + Vector2(Sim.randf_range(-60, 60), Sim.randf_range(-60, 60)))
+			# Units do not take on walls by themselves (Unit.nearest_target): one stopped short of
+			# the target by a wall is sent against it.
+			var wall := unit.nearest_hostile_wall(unit.sight()) if unit.position.distance_to(target) > WALL_STOP else null
+			if wall:
+				unit.attack(wall, true)
+			else:
+				unit.attack_move(target + Vector2(Sim.randf_range(-60, 60), Sim.randf_range(-60, 60)))
 	# Boats that have put their troops ashore go back for more.
 	for boat: Unit in ai.my_units().filter(func(u: Unit) -> bool: return u.water.is_boat() and u.water.passengers.is_empty()):
 		if boat.state == Unit.State.IDLE and boat.position.distance_to(ai.home) > 900.0:

@@ -824,6 +824,9 @@ func aim_point(node: Node2D) -> Vector2:
 
 
 ## Nearest enemy unit in sight, else nearest enemy building (traps only if a detector sees them).
+## Never a wall, stockade or barricade piece: AmericaAddOn.exe's scan (0x436059: units by
+## class bit 2 at 0x45d940, then buildings by bit 4 at 0x45d370) skips map cells holding
+## objects of lists above 8 (0x45d7f6), and wall pieces are list 10. They fall only to orders.
 func nearest_target(radius: float) -> Node2D:
 	var unit := nearest_enemy(radius)
 	if unit:
@@ -831,13 +834,27 @@ func nearest_target(radius: float) -> Node2D:
 	var best: MapObject = null
 	var best_distance := radius
 	for object in MapObject.structures:
-		if not object.is_building():
+		if not object.is_building() or WallLine.is_wall(object.guid):
 			continue
 		var bounds := object.work_rect()
 		if position.distance_to(position.clamp(bounds.position, bounds.end)) >= best_distance:
 			continue  # the walls are no nearer than their bounding rectangle (asked first: it is cheap)
 		if Diplomacy.hostile(team, object.owner_index) and object.is_alive() \
 				and not (object.is_trap() and not UnitStealth.detected(object.position, team)):
+			var distance := position.distance_to(aim_point(object))
+			if distance < best_distance:
+				best = object
+				best_distance = distance
+	return best
+
+
+## Nearest hostile wall, stockade or barricade piece within `radius` (what an order, not the
+## scan, sends a unit against; the KI's nearest_wall).
+func nearest_hostile_wall(radius: float) -> MapObject:
+	var best: MapObject = null
+	var best_distance := radius
+	for object in MapObject.structures:
+		if WallLine.is_wall(object.guid) and object.is_alive() and Diplomacy.hostile(team, object.owner_index):
 			var distance := position.distance_to(aim_point(object))
 			if distance < best_distance:
 				best = object

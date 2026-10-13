@@ -426,6 +426,7 @@ func _scenario_xind02() -> void:
 ## has not managed), a command post put up (the bases shown), Mervine's attacks for ten
 ## minutes, then his weapons factories and training camps by cheat: won.
 func _scenario_xmex01() -> void:
+	guard = 400.0
 	_watch(30.0)
 	await _opening(60.0)
 	var hq := _buildings_of(8, 400)
@@ -451,7 +452,7 @@ func _scenario_xmex01() -> void:
 ## he get to; then he is killed: won.
 func _scenario_xmex02() -> void:
 	_watch(30.0)
-	await _pause(240.0)
+	await _track(6, 240.0, [293514], 30.0)  # the royal army's attack on the village
 	_kill(6, 0)
 	await _until(func() -> bool: return _fired(11) or main.mission.outcome != 0, 120.0, "the computer players starting")
 	await _pause(300.0)
@@ -464,6 +465,7 @@ func _scenario_xmex02() -> void:
 	await _until(func() -> bool: return _fired(12) or main.mission.outcome != 0, 60.0, "the cows")
 	await _conquer([[[2, 400], [2, 403], [2, 407], [2, 411], [2, 427], [2, 415]]], 60.0)
 	await _until(func() -> bool: return _fired(14) or main.mission.outcome != 0, 60.0, "Kearny's escape")
+	await _track(2, 90.0, [517979], 10.0)
 	var t0 := Sim.time()
 	while Sim.time() < t0 + 600.0 and main.mission.outcome == 0:
 		await _pause(30.0)
@@ -481,6 +483,7 @@ func _scenario_xmex02() -> void:
 ## to the first), the harbour (war with the settlers), the boats taken, across to the
 ## outlaw village, the Natives' visit, the jails by cheat, the stock by cheat: won.
 func _scenario_xdes01() -> void:
+	guard = 400.0
 	_watch(30.0)
 	await _until(func() -> bool: return _fired(10) or main.mission.outcome != 0, 120.0, "the first old friend")
 	print("first friend at %.0f s (fired 5: %s)" % [Sim.time(), _fired(5)])
@@ -508,6 +511,7 @@ func _scenario_xdes01() -> void:
 ## --mission=expansion/des_02: the women kidnapped (their module walks them to the jail),
 ## the Natives' counter-attack, then the old bandits into the five banks: won.
 func _scenario_xdes02() -> void:
+	guard = 400.0
 	_watch(30.0)
 	await _until(func() -> bool: return _fired(8) or main.mission.outcome != 0, 120.0, "the opening")
 	_go(_own(_any), 5)
@@ -573,6 +577,13 @@ func _track(player: int, seconds: float, watch: Array, every := 30.0) -> void:
 				theirs.size(), near, int(nearest), shown, mine.size()])
 		for dump in GameData.cmdline_option("dump-module").split(",", false):
 			_dump_tasks(player, dump.to_int())
+		for t in GameData.cmdline_option("dump-tables").split(",", false):
+			var table: PackedInt32Array = main.ki.players[player].tables[t.to_int()]
+			var entries := []
+			for h in table.slice(0, 6):
+				var node := KiWorld.resolve(h)
+				entries.append("%s@%s" % [node.display_name(), Vector2i(node.position)] if node is Unit else str(h))
+			print("    table %s: %d entries %s" % [t, table.size(), entries])
 		if GameData.cmdline_option("track-cells") != "":
 			var cells := {}
 			for u: Unit in theirs:
@@ -683,4 +694,44 @@ func _scenario_objects() -> void:
 			seen[key] = seen.get(key, 0) + 1
 	for k in seen:
 		print("near: %s x%d" % [k, seen[k]])
+	get_tree().quit()
+
+
+## --guids=a,b,...: one unit of each spawned for player --owner (default 2) at the map's
+## centre; their KI class bits (KiWorld.class_bits) and whether they have attacks.
+func _scenario_classbits() -> void:
+	await get_tree().physics_frame
+	var owner := GameData.cmdline_option("owner", "2").to_int()
+	var at := Vector2(main.nav.size) * NavGrid.CELL / 2.0
+	for g in GameData.cmdline_option("guids").split(","):
+		var before := Unit.all_units.size()
+		main.mission.spawn(owner, 1, g.to_int(), at)
+		if Unit.all_units.size() == before:
+			print("classbits %s: not spawned" % g)
+			continue
+		var u: Unit = Unit.all_units[-1]
+		print("classbits %s %s: 0x%x military %s attacks %d mounted %s" % [g, u.display_name(), KiWorld.class_bits(u),
+				KiWorld.class_bits(u) & KiWorld.C_MILITARY != 0, u.unit_type.attack_anims.size(), u.unit_type.mounted])
+		if GameData.cmdline_option("sheets") != "":
+			print("  type %d sheets %s" % [u.unit_type.type_id, Array(u.unit_type.bob.sub_sprites).map(func(p: String) -> String: return p.get_file())])
+	get_tree().quit()
+
+
+## Unit types that are not ranged and have no hand-to-hand sheet but a shooting one.
+func _scenario_shootonly() -> void:
+	await get_tree().physics_frame
+	for g in range(150, 500):
+		var t := UnitType.for_guid(g)
+		if t and not t.ranged and t.anim_index("melee") < 0 and t.anim_index("shoot") >= 0:
+			print("shootonly %d %s attacks %d stats %s" % [g, t.display_name(), t.attack_anims.size(), GameData.stats(g)])
+	get_tree().quit()
+
+
+## Every unit type's attack sheet count (to compare two builds).
+func _scenario_attacks() -> void:
+	await get_tree().physics_frame
+	for g in range(150, 500):
+		var t := UnitType.for_guid(g)
+		if t:
+			print("attacks %d %s %d" % [g, t.display_name(), t.attack_anims.size()])
 	get_tree().quit()

@@ -170,8 +170,10 @@ func _setup_combat(player := -1) -> void:
 		reload_ms = DefaultsData.RELOAD_MS.get(guid(), DefaultsData.FIGHTER_RELOAD_MS)
 	sight = maxf(GameData.def_tier("sight_range", int(stats.get("sight_tier", 1)), 320), attack_range)
 	var attack := anim_index("shoot" if ranged else "melee")
-	if attack < 0 and ranged:
-		attack = anim_index("melee")
+	if attack < 0:
+		# A fighter attacks with whichever attack sheet it has: Custer on horseback (293,
+		# range tier 0, so hand to hand) has only a shooting one.
+		attack = anim_index("melee" if ranged else "shoot")
 	if attack >= 0:
 		# Attack sheets hold one to three blocks (aim, fire, reload) played in file order.
 		var sheet := bob.anims[attack].sub_sprite

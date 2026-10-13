@@ -316,9 +316,16 @@ static func nearest(candidates: Array, at: Vector2, accept: Callable) -> Node:
 	return best
 
 
+## A flag mask as the scripts hold it (a signed 32-bit value: the leader/hero bit 0x80000000
+## arrives as -2147483648) as the unsigned bits class_bits and state_bits give.
+static func bits32(value: int) -> int:
+	return value & 0xFFFFFFFF
+
+
 ## Searches with a class mask and a state any-of filter (0: any), skipping and taking
 ## claims for `me` (107-109, 200-202). A mask with the tree or tent bit looks for trees.
 static func find_claiming(me: int, player: int, mask: int, at: Vector2, state: int) -> int:
+	mask = bits32(mask)
 	if mask & (C_TREE | C_TENT):
 		var tree := nearest(trees(), at, func(_n: Node) -> bool: return true)
 		return handle(tree)
@@ -349,6 +356,7 @@ static func _is_type(node: Node, guid: int) -> bool:
 
 ## Claiming search with a "none of these states" filter (383, 384).
 static func claim_nearest(me: int, player: int, at: Vector2, mask: int, guid: int, notstate: int) -> int:
+	mask = bits32(mask)
 	var found := nearest(objects_of(player), at, func(n: Node) -> bool:
 		return (guid < 0 or _is_type(n, guid)) and (mask == 0 or class_bits(n) & mask == mask) \
 				and state_bits(n) & notstate == 0 and not claimed(n, me))
@@ -361,6 +369,7 @@ static func claim_nearest(me: int, player: int, at: Vector2, mask: int, guid: in
 static func nearest_plain(player: int, at: Vector2, mask: int, guid: int, state: int, notstate: int) -> int:
 	if player < 0 or player > 8:
 		return 0
+	mask = bits32(mask)
 	return handle(nearest(objects_of(player), at, func(n: Node) -> bool:
 		return (guid < 0 or _is_type(n, guid)) and (mask == 0 or class_bits(n) & mask == mask) \
 				and (state == 0 or state_bits(n) & state != 0) and state_bits(n) & notstate == 0))

@@ -412,6 +412,28 @@ sight lifts its fog (world+0x7B5+p, its own bit from 0x42be40, tested at 0x41397
   player's kind, number, people and name, and every shipped multiplayer map gives each slot
   only its own side bit. The remake's teams are its own setting (Match.players).
 
+## Drawing in the executable
+
+The visible objects are drawn in five passes over the same list (0x4625d0, through vtable
++0x6c with a flag): 2, 1, 4, 8, then 0x10. A building draws its ground patch, shadow and body
+in the first three (0x40c120); a unit its shadow in pass 1 and body, selection marker and
+energy bars in pass 4 (0x417f80; the body is sprite slot +0x500, its shadow +0x4b4, set
+together at 0x419550 to anim N and N+1).
+
+- Units in cover: pass 0x10 draws a unit's body again (and, if selected, its marker and bars)
+  over everything with 0x4637d0, a 50/50 blend (0x409f90: `(pal[src] >> 1 & m) + (dst >> 1 &
+  m)`, m the 16-bit half mask at 0x5132aa), when `[unit+0x41c]` is set. 0x417310 sets that as the
+  unit moves, from bit 0x20000000 of the 16 px map grid at its feet (0x4069b0); the bit comes
+  from the objects' `BARY` footprints, which mark the cells their roof or crown is drawn over
+  (buildings: the cells behind the walls; trees: the whole crown). Every unit, whoever owns
+  it; no option. A camouflaged unit (+0x401) skips passes 1 and 4 and is drawn in this pass
+  instead, for its owner, allies and whoever's sight covers it (0x42c120, fog byte 0x4209d0).
+  The remake: `UnitSprite` (COVER_Z).
+- "Shadow" in the options (texts 299-302 None / Black / Transparent) is the drop shadows, not
+  this: registry `ShadowMode` (0x4471fc) at 0x4ba088, read at 0x409813 for `DARK` sub-sprites:
+  0 not drawn, 1 black (0x409c20), 2 the ground halved (0x409dc0). The remake draws them
+  transparent (`SpriteMaterials.SHADOW_COLOR`).
+
 ## TODO
 - `.alf` `BITARRAY`/`PINSMATR`.
 - Fonts, `.pk`.

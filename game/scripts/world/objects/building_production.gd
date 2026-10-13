@@ -48,14 +48,16 @@ const LIQUOR_FOOD := 40
 ## The outlaws' saloon looks over the land once Lift fog of war is researched.
 ## The Natives' tepee of the ancestors (expansion manual 4.1) invokes the warrior spirit:
 ## for 75 units of its magic energy, which builds back up slowly, every military unit of
-## its people gains 5, 10 or 20% morale for a while (Warrior spirit 1, 2 or 3).
+## its people deals 5, 10 or 20% more damage (Warrior spirit 1, 2 or 3) for 60 s, more
+## with each invocation (AmericaAddOn.exe 0x40e3c0: 0x4b00 / 256 energy, +60000 ms;
+## 0x436d32: damage x (100 + percent) / 100; morale is not touched).
 const SPIRIT_TEPEE := 116
 const SPIRIT_UPGRADES := [968, 969, 970]
 const SPIRIT_BOOST := [0.05, 0.10, 0.20]
 const SPIRIT_COST := 75.0
 const SPIRIT_MAX := 150.0
 const SPIRIT_REGEN := 0.5  # magic energy per second
-const SPIRIT_SECONDS := 30.0
+const SPIRIT_SECONDS := 60.0
 
 const SALOON := 303
 const LIFT_FOG_UPGRADE := 965
@@ -69,7 +71,6 @@ var progress := 0.0  ## 0..1 for queue[0]
 var rally_point := Vector2.INF  ## where trained units gather; INF = just outside
 var look_ready_at := 0.0  ## game msec (Sim.msec) when the saloon can look again
 var spirit_energy := SPIRIT_COST  ## the tepee of the ancestors' magic energy
-var _trade_terms: Array[Dictionary] = []  # what each queued trade was paid with, in order
 var _income_timer := 0.0
 var _room_alerted := false  # the finished unit waiting for living space has been announced
 
@@ -182,8 +183,6 @@ func enqueue(item: int) -> bool:
 	var price := _price(item)
 	if price.is_empty() or not owner().spend(price.cost):
 		return false
-	if is_trade(item):
-		_trade_terms.append(price.cost)
 	queue.append(item)
 	return true
 
@@ -279,17 +278,16 @@ func cancel(index: int) -> void:
 		return
 	var item := queue[index]
 	var refund: Dictionary = MapRules.stats(building.owner_index, item).get("cost", {})
-	if is_trade(item):
-		var position_in_trades := 0
-		for k in index:
-			if is_trade(queue[k]):
-				position_in_trades += 1
-		refund = _trade_terms[position_in_trades]
-		_trade_terms.remove_at(position_in_trades)
+	var player := owner()
+	if is_trade(item) and player:
+		# A sale gives the goods back; a purchase 80% of today's price, not what was paid
+		# (AmericaAddOn.exe 0x40d9e2).
+		var trade: Dictionary = TRADES[item - TRADE_GUID]
+		refund = {"gold": player.buy_price(trade.good) * Player.TRADE_REFUND_PERCENT / 100} if trade.buy \
+				else {trade.good: Player.TRADE_PACKAGE[trade.good]}
 	queue.remove_at(index)
 	if index == 0:
 		progress = 0.0
-	var player := owner()
 	if player:
 		for key in refund:
 			if Player.RESOURCES.has(key):
@@ -307,10 +305,6 @@ func update(delta: float) -> void:
 		spirit_energy = minf(SPIRIT_MAX, spirit_energy + SPIRIT_REGEN * delta)
 	if guid in INCOME_BUILDINGS and building.health > 0.0:
 		_earn(delta)
-	if guid in TRADE_BUILDINGS:
-		var market := owner()
-		if market:
-			market.settle_prices(delta)
 	if not queue.is_empty():
 		_train(delta)
 
@@ -343,7 +337,6 @@ func _train(delta: float) -> void:
 		return
 	if is_trade(item):
 		var trade: Dictionary = TRADES[item - TRADE_GUID]
-		_trade_terms.pop_front()
 		if player:
 			if trade.buy:
 				player.add(trade.good, Player.TRADE_PACKAGE[trade.good])
@@ -386,10 +379,3 @@ func restore(entry: Dictionary) -> void:
 	progress = float(entry.get("train", 0.0))
 	var rally = entry.get("rally")
 	rally_point = Vector2(rally[0], rally[1]) if rally != null else Vector2.INF
-	# Saves don't keep what queued trades were paid; refund them at today's prices.
-	_trade_terms.clear()
-	var player := owner()
-	for item in queue:
-		if is_trade(item) and player:
-			var trade: Dictionary = TRADES[item - TRADE_GUID]
-			_trade_terms.append({"gold": player.buy_price(trade.good)} if trade.buy else {trade.good: Player.TRADE_PACKAGE[trade.good]})

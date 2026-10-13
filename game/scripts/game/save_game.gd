@@ -21,6 +21,7 @@ static func save(main: Node, path := QUICK) -> bool:
 		"players": [], "objects": [], "resources": [], "units": [],
 		"explored": Marshalls.raw_to_base64(main.fog.explored) if main.fog.enabled else "",
 		"diplomacy": Diplomacy.save_state(), "next_sim_id": Sim.next_id(),
+		"prices": Player.trade_prices,  # one set for every people
 	}
 	if main.mission:
 		data["campaign"] = Match.campaign
@@ -34,7 +35,7 @@ static func save(main: Node, path := QUICK) -> bool:
 			if ai.player == p:
 				ai_state = ai.save_state()
 		data.players.append({"index": index, "faction": p.faction, "resources": p.resources,
-				"researched": p.researched.keys(), "prices": p.trade_prices, "surrendered": p.surrendered, "ai": ai_state})
+				"researched": p.researched.keys(), "surrendered": p.surrendered, "ai": ai_state})
 	var unit_ids := {}
 	for unit in Unit.all_units:
 		unit_ids[unit] = unit_ids.size()
@@ -74,6 +75,9 @@ static func read(path := QUICK) -> Dictionary:
 ## Bring a freshly set-up match (map, terrain, forests, players) to the saved state.
 static func restore(main: Node, data: Dictionary) -> void:
 	main.game_time = float(data.get("game_time", 0.0))
+	Player.reset_trade_prices()
+	for good in data.get("prices", {}):
+		Player.trade_prices[good] = float(data.prices[good])
 	if data.has("diplomacy"):
 		Diplomacy.restore_state(data.diplomacy)
 	if main.mission and data.has("mission"):
@@ -94,8 +98,6 @@ static func restore(main: Node, data: Dictionary) -> void:
 		p.researched.clear()
 		for upgrade in entry.researched:
 			p.researched[int(upgrade)] = true
-		for good in entry.prices:
-			p.trade_prices[good] = float(entry.prices[good])
 		p.surrendered = bool(entry.surrendered)
 		for ai: AiPlayer in main.ais:
 			if ai.player == p and not entry.ai.is_empty():

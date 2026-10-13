@@ -134,6 +134,7 @@ func _ready() -> void:
 		Net.connection_failed.connect(func(reason: String) -> void: hud.notify(reason))
 	var size := Vector2(map.pixel_size())
 	Player.by_index.clear()
+	Player.reset_trade_prices()
 	var computer := {}  # player index -> true when AI controlled
 	if not Match.campaign.is_empty():
 		mission_data = MissionData.from_map(map)

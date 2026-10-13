@@ -21,8 +21,11 @@ const DIFFICULTY_NAMES := ["Very easy", "Easy", "Medium", "Difficult"]
 const GAME_TYPE_TEXT := [280, 281, 282]
 const GAME_TYPE_NAMES := ["Everybody for themselves", "Kill leader", "Destroy main buildings"]
 enum GameType { EVERYBODY, KILL_LEADER, MAIN_BUILDING }
-## Population limit per people (75..200 in the original's setup).
-const POPULATION_LIMITS := [75, 100, 150, 200]
+## Population limit per people: the setup's choices (Menu.eng 290..295), which
+## AmericaAddOn.exe turns into (choice + 3) * 25 (0x4444df). Campaign missions and tutorials
+## skip that and keep the 100 every game starts with (0x422552; 0x4444cd), for every people.
+const POPULATION_LIMITS := [75, 100, 125, 150, 175, 200]
+const CAMPAIGN_POPULATION_LIMIT := 100
 ## Game speed (Menu.eng 267).
 const SPEEDS := [0.75, 1.0, 1.25, 1.5]
 const SPEED_NAMES := ["Slow", "Normal", "Fast", "Very fast"]

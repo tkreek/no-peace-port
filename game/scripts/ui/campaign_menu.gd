@@ -304,7 +304,7 @@ func _start() -> void:
 	_narration.stop()
 	Match.setup(selected.map, [])
 	Match.campaign = selected
-	Match.population_limit = Match.POPULATION_LIMITS[-1]
+	Match.population_limit = Match.CAMPAIGN_POPULATION_LIMIT
 	Match.speed = 1.0
 	Match.difficulty = Campaign.difficulty()
 	Match.game_type = Match.GameType.EVERYBODY

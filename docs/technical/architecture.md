@@ -65,7 +65,13 @@ headless and matches what they print. A new rule should come with a scenario
 (`_scenario_<name>` in the fitting group) and an entry in the runner's `CHECKS`.
 Scenarios seed the random numbers, so runs repeat. For performance,
 `--players=a,b,... --ai-vs-ai=1 --report-after=N` prints frame times, and `--profile=1`
-adds the sections timed with `Prof`.
+adds the sections timed with `Prof` (the game step, each kind of sim node's `sim_tick`, path
+searches). A campaign mission: `--mission=base/usa_04 --time-scale=4 --report-after=N`, with
+`--mission-stats=<json>` for the time spent in each KI native (its own bookkeeping makes the
+KI look dearer than it is). Caches the simulation reads (the KI's per-people lists, the
+scripts' counts) must give what a full scan would: they are keyed on `Unit.roster_version`
+and `MapObject.roster_version` and ask what comes and goes (alive, complete) every time;
+check with `--seed=1 --checksum-every=10` before and after.
 
 ## Original plan (2025, phase 0)
 

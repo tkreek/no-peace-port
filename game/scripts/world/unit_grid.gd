@@ -20,22 +20,27 @@ static func _refresh() -> void:
 	_tick = Sim.tick
 	_cells.clear()
 	for unit in Unit.all_units:
-		var key := _key(floori(unit.position.x / CELL), floori(unit.position.y / CELL))
-		var bucket: Array = _cells.get(key, [])
-		if bucket.is_empty():
-			_cells[key] = bucket
-		bucket.append(unit)
+		var at := unit.position
+		var key := (floori(at.x / CELL) + 4096) * 8192 + floori(at.y / CELL) + 4096  # _key, inline: once per unit and step
+		var bucket = _cells.get(key)
+		if bucket == null:
+			_cells[key] = [unit]
+		else:
+			bucket.append(unit)
 
 
-## Units in the cells overlapping the square of `radius` round `at`.
+## Units in the cells overlapping the square of `radius` round `at` (callers only read it:
+## for one cell it is the cell's own list).
 static func near(at: Vector2, radius: float) -> Array:
 	_refresh()
 	radius = minf(radius, 4096.0)
-	var out := []
 	var low_x := floori((at.x - radius) / CELL)
 	var high_x := floori((at.x + radius) / CELL)
 	var low_y := floori((at.y - radius) / CELL)
 	var high_y := floori((at.y + radius) / CELL)
+	if low_x == high_x and low_y == high_y:
+		return _cells.get(_key(low_x, low_y), [])
+	var out := []
 	for y in range(low_y, high_y + 1):
 		for x in range(low_x, high_x + 1):
 			var bucket = _cells.get(_key(x, y))

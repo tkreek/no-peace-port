@@ -135,6 +135,7 @@ static func after(seconds: float, callable: Callable) -> void:
 static func step() -> void:
 	tick += 1
 	stepping = true
+	var step_clock := Prof.start()
 	Orders.run(tick)
 	while not _timers.is_empty() and _timers[0][0] <= tick:
 		var callable: Callable = _timers.pop_front()[2]
@@ -145,6 +146,11 @@ static func step() -> void:
 	for i in count:
 		var node := _nodes[i]
 		if is_instance_valid(node) and node._sim_on and node.is_inside_tree() and not node.is_queued_for_deletion():
+			if Prof.enabled:  # --profile: time per kind of node
+				var clock := Prof.start()
+				node.sim_tick(TICK)
+				Prof.stop("sim " + node.get_script().get_global_name(), clock)
+				continue
 			node.sim_tick(TICK)
 	var kept: Array[Node] = []
 	for node in _nodes:
@@ -154,6 +160,7 @@ static func step() -> void:
 			node._sim_listed = false
 	_nodes = kept
 	stepping = false
+	Prof.stop("sim step (all)", step_clock)
 
 
 ## A fingerprint of the game's state: every unit's place, health and doing, every building's

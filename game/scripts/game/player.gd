@@ -29,6 +29,7 @@ var faction := ""
 var resources := {}
 var researched := {}  # upgrade GUID -> true
 var surrendered := false
+var computer := false  ## played by the skirmish AI or a mission's scripts
 ## For the statistics screen after the game (manual 7.7).
 var stats := {"built": 0, "produced": 0, "gathered": 0, "kills": 0, "razed": 0}
 

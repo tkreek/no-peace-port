@@ -14,14 +14,22 @@ const HUNT_RANGE := 1500.0
 ## Cutting off a load takes as long as a field worker's harvest (DEFS.INI gives no rates);
 ## a hunter carries his "Tragkapazität" like any gatherer, so a buffalo lasts ten trips.
 const BUTCHER_SECONDS := 8.75
-## Robbing banks, missions and gold warehouses, and stealing transports: unit GUID -> the
-## upgrade it needs (0 = none; the outlaws are born robbers).
+## Robbing banks, missions and gold warehouses: unit GUID -> the upgrade it needs (0 = none;
+## the outlaws are born robbers).
 const ROBBERS := {152: 916, 155: 916, 252: 941, 255: 941, 452: 991, 455: 991, 456: 991,
 		352: 0, 355: 0, 360: 0, 361: 0}
-const THIEVES := {156: 0, 157: 0, 263: 942, 264: 942, 463: 992, 464: 992, 353: 0, 354: 0,
-		352: 0, 360: 0, 361: 0}
+## Stealing wagons, as AmericaAddOn.exe has it (unit+0x6b1): the barbers, gunslingers and old
+## bandits are born thieves (0x4125f0, 0x414320); gauchos and cowboys learn it (942, 992 in
+## Defaults.bin's upgrade lists, applied by 0x437400). The Native Americans' arrow shooters,
+## whom the manual names, would need upgrade 923, which no IDS.INI has: they never steal.
+const THIEVES := {353: 0, 354: 0, 360: 0, 361: 0, 282: 0, 283: 0, 263: 942, 264: 942,
+		463: 992, 464: 992}
+## What can be stolen: the wagons (class bit 0x40000): travois, transport wagon, flat-bed
+## wagon, covered wagon, stagecoach. Not boats, coaches that carry people, or cannons.
+const WAGONS := [155, 255, 355, 455, 456]
+## A thief's blow takes a wagon once it is down below this share of its life energy (0x4646a0).
+const STEAL_BELOW := 0.9
 const ROB_SECONDS := 4.0  # inside the building, filling the bags
-const STEAL_SECONDS := 4.0  # beside the vehicle before it changes hands
 ## Orders given with Shift wait their turn: each is carried out once the one before is done
 ## (the site built, the source used up, the spot reached).
 const QUEUEABLE := ["build", "gather", "haul", "hunt", "move_to"]
@@ -46,25 +54,20 @@ var _haul_wait := 0.0
 var _field_spot := Vector2.INF  # this unit's patch of the field it works
 var _field_spot_of: MapObject
 var _carcass: Unit  # the kill a hunter keeps going back to
-var _steal_target: Unit
-var _steal_time := 0.0
 
 
 func clear_orders() -> void:
-	_steal_target = null
 	tasks.clear()
 	_resume = null
 	busy = false
 
 
 func _refresh_busy() -> void:
-	busy = _steal_target != null or not tasks.is_empty() or _resume != null
+	busy = not tasks.is_empty() or _resume != null
 
 
-func update(delta: float) -> bool:
-	if _steal_target != null and idle_or_moving():
-		_update_steal(delta)
-	elif unit.state == Unit.State.IDLE and (not tasks.is_empty() or _resume != null):
+func update(_delta: float) -> bool:
+	if unit.state == Unit.State.IDLE and (not tasks.is_empty() or _resume != null):
 		_next_task()
 	return false
 
@@ -214,9 +217,21 @@ func can_steal() -> bool:
 	return _may(THIEVES)
 
 
-## On the way to a vehicle, or beside it taking it over (not drawn into fights meanwhile).
-func stealing() -> bool:
-	return _steal_target != null
+static func is_wagon(other: Node2D) -> bool:
+	return other is Unit and other.unit_type.guid() in WAGONS
+
+
+## After each of a thief's blows or shots at a wagon (AmericaAddOn.exe 0x437025, in the
+## attack 0x436cc0): if the wagon is down below 90% of its life energy it changes hands,
+## load and all (0x42cd70). No timer, no range of its own: stealing is fighting the wagon,
+## so a thief that sees one attacks it like any enemy and takes it within a few blows,
+## sooner if it was already damaged or several thieves are at it.
+func after_blow(victim: Node2D) -> void:
+	if not can_steal() or not is_wagon(victim) or not victim.is_alive() or victim.team == unit.team:
+		return
+	if victim.health < victim.max_health * STEAL_BELOW:
+		victim.change_team(unit.team)
+		unit.target = null  # ours now: on to the next enemy, if any
 
 
 ## Gold an enemy building holds for the taking: a gold warehouse's store, or for a bank or
@@ -242,15 +257,10 @@ func rob(building: MapObject) -> void:
 	unit.path = unit.find_path(building.work_rect().get_center())
 
 
+## The original has no steal order: a thief told to attack a wagon steals it (after_blow).
 func steal(vehicle: Unit) -> void:
-	if not unit.is_alive() or vehicle == null or not can_steal() or not vehicle.unit_type.is_transport():
-		return
-	unit.clear_orders()
-	_steal_target = vehicle
-	_steal_time = 0.0
-	_refresh_busy()
-	unit.state = Unit.State.MOVING
-	unit.path = unit.find_path(vehicle.position)
+	if vehicle != null and is_wagon(vehicle):
+		unit.order_attack(vehicle)
 
 
 func stop() -> void:
@@ -505,30 +515,6 @@ func _update_rob(delta: float) -> void:
 					unit.path = unit.find_path(building.work_rect().get_center())
 				else:
 					unit.stop()
-
-
-## Stay beside the vehicle; once it has been quiet long enough it is ours, cargo and all.
-func _update_steal(delta: float) -> void:
-	var vehicle := _steal_target
-	if not is_instance_valid(vehicle) or not vehicle.is_alive() or vehicle.team == unit.team:
-		_steal_target = null
-		_refresh_busy()
-		return
-	var distance := unit.position.distance_to(vehicle.position)
-	if distance > 160.0:
-		_steal_time = 0.0  # it got away
-	if distance <= 100.0:
-		_steal_time += delta  # alongside, even on the move
-	if distance > 36.0:
-		approach(vehicle.position, 36.0, Unit.REPATH_MS / 2)
-	else:
-		unit.path.clear()
-		unit.state = Unit.State.IDLE
-		unit.face(vehicle.position - unit.position)
-	if _steal_time >= STEAL_SECONDS:
-		vehicle.change_team(unit.team)
-		_steal_target = null
-		_refresh_busy()
 
 
 ## The BUILDING state: walk to the site and hammer (or repair) until it is done.

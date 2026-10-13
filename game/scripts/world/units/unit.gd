@@ -31,6 +31,8 @@ const FOLLOW_DISTANCE := 48.0
 
 static var debug_paths := false
 static var all_units: Array[Unit] = []
+## Moves whenever all_units changes or a unit changes team (for caches of who has what).
+static var roster_version := 0
 var _sim_on := false
 var _sim_listed := false
 var sim_id := 0  ## names the unit in orders (Sim.identify)
@@ -41,6 +43,7 @@ var health := 100.0
 var path := PackedVector2Array()
 var state := State.IDLE
 var target: Node2D  ## Unit or MapObject being attacked
+var _besieged: MapObject  ## the building it left for its repairer, to go back to
 var attack_moving := false  ## moving, but engage enemies met on the way
 var stance := Stance.AGGRESSIVE
 var formation := Formation.RELAXED
@@ -97,6 +100,7 @@ func setup(type: UnitType, team_index: int) -> void:
 	ring_on_top = water.is_boat()
 	_parts = [riding, animal, magic, work, tepees, water, stealth, saboteur]
 	all_units.append(self)
+	roster_version += 1
 	Sim.identify(self)
 	Sim.activate(self)
 	play("idle")
@@ -104,6 +108,7 @@ func setup(type: UnitType, team_index: int) -> void:
 
 func _exit_tree() -> void:
 	all_units.erase(self)
+	roster_version += 1
 	Sim.forget(self)
 	UnitGrid.invalidate()  # never hand out a unit that is gone
 
@@ -315,6 +320,7 @@ func change_team(new_team: int) -> void:
 	if new_team == Orders.local_player and team != new_team:
 		Sound.play_gained()
 	team = new_team
+	roster_version += 1
 	set_palette_row(team)
 	flash(Color(1.0, 0.9, 0.4))
 
@@ -540,7 +546,7 @@ func take_damage(amount: float, attacker: Node2D = null, horse_too := false) -> 
 		if not horse_too and riding.shot_from_saddle():
 			return
 		die()
-	elif state == State.IDLE and attacker and attacker.is_alive() and _may_engage(attacker) and not work.stealing():
+	elif state == State.IDLE and attacker and attacker.is_alive() and _may_engage(attacker):
 		attack(attacker)  # fight back
 
 
@@ -596,7 +602,7 @@ func sim_tick(delta: float) -> void:
 				_scan_timer = SCAN_INTERVAL
 				if magic.is_healer():
 					magic.look_for_wounded()
-				elif not work.stealing():
+				else:
 					var enemy := nearest_enemy(_engage_radius())
 					if enemy:
 						attack(enemy)
@@ -681,8 +687,10 @@ func _update_attack(delta: float) -> void:
 				stop()
 			return
 		if _attack_step < 0:
-			# Look for the next enemy nearby before standing down.
-			var enemy := nearest_target(_engage_radius())
+			# Back to the building whose repairer it shot; else the next enemy nearby.
+			var enemy: Node2D = _besieged if is_instance_valid(_besieged) and _besieged.is_alive() \
+					and Diplomacy.hostile(team, _besieged.owner_index) else nearest_target(_engage_radius())
+			_besieged = null
 			if enemy:
 				target = enemy
 			elif (position.distance_to(guard_position) > 64.0 or _patrol.size() == 2) and guard_position != Vector2.ZERO:
@@ -727,6 +735,12 @@ func _update_attack(delta: float) -> void:
 		play("walk")
 		return
 	path.clear()
+	if _cooldown <= 0.0 and target is MapObject and _computer():
+		var worker := _repairer_of(target)
+		if worker:
+			_besieged = target
+			target = worker
+			return
 	face(to_target)
 	if _cooldown <= 0.0:
 		_attack_step = 0
@@ -734,6 +748,28 @@ func _update_attack(delta: float) -> void:
 		_play_index(unit_type.attack_anims[0])
 	else:
 		play("idle")
+
+
+## A computer player's unit attacking a building goes for the enemy workers repairing or
+## building it first, the nearest (they are at the building, if round the far side), then
+## the building again.
+func _repairer_of(building: MapObject) -> Unit:
+	var best: Unit = null
+	var best_distance := INF
+	for unit in Unit.all_units:
+		if unit.state != State.BUILDING or unit.work.build_site != building or not unit.is_alive() \
+				or unit.inside or not is_enemy_of(unit):
+			continue
+		var distance := position.distance_to(unit.position)
+		if distance < best_distance and distance >= unit_type.min_range:
+			best = unit
+			best_distance = distance
+	return best
+
+
+func _computer() -> bool:
+	var owner: Player = Player.by_index.get(team)
+	return owner != null and owner.computer
 
 
 func _continue_attack() -> void:
@@ -773,6 +809,7 @@ func _strike() -> void:
 		Projectile.launch(self, target, damage, hit)  # damage lands with it
 	elif hit:
 		deal_damage(target, damage)
+	work.after_blow(target)  # a thief's blow may take a wagon
 
 
 ## Closest point of a target: a unit's feet, or the nearest point of a building's walls.
@@ -790,11 +827,13 @@ func nearest_target(radius: float) -> Node2D:
 	var best: MapObject = null
 	var best_distance := radius
 	for object in MapObject.structures:
-		if object.is_building() and Diplomacy.hostile(team, object.owner_index) and object.is_alive() \
+		if not object.is_building():
+			continue
+		var bounds := object.work_rect()
+		if position.distance_to(position.clamp(bounds.position, bounds.end)) >= best_distance:
+			continue  # the walls are no nearer than their bounding rectangle (asked first: it is cheap)
+		if Diplomacy.hostile(team, object.owner_index) and object.is_alive() \
 				and not (object.is_trap() and not UnitStealth.detected(object.position, team)):
-			var bounds := object.work_rect()
-			if position.distance_to(position.clamp(bounds.position, bounds.end)) >= best_distance:
-				continue  # the walls are no nearer than their bounding rectangle
 			var distance := position.distance_to(aim_point(object))
 			if distance < best_distance:
 				best = object
@@ -806,11 +845,10 @@ func nearest_enemy(radius: float) -> Unit:
 	var best: Unit = null
 	var best_distance := radius
 	for other: Unit in UnitGrid.near(position, radius):
-		if other.is_alive() and is_enemy_of(other):
-			var distance := position.distance_to(other.position)
-			if distance < best_distance:
-				best = other
-				best_distance = distance
+		var distance := position.distance_to(other.position)
+		if distance < best_distance and other.is_alive() and is_enemy_of(other):
+			best = other
+			best_distance = distance
 	return best
 
 

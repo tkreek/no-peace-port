@@ -51,6 +51,7 @@ const SPELL_NATIVES := {320: 918, 321: 919, 322: 920, 324: 921, 323: 922}
 ## How far build_near looks around its spot (16 px steps, up to 500 px each way).
 const BUILD_SEARCH := 500
 const ENEMY_REACH := 500.0
+const WAY_CELL := 128.0  ## _in_the_way's cells
 
 
 static func call_native(id: int, task: KiTask) -> void:
@@ -597,13 +598,17 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id :
 		if MissionStats.on:
 			MissionStats.no_spot(id, task, owner, type, guid)
 		return false
+	var cells := {}  # the footprint test's answer per cell: the spots overlap
+	var wall := WallLine.is_wall(GameData.guid_for_type(type.id))  # as can_place_for has it
+	var way := _in_the_way(owner, GameData.guid_for_type(type.id) == MapObject.FIELD_GUID)
 	for ring in range(0, BUILD_SEARCH / 16 + 1):
 		for dy in range(-ring, ring + 1):
-			for dx in range(-ring, ring + 1):
-				if absi(dx) != ring and absi(dy) != ring:
-					continue
+			# The ring alone, in order: its top and bottom rows whole, the two ends between.
+			for dx in range(-ring, ring + 1, 1 if absi(dy) == ring else 2 * ring):
 				var spot := at + Vector2(dx, dy) * 16.0
-				if _level(nav, spot) == level and BuildController.can_place_for(type, spot, owner):
+				if _level(nav, spot) == level and _footprint_fits(nav, type, spot, wall, cells) \
+						and _clear_of(way, MapObject.footprint_rect_for(type, spot)) \
+						and BuildController.can_place_for(type, spot, owner):
 					var site := Orders.build_controller.place_site(owner, type.id, spot, false, null, [worker]) \
 							if Orders.build_controller else null
 					if site == null:
@@ -617,13 +622,67 @@ static func _build_near(task: KiTask, worker: Unit, guid: int, at: Vector2, id :
 	return false
 
 
+## The footprint part of BuildController.can_place_for (false where it fails), each cell's
+## answer kept in `cells`.
+static func _footprint_fits(nav: NavGrid, type: ObjectTypes.ObjectType, at: Vector2, wall: bool, cells: Dictionary) -> bool:
+	var origin := nav.cell_of(MapObject.footprint_rect_for(type, at).position)
+	for i in type.footprint_cells.size():
+		var own := type.footprint_cells[i]
+		if (own & NavGrid.BLOCKED) == 0:
+			continue
+		var cell := origin + Vector2i(i % type.footprint_grid.x, i / type.footprint_grid.x)
+		var key := Vector3i(cell.x, cell.y, int(own & NavGrid.SOLID != 0))
+		var fits = cells.get(key)
+		if fits == null:
+			fits = nav.can_build_on(cell, own, wall)
+			cells[key] = fits
+		if not fits:
+			return false
+	return true
+
+
+## What can_place_for finds in a site's way after the footprint, by 128 px cell: other
+## peoples' living units ([0]) and the fields, and for a field the buildings too ([1], in
+## every cell they cover). Nothing moves while build_near looks for a spot.
+static func _in_the_way(owner: int, field: bool) -> Array:
+	var units := {}
+	for unit in Unit.all_units:
+		if unit.is_alive() and unit.team != owner:
+			units.get_or_add(Vector2i((unit.position / WAY_CELL).floor()), []).append(unit.position)
+	var objects := {}
+	for object in MapObject.structures:
+		if object.is_field() or (field and object.is_building()):
+			var rect := object.footprint_rect()
+			var low := Vector2i((rect.position / WAY_CELL).floor())
+			var high := Vector2i((rect.end / WAY_CELL).floor())
+			for y in range(low.y, high.y + 1):
+				for x in range(low.x, high.x + 1):
+					objects.get_or_add(Vector2i(x, y), []).append(rect)
+	return [units, objects]
+
+
+## Whether nothing of `way` (_in_the_way) stops a site on `rect` (else can_place_for says no).
+static func _clear_of(way: Array, rect: Rect2) -> bool:
+	var low := Vector2i((rect.position / WAY_CELL).floor())
+	var high := Vector2i((rect.end / WAY_CELL).floor())
+	for y in range(low.y, high.y + 1):
+		for x in range(low.x, high.x + 1):
+			for point: Vector2 in way[0].get(Vector2i(x, y), []):
+				if rect.has_point(point):
+					return false
+			for other: Rect2 in way[1].get(Vector2i(x, y), []):
+				if other.intersects(rect):
+					return false
+	return true
+
+
 ## The height level (ground, plateau ...) at `at` (cell flag bits 12-13).
 static func _level(nav: NavGrid, at: Vector2) -> int:
 	return (nav.flags_at(nav.cell_of(at)) >> 12) & 3
 
 
 static func _tree_near(at: Vector2) -> MapObject:
-	return KiWorld.nearest(KiWorld.trees(), at, func(_n: Node) -> bool: return true) as MapObject
+	return KiWorld.nearest_tree(at)
 
 
 static func _nearest_wall(player: int, at: Vector2, radius: int) -> int:

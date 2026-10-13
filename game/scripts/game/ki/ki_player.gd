@@ -23,6 +23,7 @@ var atomic_slot := -1
 var current_slot := -1
 var hurt_units: Array[int] = []  ## handles, oldest first
 var hurt_buildings: Array[int] = []
+var _top := 0  # one past the last slot taken (the step looks no further)
 
 
 func _init(people: int) -> void:
@@ -51,22 +52,26 @@ func start(number: int, arguments: Array = []) -> KiTask:
 		return null
 	var task := KiTask.new(self, module, arguments.duplicate(), null)
 	slots[slot] = task
+	_top = maxi(_top, slot + 1)
 	if MissionStats.on:
 		MissionStats.started(number, "")
 	return task
 
 
 func step() -> void:
-	for slot in SLOTS:
+	var slot := 0
+	while slot < _top:  # a module started meanwhile in a later slot runs this step too
 		var task: KiTask = slots[slot]
-		if task == null:
-			continue
-		current_slot = slot
-		task.tick(atomic and slot != atomic_slot)
-		if task.finished:
-			if MissionStats.on:
-				MissionStats.finished(task)
-			slots[slot] = null
+		if task != null:
+			current_slot = slot
+			task.tick(atomic and slot != atomic_slot)
+			if task.finished:
+				if MissionStats.on:
+					MissionStats.finished(task)
+				slots[slot] = null
+		slot += 1
+	while _top > 0 and slots[_top - 1] == null:
+		_top -= 1
 	current_slot = -1
 
 
@@ -101,5 +106,7 @@ func restore_state(state: Dictionary) -> void:
 	hurt_units.assign(state.hurt_units.map(func(h) -> int: return int(h)))
 	hurt_buildings.assign(state.hurt_buildings.map(func(h) -> int: return int(h)))
 	slots.fill(null)
+	_top = 0
 	for entry in state.tasks:
 		slots[int(entry.slot)] = KiTask.restore(self, entry.task, null, null)
+		_top = maxi(_top, int(entry.slot) + 1)

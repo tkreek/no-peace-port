@@ -56,29 +56,38 @@ func warehoused_gold() -> int:
 	return total
 
 
-## Trading (manual 3.8): packages of 100 food or wood, or 2 guns, bought and sold for gold
-## at the trading post. Buying drives a price up, selling down; prices drift back.
+## Trading (manual 3.8) as AmericaAddOn.exe has it: packages of 100 food or wood, or 2 guns
+## (0x40d09a..0x40d0e0), for gold at one set of prices shared by every people (0x58fd30:
+## +0x2c8 wood, +0x2cc food, +0x2d0 guns, 16.16 fixed point, whole gold shown and paid;
+## set at 0x42246f). Buying pays the price when queued (0x456693) and raises it half a gold
+## when done; selling hands the goods over when queued and is paid the full price when
+## done, lowering it half a gold (0x422c90, kept within 1..200). Nothing pulls a price
+## back. A cancelled purchase refunds 80% of the price at the time (0x40d9e2).
 const TRADE_PACKAGE := {"food": 100, "wood": 100, "guns": 2}
-const TRADE_BASE_PRICE := {"food": 60, "wood": 60, "guns": 100}  # gold per package
-const SELL_SHARE := 0.7  # selling fetches this share of the buying price
-var trade_prices := TRADE_BASE_PRICE.duplicate()
+const TRADE_START_PRICE := {"food": 33.0, "wood": 25.0, "guns": 100.0}  # gold per package
+const TRADE_STEP := 0.5
+const TRADE_PRICE_MIN := 1.0
+const TRADE_PRICE_MAX := 200.0
+const TRADE_REFUND_PERCENT := 80
+static var trade_prices := TRADE_START_PRICE.duplicate()
+
+
+## A new match starts from the opening prices.
+static func reset_trade_prices() -> void:
+	trade_prices = TRADE_START_PRICE.duplicate()
 
 
 func buy_price(good: String) -> int:
-	return roundi(trade_prices[good])
+	return floori(trade_prices[good])
 
 
+## Selling is paid the same price buying costs.
 func sell_price(good: String) -> int:
-	return roundi(trade_prices[good] * SELL_SHARE)
+	return floori(trade_prices[good])
 
 
 func move_price(good: String, up: bool) -> void:
-	trade_prices[good] = clampf(trade_prices[good] * (1.1 if up else 0.9), TRADE_BASE_PRICE[good] * 0.4, TRADE_BASE_PRICE[good] * 3.0)
-
-
-func settle_prices(delta: float) -> void:
-	for good in trade_prices:
-		trade_prices[good] = lerpf(trade_prices[good], TRADE_BASE_PRICE[good], minf(1.0, delta * 0.01))
+	trade_prices[good] = clampf(trade_prices[good] + (TRADE_STEP if up else -TRADE_STEP), TRADE_PRICE_MIN, TRADE_PRICE_MAX)
 
 
 func set_start_resources(amounts: Dictionary) -> void:
@@ -176,6 +185,18 @@ func main_building() -> MapObject:
 	for object in MapObject.structures:
 		if object.owner_index == index and object.guid in MapObject.MAIN_BUILDINGS and object.is_alive() and object.complete:
 			return object
+	return null
+
+
+## Home, which the leader's morale is measured from (Unit.morale; AmericaAddOn.exe
+## 0x42c350): one main building per people, not the nearest but the one placed last
+## (0x40c900 -> 0x42c2f0; the slot empties when one leaves the map, 0x40d720 -> 0x42c320),
+## and only once it is built (+0x138).
+func home() -> MapObject:
+	for i in range(MapObject.structures.size() - 1, -1, -1):
+		var object: MapObject = MapObject.structures[i]
+		if object.owner_index == index and object.guid in MapObject.MAIN_BUILDINGS:
+			return object if object.is_alive() and object.complete else null
 	return null
 
 

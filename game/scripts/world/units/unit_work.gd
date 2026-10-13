@@ -6,14 +6,15 @@ extends UnitPart
 
 enum Phase { TO_SOURCE, WORKING, TO_DROP_OFF }
 
-## Seconds of work for one load at 100% morale. Measured for wood from a recording of the
-## original (four woodcutters, 120 px from the camp, bring in 7 wood a second: a load each
-## every 8.6 s, about 6 s of it chopping at 115% morale); the others in proportion.
-const WORK_SECONDS := {"wood": 7.0, "gold": 8.75, "food": 8.75}
+## Seconds of work for one load. Measured for wood from a recording of the original (four
+## woodcutters, 120 px from the camp, bring in 7 wood a second: a load each every 8.6 s,
+## about 6 s of it chopping); the others in proportion. Morale does not touch work
+## (AmericaAddOn.exe reads it only in fights: Unit.morale).
+const WORK_SECONDS := {"wood": 6.0, "gold": 7.5, "food": 7.5}
 const HUNT_RANGE := 1500.0
 ## Cutting off a load takes as long as a field worker's harvest (DEFS.INI gives no rates);
 ## a hunter carries his "Tragkapazität" like any gatherer, so a buffalo lasts ten trips.
-const BUTCHER_SECONDS := 8.75
+const BUTCHER_SECONDS := 7.5
 ## Robbing banks, missions and gold warehouses: unit GUID -> the upgrade it needs (0 = none;
 ## the outlaws are born robbers).
 const ROBBERS := {152: 916, 155: 916, 252: 941, 255: 941, 452: 991, 455: 991, 456: 991,
@@ -193,7 +194,7 @@ func hunt(animal: Unit) -> void:
 		unit.path.clear()
 		animal.animal.keep()
 	hunting = true
-	_work_timer = BUTCHER_SECONDS / unit.morale() / unit.effectiveness()
+	_work_timer = BUTCHER_SECONDS / unit.effectiveness()
 
 
 func may_hunt_horses() -> bool:
@@ -322,7 +323,7 @@ func _update_gather(delta: float) -> void:
 				if gather_source.stock.resource == "food":
 					faster = 0.0
 				_work_timer = WORK_SECONDS.get(gather_source.stock.resource, 4.0) / (1.0 + faster / 100.0) \
-						/ unit.morale() / unit.effectiveness()
+						/ unit.effectiveness()
 				unit.face(gather_source.work_rect().get_center() - unit.position)
 				if gather_source.stock.resource == "gold" and gather_source.stock.mine_framed():
 					unit.inside = true  # workers go inside the mine

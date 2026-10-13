@@ -272,7 +272,7 @@ func _add_building_commands(building: MapObject) -> void:
 	var spirit := production.spirit_level()
 	if building.guid == BuildingProduction.SPIRIT_TEPEE and spirit > 0:
 		_add_spell(BuildingProduction.SPIRIT_UPGRADES[spirit - 1],
-				"Invoke warrior spirit: every fighting unit gains %d%% morale for %d s\nCosts %d magic energy (see the tepee's energy)" % [
+				"Invoke warrior spirit: every fighting unit deals %d%% more damage for %d s\nCosts %d magic energy (see the tepee's energy)" % [
 				roundi(BuildingProduction.SPIRIT_BOOST[spirit - 1] * 100), BuildingProduction.SPIRIT_SECONDS,
 				BuildingProduction.SPIRIT_COST], "", func() -> void:
 					if production.spirit_energy >= BuildingProduction.SPIRIT_COST:  # else nothing, like the original

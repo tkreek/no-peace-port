@@ -21,6 +21,7 @@ var _type: UnitType
 var _anim := -1
 var _kind := ""
 var _attacker: Unit
+var _team := 0  ## the shooter's people when it fired
 var _target: Node2D
 var _hit := true
 var _damage := 0.0
@@ -42,6 +43,7 @@ static func launch(shooter: Unit, target: Node2D, damage: float, hit: bool) -> v
 		if file.contains(kind):
 			p._kind = kind
 	p._attacker = shooter
+	p._team = shooter.team
 	p._target = target
 	p._damage = damage
 	p._hit = hit
@@ -115,7 +117,9 @@ func _apply(heading: Vector2) -> void:
 
 func _land() -> void:
 	var explodes := _kind == "ball" or _kind == "dynamite"
-	if _hit and is_instance_valid(_target) and _target.is_alive():
+	var side := _attacker.team if is_instance_valid(_attacker) else _team
+	# A target converted or captured while the shot was in the air is spared.
+	if _hit and is_instance_valid(_target) and _target.is_alive() and not Unit.at_peace(side, _target):
 		if is_instance_valid(_attacker):
 			_attacker.deal_damage(_target, _damage, explodes)
 			if _target is MapObject and _attacker.unit_type.guid() in BuildingCondition.FIRE_STARTERS:

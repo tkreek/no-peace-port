@@ -156,6 +156,8 @@ func _magic(units: Array, soldiers: Array) -> void:
 # ------------------------------------------------------------------ defence and attack
 
 func _command(soldiers: Array, hq: MapObject) -> void:
+	# Those converted or stolen since the wave formed take no more orders from us.
+	_wave = _wave.filter(func(u: Object) -> bool: return is_instance_valid(u) and u.team == ai.player.index)
 	_check_route()
 	_retreat_wounded(soldiers)
 	var ready := soldiers.filter(func(u: Unit) -> bool: return not _retreating.has(u.get_instance_id()))

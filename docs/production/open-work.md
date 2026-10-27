@@ -11,12 +11,14 @@ Last reviewed 2026-10-09 (branch `rebuild-2d`).
 - Campaign: the mission scripts, menus and briefings run (docs/technical/missions.md), but
   the missions' AI modules (kimodules) do not yet, so computer players stand still.
 - Walls, stockades and barricades are not built by the AI (they are placed in segments).
-- Units in cover show through what is drawn over them as in the original (file-formats.md
-  "Drawing in the executable"), read from the cover bit of the collision grid. Felling a tree
-  clears its cover cells even where a neighbour's crown overlaps them (`NavGrid.unblock_footprint`
-  keeps no count; the original stamps the neighbours within 100 px again, 0x4063f0), so a
-  unit there can stay hidden. Camouflaged units are drawn see-through in place, not only in
-  the last pass, so under cover they show through like any other.
+- Units in cover show through what is drawn over them, as in the original but as a
+  team-coloured silhouette where they are hidden, found from the objects' pictures rather
+  than the cover bit of the collision grid (file-formats.md "Drawing in the executable").
+  Felling a tree clears its cover cells even where a neighbour's crown overlaps them
+  (`NavGrid.unblock_footprint` keeps no count; the original stamps the neighbours within
+  100 px again, 0x4063f0); only building placement reads those cells now. Camouflaged units
+  are drawn see-through in place, so under cover they seldom show a silhouette (the shader
+  cannot tell their faded pixels from what is drawn over them).
 
 ## Balance
 

@@ -67,6 +67,10 @@ CHECKS = {
                        r"group 2 button: building true, view [0-9]{1,2} px away, lit 2", r"group 2 key: building true"]),
     "heal": (["--faction=usa"], 0, [r"heal: life lost (\d+); healed 1[3-6]\d for 1[3-6]\d energy, energy now \d\b"]),
     "magic": ([], 0, [r"conversion: target now team 1"]),
+    # Fights end when sides change: a converted soldier and his attackers, then a new ally.
+    "turncoat": (["--faction=mex"], 0, [r"turncoat: hit before true, converted true; then turncoat energy kept true, ours kept true; "
+                                        r"attackers on him 0, he attacks ours false",
+                                        r"alliance: hit before true; then energy kept true, attackers on him 0"]),
     "spells": (["--faction=ind"], 300, [r"spells ready: 2 medicine men with Eagle eye, Lightning dance, Hail dance, Rain dance, Protective dance; our field food 300, enemy field food 300, 5 enemies"]),
     "magic_ind": (["--faction=ind"], 0, [r"eagle eye: eagles circling 1", r"lightning: enemy energy", r"warrior shielded [1-9]"]),
     "cover": ([], 0, [r"cover: .* (\d+) spots, \1 show through; in the open shows through false"]),

@@ -270,6 +270,67 @@ func _scenario_magic() -> void:
 	get_tree().quit()
 
 
+## Fights end when sides change: two of our soldiers shoot it out with an enemy soldier until
+## our priest converts him; then nobody fights on, his old orders gone with his colours. Then
+## an enemy our soldiers are attacking becomes an ally.
+func _scenario_turncoat() -> void:
+	var centre := Vector2(main.terrain.map.pixel_size()) / 2.0
+	centre = (Vector2(main.nav.nearest_walkable(main.nav.cell_of(centre))) + Vector2(0.5, 0.5)) * NavGrid.CELL
+	main.players[1].researched[948] = true
+	var ours_guid: int = main.FACTIONS[main.players[1].faction].army
+	var theirs_guid: int = main.FACTIONS[main.players[2].faction].army
+	main._spawn_squad(257, 1, centre + Vector2(-80, 40), 1)  # priest
+	main._spawn_squad(ours_guid, 1, centre, 2)
+	main._spawn_squad(theirs_guid, 2, centre + Vector2(0, -150), 1)
+	var priest: Unit = Unit.all_units.filter(func(u: Unit) -> bool: return u.unit_type.guid() == 257)[0]
+	var ours := Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 1 and u.unit_type.guid() == ours_guid)
+	var foe: Unit = Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 2 and u.position.distance_to(centre) < 300)[0]
+	await get_tree().process_frame  # past the upgrades a new unit takes on
+	for u: Unit in ours + [foe]:
+		u.max_health = 5000.0  # nobody falls before the priest is done
+		u.health = u.max_health
+	priest.stance = Unit.Stance.PASSIVE
+	var victim: Unit = ours[0]
+	foe.attack(victim, true)
+	ours[0].attack(foe, true)
+	ours[1].attack(foe, true)
+	for i in 80:  # until both have hit (shots miss at times)
+		if foe.health < foe.max_health and victim.health < victim.max_health:
+			break
+		await get_tree().create_timer(0.25).timeout
+	var hit_before := foe.health < foe.max_health and victim.health < victim.max_health
+	priest.cast(948, foe.position, foe)
+	for i in 60:
+		if foe.team == 1:
+			break
+		await get_tree().create_timer(0.25).timeout
+	var foe_energy := foe.health
+	var victim_energy := victim.health
+	await get_tree().create_timer(4.0).timeout
+	print("turncoat: hit before %s, converted %s; then turncoat energy kept %s, ours kept %s; attackers on him %d, he attacks ours %s" % [
+			hit_before, foe.team == 1, foe.health >= foe_energy, victim.health >= victim_energy,
+			Unit.all_units.filter(func(u: Unit) -> bool: return u.target == foe).size(),
+			is_instance_valid(foe.target) and Unit.at_peace(foe.team, foe.target)])
+	# An alliance in mid-fight: our soldiers break off, and their scans pass the new ally by.
+	main._spawn_squad(theirs_guid, 2, centre + Vector2(60, -120), 1)
+	var other: Unit = Unit.all_units.filter(func(u: Unit) -> bool: return u.team == 2 and u.position.distance_to(centre) < 300)[0]
+	await get_tree().process_frame
+	other.max_health = 5000.0
+	other.health = other.max_health
+	other.stance = Unit.Stance.PASSIVE
+	for u: Unit in ours:
+		u.attack(other, true)
+	await get_tree().create_timer(3.0).timeout
+	var hit_ally := other.health < other.max_health
+	Diplomacy.take_side(1, 2, true)
+	await get_tree().create_timer(1.0).timeout
+	var ally_energy := other.health
+	await get_tree().create_timer(3.0).timeout
+	print("alliance: hit before %s; then energy kept %s, attackers on him %d" % [hit_ally, other.health >= ally_energy,
+			Unit.all_units.filter(func(u: Unit) -> bool: return u.target == other).size()])
+	get_tree().quit()
+
+
 ## A sandbox for trying the medicine man's spells by hand (run with --faction=ind; leave
 ## the fog on to see Eagle eye lift it): two medicine men, selected, with every spell and
 ## magic energy kept full; a friendly warrior to shield; passive enemy infantry above to

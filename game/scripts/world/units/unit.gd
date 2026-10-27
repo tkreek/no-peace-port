@@ -316,9 +316,22 @@ func is_enemy_of(other: Unit) -> bool:
 	return true
 
 
+## Whether people `people` has no quarrel with `node` (a unit or a building): it is theirs,
+## an ally's or a neutral's. A fight ends there, whoever it was when it began: a converted
+## soldier, a stolen wagon, a captured fort, a new alliance. People 0 (wild animals, loose
+## objects) is never at peace or at war: the hunt goes on.
+static func at_peace(people: int, node: Node2D) -> bool:
+	var other: int = node.team if node is Unit else (node as MapObject).owner_index
+	return people > 0 and other > 0 and not Diplomacy.hostile(people, other)
+
+
 ## The unit now belongs to another people (a stolen wagon, a converted soldier).
+## Its old orders go with it: whatever it was fighting may be a friend now, and those of
+## its new people's enemies it was not fighting are found by the next scan.
 func change_team(new_team: int) -> void:
 	stop()
+	_besieged = null
+	attack_moving = false
 	selected = false
 	if new_team == Orders.local_player and team != new_team:
 		Sound.play_gained()
@@ -371,7 +384,7 @@ func follow(leader: Unit) -> void:
 ## Fight `enemy`. `ordered` when the player gave the order (ignores the stance's limits).
 func attack(enemy: Node2D, ordered := false) -> void:
 	if not is_alive() or enemy == null or not enemy.is_alive() or unit_type.attack_anims.is_empty() \
-			or not water.can_fight_here():
+			or not water.can_fight_here() or at_peace(team, enemy):
 		return
 	if state != State.ATTACKING:
 		guard_position = position if state != State.MOVING else guard_position
@@ -681,6 +694,11 @@ func _update_attack(delta: float) -> void:
 	if work.hunting and is_instance_valid(target) and target is Unit and not target.is_alive() and _attack_step < 0:
 		work.butcher(target, delta)
 		return
+	if is_instance_valid(target) and target.is_alive() and at_peace(team, target):
+		# Converted, captured or allied since the fight began: break off, even mid-blow.
+		target = null
+		_attack_step = -1
+		_ordered = false
 	if target == null or not is_instance_valid(target) or not target.is_alive():
 		target = null
 		if work.hunting and _attack_step < 0:
@@ -797,7 +815,7 @@ func _continue_attack() -> void:
 
 
 func _strike() -> void:
-	if target == null or not is_instance_valid(target) or not target.is_alive():
+	if target == null or not is_instance_valid(target) or not target.is_alive() or at_peace(team, target):
 		return
 	# The original's fighters (DefaultsData.WORKERS aside) sound every blow as "shoot", hand to
 	# hand too; workers as "melee", which no sound table entry has.

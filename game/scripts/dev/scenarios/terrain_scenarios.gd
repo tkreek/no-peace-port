@@ -56,3 +56,41 @@ func _scenario_plateau() -> void:
 				"cut off" if goal == cut_off else "ramped", walker.position.distance_to(goal),
 				level.call(nav.cell_of(start)), level.call(nav.cell_of(walker.position)), highest, ramp])
 	get_tree().quit()
+
+
+## Units on a ramp, from its foot to its top: each is drawn over the ramp (it lies on the
+## ground; drawn standing, it hid the upper half of whoever climbed it). The camera looks
+## at the first ramp for a screenshot.
+func _scenario_ramp() -> void:
+	var nav: NavGrid = main.nav
+	var ramps := MapObject.all_objects.filter(func(o: MapObject) -> bool: return o.object_type.name.begins_with("ramp_"))
+	var ramp: MapObject = ramps[0]
+	var cells: Array[Vector2i] = []
+	var low := nav.cell_of(ramp.visual_rect().position)
+	var high := nav.cell_of(ramp.visual_rect().end)
+	for y in range(low.y, high.y + 1, 2):
+		for x in range(low.x, high.x + 1):
+			var cell := Vector2i(x, y)
+			if nav.flags_at(cell) & RAMP and nav.is_walkable(cell):
+				cells.append(cell)
+				break
+	var walkers: Array[Unit] = []
+	var guid: int = main.players[1].main_building().production.trainable_units()[-1]
+	for cell in cells:
+		var unit := Unit.new()
+		unit.position = nav.center_of(cell)
+		main.units_root.add_child(unit)
+		unit.setup(UnitType.for_guid(guid), 1)
+		unit.direction = 5  # facing up the slope
+		walkers.append(unit)
+	main.camera.position = ramp.position
+	for i in 4:
+		await get_tree().physics_frame
+	var over := walkers.filter(func(u: Unit) -> bool:
+		return ramp.z_index < u.z_index or (ramp.z_index == u.z_index and ramp.position.y < u.position.y))
+	var above := walkers.filter(func(u: Unit) -> bool: return u.position.y < ramp.position.y)
+	print("ramp view %s" % ramp.position.round())
+	print("ramps %d; on the first %d walkers, %d above where it stands, %d drawn over it" % [ramps.size(),
+			walkers.size(), above.size(), over.size()])
+	if GameData.cmdline_option("screenshot") == "":
+		get_tree().quit()

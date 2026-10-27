@@ -87,6 +87,8 @@ CHECKS = {
     "plateau": (["--map=[2 Players] - mount gnibbelput.ulf"], 0, [r"reachable true, cut off true",
                 r"cut off plateau: \d+ px short, level 0 -> 0 \(highest 0\), by a ramp false",
                 r"ramped plateau: \d px short, level 0 -> 1 \(highest 1\), by a ramp true"]),
+    # Ramps lie on the ground: whoever climbs one is drawn over all of it.
+    "ramp": (["--map=[2 Players] - mount gnibbelput.ulf"], 0, [r"on the first (\d+) walkers, [1-9]\d* above where it stands, \1 drawn over it"]),
     "swim": (["--faction=ind", ISLANDS], 0, [r"swam: true", r"canoe on water plays paddle"]),
     # The command panel for builders, farmers (only fields for the Mexican women) and every
     # building that trains something.

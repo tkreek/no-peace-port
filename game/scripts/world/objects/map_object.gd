@@ -41,6 +41,9 @@ const AMBIENT_ANIM := 11  # a moving part (windmill sails...) and 12 its shadow
 ## set), drawn flat beneath it, its shadow and whoever walks past.
 const GROUND_ANIM := 4
 const GROUND_Z := FIELD_Z - 1
+## A ramp is a slope of the ground between two levels, drawn flat beneath all that stands
+## or walks on it: y-sorted by where it stands (halfway up), it hid whoever climbed past.
+const RAMP_Z := GROUND_Z - 1
 
 static var all_objects: Array[MapObject] = []
 var _sim_on := false
@@ -120,6 +123,8 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 	_is_tree = type.name.begins_with("tree") and _bob.anims.size() > ObjectStock.TREE_STUMP_ANIM + 1
 	if is_field():
 		z_index = FIELD_Z
+	elif type.name.begins_with("ramp_"):
+		z_index = RAMP_Z
 	_ramps = GameData.load_ramps(type.anims)
 	_shadow = Sprite2D.new()
 	_body = Sprite2D.new()

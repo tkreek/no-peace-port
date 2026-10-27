@@ -73,7 +73,8 @@ CHECKS = {
     "magic": ([], 0, [r"conversion: target now team 1"]),
     "spells": (["--faction=ind"], 300, [r"spells ready: 2 medicine men with Eagle eye, Lightning dance, Hail dance, Rain dance, Protective dance; our field food 300, enemy field food 300, 5 enemies"]),
     "magic_ind": (["--faction=ind"], 0, [r"eagle eye: eagles circling 1", r"lightning: enemy energy", r"warrior shielded [1-9]"]),
-    "cover": ([], 0, [r"cover: .* (\d+) spots, \1 show through; in the open shows through false"]),
+    "cover": ([], 0, [r"cover: .* (\d+) spots, \1 show through; in the open shows through false",
+                      r"behind a wall off the cover cells shows through true"]),
     "inspect": ([], 120, [r"clicked 481: selected true, panel 'Buffalo' with 2 stats, 0 command buttons, ordered false",
                           r"clicked \d+: selected true, panel '\w+' with 4 stats, 0 command buttons, ordered false",
                           r"mount order rings the horse: true"]),
@@ -91,6 +92,8 @@ CHECKS = {
     "plateau": (["--map=[2 Players] - mount gnibbelput.ulf"], 0, [r"reachable true, cut off true",
                 r"cut off plateau: \d+ px short, level 0 -> 0 \(highest 0\), by a ramp false",
                 r"ramped plateau: \d px short, level 0 -> 1 \(highest 1\), by a ramp true"]),
+    # Ramps lie on the ground: whoever climbs one is drawn over all of it.
+    "ramp": (["--map=[2 Players] - mount gnibbelput.ulf"], 0, [r"on the first (\d+) walkers, [1-9]\d* above where it stands, \1 drawn over it"]),
     "swim": (["--faction=ind", ISLANDS], 0, [r"swam: true", r"canoe on water plays paddle"]),
     # The command panel for builders, farmers (only fields for the Mexican women) and every
     # building that trains something.

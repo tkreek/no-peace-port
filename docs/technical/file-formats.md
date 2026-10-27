@@ -428,7 +428,11 @@ together at 0x419550 to anim N and N+1).
   (buildings: the cells behind the walls; trees: the whole crown). Every unit, whoever owns
   it; no option. A camouflaged unit (+0x401) skips passes 1 and 4 and is drawn in this pass
   instead, for its owner, allies and whoever's sight covers it (0x42c120, fog byte 0x4209d0).
-  The remake: `UnitSprite` (COVER_Z).
+  The remake draws it differently (`UnitSprite`, COVER_Z): over its detailed crowns and roofs
+  the half blend was lost in the leaves or looked like a unit standing on the roof, and the
+  cover cells miss much that hides a unit (just behind a wall, under a tower). It shows the
+  unit again whenever a tree or building is drawn over its picture (`CoverGrid`), and only
+  where it is hidden, as a faint team-coloured silhouette with a rim (`unit_ghost.gdshader`).
 - "Shadow" in the options (texts 299-302 None / Black / Transparent) is the drop shadows, not
   this: registry `ShadowMode` (0x4471fc) at 0x4ba088, read at 0x409813 for `DARK` sub-sprites:
   0 not drawn, 1 black (0x409c20), 2 the ground halved (0x409dc0). The remake draws them

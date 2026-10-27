@@ -5,14 +5,19 @@ extends Node2D
 ## its picture showing through a roof or a canopy drawn over it.
 ## Unit builds the rules on top of this.
 
-## In cover (on a grid cell a building's roof or a tree's crown is drawn over, bit 29 of the
-## objects' footprints), the original draws a unit's picture once more after everything
-## else, blended half and half with what is there (draw passes 0x4625d0: the last one, 0x10;
-## unit draw 0x417f80 does it when [unit+0x41c], which 0x417310 sets from the grid at its
-## feet as it moves; blit 0x409f90 adds src >> 1 and dst >> 1). It shows through what hides
-## it and looks the same where nothing does. All units, whoever's; a selected one's marker too.
+## In cover, the original draws a unit's picture once more after everything else, blended
+## half and half with what is there (draw passes 0x4625d0: the last one, 0x10; unit draw
+## 0x417f80 does it when [unit+0x41c], which 0x417310 sets from bit 29 of the grid at its
+## feet as it moves; blit 0x409f90 adds src >> 1 and dst >> 1). Over the remake's detailed
+## crowns and roofs that half-blend was lost in the leaves, or on a bright roof looked like
+## a unit standing on it; and the grid's cover cells miss much of what hides a unit (the
+## ground just behind a wall, under a tall tower, a crown whose tree was felled beside it).
+## So the remake draws it again over everything whenever a tree or building is drawn over
+## its picture (CoverGrid), and only where it is hidden: a faint silhouette in its team
+## colour with a brighter rim (unit_ghost.gdshader). Where it is in plain view nothing
+## changes. All units, whoever's; a selected one's marker too, faintly.
 const COVER_Z := 5  ## over every sprite, under the weather (6) and the fog of war (90)
-const COVER_ALPHA := 0.5
+const COVER_RING_ALPHA := 0.5
 
 var unit_type: UnitType
 var direction := 1  # sprite direction row: 0 = SE, then clockwise (1 = S ... 7 = E)
@@ -32,8 +37,9 @@ var _shadow := Sprite2D.new()
 ## The picture again over everything while in cover (with the selection ring under it).
 var _cover := Node2D.new()
 var _cover_body := Sprite2D.new()
-var _cover_at := Vector2.INF  # where the cover was last looked up
-var _cover_grid := -1  # and NavGrid.footprints_changed then
+var _cover_cell := Vector2i(-1, -1)  # the 16 px cell where the cover was last looked up
+var _cover_roster := -1  # and MapObject.roster_version then
+var _body_sheet: RdSprite  # the sheet the body shows
 var _action := ""
 var _anim := -1
 var _shadow_anim := -1
@@ -62,7 +68,7 @@ func _setup_sprites(type: UnitType, palette_row: int) -> void:
 	_cover_body.region_enabled = true
 	_cover.z_index = COVER_Z
 	_cover.z_as_relative = false
-	_cover.modulate.a = COVER_ALPHA
+	_cover.self_modulate.a = COVER_RING_ALPHA
 	_cover.visible = false
 	_cover.draw.connect(_draw_cover_ring)
 	_cover.add_child(_cover_body)
@@ -87,6 +93,7 @@ func hide_body() -> void:
 func set_palette_row(row: int) -> void:
 	_body.set_instance_shader_parameter("palette_row", clampi(row, 0, unit_type.bob.teams - 1))
 	_cover_body.set_instance_shader_parameter("palette_row", clampi(row, 0, unit_type.bob.teams - 1))
+	_cover_body.set_instance_shader_parameter("ghost_colour", StatusBar.team_colour(row))
 
 
 ## Whether the unit is standing (dead ones lose their selection ring). Unit overrides it.
@@ -225,6 +232,8 @@ func _set_frame(sprite: Sprite2D, anim_index: int) -> void:
 		SpriteMaterials.prepare(sprite, sheet)
 		if sprite == _body:
 			sprite.material = SpriteMaterials.body(sheet, unit_type.ramps)
+	if sprite == _body:
+		_body_sheet = sheet
 	sheet.apply(sprite, frame)
 	if sprite == _body and _cover.visible:
 		_show_cover_frame()
@@ -235,18 +244,21 @@ func shows_through() -> bool:
 	return _cover.visible
 
 
-## Look up the cover where the unit stands, when it has moved or a building went up or a
-## tree came down (and once it has died, take the picture away). Only the drawing reads it.
+## Look up whether a tree or building is drawn over the unit, when it has moved to another
+## cell or objects came or went (and once it has died, take the picture away). Only the
+## drawing reads it.
 func _update_cover() -> void:
 	if not is_alive():
 		_cover.visible = false
 		return
-	var grid := NavGrid.current
-	if grid == null or (position == _cover_at and grid.footprints_changed == _cover_grid):
+	var cell := Vector2i((position / NavGrid.CELL).floor())
+	if NavGrid.current == null or _body.texture == null \
+			or (cell == _cover_cell and MapObject.roster_version == _cover_roster):
 		return
-	_cover_at = position
-	_cover_grid = grid.footprints_changed
-	var covered := (grid.flags_at(grid.cell_of(position)) & NavGrid.COVER) != 0
+	_cover_cell = cell
+	_cover_roster = MapObject.roster_version
+	var picture := _body.get_rect()
+	var covered := CoverGrid.covered(position, Rect2(position + picture.position * _body.scale, picture.size * _body.scale))
 	if covered != _cover.visible:
 		_cover.visible = covered
 		if covered:
@@ -256,7 +268,7 @@ func _update_cover() -> void:
 func _show_cover_frame() -> void:
 	_cover_body.texture = _body.texture
 	_cover_body.texture_filter = _body.texture_filter
-	_cover_body.material = _body.material
+	_cover_body.material = SpriteMaterials.ghost(_body_sheet, unit_type.ramps) if _body_sheet else null
 	_cover_body.region_rect = _body.region_rect
 	_cover_body.offset = _body.offset
 	_cover_body.scale = _body.scale

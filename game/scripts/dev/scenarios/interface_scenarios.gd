@@ -525,7 +525,8 @@ func _key(key: Key, ctrl := false) -> void:
 
 ## Units where buildings and trees are drawn over them (the cover cells, grid bit 29):
 ## three behind our main building and four under the thickest canopy (one of each an
-## enemy's, our three in the forest selected), and one in the open. Prints which show through.
+## enemy's, our three in the forest selected), one just behind a wall of the building off
+## the cover cells (hidden all the same), and one in the open. Prints which show through.
 ## --cover-view=building|forest points the camera there for a screenshot.
 func _scenario_cover() -> void:
 	main.get_viewport().gui_disable_input = true  # keys pressed elsewhere while the window pops up
@@ -553,6 +554,8 @@ func _scenario_cover() -> void:
 	var mine: Array[Unit] = []
 	for i in under.size():
 		(mine if i < 3 else placed).append(_cover_unit([soldier, worker, worker, enemy][i], 2 if i == 3 else 1, under[i]))
+	var walled := _behind_wall(hq)
+	var by_wall := _cover_unit(worker, 1, walled) if walled != Vector2.INF else null
 	var open := _cover_unit(soldier, 1, (Vector2(nav.nearest_walkable(nav.cell_of(hq.position + Vector2(0, 260)))) + Vector2(0.5, 0.5)) * NavGrid.CELL)
 	main.selection.select_units(mine)
 	main.camera.position = forest.position if GameData.cmdline_option("cover-view") == "forest" else picture.get_center()
@@ -563,6 +566,7 @@ func _scenario_cover() -> void:
 	print("cover views: building %s, forest %s" % [picture.get_center().round(), forest.position.round()])
 	print("cover: behind the building and in a forest of %d trees %d spots, %d show through; in the open shows through %s" % [
 			thickest, behind.size() + under.size(), through.call(placed + mine), through.call([open]) == 1])
+	print("cover: behind a wall off the cover cells shows through %s" % (by_wall != null and through.call([by_wall]) == 1))
 	if GameData.cmdline_option("screenshot") == "":
 		get_tree().quit()
 
@@ -582,6 +586,23 @@ func _cover_spots(area: Rect2, toward: Vector2, count: int) -> Array[Vector2]:
 		if picked.size() < count and picked.all(func(p: Vector2) -> bool: return p.distance_to(spot) >= 30.0):
 			picked.append(spot)
 	return picked
+
+
+## A walkable cell right behind (north of) a wall of `building` that is not a cover cell,
+## nearest the middle of its walls (INF if there is none).
+func _behind_wall(building: MapObject) -> Vector2:
+	var nav := NavGrid.current
+	var walls := building.work_rect()
+	var best := Vector2.INF
+	for y in range(int(walls.position.y) - NavGrid.CELL, int(walls.end.y), NavGrid.CELL):
+		for x in range(int(walls.position.x), int(walls.end.x), NavGrid.CELL):
+			var cell := nav.cell_of(Vector2(x, y))
+			if nav.is_walkable(cell) and (nav.flags_at(cell) & NavGrid.COVER) == 0 \
+					and (nav.flags_at(cell + Vector2i.DOWN) & NavGrid.SOLID) != 0 and not nav.is_walkable(cell + Vector2i.DOWN):
+				var spot := nav.center_of(cell)
+				if spot.distance_to(walls.get_center()) < best.distance_to(walls.get_center()):
+					best = spot
+	return best
 
 
 func _cover_unit(guid: int, team: int, at: Vector2) -> Unit:

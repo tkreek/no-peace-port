@@ -610,3 +610,51 @@ func _scenario_chain() -> void:
 	print("chained: houses built %s; then wood: idle worker %s, cutter back at her tree %s" % [sites.all(func(s: MapObject) -> bool: return s.complete),
 			idle.work.gather_resource == "wood" and idle.state == Unit.State.GATHERING, cutter.work.gather_source == trees[0]])
 	get_tree().quit()
+
+
+## Workers put up a wood store by the forest and a gold warehouse by the mine; once each
+## stands its builders gather for it, wood from the trees and gold from the mine, carried
+## to the new building (the main building takes neither here). A house's builders, with
+## nothing to gather for it, stand idle afterwards as before.
+func _scenario_dropoffs() -> void:
+	var p: Player = main.players[1]
+	var hq: MapObject = p.main_building()
+	hq.accepts = PackedStringArray(["food"])  # test: the loads must go to the new buildings
+	p.resources.wood = 5000
+	p.resources.gold = 5000
+	var builders := Unit.all_units.filter(func(u: Unit) -> bool:
+		return u.team == 1 and u.unit_type.can_build() and u.unit_type.can_gather("wood") and u.unit_type.can_gather("gold"))
+	var crews := {"wood": builders.slice(0, 2), "gold": builders.slice(2, 4), "house": builders.slice(4, 5)}
+	var around := {"wood": builders[0].work.nearest_source("wood").position, "gold": _nearest_mine(hq.position).position,
+			"house": hq.position}
+	var guids := {"wood": MapObject.DROP_OFFS.wood, "gold": MapObject.DROP_OFFS.gold, "house": [101, 201, 301, 401]}
+	var sites := {}
+	for job in crews:
+		var guid: int = Array(guids[job]).filter(func(g: int) -> bool: return GameData.stats(g).get("faction") == p.faction)[0]
+		var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
+		for radius in range(96 if job != "house" else 260, 900, 32):
+			for k in 16:
+				var spot: Vector2 = (around[job] + Vector2(radius, 0).rotated(k * TAU / 16.0)).snapped(Vector2(16, 16))
+				if not sites.has(job) and main.build_controller.can_place_for(type, spot, 1, false):
+					sites[job] = main.build_controller.place_site(1, type.id, spot, false, null, crews[job])
+	print("drop-off sites: %s by the forest, %s by the mine, a %s; builders %d" % [GameData.stats(sites.wood.guid).get("name"),
+			GameData.stats(sites.gold.guid).get("name"), GameData.stats(sites.house.guid).get("name"), builders.size()])
+	var on := func(job: String) -> int:
+		return crews[job].filter(func(u: Unit) -> bool: return u.state == Unit.State.GATHERING and u.work.gather_resource == job).size()
+	var there := func(job: String) -> bool:
+		return crews[job].all(func(u: Unit) -> bool: return u.work._drop_off == sites[job])
+	var wood := 0
+	for i in 300:
+		await get_tree().create_timer(1.0).timeout
+		if sites.wood.complete and wood == 0:
+			wood = int(p.resources.wood)
+			print("t=%ds wood store done, builders on wood %d" % [i + 1, on.call("wood")])
+		if sites.wood.complete and sites.gold.complete and sites.house.complete and there.call("wood") and there.call("gold") \
+				and int(p.resources.wood) > wood and sites.gold.stock.stored_gold > 0:
+			break
+	print("drop-offs: wood store built %s, builders on wood %d of %d, wood +%d delivered there %s; " % [sites.wood.complete,
+			on.call("wood"), crews.wood.size(), int(p.resources.wood) - wood, there.call("wood")]
+			+ "gold warehouse built %s, builders on gold %d of %d, warehoused %d there %s; " % [sites.gold.complete,
+			on.call("gold"), crews.gold.size(), sites.gold.stock.stored_gold, there.call("gold")]
+			+ "house built %s, its builder idle %s" % [sites.house.complete, crews.house.all(func(u: Unit) -> bool: return u.state == Unit.State.IDLE)])
+	get_tree().quit()

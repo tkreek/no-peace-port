@@ -61,6 +61,7 @@ These live in code as named constants and should be tuned through play.
 | Robbing | 4 s inside a building; robbers carry 3× their normal load (stealing wagons follows the exe: file-formats.md "Stealing in the executable") | `UnitWork.ROB_SECONDS` |
 | Garrison range bonus | a quarter more range when shooting from a fort or tower, counted from its walls | `BuildingDefence.GARRISON_RANGE_FACTOR` |
 | Hunting | 7.5 s to cut a load (a harvest's time), the hunter's own load (15) per trip; DEFS.INI has no gathering rates | `UnitWork.BUTCHER_SECONDS` |
+| Work after building | builders of a wood store, gold warehouse or food store gather wood, gold or the fields for it from the nearest source within 1200 px; other buildings leave them idle (not yet read from the exe) | `UnitWork.gathered_at`, `AFTER_BUILD_REACH` |
 | Tepee packing | 6 s to take a tepee down or set it up | `Unit.PACK_SECONDS` |
 | Boarding and landing | board within 72 px of the boat; land within 7 cells of dry ground | `Unit.BOARD_REACH`, `LANDING_REACH` |
 | Shipyards | must have deep water within 3 cells of the footprint | `MapObject.SHORE_REACH` |

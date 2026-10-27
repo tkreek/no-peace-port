@@ -38,12 +38,16 @@ const QUEUEABLE := ["build", "gather", "haul", "hunt", "move_to"]
 const FIELD_SEARCH := 600.0
 ## A wagon takes at most two guns from an abandoned store per trip.
 const GUNS_PER_LOAD := 2
+## How far from a drop-off they have just put up the builders look for something to gather
+## for it (as far as a gatherer looks for the next source once hers is used up).
+const AFTER_BUILD_REACH := 1200.0
 
 var carrying := ""  ## resource in hand ("" when empty-handed)
 var carried := 0
 var gather_resource := ""  ## what this unit is assigned to collect ("haul", "rob" and "meat" too)
 var gather_source: MapObject
 var build_site: MapObject
+var _raising := false  # this builder worked on build_site before it was finished (not a repair)
 var tasks: Array = []  ## [method, target] pairs queued with Shift, carried out in turn
 var _resume: MapObject  # gathering (or hauling) interrupted by queued tasks: back to it after
 var _resume_resource := ""
@@ -161,6 +165,7 @@ func build(site: MapObject) -> void:
 		return
 	unit.clear_orders()
 	build_site = site
+	_raising = false
 	unit.target = null
 	gather_source = null
 	unit.inside = false
@@ -524,8 +529,13 @@ func _update_rob(delta: float) -> void:
 func update_building(delta: float) -> void:
 	if build_site == null or not is_instance_valid(build_site) or not build_site.is_alive() \
 			or (build_site.complete and not build_site.condition.needs_repair()):
+		var built: MapObject = build_site if _raising and is_instance_valid(build_site) and build_site.is_alive() \
+				and build_site.complete else null
 		build_site = null
+		_raising = false
 		unit.state = Unit.State.IDLE  # the next queued task, if any, follows (update)
+		if built and tasks.is_empty() and _resume == null:
+			_gather_for(built)
 		return
 	if not build_site.near_walls(unit.position, Unit.REACH):
 		if unit.path.is_empty():
@@ -542,7 +552,29 @@ func update_building(delta: float) -> void:
 		if not build_site.condition.add_repair_work(delta):
 			unit.stop()  # out of resources for the repair
 	else:
+		_raising = true
 		build_site.condition.add_build_work(delta)
+
+
+## What a drop-off's builders go on to gather once it stands: wood for a wood store, gold
+## for a gold warehouse, the fields for a food store ("" for anything else, the main
+## buildings and butchers included).
+static func gathered_at(building_guid: int) -> String:
+	for resource in ["wood", "gold"]:
+		if building_guid in MapObject.DROP_OFFS[resource]:
+			return resource
+	return "food" if building_guid in MapObject.FOOD_STORES else ""
+
+
+## A builder who has just finished a drop-off, with nothing else to do, sets to work for it:
+## the nearest source of its resource to it, carrying the loads there (the nearest drop-off).
+func _gather_for(building: MapObject) -> void:
+	var resource := gathered_at(building.guid)
+	if resource == "" or not unit.unit_type.can_gather(resource):
+		return
+	var source := nearest_source(resource, AFTER_BUILD_REACH, building.position)
+	if source:
+		gather(source)
 
 
 ## Walk up to the kill and gut it (the hunters' "erlegen"/"ausbeinen" animation), then
@@ -649,7 +681,9 @@ func _last_resource() -> String:
 	return "wood" if unit.unit_type.can_gather("wood") else "gold"
 
 
-func nearest_source(resource: String, max_distance := INF) -> MapObject:
+## The nearest usable source of `resource` to `near` (this unit's position by default).
+func nearest_source(resource: String, max_distance := INF, near := Vector2.INF) -> MapObject:
+	var at := unit.position if near == Vector2.INF else near
 	var best: MapObject = null
 	var best_distance := max_distance
 	for object in MapObject.all_objects:
@@ -657,7 +691,7 @@ func nearest_source(resource: String, max_distance := INF) -> MapObject:
 		if usable and object.is_field() and (object.owner_index != unit.team or field_worker(object, unit) != null):
 			usable = false
 		if usable:
-			var distance := unit.position.distance_to(object.position)
+			var distance := at.distance_to(object.position)
 			if distance < best_distance:
 				best = object
 				best_distance = distance

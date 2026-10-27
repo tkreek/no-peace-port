@@ -63,6 +63,10 @@ CHECKS = {
     "food": ([], 300, [r"workers per field \[1, 1\]"]),
     "chain": (["--time-scale=4"], 0, [r"queued: idle worker building true with 1 waiting; cutter building true",
                                       r"chained: houses built true; then wood: idle worker true, cutter back at her tree true"]),
+    # Builders of a wood store or gold warehouse gather for it once it stands; a house's go idle.
+    "dropoffs": (["--time-scale=4"], 0, [r"drop-offs: wood store built true, builders on wood (\d) of \1, wood \+[1-9]\d* delivered there true; "
+                                         r"gold warehouse built true, builders on gold (\d) of \2, warehoused [1-9]\d* there true; "
+                                         r"house built true, its builder idle true"]),
     "groups": ([], 0, [r"group 1 recalled: 3 of 3", r"group buttons: 1,2\n",
                        r"group 2 button: building true, view [0-9]{1,2} px away, lit 2", r"group 2 key: building true"]),
     "heal": (["--faction=usa"], 0, [r"heal: life lost (\d+); healed 1[3-6]\d for 1[3-6]\d energy, energy now \d\b"]),

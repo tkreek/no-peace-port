@@ -121,6 +121,12 @@ CHECKS = {
                                       r"afterwards damage x1\.00, auras 0"]),
     "coach": (["--faction=mex"], 0, [r"aboard 2 / 2, enlarged 4 / 4, enemy hit true, guards dead with the coach 4"]),
     "saveload": ([], 0, [r"before: units (\d+)", r"after: +units \d+"]),
+    # Named saves through the game menu: offered name, overwrite asked, list, delete, load.
+    "savelist": ([], 0, [r"offered: .+ \d{4}-\d\d-\d\d \d\d\.\d\d\n", r"saved: menu closed true, file true",
+                         r"overwrite asked true: Save over “Fort by the river”\?",
+                         r"listed: Fort by the river \| Second try \| Quicksave\n", r"places: (\w[\w ]*) \| \1 \| \1\n",
+                         r"after delete: Fort by the river \| Quicksave\n",
+                         r"before: units (\d+), buildings (\d+)[\s\S]*after: +units \1, buildings \2"]),
     # The map editor: paint a lake (its rings grow), place things, save, read back, redraw
     # an original map, and drive it with mouse and keyboard events.
     "editor": ([], 0, [r"lake from the centre out \[\"Deep water\", \"Water\", \"Shallow water\", \"Shore\"",
@@ -248,6 +254,9 @@ def run(name):
         command += ["--", "--fog=off"] + args
     else:
         command += ["--", "--scenario=" + scenario] + BASE + args
+    # Each run saves its games in a folder of its own, removed afterwards.
+    saves = tempfile.TemporaryDirectory(prefix="check-saves-")
+    command.append("--save-dir=" + saves.name)
     if frames:
         command.append("--report-after=%d" % frames)
     # Extra options for every run, e.g. CHECK_ARGS="--log-assets=/tmp/log".
@@ -260,6 +269,7 @@ def run(name):
     except subprocess.TimeoutExpired as e:
         out = (e.stdout or b"").decode() if isinstance(e.stdout, bytes) else (e.stdout or "")
         out += "\nTIMEOUT"
+    saves.cleanup()
     problems = [p for p in expected if not re.search(p, out)]
     if "SCRIPT ERROR" in out:
         problems.append("script error: " + out[out.index("SCRIPT ERROR"):].split("\n", 3)[0:3].__str__())

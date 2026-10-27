@@ -45,6 +45,7 @@ var _address_edit := LineEdit.new()
 var _password_edit := LineEdit.new()
 var _campaign: CampaignMenu
 var _screen_backdrops := {}  # screen -> backdrop picture other than the main one
+var _load_browser: SaveBrowser
 
 
 func _ready() -> void:
@@ -64,6 +65,7 @@ func _ready() -> void:
 	_screens.setup = _build_setup()
 	_screens.settings = _build_settings()
 	_screens.network = _build_network()
+	_screens.load = _build_load()
 	if not Campaign.data().is_empty():
 		_campaign = CampaignMenu.new(self)
 		_screens.campaign = _campaign.campaign_screen
@@ -158,6 +160,8 @@ func _fit() -> void:
 func _show(screen: String) -> void:
 	for key in _screens:
 		_screens[key].visible = key == screen
+	if screen == "load":
+		_load_browser.refresh()
 	var art: TextureRect = get_node_or_null("Art")
 	if art and _screen_backdrops.get(screen, "") != "":
 		_set_backdrop(_screen_backdrops[screen])
@@ -217,16 +221,8 @@ func _build_main() -> Control:
 		column.add_child(_glow_button("Campaign", func() -> void: _show("campaign")))
 	column.add_child(_glow_button("Skirmish", func() -> void: _show("setup")))
 	column.add_child(_glow_button("Multiplayer", func() -> void: _show("network")))
-	if FileAccess.file_exists(SaveGame.QUICK):
-		column.add_child(_glow_button("Load game", func() -> void:
-			var data := SaveGame.read()
-			if data.is_empty():
-				return
-			Match.load_data = data
-			_show_loading()
-			await get_tree().process_frame
-			await get_tree().process_frame
-			get_tree().change_scene_to_file("res://scenes/main.tscn")))
+	if SaveGame.any():
+		column.add_child(_glow_button("Load game", func() -> void: _show("load")))
 	column.add_child(_glow_button("Map editor", func() -> void:
 		get_tree().change_scene_to_file("res://scenes/editor.tscn")))
 	column.add_child(_glow_button(GameData.menu_text(50, "Settings"), func() -> void: _show("settings")))
@@ -306,6 +302,38 @@ func _build_settings() -> Control:
 	screen.add_child(panel)
 	panel.reset_size()
 	panel.position = Vector2(ART_SIZE.x * 0.5 - panel.get_combined_minimum_size().x * 0.5, 150)
+	return screen
+
+
+# ------------------------------------------------------------------ load game
+
+## The saved games (SaveBrowser) on a dark board over the title art; the one picked starts.
+func _build_load() -> Control:
+	var screen := Control.new()
+	screen.size = ART_SIZE
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _box(Color(0.12, 0.07, 0.03, 0.92), 4, 16))
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 10)
+	var heading := MenuStyle.label("Load game", 24)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(heading)
+	_load_browser = SaveBrowser.new(false, 0.8, func(path: String) -> void:
+		var data := SaveGame.read(path)
+		if data.is_empty():
+			_load_browser.tell("This save cannot be read")
+			return
+		Match.load_data = data
+		_show_loading()
+		await get_tree().process_frame
+		await get_tree().process_frame
+		get_tree().change_scene_to_file("res://scenes/main.tscn"),
+		func() -> void: _show("main"))
+	column.add_child(_load_browser)
+	panel.add_child(column)
+	screen.add_child(panel)
+	panel.reset_size()
+	panel.position = Vector2(ART_SIZE.x * 0.5 - panel.get_combined_minimum_size().x * 0.5, 200)  # under the title art
 	return screen
 
 

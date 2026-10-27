@@ -11,6 +11,8 @@ var _panel: Control  # the open menu (its dimmed backdrop), or null
 var _rows := {}  # the diplomacy page's rows while it is open: people -> its controls
 var _recipients := {}  # people -> true: who the diplomacy page's resource buttons send to
 var _stock: Label  # the diplomacy page's line with our stockpile
+var browser: SaveBrowser  # the save or load page while it is open
+var _picture: Image  # the game as it was when the menu opened, for a save's picture
 
 
 func _init(owner: Hud) -> void:
@@ -25,6 +27,21 @@ func toggle() -> void:
 	if _panel:
 		_close()
 		return
+	if not Net.active and Match.editor_map.is_empty():
+		_picture = SaveGame.capture(hud.get_viewport())  # the game as it was, for a save's picture
+	_open()
+
+
+## Back from a page to the menu itself (the game stays paused).
+func _back() -> void:
+	_panel.queue_free()
+	_panel = null
+	_rows.clear()
+	browser = null
+	_open()
+
+
+func _open() -> void:
 	var diplomacy := [[GameData.menu_text(58, "Diplomacy"), show_diplomacy]] if Diplomacy.negotiable else []
 	if Net.active:
 		# The others play on: no pause, and nothing to save or restart alone.
@@ -40,12 +57,8 @@ func toggle() -> void:
 		goals = [[hud.mission.text(56) if hud.mission.text(56) != "" else "Mission goals", show_goals]]
 	_panel = _menu_panel(GameData.menu_text(50, "Settings"), [
 		[GameData.menu_text(57, "Continue"), toggle]] + goals + diplomacy + [
-		["Save game (F2)", func() -> void:
-			toggle()
-			quick_save()],
-		["Load game", func() -> void:
-			toggle()
-			quick_load()],
+		["Save game", show_save],
+		["Load game", show_load],
 		["Options", show_options],
 		[GameData.menu_text(54, "Restart"), func() -> void:
 			hud.get_tree().paused = false
@@ -65,21 +78,50 @@ func _close() -> void:
 	_panel.queue_free()
 	_panel = null
 	_rows.clear()
+	browser = null
 	hud.get_tree().paused = false
 
 
+## F2: save at once as "Quicksave", over the last quick save.
 func quick_save() -> void:
-	hud.notify("Game saved" if SaveGame.save(hud.get_parent()) else "Could not save the game")
+	var saved := SaveGame.save(hud.get_parent(), SaveGame.QUICK_NAME, SaveGame.capture(hud.get_viewport()))
+	hud.notify("Game saved" if saved else "Could not save the game")
 
 
-func quick_load() -> void:
-	var data := SaveGame.read()
-	if data.is_empty():
-		hud.notify("No saved game")
-		return
-	Match.load_data = data
-	hud.get_tree().paused = false
-	hud.get_tree().reload_current_scene()
+## The save page: a name for the save (one offered: where and when), or a save to save over.
+func show_save() -> void:
+	_show_browser(SaveBrowser.new(true, hud.ui_scale, func(save_name: String) -> void:
+		if SaveGame.save(hud.get_parent(), save_name, _picture):
+			_close()
+			hud.notify("Game saved: %s" % save_name)
+		else:
+			browser.tell("Could not save the game"),
+		_back, SaveGame.default_name(hud.get_parent())), "Save game")
+
+
+## The load page: the saves, newest first; the one picked is loaded in place of this game.
+func show_load() -> void:
+	_show_browser(SaveBrowser.new(false, hud.ui_scale, func(path: String) -> void:
+		var data := SaveGame.read(path)
+		if data.is_empty():
+			browser.tell("This save cannot be read")
+			return
+		Match.load_data = data
+		hud.get_tree().paused = false
+		hud.get_tree().reload_current_scene(),
+		_back), "Load game")
+
+
+func _show_browser(page: SaveBrowser, title: String) -> void:
+	if _panel:
+		_panel.queue_free()
+	browser = page
+	_panel = _menu_panel(title, [])
+	var box: Control = _panel.get_child(0)
+	var column: VBoxContainer = box.get_child(0)
+	column.add_child(page)
+	box.reset_size()
+	box.position = hud.get_viewport().get_visible_rect().size / 2.0 - box.get_combined_minimum_size() / 2.0
 
 
 ## The mission's current goals (the script's last goal text), and below them everything the
@@ -88,9 +130,7 @@ func show_goals() -> void:
 	if _panel:
 		_panel.queue_free()
 	var mission := hud.mission
-	_panel = _menu_panel(mission.text(56) if mission.text(56) != "" else "Mission goals", [["Back", func() -> void:
-		_close()
-		toggle()]])
+	_panel = _menu_panel(mission.text(56) if mission.text(56) != "" else "Mission goals", [["Back", _back]])
 	var scale := hud.ui_scale
 	var box: Control = _panel.get_child(0)
 	var column: VBoxContainer = box.get_child(0)
@@ -149,9 +189,7 @@ func show_diplomacy() -> void:
 		_panel.queue_free()
 	_rows.clear()
 	_recipients.clear()
-	_panel = _menu_panel(GameData.menu_text(141, "Diplomacy"), [["Back", func() -> void:
-		_close()
-		toggle()]])
+	_panel = _menu_panel(GameData.menu_text(141, "Diplomacy"), [["Back", _back]])
 	var scale := hud.ui_scale
 	var size := int(16 * scale)
 	var box: Control = _panel.get_child(0)
@@ -269,9 +307,7 @@ func _light(button: Button, on: bool) -> void:
 func show_options() -> void:
 	if _panel:
 		_panel.queue_free()
-	_panel = _menu_panel("Options", [["Back", func() -> void:
-		_close()
-		toggle()]])
+	_panel = _menu_panel("Options", [["Back", _back]])
 	var box: Control = _panel.get_child(0)
 	var column: VBoxContainer = box.get_child(0)
 	var rows := SettingsPanel.create(int(16 * hud.ui_scale), 190 * hud.ui_scale)

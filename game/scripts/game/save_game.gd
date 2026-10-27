@@ -4,14 +4,75 @@ extends RefCounted
 ## match settings, each people's stockpile, research and AI progress, every building and
 ## field, what is left of the trees and mines, every unit, and the explored map. Loading
 ## builds the map as usual, then replaces everything that can change with the saved state.
+##
+## Each save has a name the player gives it and a file of its own (the name in lower case,
+## made safe for a file name); F2 saves as "Quicksave". The file's first line is a small
+## header (the name, when it was saved, where, how long it had been played, a little picture),
+## so the list of saves reads only that; the second line is the game. A save from before the
+## header (one line, the game alone) still lists and loads.
 
 const DIR := "user://saves"
-const QUICK := "user://saves/quicksave.json"
+const QUICK_NAME := "Quicksave"
 const VERSION := 1
+const THUMBNAIL_SIZE := Vector2i(192, 108)
 
 
-static func save(main: Node, path := QUICK) -> bool:
-	DirAccess.make_dir_recursive_absolute(DIR)
+## Where the saves are kept: --save-dir=<folder>, else user://saves. Developer runs
+## (--scenario, --menu-shot) keep theirs apart, so they never touch the player's own.
+static func folder() -> String:
+	var given := GameData.cmdline_option("save-dir")
+	if given != "":
+		return given
+	if GameData.cmdline_option("scenario") != "" or GameData.cmdline_option("menu-shot") != "":
+		return "user://saves_test"
+	return DIR
+
+
+## The file a save of this name goes to (the same file for names differing only in case).
+static func path_for(save_name: String) -> String:
+	var file := save_name.strip_edges().to_lower().validate_filename()
+	return folder().path_join((file if file != "" else "save") + ".json")
+
+
+## A name to offer for a new save: where it is played and when.
+static func default_name(main: Node) -> String:
+	var now := Time.get_datetime_dict_from_system()
+	return "%s %04d-%02d-%02d %02d.%02d" % [place(main), now.year, now.month, now.day, now.hour, now.minute]
+
+
+## The mission's title, or the map's (as the skirmish menu lists it).
+static func place(main: Node) -> String:
+	if main.mission and not Match.campaign.is_empty():
+		return Campaign.title(Match.campaign)
+	return _map_title(main.map_path)
+
+
+static func _map_title(map_path: String) -> String:
+	var base := map_path.get_file().get_basename()
+	return base.get_slice("] - ", 1).capitalize() if base.contains("] - ") else base
+
+
+## A small picture of the game view for a save's header, or null (headless, no frame yet):
+## the middle of the screen, without the interface along its edges.
+static func capture(viewport: Viewport) -> Image:
+	if DisplayServer.get_name() == "headless":
+		return null
+	var frame := viewport.get_texture().get_image()
+	if frame == null or frame.is_empty():
+		return null
+	var size := Vector2(frame.get_size())
+	var picture := frame.get_region(Rect2i(Vector2i(size * Vector2(0.18, 0.1)), Vector2i(size * 0.64)))
+	picture.resize(THUMBNAIL_SIZE.x, THUMBNAIL_SIZE.y, Image.INTERPOLATE_BILINEAR)
+	return picture
+
+
+## Save the match as `save_name` (to path_for(save_name)), with a picture for the list.
+static func save(main: Node, save_name := QUICK_NAME, picture: Image = null) -> bool:
+	var path := path_for(save_name)
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	var header := {"name": save_name.strip_edges(), "saved": int(Time.get_unix_time_from_system()),
+			"place": place(main), "game_time": main.game_time,
+			"thumbnail": Marshalls.raw_to_base64(picture.save_png_to_buffer()) if picture else ""}
 	var data := {
 		"version": VERSION, "map": main.map_path, "biome": main.terrain.biome, "game_time": main.game_time,
 		"tick": Sim.tick, "rng": str(Sim.rng.state),  # the game's clock and randomness (Sim), to carry on alike
@@ -62,15 +123,78 @@ static func save(main: Node, path := QUICK) -> bool:
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		return false
+	file.store_line(JSON.stringify({"header": header}))
 	file.store_string(JSON.stringify(data))
 	return true
 
 
-static func read(path := QUICK) -> Dictionary:
-	if not FileAccess.file_exists(path):
+## The game saved in a file (path_for; none given: the quick save), or empty when there is
+## none or it cannot be read.
+static func read(path := "") -> Dictionary:
+	if path == "":
+		path = path_for(QUICK_NAME)
+	var file := FileAccess.open(path, FileAccess.READ) if FileAccess.file_exists(path) else null
+	if file == null:
 		return {}
-	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
+	var parsed = JSON.parse_string(file.get_line())
+	if parsed is Dictionary and parsed.has("header"):
+		parsed = JSON.parse_string(file.get_line())
 	return parsed if parsed is Dictionary and int(parsed.get("version", 0)) == VERSION else {}
+
+
+## The saves there are, newest first: {"path", "name", "saved" (Unix time), "place",
+## "game_time", "thumbnail" (an Image or null)}. Only the headers are read; a save from
+## before them is read whole and named after its file.
+static func list() -> Array[Dictionary]:
+	var saves: Array[Dictionary] = []
+	for file in _files():
+		var entry := _entry(folder().path_join(file))
+		if not entry.is_empty():
+			saves.append(entry)
+	saves.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return a.saved > b.saved if a.saved != b.saved else a.name.naturalnocasecmp_to(b.name) < 0)
+	return saves
+
+
+## Whether there is a save to load (without reading any).
+static func any() -> bool:
+	return not _files().is_empty()
+
+
+static func _files() -> Array:
+	if not DirAccess.dir_exists_absolute(folder()):
+		return []
+	return Array(DirAccess.get_files_at(folder())).filter(func(file: String) -> bool: return file.get_extension() == "json")
+
+
+static func _entry(path: String) -> Dictionary:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed = JSON.parse_string(file.get_line())
+	if not parsed is Dictionary:
+		return {}
+	var header: Dictionary = parsed.get("header", {})
+	if header.is_empty():  # an old save: the game alone
+		if int(parsed.get("version", 0)) != VERSION:
+			return {}
+		var campaign = parsed.get("campaign", {})
+		header = {"name": path.get_file().get_basename().capitalize(), "saved": FileAccess.get_modified_time(path),
+				"place": Campaign.title(campaign) if campaign is Dictionary and not campaign.is_empty() \
+					else _map_title(String(parsed.get("map", ""))),
+				"game_time": parsed.get("game_time", 0.0)}
+	var picture: Image = null
+	if String(header.get("thumbnail", "")) != "":
+		picture = Image.new()
+		if picture.load_png_from_buffer(Marshalls.base64_to_raw(header.thumbnail)) != OK:
+			picture = null
+	return {"path": path, "name": String(header.get("name", "")), "saved": int(header.get("saved", 0)),
+			"place": String(header.get("place", "")), "game_time": float(header.get("game_time", 0.0)),
+			"thumbnail": picture}
+
+
+static func delete(path: String) -> bool:
+	return DirAccess.remove_absolute(path) == OK
 
 
 ## Bring a freshly set-up match (map, terrain, forests, players) to the saved state.

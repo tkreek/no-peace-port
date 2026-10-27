@@ -139,6 +139,83 @@ func _scenario_saveload() -> void:
 	get_tree().quit()
 
 
+## Named saves through the game menu's pages: an old one-line quick save still listed, a
+## name offered, saving under a typed name, saving over a picked save (asked first), the list
+## newest first, deleting one, and loading the one picked.
+func _scenario_savelist() -> void:
+	var menu: GameMenu = main.hud.menu
+	if main.loaded_game:
+		await get_tree().create_timer(1.0).timeout
+		print("after:  %s" % _snapshot())
+		get_tree().quit()
+		return
+	for file in SaveGame._files():
+		SaveGame.delete(SaveGame.folder().path_join(file))
+	await get_tree().create_timer(2.0).timeout
+	SaveGame.save(main)  # the quick save, as saves were before they had a header
+	var old := JSON.stringify(SaveGame.read())
+	FileAccess.open(SaveGame.path_for(SaveGame.QUICK_NAME), FileAccess.WRITE).store_string(old)
+	await get_tree().create_timer(1.1).timeout
+	menu.toggle()
+	menu.show_save()
+	print("offered: %s" % menu.browser.save_name())
+	menu.browser.set_save_name("Fort by the river")
+	menu.browser._press_go()
+	print("saved: menu closed %s, file %s" % [not menu.is_open(), FileAccess.file_exists(SaveGame.path_for("fort by the river"))])
+	await get_tree().create_timer(1.1).timeout
+	menu.toggle()
+	menu.show_save()
+	menu.browser.set_save_name("Second try")
+	menu.browser._press_go()
+	await get_tree().create_timer(1.1).timeout
+	menu.toggle()
+	menu.show_save()
+	var page := menu.browser
+	page.select(page.saves().map(func(s: Dictionary) -> String: return s.name).find("Fort by the river"))
+	print("before: %s" % _snapshot())
+	page._press_go()
+	print("overwrite asked %s: %s" % [page.asking(), page._status.text])
+	page._confirm.get_child(0).pressed.emit()  # Yes
+	menu.toggle()
+	menu.show_load()
+	page = menu.browser
+	print("listed: %s" % " | ".join(page.saves().map(func(s: Dictionary) -> String: return s.name)))
+	print("places: %s" % " | ".join(page.saves().map(func(s: Dictionary) -> String: return s.place)))
+	page.select(1)
+	page._press_delete()
+	page._confirm.get_child(0).pressed.emit()
+	print("after delete: %s" % " | ".join(page.saves().map(func(s: Dictionary) -> String: return s.name)))
+	page.select(0)
+	page._press_go()
+
+
+## The game menu's save page with a few saves (each with its picture) for a screenshot:
+## --scenario=savepage --screenshot=<png> --frames=1200; --page=load for the load page,
+## --page=overwrite for the question before saving over a save.
+func _scenario_savepage() -> void:
+	for file in SaveGame._files():
+		SaveGame.delete(SaveGame.folder().path_join(file))
+	var start := main.camera.position
+	var names := ["Quicksave", "Before the attack", "First fort"]
+	for i in names.size():
+		main.camera.position = start + Vector2(-500 + 450 * i, 200 * (i % 2))
+		for f in 20:
+			await get_tree().process_frame
+		SaveGame.save(main, names[i], SaveGame.capture(get_viewport()))
+		await get_tree().create_timer(1.1).timeout
+	main.camera.position = start
+	for f in 10:
+		await get_tree().process_frame
+	main.hud.toggle_menu()
+	if GameData.cmdline_option("page") == "load":
+		main.hud.menu.show_load()
+	else:
+		main.hud.menu.show_save()
+	if GameData.cmdline_option("page") == "overwrite":
+		main.hud.menu.browser.select(1)
+		main.hud.menu.browser._press_go()
+
+
 ## Formations, patrol, follow and a rally point, with positions printed as they play out.
 func _scenario_orders() -> void:
 	var hq: MapObject = null

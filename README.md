@@ -32,6 +32,28 @@ The current focus is to define the product shape, legal boundaries, technical di
 - `tools/` - custom scripts, importers, exporters, and project utilities.
 - `server/` - the dedicated multiplayer server's systemd unit and setup guide (`tools/build_server.sh` packs it).
 
+## Getting the Assets
+
+The game reads its art, sound, maps and data tables from an `assets/` folder that is not in
+this repository. Either:
+
+- **Download the asset pack** (ask the project owner for the Google Drive link), then unzip
+  `no-peace-port-assets.zip` in the root of your checkout. The zip already contains the
+  `assets/` folder, so you end up with `no-peace-port/assets/data/`, `no-peace-port/assets/units/`
+  and so on, next to `game/` and `tools/`:
+
+  ```sh
+  cd no-peace-port
+  unzip ~/Downloads/no-peace-port-assets.zip
+  ```
+
+- **Or build it** from your own installation of the original game with
+  `tools/assets/build_assets.py`.
+
+To keep the folder somewhere else, run the game with `--assets-dir=<folder>`, or set
+`assets_dir` under `[paths]` in `user://settings.cfg`. Don't commit the asset folder
+(it is gitignored) or share the zip publicly.
+
 ## First Target
 
 Build a vertical slice with:

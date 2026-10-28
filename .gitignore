@@ -43,3 +43,6 @@ tools/.venv/
 
 # Copies of original sounds to listen to (proprietary, not versioned).
 /sound_review/
+
+# The map editor's saves: share a map with tools/assets/patch_assets.py capture.
+/maps/

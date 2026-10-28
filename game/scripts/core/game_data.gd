@@ -39,7 +39,7 @@ func _ready() -> void:
 		has_expansion = exists("data/defaults.json")
 		_load_tables()
 	elif not cmdline_flag("dedicated"):  # a dedicated server (Net) plays no game
-		push_error("No asset folder at '%s'. Build it with tools/assets/build_assets.py or pass --assets-dir=<folder>." % assets_dir)
+		push_error("No asset folder at '%s'. Unzip the asset pack into the project folder (see README.md) or pass --assets-dir=<folder>." % assets_dir)
 
 
 func is_ready() -> bool:

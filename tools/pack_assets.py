@@ -121,7 +121,8 @@ def main() -> None:
     source_root, target_root = args
     radius = bleeds[-1] if bleeds else 8
     jobs = []
-    for folder, _, files in os.walk(source_root, followlinks=True):
+    for folder, dirs, files in os.walk(source_root, followlinks=True):
+        dirs[:] = [d for d in dirs if not d.startswith(".")]  # .pristine/ (tools/assets/patch_assets.py)
         rel = os.path.relpath(folder, source_root)
         out = os.path.join(target_root, rel)
         os.makedirs(out, exist_ok=True)

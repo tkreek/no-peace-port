@@ -35,24 +35,67 @@ The current focus is to define the product shape, legal boundaries, technical di
 ## Getting the Assets
 
 The game reads its art, sound, maps and data tables from an `assets/` folder that is not in
-this repository. Either:
+this repository. Ask the project owner for the asset pack's Google Drive link, then unzip
+`no-peace-port-assets.zip` in the root of your checkout and apply the project's edits:
 
-- **Download the asset pack** (ask the project owner for the Google Drive link), then unzip
-  `no-peace-port-assets.zip` in the root of your checkout. The zip already contains the
-  `assets/` folder, so you end up with `no-peace-port/assets/data/`, `no-peace-port/assets/units/`
-  and so on, next to `game/` and `tools/`:
+```sh
+cd no-peace-port
+unzip ~/Downloads/no-peace-port-assets.zip   # makes assets/ next to game/ and tools/
+tools/assets/patch_assets.py apply
+```
 
-  ```sh
-  cd no-peace-port
-  unzip ~/Downloads/no-peace-port-assets.zip
-  ```
+To keep the folder somewhere else, run the game with `--assets-dir=<folder>` (or set
+`assets_dir` under `[paths]` in `user://settings.cfg`) and pass the same folder to
+`patch_assets.py --assets <folder>`.
 
-- **Or build it** from your own installation of the original game with
-  `tools/assets/build_assets.py`.
+## Editing Assets
 
-To keep the folder somewhere else, run the game with `--assets-dir=<folder>`, or set
-`assets_dir` under `[paths]` in `user://settings.cfg`. Don't commit the asset folder
-(it is gitignored) or share the zip publicly.
+The asset pack is a fixed base that nobody commits. Every change to it lives in
+`asset_patches/`, which is version controlled, laid out like `assets/`:
+
+- `data/<table>.patch.json` changes a table: only the values that differ from the pack.
+  `data/object_types.json` is patched per object id, so two people changing different units
+  don't conflict.
+- Any other file (a new map, a new picture or sound) is copied in, adding it or replacing
+  the pack's file.
+
+`tools/assets/patch_assets.py apply` puts the patches on top of the pack. It keeps the pack's
+originals in `assets/.pristine/`, so applying again after a patch changes or disappears gives
+the same result as a fresh unzip.
+
+Workflow:
+
+1. `git pull`, then `tools/assets/patch_assets.py apply`, after every pull and before you edit.
+2. Edit tables in `assets/` (or make maps in the map editor, which saves to `maps/`).
+3. `tools/assets/patch_assets.py capture assets/data/defs.json "maps/[2 Players] - my map.ulf"`
+   turns the edits into files in `asset_patches/`. `patch_assets.py status` lists anything
+   edited but not captured.
+4. Commit `asset_patches/` on a branch and open a pull request. The diff shows exactly what
+   changed.
+
+Best practice:
+
+- **Capture before you apply.** `apply` refuses to overwrite a hand edit it hasn't
+  captured, and `--force` throws the edit away.
+- **Put new or replacement pictures and sounds straight into `asset_patches/`** and run
+  `apply`, rather than overwriting the file in `assets/`. A file overwritten in place loses
+  its original, and only a fresh unzip brings it back.
+- **Small patches, one topic per pull request.** Never commit whole tables or anything from
+  the pack. Only commit your own work.
+- **Pictures don't merge.** Before reworking a picture someone else is working on, agree
+  who has it. If binaries get large, move `asset_patches/` to Git LFS.
+- **Never commit or share `assets/` or the zip publicly.** Share the Drive link only with
+  named people.
+
+### Making the asset pack (project owner)
+
+The pack is built from the original game with `tools/assets/build_assets.py`, which also
+applies `asset_patches/`. Make the zip without the patches, so everyone shares the same base,
+and upload it again whenever the base changes:
+
+```sh
+tools/assets/patch_assets.py zip build/no-peace-port-assets.zip
+```
 
 ## First Target
 

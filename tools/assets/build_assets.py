@@ -35,6 +35,7 @@ import os
 import re
 import shutil
 import struct
+import subprocess
 import sys
 import zlib
 
@@ -830,6 +831,9 @@ def main():
     parser.add_argument("--out", default=os.path.join(ROOT, "assets"))
     args = parser.parse_args()
     Builder(args.original, args.out).build()
+    # The project's committed edits on top (tools/assets/patch_assets.py); its zip command
+    # packs the folder without them, for sharing.
+    subprocess.run([sys.executable, os.path.join(HERE, "patch_assets.py"), "apply", "--assets", args.out], check=True)
 
 
 if __name__ == "__main__":

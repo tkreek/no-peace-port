@@ -1,36 +1,31 @@
-# Frontier RTS Remake
+# America Remastered
 
-Working title for a modern cross-platform RTS inspired by early-2000s frontier strategy games.
+A 2D engine, built in Godot 4, that plays *America: No Peace Beyond the Line* (Related
+Designs, 2000) and its expansion with the original art and sound, upscaled. The game's assets
+are not in this repository: you get them as a separate asset pack (below).
 
-This repository is being scaffolded as a clean-room, modern remake/spiritual successor project. The goal is to build a real-time strategy game that runs on macOS and Windows, supports modern displays and hardware, and improves animation, rendering, UI, AI, and tooling.
+## Status
 
-## Current Phase
+- **Skirmish**: all 71 maps, the four peoples (Americans, Mexicans, Native Americans,
+  Outlaws), up to seven computer opponents, teams and diplomacy, fog of war, saving and
+  loading.
+- **Multiplayer**: lockstep over the network; a player hosts from the menu, or everyone
+  joins a dedicated server (`server/`).
+- **Map editor**: terrain painting, objects, start points; saves to `maps/`.
+- **Campaign**: the menus, briefings and mission scripts run, but the missions' own computer
+  players don't move yet.
 
-Phase 0: planning and prototype setup.
+What is still missing, and the values that had to be guessed, are in
+[`docs/production/open-work.md`](docs/production/open-work.md).
 
-The current focus is to define the product shape, legal boundaries, technical direction, and first vertical slice before committing to a full content build.
+## Quick Start
 
-## Guiding Goals
+1. Install Godot 4.7 or newer.
+2. Get the asset pack and apply the project's edits (see "Getting the Assets").
+3. Run `godot --path game`.
 
-- Cross-platform desktop support for macOS and Windows.
-- Modern RTS controls: selection, control groups, camera, minimap, command queues, and contextual commands.
-- Higher-quality 3D animation and effects than the historical reference point.
-- Scalable visuals for higher-end GPUs while keeping broad hardware support in mind.
-- Data-driven units, buildings, resources, upgrades, and mission scripting.
-- A playable vertical slice before large-scale content production.
-
-## Project Layout
-
-- `docs/design/` - gameplay, factions, economy, units, campaigns, and UX direction.
-- `docs/technical/` - engine evaluation, architecture, performance, platform, and build notes.
-- `docs/production/` - roadmap, milestones, backlog, asset pipeline, and team workflows.
-- `docs/legal/` - IP, licensing, clean-room, and naming guidance.
-- `docs/research/` - notes from studying historical RTS patterns and reference material.
-- `game/` - future engine project source.
-- `assets/` - source art, audio, animation, and reference assets.
-- `prototypes/` - throwaway experiments and technical spikes.
-- `tools/` - custom scripts, importers, exporters, and project utilities.
-- `server/` - the dedicated multiplayer server's systemd unit and setup guide (`tools/build_server.sh` packs it).
+Controls, command-line options, the map editor and the code layout are in
+[`game/README.md`](game/README.md).
 
 ## Getting the Assets
 
@@ -97,19 +92,31 @@ and upload it again whenever the base changes:
 tools/assets/patch_assets.py zip build/no-peace-port-assets.zip
 ```
 
-## First Target
+## Project Layout
 
-Build a vertical slice with:
+- `game/`: the Godot project (the engine, interface, AI, map editor).
+- `asset_patches/`: the project's edits to the asset pack (see "Editing Assets").
+- `tools/`: the asset pipeline (`tools/assets/`), test runner (`check_scenarios.py`), and
+  game and server build scripts (`build_game.sh`, `build_server.sh`).
+- `server/`: the dedicated multiplayer server's systemd unit and setup guide.
+- `docs/`: file formats, mission scripting and AI notes (`technical/`), open work and
+  playtesting (`production/`), design notes (`design/`).
+- `prototypes/godot-3d/`: the earlier 3D prototype, archived.
+- Not in the repository: `assets/` (the asset pack), `maps/` (the map editor's saves),
+  `build/` (build output).
 
-- One small skirmish map.
-- One playable faction.
-- Three units: worker, ranged fighter, mounted or melee fighter.
-- Three buildings: command center, barracks, resource drop-off.
-- Two resources.
-- Core RTS camera, selection, movement, gathering, building placement, unit training, and combat.
-- One basic enemy AI.
+## Checks
+
+```sh
+python3 tools/check_scenarios.py
+```
+
+This runs every test scenario headless (about seven minutes) and checks the rules, the
+interface, saving and loading, and a six-player AI game. Run it before opening a pull
+request that changes game code.
 
 ## Legal Note
 
-This repository should not contain ripped assets, original game data, proprietary art, proprietary audio, copied maps, copied scripts, or trademarked branding unless explicit rights are obtained.
-
+No files from the original game (executables, archives, art, sound, maps, text) go in this
+repository. The asset pack is made from the project owner's copy and shared privately, only
+with named collaborators.

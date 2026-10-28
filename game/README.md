@@ -2,24 +2,23 @@
 
 A 2D engine that plays *America: No Peace Beyond the Line* (Related Designs, 2000) with its
 art and sound, upscaled. The game reads everything from an asset folder (`assets/`, beside
-`game/`) that is built from your own copy of the original game; no original assets are in
-this repository.
+`game/`), which comes as a separate asset pack; no original assets are in this repository.
 
 ## Setup
 
 1. Install Godot 4.7+.
-2. Get the asset folder, either:
-   - from someone who has built it: put the `assets/` folder beside `game/` (or anywhere,
-     and start with `--assets-dir=<folder>` or set `[paths] assets_dir` in
-     `user://settings.cfg`), or
-   - by building it (below).
+2. Get the asset folder: unzip the asset pack in the project folder and run
+   `tools/assets/patch_assets.py apply` (see "Getting the Assets" in the top-level
+   README.md). To keep it elsewhere, start with `--assets-dir=<folder>` or set
+   `[paths] assets_dir` in `user://settings.cfg`.
 3. Run `godot --path game`. The game opens on the main menu: "Skirmish" picks a map (all
    71), your people and up to seven computer opponents; "Map editor" builds maps. Esc in a
    game opens the in-game menu.
 
-## Building the assets
+## Building the assets (project owner)
 
-From the original CD and the expansion pack:
+How the asset pack is made, from the original CD and the expansion pack. Everyone else uses
+the pack.
 
 1. Extract the game into `original/install` (and the expansion's `Setup/data1.cab` into
    `original/expansion/install`):

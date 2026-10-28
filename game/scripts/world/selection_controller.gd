@@ -166,19 +166,19 @@ func _unhandled_input(event: InputEvent) -> void:
 					_select(_units_in(Rect2(_drag_start, world - _drag_start).abs()), event.shift_pressed)
 				elif _double:
 					# Double-click: every unit of that kind on screen.
-					var unit := _unit_at(world)
+					var unit := _clicked_unit(world, true, event.shift_pressed)
 					if unit:
 						var view := get_viewport().get_canvas_transform().affine_inverse() * get_viewport().get_visible_rect()
 						_select(_units(true).filter(func(u: Unit) -> bool:
 							return u.unit_type == unit.unit_type and view.has_point(u.position)), event.shift_pressed)
 				else:
-					var unit := _unit_at(world)
+					var unit := _clicked_unit(world, true, event.shift_pressed)
 					if unit == null and not event.shift_pressed:
-						unit = _foreign_unit_at(world)  # an enemy or an animal, to look at
+						unit = _clicked_unit(world, false, false)  # an enemy or an animal, to look at
 					if unit == null and not event.shift_pressed:
-						var building := _building_at(world)
+						var building := _clicked_building(world)
 						if building == null:
-							building = _object_at(world)  # enemy buildings, mines, trees, fields
+							building = _resource_at(world)  # mines, trees, fields
 						if building:
 							select_building(building)
 							return
@@ -551,9 +551,7 @@ func _unit_at(point: Vector2, own := true) -> Unit:
 func _foreign_unit_at(point: Vector2) -> Unit:
 	var best: Unit = null
 	var best_distance := CLICK_RADIUS
-	for unit in Unit.all_units:
-		if unit.team == player_team or not unit.is_alive() or unit.fogged or unit.inside or not unit.visible:
-			continue
+	for unit in _foreign_units():
 		var distance := point.distance_to(unit.position + Vector2(0, -20))
 		if distance >= CLICK_RADIUS and unit.hit(point):
 			distance = CLICK_RADIUS - 0.5
@@ -563,6 +561,12 @@ func _foreign_unit_at(point: Vector2) -> Unit:
 	return best
 
 
+## Everyone not ours that can be seen and clicked: enemies in sight, animals.
+func _foreign_units() -> Array[Unit]:
+	return Unit.all_units.filter(func(u: Unit) -> bool:
+		return u.team != player_team and u.is_alive() and not u.fogged and not u.inside and u.visible)
+
+
 ## Whether the selection is ours to command (not an enemy or animal being looked at).
 func is_own_selection() -> bool:
 	return selection.all(func(u: Unit) -> bool: return not is_instance_valid(u) or u.team == player_team)
@@ -570,6 +574,27 @@ func is_own_selection() -> bool:
 
 func _building_at(point: Vector2) -> MapObject:
 	return _front_most(point, func(o: MapObject) -> bool: return o.is_building() and o.owner_index == player_team)
+
+
+## The building a left click picks: the front-most one whose picture or outline is under
+## the cursor, ours or anyone's still standing.
+func _clicked_building(point: Vector2) -> MapObject:
+	return _front_most(point, func(o: MapObject) -> bool:
+		return o.is_building() and (o.owner_index == player_team or o.is_alive()))
+
+
+## The unit a left click picks (ours, or `own` false: an enemy or animal). Units are small,
+## so one near the click counts, but over a building only one whose picture is under the
+## cursor does (drawn over the building, or showing through it): the rest are behind or
+## beside it, and the click is meant for the building. With Shift only units are picked.
+func _clicked_unit(point: Vector2, own: bool, shift: bool) -> Unit:
+	var unit := _unit_at(point) if own else _foreign_unit_at(point)
+	if unit == null or shift or unit.hit(point) or _clicked_building(point) == null:
+		return unit
+	for other: Unit in _units(true) if own else _foreign_units():
+		if other.hit(point):
+			return other
+	return null
 
 
 ## The object under the cursor that passes `test`, judged by its picture; when pictures
@@ -594,13 +619,6 @@ func select_building(building: MapObject) -> void:
 	else:
 		# An unfinished building answers a click with its construction sound.
 		Sound.play_event(building.guid, Sound.Event.SELECT if building.complete else Sound.Event.BUILD)
-
-
-## Something to look at that isn't ours: an enemy building in sight or a resource.
-func _object_at(point: Vector2) -> MapObject:
-	var enemy := _front_most(point, func(o: MapObject) -> bool:
-		return o.is_building() and o.owner_index != player_team and o.is_alive())
-	return enemy if enemy else _resource_at(point)
 
 
 ## Select exactly these units (e.g. from the HUD's group portraits).

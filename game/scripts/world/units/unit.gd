@@ -77,6 +77,10 @@ var _released := false  # the shot of this attack has left early (UnitType.relea
 var _cooldown := 0.0
 var _scan_timer := Sim.randf() * SCAN_INTERVAL
 var _last_repath := 0
+var _chased := 0  # instance id of what the chase's last path was found to (_chase)
+var _chased_at := Vector2.ZERO  # where it stood then
+var _chased_cells := Vector4i(-1, -1, -1, -1)  # own cell and its then
+var _chased_grid := -1  # NavGrid.footprints_changed then
 var _corpse_timer := 0.0
 var _remains: UnitRemains
 
@@ -731,10 +735,10 @@ func _update_attack(delta: float) -> void:
 				state = State.IDLE
 			return
 	if to_target.length() > attack_range():
-		var now := Sim.msec()
-		if path.is_empty() or now - _last_repath > REPATH_MS:
-			_last_repath = now
-			path = find_path(target.position)
+		if not _chase():
+			target = null  # as close as it gets (behind a wall, over the water): stop there
+			state = State.IDLE
+			return
 		follow_path(delta)
 		play("walk")
 		return
@@ -879,6 +883,32 @@ func find_path(destination: Vector2) -> PackedVector2Array:
 	if NavGrid.current:
 		return NavGrid.current.find_path(position, destination, water.nav_layer() if NavGrid.current.has_water else NavGrid.Layer.GROUND)
 	return PackedVector2Array([destination])
+
+
+## Keep the way to the target of an attack: found again once the target has moved (the
+## farther off it is, the farther it must have gone) and at most every REPATH_MS, so a
+## crowd chasing something far away does not search the map over and over. False once
+## the unit is as close as it can get and neither it, the target nor the ground has
+## changed since: the target is out of reach.
+func _chase() -> bool:
+	var here := Vector2i((position / NavGrid.CELL).floor())
+	var there := Vector2i((target.position / NavGrid.CELL).floor())
+	var cells := Vector4i(here.x, here.y, there.x, there.y)
+	var grid := NavGrid.current.footprints_changed if NavGrid.current else 0
+	if _chased == target.get_instance_id():
+		if path.is_empty():
+			if cells == _chased_cells and grid == _chased_grid:
+				return false
+		elif Sim.msec() - _last_repath <= REPATH_MS \
+				or target.position.distance_to(_chased_at) < maxf(NavGrid.CELL, position.distance_to(target.position) / 4.0):
+			return true
+	_chased = target.get_instance_id()
+	_chased_at = target.position
+	_chased_cells = cells
+	_chased_grid = grid
+	_last_repath = Sim.msec()
+	path = find_path(target.position)
+	return true
 
 
 func follow_path(delta: float) -> void:

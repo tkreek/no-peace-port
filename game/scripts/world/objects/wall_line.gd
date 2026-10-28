@@ -26,6 +26,15 @@ static func is_wall(guid: int) -> bool:
 	return false
 
 
+## A wall's straight piece: placed only as part of a wall dragged out from its corner (the
+## build menu offers the corner alone, as the original's does).
+static func is_straight(guid: int) -> bool:
+	for pieces: Array in PIECES.values():
+		if guid in pieces.slice(1):
+			return true
+	return false
+
+
 ## The pieces of a wall from `from` to `to` for the people who build `corner_guid`: the
 ## longer diagonal first, then (if `to` is off it) a turn onto the other. Each entry is
 ## {type_id, position}, in building order. A single corner when the two are close.

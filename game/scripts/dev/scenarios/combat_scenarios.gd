@@ -575,6 +575,18 @@ func _scenario_disarm() -> void:
 ## (the build controller's own drag) puts down a closed diamond of pieces; finished, it
 ## keeps a soldier inside in and one outside out (--faction=usa, mex or des).
 func _scenario_wall() -> void:
+	# The build menus offer the wall once (its corner), to be dragged out from there.
+	var builders := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 1 and n.unit_type.anim_index("build") >= 0)
+	main.selection._select(builders, false)
+	var offered := []
+	for menu in ["basic", "expanded"]:
+		main.hud.commands.open_build_menu(menu)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		offered.append(main.hud.commands.grid.get_children().filter(func(b: Node) -> bool:
+				return WallLine.is_wall(b.get_meta("guid", -1))).map(func(b: Node) -> int: return b.get_meta("guid")))
+	print("wall buttons: basic %s, expanded %s" % offered)
+	main.selection._select([], false)
 	var n := 6
 	var walls := await _wall_diamond(n)
 	var centre: Vector2 = walls[0]
@@ -593,6 +605,43 @@ func _scenario_wall() -> void:
 	print("wall: planned %d pieces, built %d (%s), all walls %s; inside stays in %s, outside stays out %s" % [
 			planned, pieces.size(), pieces[0].display_name() if not pieces.is_empty() else "-",
 			pieces.all(func(o: MapObject) -> bool: return o.complete), within.call(inside), not within.call(outside)])
+	# Dragged out with the mouse from the menu's button: press, drag five pieces, let go.
+	main.selection._select(builders, false)
+	main.hud.commands.open_build_menu("expanded")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	for b: Node in main.hud.commands.grid.get_children():
+		if WallLine.is_wall(b.get_meta("guid", -1)):
+			b.pressed.emit()
+	var from := centre + Vector2(-WallLine.STEP_LEFT.x * 2, WallLine.STEP_LEFT.y * (n + 6))
+	main.camera.position = from + WallLine.STEP_LEFT * 2.5
+	main.hud.root.visible = false
+	for i in 3:
+		await get_tree().process_frame
+	var sites := func() -> int: return MapObject.structures.filter(func(o: MapObject) -> bool:
+			return o.owner_index == 1 and WallLine.is_wall(o.guid) and not o.complete).size()
+	var before: int = sites.call()
+	for step in [[from, true], [from + WallLine.STEP_LEFT * 5, true], [from + WallLine.STEP_LEFT * 5, false]]:
+		var at: Vector2 = main.get_viewport().get_canvas_transform() * step[0]
+		var motion := InputEventMouseMotion.new()
+		motion.position = at
+		motion.global_position = at
+		Input.parse_input_event(motion)
+		Input.flush_buffered_events()
+		main.get_viewport().warp_mouse(at)
+		await get_tree().process_frame
+		if step == [from, true] or not step[1]:
+			var press := InputEventMouseButton.new()
+			press.button_index = MOUSE_BUTTON_LEFT
+			press.pressed = step[1]
+			press.position = at
+			press.global_position = at
+			Input.parse_input_event(press)
+			Input.flush_buffered_events()
+		await get_tree().process_frame
+	for i in 3:
+		await get_tree().process_frame
+	print("wall dragged: %d pieces placed" % (sites.call() - before))
 	get_tree().quit()
 
 

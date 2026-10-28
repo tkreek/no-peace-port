@@ -168,8 +168,8 @@ func refresh() -> void:
 ## way back.
 func _add_build_menu() -> void:
 	for guid in _faction_guids("structure"):
-		if guid == MapObject.FIELD_GUID or (guid in EXPANDED_STRUCTURES) != (build_menu == "expanded") \
-				or not MapRules.allows(hud.player.index, guid):
+		if guid == MapObject.FIELD_GUID or WallLine.is_straight(guid) \
+				or (guid in EXPANDED_STRUCTURES) != (build_menu == "expanded") or not MapRules.allows(hud.player.index, guid):
 			continue
 		var type_id := GameData.type_for_guid(guid, hud.biome)
 		if type_id >= 0:

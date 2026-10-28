@@ -124,9 +124,9 @@ CHECKS = {
     "scoutdisarm_militiaman": (["--faction=mex", "--disarmer=261"], 0, [r"disarm by \w[\w ]*: can true, butcher animation true, trap gone true after [345]\.\d s, alive true"]),
     "scoutdisarm_hunter": (["--faction=des", "--disarmer=358"], 0, [r"disarm by \w[\w ]*: can true, butcher animation true, trap gone true after [345]\.\d s, alive true"]),
     "scoutdisarm_archer": (["--faction=ind", "--disarmer=156"], 0, [r"disarm by \w[\w ]*: can true, butcher animation true, trap gone true after [345]\.\d s, alive true"]),
-    "wall_usa": (["--faction=usa"], 0, [r"wall: planned 26 pieces, built 24 \(\w+\), all walls true; inside stays in true, outside stays out true"]),
-    "wall_mex": (["--faction=mex"], 0, [r"wall: planned 26 pieces, built 24 \(\w+\), all walls true; inside stays in true, outside stays out true"]),
-    "wall_des": (["--faction=des"], 0, [r"wall: planned 26 pieces, built 24 \(\w+\), all walls true; inside stays in true, outside stays out true"]),
+    "wall_usa": (["--faction=usa"], 0, [r"wall buttons: basic \[\], expanded \[\d+\]\n", r"wall dragged: 6 pieces placed", r"wall: planned 26 pieces, built 24 \(\w+\), all walls true; inside stays in true, outside stays out true"]),
+    "wall_mex": (["--faction=mex"], 0, [r"wall buttons: basic \[\], expanded \[\d+\]\n", r"wall dragged: 6 pieces placed", r"wall: planned 26 pieces, built 24 \(\w+\), all walls true; inside stays in true, outside stays out true"]),
+    "wall_des": (["--faction=des"], 0, [r"wall buttons: basic \[\], expanded \[\d+\]\n", r"wall dragged: 6 pieces placed", r"wall: planned 26 pieces, built 24 \(\w+\), all walls true; inside stays in true, outside stays out true"]),
     # Attacking round barriers (game/scripts/dev/scenarios/combat_scenarios.gd): assassins sent
     # at an enemy walled in stop outside the wall; sent the long way round the water, the
     # squad shares one search instead of each searching again and again.

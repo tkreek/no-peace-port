@@ -8,6 +8,7 @@ Usage: tools/check_scenarios.py [name ...]   (no names: all of them)
 Each check starts `godot --headless` with a scenario (see game/scripts/dev/scenarios.gd),
 waits for it to finish, and requires every expected pattern in the output and no script
 error. Scenarios that never quit on their own are bounded with --report-after frames.
+Every run uses --fixed-fps, so none waits on the wall clock.
 Runs several at once; exits non-zero if any check fails.
 """
 import concurrent.futures
@@ -260,9 +261,9 @@ def run_dedicated():
 def run(name):
     args, frames, expected = CHECKS[name]
     scenario = name.split("_")[0]
-    command = ["godot", "--headless", "--path", GAME]
-    if frames:
-        command += ["--fixed-fps", "30"]
+    # A fixed frame rate also stops Godot keeping to the wall clock: the run goes as fast
+    # as it can, every frame one 30th of a second of game time.
+    command = ["godot", "--headless", "--fixed-fps", "30", "--path", GAME]
     if name == "parse":
         command += ["--", "--selftest=parse"]
     elif name == "editor":

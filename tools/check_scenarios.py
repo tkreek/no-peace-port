@@ -111,6 +111,9 @@ CHECKS = {
     "poplimit": (["--time-scale=4"], 0, [r"warned on filling 1, on a train order 0; queued true, held when done true, warned 1; out once room: true"]),
     "picking": ([], 0, [r"roof \(picture centre, upper third\) +-> true", r"walls centre +-> true",
                         r"open corner of the walls' box +-> false"]),
+    "buildpick": ([], 0, [r"buildings \d+: [1-9]\d+ points on their pictures and outlines, 0 missed",
+                          r"beside: worker takes the click on itself true, the building just off it true",
+                          r"behind: worker shows through true and takes the click true"]),
     # The dead rot to bones, ruins smoulder, gulls fly over.
     "remains": ([ISLANDS], 0, [r"remains: \[.*step [12].*step [12]", r"smoke plumes: [23], after 14s 0, flyers: [1-9]"]),
     # Expansion abilities: saboteurs empty and take a fort, the warrior spirit, the armored stagecoach.

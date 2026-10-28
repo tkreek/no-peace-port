@@ -379,13 +379,43 @@ func visual_rect() -> Rect2:
 
 
 ## Whether a click at `point` (world) lands on this object: on a solid pixel of its picture
-## (walls, roof, canopy), or on its walls' ground area.
+## (walls, roof, canopy), or on its walls' ground area. A building is also hit anywhere
+## within its selection outline on the ground (a fenced yard, the space between corral
+## posts) and in the gaps its picture closes round (between scaffolding poles, under eaves),
+## so that a click on what looks like the building never falls through it.
 func hit(point: Vector2) -> bool:
 	if near_walls(point, 4.0):
 		return true
-	if _body == null or _body.texture == null or not visual_rect().has_point(point):
+	if _body == null or _body.texture == null:
 		return false
-	return _body.is_pixel_opaque(_body.to_local(point))
+	var picture := visual_rect()
+	if _is_building:
+		# The outline is fitted the first time a click comes near (it reads the whole picture).
+		if _outline.is_empty() and picture.merge(footprint_rect()).has_point(point):
+			_outline = _fit_outline()
+		if Geometry2D.is_point_in_polygon(point - position, _outline):
+			return true
+		if _ambient and _ambient.get_rect().has_point(_ambient.to_local(point)) \
+				and _ambient.is_pixel_opaque(_ambient.to_local(point)):
+			return true  # the windmill's sails
+	if not picture.has_point(point):
+		return false
+	var local := _body.to_local(point)
+	return _body.is_pixel_opaque(local) or (_is_building and _enclosed(local))
+
+
+## Whether a point of the body's picture (local) has solid pixels on all four sides of it
+## along its row and column: a hole or gap in the picture rather than open ground beside it.
+func _enclosed(local: Vector2) -> bool:
+	var rect := _body.get_rect()
+	var step := 2.0 / _body.scale.x  # every other pixel on screen
+	for direction: Vector2 in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
+		var p := local + direction * step
+		while rect.has_point(p) and not _body.is_pixel_opaque(p):
+			p += direction * step
+		if not rect.has_point(p):
+			return false
+	return true
 
 
 ## Somewhere on the building itself: a solid pixel in the upper part of its picture.
@@ -516,8 +546,12 @@ func refresh_sprites() -> bool:
 		shadow_anim = _bob.shadow_for(body_anim)
 	elif shadow_anim == body_anim:
 		shadow_anim = _bob.shadow_for(body_anim)
+	var shown := [_body.texture, _body.region_rect]
 	if not _show(_body, body_anim, frame_hint):
 		return false
+	if [_body.texture, _body.region_rect] != shown:
+		_outline = PackedVector2Array()  # fitted again to the new picture (a construction stage, ruins)
+		_marks.queue_redraw()
 	_body.material = SpriteMaterials.body(_body.get_meta("sheet"), _ramps)
 	if body_anim != _body_anim:
 		_body_anim = body_anim

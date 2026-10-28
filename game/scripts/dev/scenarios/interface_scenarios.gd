@@ -612,3 +612,89 @@ func _cover_unit(guid: int, team: int, at: Vector2) -> Unit:
 	unit.setup(UnitType.for_guid(guid), team)
 	unit.direction = 1
 	return unit
+
+
+
+## Left clicks on our buildings, each placed finished and half built: every point of a
+## picture and of the outline on the ground picks a building (fenced yards, the gaps
+## between scaffolding poles), and a worker beside or behind one takes the click only on
+## its own picture.
+func _scenario_buildpick() -> void:
+	main.get_viewport().gui_disable_input = true
+	var hq: MapObject = main.players[1].main_building()
+	var placed: Array[MapObject] = [hq]
+	for guid in GameData.stats_guids():
+		var stats := GameData.stats(guid)
+		if stats.get("faction") != main.players[1].faction or stats.get("kind") != "structure":
+			continue
+		var type := ObjectTypes.get_type(GameData.type_for_guid(guid, main.terrain.biome))
+		for site in [false, true]:
+			var building := MapObject.new()
+			var at := AiBuilder.find_spot(type, hq.position) if type else Vector2.INF
+			if not at.is_finite() or not building.setup(type, 1, 0, site):
+				building.free()
+				continue
+			building.position = at
+			main.units_root.add_child(building)
+			NavGrid.current.block_footprint(type, at)
+			if site:
+				building.build_progress = 0.5
+				building.refresh_sprites()
+			placed.append(building)
+	await get_tree().process_frame
+	var points := 0
+	var missed := 0
+	for building in placed:
+		var outline := building._fit_outline()
+		var area := building.visual_rect().merge(building.footprint_rect())
+		for y in range(int(area.position.y), int(area.end.y), 6):
+			for x in range(int(area.position.x), int(area.end.x), 6):
+				var p := Vector2(x, y)
+				var local := building._body.to_local(p)
+				if (building._body.get_rect().has_point(local) and building._body.is_pixel_opaque(local)) \
+						or Geometry2D.is_point_in_polygon(p - building.position, outline):
+					points += 1
+					if main.selection._clicked_building(p) == null:
+						missed += 1
+	print("buildings %d: %d points on their pictures and outlines, %d missed" % [placed.size(), points, missed])
+	var click := func(world: Vector2) -> void:
+		for pressed in [true, false]:
+			var event := InputEventMouseButton.new()
+			event.button_index = MOUSE_BUTTON_LEFT
+			event.pressed = pressed
+			event.position = main.get_viewport().get_canvas_transform() * world
+			main.selection._unhandled_input(event)
+	# A worker at the front of the main building, and one behind it (drawn through the roof).
+	var worker: int = hq.production.trainable_units()[0]
+	var nav := NavGrid.current
+	var front := _cover_unit(worker, 1, nav.center_of(nav.nearest_walkable(nav.cell_of(hq.wall_point(hq.position + Vector2(0, 400)) + Vector2(0, 12)))))
+	var picture := hq.visual_rect()
+	var back := _cover_unit(worker, 1, _cover_spots(picture, picture.position + picture.size * Vector2(0.5, 0.4), 1)[0])
+	for i in 3:
+		await get_tree().process_frame
+	# Off the worker's picture but within its old click radius, on the building.
+	var near := Vector2.INF
+	for angle in range(0, 360, 15):
+		for distance: float in [20.0, 16.0, 12.0]:
+			var p := front.position + Vector2(0, -20) + Vector2.from_angle(deg_to_rad(angle)) * distance
+			if not front.hit(p) and main.selection._clicked_building(p) == hq and main.selection._unit_at(p) == front:
+				near = p
+	var on_front := _picture_point(front)
+	click.call(on_front)
+	var takes := main.selection.selection == [front]
+	click.call(near)
+	print("beside: worker takes the click on itself %s, the building just off it %s" % [takes,
+			near.is_finite() and main.selection.selected_building == hq and main.selection.selection.is_empty()])
+	click.call(_picture_point(back))
+	print("behind: worker shows through %s and takes the click %s" % [back.shows_through(), main.selection.selection == [back]])
+	get_tree().quit()
+
+
+## A point on a unit's picture, near its middle.
+func _picture_point(unit: Unit) -> Vector2:
+	for dy in range(-20, 0, 2):
+		for dx: int in [0, 2, -2, 4, -4]:
+			var p := unit.position + Vector2(dx, dy)
+			if unit.hit(p):
+				return p
+	return Vector2.INF

@@ -70,7 +70,7 @@ static func capture(viewport: Viewport) -> Image:
 static func save(main: Node, save_name := QUICK_NAME, picture: Image = null) -> bool:
 	var path := path_for(save_name)
 	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
-	var header := {"name": save_name.strip_edges(), "saved": int(Time.get_unix_time_from_system()),
+	var header := {"name": save_name.strip_edges(), "saved": Time.get_unix_time_from_system(),
 			"place": place(main), "game_time": main.game_time,
 			"thumbnail": Marshalls.raw_to_base64(picture.save_png_to_buffer()) if picture else ""}
 	var data := {
@@ -142,7 +142,7 @@ static func read(path := "") -> Dictionary:
 	return parsed if parsed is Dictionary and int(parsed.get("version", 0)) == VERSION else {}
 
 
-## The saves there are, newest first: {"path", "name", "saved" (Unix time), "place",
+## The saves there are, newest first: {"path", "name", "saved" (Unix time, to the fraction of a second), "place",
 ## "game_time", "thumbnail" (an Image or null)}. Only the headers are read; a save from
 ## before them is read whole and named after its file.
 static func list() -> Array[Dictionary]:
@@ -188,7 +188,7 @@ static func _entry(path: String) -> Dictionary:
 		picture = Image.new()
 		if picture.load_png_from_buffer(Marshalls.base64_to_raw(header.thumbnail)) != OK:
 			picture = null
-	return {"path": path, "name": String(header.get("name", "")), "saved": int(header.get("saved", 0)),
+	return {"path": path, "name": String(header.get("name", "")), "saved": float(header.get("saved", 0)),
 			"place": String(header.get("place", "")), "game_time": float(header.get("game_time", 0.0)),
 			"thumbnail": picture}
 

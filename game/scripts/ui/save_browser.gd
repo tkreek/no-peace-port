@@ -253,7 +253,7 @@ func _row(index: int) -> Button:
 	about.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text.add_child(about)
 	line.add_child(text)
-	var when := MenuStyle.label(_date(entry.saved), int(14 * _scale), MenuStyle.TEXT_DIM)
+	var when := MenuStyle.label(_date(int(entry.saved)), int(14 * _scale), MenuStyle.TEXT_DIM)
 	when.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	when.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	line.add_child(when)

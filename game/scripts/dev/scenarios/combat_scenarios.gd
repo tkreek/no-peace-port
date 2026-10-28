@@ -575,12 +575,34 @@ func _scenario_disarm() -> void:
 ## (the build controller's own drag) puts down a closed diamond of pieces; finished, it
 ## keeps a soldier inside in and one outside out (--faction=usa, mex or des).
 func _scenario_wall() -> void:
-	var p: Player = main.players[1]
-	p.resources.wood = 5000
 	var n := 6
+	var walls := await _wall_diamond(n)
+	var centre: Vector2 = walls[0]
+	var planned: int = walls[1]
+	var pieces: Array = walls[2]
+	var inside: Unit = _new_units(458, 1, centre, 1)[0]
+	var outside: Unit = _new_units(458, 1, centre + Vector2(0, 220), 1)[0]
+	inside.move_to(centre + Vector2(0, 400))
+	outside.move_to(centre)
+	if not GameData.cmdline_option("screenshot").is_empty():
+		return
+	await get_tree().create_timer(15.0).timeout
+	var within := func(u: Unit) -> bool:
+		var d := u.position - centre
+		return absf(d.x) / (WallLine.STEP_LEFT.x * n) + absf(d.y) / (WallLine.STEP_LEFT.y * n) < 1.0
+	print("wall: planned %d pieces, built %d (%s), all walls %s; inside stays in %s, outside stays out %s" % [
+			planned, pieces.size(), pieces[0].display_name() if not pieces.is_empty() else "-",
+			pieces.all(func(o: MapObject) -> bool: return o.complete), within.call(inside), not within.call(outside)])
+	get_tree().quit()
+
+
+## A finished diamond of the people's wall, `n` pieces a side, on flat open ground spiralling
+## out from the middle of the map: [its centre, pieces planned, the pieces].
+func _wall_diamond(n: int) -> Array:
+	var p: Player = main.players[1]
+	p.resources.wood = 50000
 	var wall_guid: int = WallLine.PIECES[p.faction][0]
 	var wall_type := ObjectTypes.get_type(GameData.type_for_guid(wall_guid, main.terrain.biome))
-	# Flat open ground for the whole diamond, spiralling out from the middle of the map.
 	var centre := Vector2.INF
 	var middle := (Vector2(main.terrain.map.pixel_size()) / 2.0 / 16.0).round() * 16.0
 	for ring in 40:
@@ -616,19 +638,52 @@ func _scenario_wall() -> void:
 	var pieces := MapObject.structures.slice(before)
 	for piece: MapObject in pieces:
 		piece.condition.add_build_work(1000.0)  # finished at once
-	var inside: Unit = _new_units(458, 1, centre, 1)[0]
-	var outside: Unit = _new_units(458, 1, centre + Vector2(0, 220), 1)[0]
-	inside.move_to(centre + Vector2(0, 400))
-	outside.move_to(centre)
-	if not GameData.cmdline_option("screenshot").is_empty():
-		return
-	await get_tree().create_timer(15.0).timeout
-	var within := func(u: Unit) -> bool:
-		var d := u.position - centre
-		return absf(d.x) / (WallLine.STEP_LEFT.x * n) + absf(d.y) / (WallLine.STEP_LEFT.y * n) < 1.0
-	print("wall: planned %d pieces, built %d (%s), all walls %s; inside stays in %s, outside stays out %s" % [
-			planned, pieces.size(), pieces[0].display_name() if not pieces.is_empty() else "-",
-			pieces.all(func(o: MapObject) -> bool: return o.complete), within.call(inside), not within.call(outside)])
+	return [centre, planned, pieces]
+
+
+## Attacking round barriers: a squad (--count, default 12) ordered against an enemy shut
+## inside a diamond of wall walks as close as it can get, and the game keeps its pace;
+## with --across=water the enemy is at the other headquarters on the 2 islands map, the
+## long way round the water. --attacker=<GUID> picks the squad (default the people's
+## soldiers; 362, the assassin, fights hand to hand). Prints the time the steps take.
+func _scenario_wallattack() -> void:
+	var n := 6
+	var centre: Vector2
+	var start: Vector2
+	if GameData.cmdline_option("across") == "water":
+		centre = main.players[2].main_building().position + Vector2(0, 160)
+		start = main.players[1].main_building().position + Vector2(0, 160)
+	else:
+		centre = (await _wall_diamond(n))[0]
+		start = centre + Vector2(0, WallLine.STEP_LEFT.y * n + 120)
+	var victim: Unit = _new_units(458, 2, centre, 1)[0]
+	victim.stance = Unit.Stance.PASSIVE
+	var guid := GameData.cmdline_option("attacker", str(main.FACTIONS[main.players[1].faction].army)).to_int()
+	var squad := _new_units(guid, 1, start, GameData.cmdline_option("count", "12").to_int())
+	Prof.enabled = true
+	Prof._totals.clear()
+	Prof._counts.clear()
+	var started_tick := Sim.tick
+	for u: Unit in squad:
+		u.order_attack(victim)
+	var started := Time.get_ticks_usec()
+	var worst := 0  # the longest the steps of one frame took (usec)
+	var last := 0
+	while Sim.tick - started_tick < 20 * Sim.RATE:
+		await get_tree().physics_frame
+		var spent: int = Prof._totals.get("sim step (all)", 0)
+		worst = maxi(worst, spent - last)
+		last = spent
+	var steps := Sim.tick - started_tick
+	var gap := squad.map(func(u: Unit) -> int: return int(u.position.distance_to(centre)))
+	gap.sort()
+	print("barrier attack: range %d, %d steps in %.1f s, step %.2f ms (worst %.1f ms), %d path searches %.2f ms per step, %d labellings %.1f ms" % [
+			squad[0].attack_range(), steps, (Time.get_ticks_usec() - started) / 1e6,
+			Prof._totals.get("sim step (all)", 0) / 1000.0 / maxi(1, steps), worst / 1000.0,
+			Prof._counts.get("path search", 0), Prof._totals.get("path search", 0) / 1000.0 / maxi(1, steps),
+			Prof._counts.get("nav regions", 0), Prof._totals.get("nav regions", 0) / 1000.0])
+	print("barrier attack: nearest %s px, states %s, victim hurt %s" % [gap.slice(0, 3),
+			squad.map(func(u: Unit) -> String: return Unit.State.keys()[u.state]), victim.health < victim.max_health])
 	get_tree().quit()
 
 

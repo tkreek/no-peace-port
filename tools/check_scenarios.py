@@ -126,6 +126,13 @@ CHECKS = {
     "wall_usa": (["--faction=usa"], 0, [r"wall: planned 26 pieces, built 24 \(\w+\), all walls true; inside stays in true, outside stays out true"]),
     "wall_mex": (["--faction=mex"], 0, [r"wall: planned 26 pieces, built 24 \(\w+\), all walls true; inside stays in true, outside stays out true"]),
     "wall_des": (["--faction=des"], 0, [r"wall: planned 26 pieces, built 24 \(\w+\), all walls true; inside stays in true, outside stays out true"]),
+    # Attacking round barriers (game/scripts/dev/scenarios/combat_scenarios.gd): assassins sent
+    # at an enemy walled in stop outside the wall; sent the long way round the water, the
+    # squad shares one search instead of each searching again and again.
+    "wallattack": (["--faction=usa", "--attacker=362", "--count=30"], 0,
+                   [r"barrier attack: nearest \[(9\d|1[0-4]\d), .*victim hurt false"]),
+    "wallattack_far": (["--faction=usa", "--attacker=362", "--count=30", "--across=water", ISLANDS], 0,
+                       [r"barrier attack: range 64, \d+ steps .*, ([1-9]|[1-5]\d) path searches"]),
     "ambush": (["--faction=des"], 0, [r"ambush: under the mound true, burst out true, then attacking true"]),
     "spirit": (["--faction=ind"], 0, [r"before upgrade false, invoked true, damage x1\.00 -> x1\.05, energy left 0, again false, auras 3",
                                       r"afterwards damage x1\.00, auras 0"]),

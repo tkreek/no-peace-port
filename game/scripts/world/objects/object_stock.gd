@@ -5,20 +5,34 @@ extends RefCounted
 ## a field (sown, growing, ripe), the gold a gold warehouse keeps until a wagon hauls it,
 ## and the goods in an abandoned warehouse (manual 4.3).
 
-const TREE_WOOD := 150
+## Wood in a tree (AmericaAddOn.exe): Defaults.bin property 302 of its type, read when the
+## tree is made (0x428822), by kind within each run of twelve GUIDs (500-511, the "b" set
+## 512-523, the "c" set 524-535): deciduous large 01-03, small 01-03, conifer large 01-03,
+## small 01-03. A type without it would get 1000 (0x405fe0).
+const TREE_WOOD_BY_KIND := [250, 250, 150, 200, 200, 150, 250, 250, 250, 200, 200, 200]
+const TREE_WOOD_DEFAULT := 1000
+## A mine holds what the map gives it (0x4239fb; 0 there is an exhausted mine); ours
+## falls back to this for editor maps that leave it out.
 const MINE_GOLD := 3000
 ## Trees: the bobs hold felled and stump pictures as anim pairs 24/25 and 26/27.
 enum TreeState { STANDING, FELLED, STUMP }
 const TREE_FELLED_ANIM := 24
 const TREE_STUMP_ANIM := 26
-## Mines: worker-seconds to timber the entrance before the gold can be dug (a few seconds
-## for a handful of miners).
-const MINE_FRAMED_AFTER := 12.0
-## Fields: fallow -> sown by a woman -> grow -> ripe, harvested down to fallow again.
+## Mines: worker-seconds to timber the entrance before the gold can be dug: each worker at
+## it adds 20 ms a tick until 11000 (AmericaAddOn.exe 0x423a39, 0x423d70).
+const MINE_FRAMED_AFTER := 11.0
+## Fields: fallow -> tended by a woman until ripe -> harvested down to fallow again. A field
+## does not grow by itself: a woman works it, every 1.02 s taking 3000 / 25 off its pool of
+## 3000 (property 6 of the field, 149; 0x41f7a0, 0x40cc50 -> 0x40c300), 25.5 s in all.
+## GROWING is a field she has started on.
 enum Field { FALLOW, GROWING, RIPE }
-const FIELD_SOW_WORK := 8.0  # woman-seconds
-const FIELD_GROW_SECONDS := 45.0
-const FIELD_YIELD := 300
+const FIELD_SOW_WORK := 25.5  # woman-seconds
+## Ripe, it holds the value the woman brought it (0x402c3e, 0x41f88e): 150, with the
+## Shovel upgrades 175 and 200 (0x403240).
+const FIELD_YIELD := 150
+## Rain sets a ripe field's crop to this (0x47ca80); an unripe field's is overwritten when
+## it ripens (0x41f88e), so rain on it is lost.
+const RAIN_CROP := 350
 const FIELD_STAGES := [3, 0, 1, 2]  # frames of anim 0: ploughed, sprouting, growing, ripe
 ## Abandoned warehouses: object types USA_Lager, MEX_Magazin (both biomes).
 const ABANDONED_STORES := [26, 56, 299, 300]
@@ -33,7 +47,9 @@ var mine_work := 0.0  ## worker-seconds spent inside a mine
 var stored_gold := 0  ## a gold warehouse's: the people's, but only usable once hauled to the HQ
 var loot_kind := ""  ## an abandoned warehouse's goods
 var loot := 0
-var _rained := false
+## Picked clean: the next woman to start on it pays the field's cost again (0x402e17 ->
+## 0x403180, the field's energy reset to 0x100 by 0x41f740).
+var needs_paying := false
 var _mine_sound: AudioStreamPlayer2D
 var _mine_heard := 0  # msec of the last work inside
 
@@ -45,10 +61,16 @@ func _init(owner: MapObject, placed_amount: int) -> void:
 		resource = "food"
 	elif name.begins_with("tree"):
 		resource = "wood"
-		amount = TREE_WOOD
+		amount = tree_wood(object.guid)
 	elif name.begins_with("mine"):
 		resource = "gold"
 		amount = placed_amount if placed_amount > 0 else MINE_GOLD
+
+
+static func tree_wood(guid: int) -> int:
+	if guid >= 500 and guid <= 535:
+		return TREE_WOOD_BY_KIND[(guid - 500) % 12]
+	return TREE_WOOD_DEFAULT
 
 
 func is_abandoned_store() -> bool:
@@ -73,18 +95,22 @@ func harvest(wanted: int) -> int:
 	if object.is_field():
 		if amount <= 0:
 			field_state = Field.FALLOW
+			field_progress = 0.0
+			needs_paying = true
 			var farmer: Player = Player.by_index.get(object.owner_index)
 			if farmer:
 				farmer.alert(Player.FIELD_HARVESTED_ALERT, object.position, 5000)
 		object.refresh_sprites()
 	if resource == "wood" and object.is_tree():
+		# The first load fells the tree and frees its cells (0x406299); the last leaves the
+		# stump (0x406223).
+		if tree_state == TreeState.STANDING:
+			_clear_ground()
 		if amount <= 0:
-			# All wood taken: only the stump remains, and the ground is passable again.
 			tree_state = TreeState.STUMP
 			resource = ""
-			_clear_ground()
 		elif tree_state == TreeState.STANDING:
-			tree_state = TreeState.FELLED  # the first cut brings the tree down
+			tree_state = TreeState.FELLED
 		object.refresh_sprites()
 	elif amount <= 0 and resource == "wood":
 		_clear_ground()
@@ -147,53 +173,43 @@ func is_mine_sounding() -> bool:
 
 # ------------------------------------------------------------------ fields
 
-## Add sowing work; returns true once the field is sown and growing.
+## A woman's work on an unripe field; returns true once it is ripe.
 func sow(seconds: float) -> bool:
-	if field_state != Field.FALLOW:
+	if field_state == Field.RIPE:
 		return true
+	field_state = Field.GROWING
 	field_progress += seconds / FIELD_SOW_WORK
 	if field_progress >= 1.0:
-		field_state = Field.GROWING
-		field_progress = 0.0
-	object.refresh_sprites()
-	return field_state != Field.FALLOW
-
-
-func grow(delta: float) -> void:
-	if field_state != Field.GROWING:
-		return
-	field_progress += delta / FIELD_GROW_SECONDS
-	if field_progress >= 1.0:
 		field_state = Field.RIPE
+		field_progress = 0.0
 		var owner: Player = Player.by_index.get(object.owner_index)
-		# A woman brings the field her value (AmericaAddOn.exe 0x402c3e): 150, with the
-		# Shovel upgrades 175 and 200 (0x403240); ours scales FIELD_YIELD by the same ratio.
-		var shovel := owner.bonus(-1, "field_yield") if owner else 0.0
-		amount = roundi(FIELD_YIELD * (150.0 + shovel) / 150.0)
-		if _rained:
-			amount = int(amount * 1.5)
-			_rained = false
+		amount = FIELD_YIELD + roundi(owner.bonus(-1, "field_yield") if owner else 0.0)
 	object.refresh_sprites()
+	return field_state == Field.RIPE
 
 
-## Hail (medicine man): the crop is lost and the field must be sown again.
+## Fields grow only by a woman's work (sow).
+func grow(_delta: float) -> void:
+	pass
+
+
+## Hail (medicine man): the field is destroyed outright (0x47cac0: its state set to
+## ruined, removed the next tick by 0x40c070 -> 0x40cc10).
 func ruin_crop() -> void:
 	field_state = Field.FALLOW
-	field_progress = 0.0
 	amount = 0
-	object.refresh_sprites()
+	object.forget()
+	object.queue_free()
 
 
-## Rain (medicine man): a ripe field holds half as much again; a growing one will.
+## Rain (medicine man): a ripe field's crop becomes RAIN_CROP (0x47ca80); nothing else.
 func rain() -> void:
 	if field_state == Field.RIPE:
-		amount = int(amount * 1.5)
-	else:
-		_rained = true
+		amount = RAIN_CROP
 
 
 func is_rained() -> bool:
-	return _rained
+	return false
 
 
 ## The field picture for its state: ploughed, sprouting, growing, ripe.
@@ -227,9 +243,13 @@ func _notify_owner() -> void:
 		owner.resources_changed.emit()
 
 
+## The map's content code 301-305 is the kind (0x43fe50): food, wood, nothing, gold, guns.
+const STORE_KINDS := {0x12d: "food", 0x12e: "wood", 0x130: "gold", 0x131: "guns"}
+
+
 func stock_abandoned_store(content: int, how_much: int) -> void:
-	loot_kind = "gold" if content == 0x130 else "guns"
-	loot = how_much
+	loot_kind = STORE_KINDS.get(content, "")
+	loot = how_much if loot_kind != "" else 0
 
 
 ## What a transport can haul from here: a gold warehouse's gold or an abandoned store's goods.
@@ -270,3 +290,4 @@ func restore(entry: Dictionary) -> void:
 		field_state = int(entry.field_state) as Field
 		field_progress = float(entry.field_progress)
 		amount = int(entry.amount)
+		needs_paying = bool(entry.get("needs_paying", false))

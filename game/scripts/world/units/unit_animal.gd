@@ -4,23 +4,34 @@ extends UnitPart
 ## horses (manual 2.6). Also the herders' side: cowboys, gauchos and the like take over
 ## wild or enemy cows by coming close.
 
-## Food from a hunted animal, by object name prefix: buffalo, cow, horse.
-const MEAT := {"animal_buffalo": 150, "animal_cow": 100, "animal_horse": 60}
-const CARCASS_SECONDS := 120.0  # a carcass with meat left that nobody comes back to stays this long
-## Cattle: cows graze up to 25 gold of value; driven alive to an animal-processing building
-## they are paid out (the Native facility pays food as well).
+## Food from a hunted animal, by object name prefix: max(1, property 111) of Defaults.bin's
+## neutral block (AmericaAddOn.exe 0x401de0): buffalo (481) 100, cow (482) 70, horse (480) 50.
+const MEAT := {"animal_buffalo": 100, "animal_cow": 70, "animal_horse": 50}
+## A dead animal lies 3 s (0x419190) unless a hunter is on it (keep), 30 s after each cut
+## that leaves meat (0x401e1c); picked clean, 6 s (0x401e3f; ours rots to bones, Unit).
+const CARCASS_SECONDS := 3.0
+const CUT_CARCASS_SECONDS := 30.0
+## Cattle (class 0x4a3c2c): a cow starts worth 10 food and no gold (0x43fbd0) and every
+## 12.02 s of its life, wild or owned, gains 2 food up to 50 and 1 gold up to 25 (0x43fb70).
+## Driven to a building that takes cows (the animal-processing ones), within 80 px of it,
+## it pays both to that building's owner (0x43fca0).
 const COW_DIR := "animals/cow"
 const COW_MAX_VALUE := 25.0
-const COW_GRAZE_SECONDS := 200.0  # from nothing to full value
+const COW_START_FOOD := 10
+const COW_MAX_FOOD := 50
+const COW_GROW_SECONDS := 12.02  # a step: +1 gold, +2 food
 const HERDERS := [463, 464, 263, 264, 156, 157, 353, 354]
-## A riderless horse stays its people's for a minute (lead it into a corral, hacienda or
-## ranch to add it to the horses) before running wild again.
+## A riderless horse stays its people's for 20 s (0x4614e8, counted down by 0x461670; lead
+## it into a corral, hacienda or ranch to add it to the horses) before running wild again.
 const HORSE_DIR := "animals/horse"
-const OWNED_HORSE_SECONDS := 60.0
+const OWNED_HORSE_SECONDS := 20.0
 
 var hunted := false  ## the meat has been taken
 var meat_left := -1  ## a carcass's remaining food (-1 = not yet butchered: its full value)
-var cattle_value := 0.0
+var cattle_value := 0.0  ## a cow's gold
+var cattle_food := COW_START_FOOD
+var _cow_timer := 0.0
+var _cut := false  # a hunter has cut from this carcass
 var wild_timer := 0.0
 var _deliver_to: MapObject
 var _stable: MapObject
@@ -82,6 +93,8 @@ func cut_meat(wanted: int) -> int:
 		meat_left = meat_value()
 	var cut := mini(wanted, meat_left)
 	meat_left -= cut
+	_cut = true
+	unit._corpse_timer = 0.0
 	if meat_left <= 0:
 		hunted = true
 		unit._corpse_timer = Unit.CORPSE_SECONDS
@@ -97,7 +110,9 @@ func keep() -> void:
 
 ## How long the body lies before it fades.
 func corpse_seconds() -> float:
-	return CARCASS_SECONDS if has_meat() else Unit.CORPSE_SECONDS
+	if not has_meat():
+		return Unit.CORPSE_SECONDS
+	return CUT_CARCASS_SECONDS if _cut else CARCASS_SECONDS
 
 
 # ------------------------------------------------------------------ cattle
@@ -111,14 +126,16 @@ func deliver(building: MapObject) -> void:
 
 
 func _update_cow(delta: float) -> void:
-	if unit.team > 0 and unit.state == Unit.State.IDLE:
-		cattle_value = minf(COW_MAX_VALUE, cattle_value + COW_MAX_VALUE / COW_GRAZE_SECONDS * delta)
-	if is_instance_valid(_deliver_to) and _deliver_to.near_walls(unit.position, Unit.REACH * 3):
-		var owner := player()
+	_cow_timer += delta
+	if _cow_timer > COW_GROW_SECONDS:
+		_cow_timer = 0.0
+		cattle_value = minf(COW_MAX_VALUE, cattle_value + 1.0)
+		cattle_food = mini(COW_MAX_FOOD, cattle_food + 2)
+	if is_instance_valid(_deliver_to) and _deliver_to.near_walls(unit.position, 80.0):
+		var owner: Player = Player.by_index.get(_deliver_to.owner_index)
 		if owner:
+			owner.add("food", cattle_food)
 			owner.add("gold", int(cattle_value))
-			if _deliver_to.guid == 102:
-				owner.add("food", int(cattle_value) * 2)
 		Sound.play_event(_deliver_to.guid, Sound.Event.SELECT, _deliver_to.position, 0)
 		unit.queue_free()
 

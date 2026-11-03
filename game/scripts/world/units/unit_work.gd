@@ -6,15 +6,17 @@ extends UnitPart
 
 enum Phase { TO_SOURCE, WORKING, TO_DROP_OFF }
 
-## Seconds of work for one load. Measured for wood from a recording of the original (four
-## woodcutters, 120 px from the camp, bring in 7 wood a second: a load each every 8.6 s,
-## about 6 s of it chopping); the others in proportion. Morale does not touch work
-## (AmericaAddOn.exe reads it only in fights: Unit.morale).
-const WORK_SECONDS := {"wood": 6.0, "gold": 7.5, "food": 7.5}
+## Seconds of work for one full load, walking apart (AmericaAddOn.exe, worker defaults
+## 0x4023f0): chopping 4000 ms (+0x6b0, 0x402930 -> 0x4030e0), then the tree gives the whole
+## load (0x406210); a miner takes his load as he enters and stays inside 5000 ms (+0x6ac,
+## 0x402500); a woman waits 30000 ms at a ripe field per load (+0x6a8, 0x402e40). A
+## recording of the original (four cutters 120 px from the camp, 7 wood a second) fits 4 s
+## of chopping and the walk. Neither morale nor experience touches work (Unit.morale).
+const WORK_SECONDS := {"wood": 4.0, "gold": 5.0, "food": 30.0}
 const HUNT_RANGE := 1500.0
-## Cutting off a load takes as long as a field worker's harvest (DEFS.INI gives no rates);
-## a hunter carries his "Tragkapazität" like any gatherer, so a buffalo lasts ten trips.
-const BUTCHER_SECONDS := 7.5
+## A hunter within 96 px of the carcass cuts off up to his carry, then works 4000 ms
+## (0x437070, 0x43710c) before he carries it off; a buffalo's 100 lasts seven trips.
+const BUTCHER_SECONDS := 4.0
 ## Robbing banks, missions and gold warehouses: unit GUID -> the upgrade it needs (0 = none;
 ## the outlaws are born robbers).
 const ROBBERS := {152: 916, 155: 916, 252: 941, 255: 941, 452: 991, 455: 991, 456: 991,
@@ -30,14 +32,20 @@ const THIEVES := {353: 0, 354: 0, 360: 0, 361: 0, 282: 0, 283: 0, 263: 942, 264:
 const WAGONS := [155, 255, 355, 455, 456]
 ## A thief's blow takes a wagon once it is down below this share of its life energy (0x4646a0).
 const STEAL_BELOW := 0.9
-const ROB_SECONDS := 4.0  # inside the building, filling the bags
+## Inside the building, filling the bags: 5000 ms (0x41b7d9; a robbing wagon waits as long
+## before it loads, 0x4642b0).
+const ROB_SECONDS := 5.0
 ## Orders given with Shift wait their turn: each is carried out once the one before is done
 ## (the site built, the source used up, the spot reached).
 const QUEUEABLE := ["build", "gather", "haul", "hunt", "move_to"]
 ## How far from the field she was sent to a worker looks for a free one (one to a field).
 const FIELD_SEARCH := 600.0
-## A wagon takes at most two guns from an abandoned store per trip.
-const GUNS_PER_LOAD := 2
+## Guns weigh 50 a piece in a wagon's load: carry / 50 per trip, two for 100 or 120
+## (0x4644d8, 0x43fdb0).
+const GUN_WEIGHT := 50
+## A wagon at its own store leaves once full, or this long after the last load came in if
+## it has some; with nothing in all that time it gives up (0x464517..0x464599).
+const HAUL_PATIENCE := 60.0
 ## How far from a drop-off they have just put up the builders look for something to gather
 ## for it (as far as a gatherer looks for the next source once hers is used up).
 const AFTER_BUILD_REACH := 1200.0
@@ -199,7 +207,7 @@ func hunt(animal: Unit) -> void:
 		unit.path.clear()
 		animal.animal.keep()
 	hunting = true
-	_work_timer = BUTCHER_SECONDS / unit.effectiveness()
+	_work_timer = BUTCHER_SECONDS
 
 
 func may_hunt_horses() -> bool:
@@ -240,12 +248,14 @@ func after_blow(victim: Node2D) -> void:
 		unit.target = null  # ours now: on to the next enemy, if any
 
 
-## Gold an enemy building holds for the taking: a gold warehouse's store, or for a bank or
-## mission its owner's treasury.
-static func loot_of(building: MapObject) -> int:
-	if building.is_gold_warehouse():
+## Gold an enemy building holds for the taking. A robber on foot takes from its owner's
+## treasury whatever the building (0x41b776: 0x58fe18, the people's gold); a robbing wagon
+## empties a gold warehouse's store (0x4642a4 -> 0x464480) and takes a bank's or mission's
+## from the treasury (0x464b70).
+static func loot_of(building: MapObject, by_wagon := false) -> int:
+	if building.is_gold_warehouse() and by_wagon:
 		return building.stock.stored_gold
-	if building.guid in BuildingProduction.INCOME_BUILDINGS:
+	if building.is_gold_warehouse() or building.guid in BuildingProduction.INCOME_BUILDINGS:
 		var owner: Player = Player.by_index.get(building.owner_index)
 		return int(owner.resources.get("gold", 0)) if owner else 0
 	return 0
@@ -327,8 +337,10 @@ func _update_gather(delta: float) -> void:
 				var faster := unit.bonus("chop_pct") if gather_source.stock.resource == "wood" else unit.bonus("mine_pct")
 				if gather_source.stock.resource == "food":
 					faster = 0.0
-				_work_timer = WORK_SECONDS.get(gather_source.stock.resource, 4.0) * maxf(0.1, 1.0 - faster / 100.0) \
-						/ unit.effectiveness()
+				_work_timer = WORK_SECONDS.get(gather_source.stock.resource, 4.0) * maxf(0.1, 1.0 - faster / 100.0)
+				if gather_source.is_field() and gather_source.stock.needs_paying \
+						and gather_source.stock.field_state != ObjectStock.Field.RIPE and not _pay_for_field():
+					return
 				unit.face(gather_source.work_rect().get_center() - unit.position)
 				if gather_source.stock.resource == "gold" and gather_source.stock.mine_framed():
 					unit.inside = true  # workers go inside the mine
@@ -340,9 +352,9 @@ func _update_gather(delta: float) -> void:
 				phase = Phase.TO_SOURCE
 				return
 			if gather_source.is_field() and gather_source.stock.field_state != ObjectStock.Field.RIPE:
-				unit.play_repeating("sow")  # sow the fallow field, tend the growing crop
-				if gather_source.stock.field_state == ObjectStock.Field.FALLOW:
-					gather_source.stock.sow(delta)
+				unit.play_repeating("sow")  # the field ripens only while she works it
+				if gather_source.stock.sow(delta):
+					_work_timer = WORK_SECONDS.food
 				return
 			if gather_source.stock.resource == "food":
 				unit.play_repeating("harvest")
@@ -402,7 +414,7 @@ func _deliver() -> void:
 		owner.stats.gathered += carried
 		if owner.stats.has(carrying):
 			owner.stats[carrying] += carried
-		unit.gain_experience(Unit.EXPERIENCE_PER_LOAD)
+		# No experience for it: the original raises it only for hits and kills.
 	carried = 0
 	carrying = ""  # walk back empty-handed
 
@@ -423,25 +435,29 @@ func _update_haul(delta: float) -> void:
 			if gather_source.near_walls(unit.position, Unit.REACH * 2) or unit.path.is_empty():
 				unit.path.clear()
 				phase = Phase.WORKING
-				_work_timer = 1.0
+				_work_timer = 0.1  # 100 ms before loading starts (0x4642bc)
+				_haul_wait = 0.0
 		Phase.WORKING:
 			unit.play("idle")
 			_work_timer -= delta
-			_haul_wait += delta
-			# Leave with a full load, or whatever there is after a while.
-			var load := GUNS_PER_LOAD if gather_source.stock.haul_kind() == "guns" else unit.unit_type.carry
-			if _work_timer > 0.0 or (gather_source.stock.haul_available() < load and _haul_wait < 8.0 \
-					and not gather_source.is_abandoned_store()):
+			if _work_timer > 0.0:
 				return
-			carried = gather_source.stock.take_haul(load)
-			if carried <= 0 and gather_source.is_abandoned_store():
-				unit.stop()  # emptied
+			# Loading goes on every tick: up to a full load, of guns carry / 50 (0x464480).
+			var kind := gather_source.stock.haul_kind()
+			var load := unit.unit_type.carry / GUN_WEIGHT if kind == "guns" else unit.unit_type.carry
+			var got := gather_source.stock.take_haul(load - carried)
+			if got > 0:
+				carried += got
+				_haul_wait = 0.0
+			else:
+				_haul_wait += delta
+			if carried < load and not gather_source.is_abandoned_store() and _haul_wait <= HAUL_PATIENCE:
 				return
 			if carried <= 0:
-				_work_timer = 2.0  # wait for the miners
+				unit.stop()  # emptied, or nothing came in for a minute
 				return
 			_haul_wait = 0.0
-			carrying = gather_source.stock.haul_kind()
+			carrying = kind
 			phase = Phase.TO_DROP_OFF
 			_drop_off = main_building()
 			unit.path = unit.find_path(_drop_off.position) if _drop_off else PackedVector2Array()
@@ -480,7 +496,7 @@ func _update_rob(delta: float) -> void:
 			unit.play(walk_action())
 			if building.near_walls(unit.position, Unit.REACH * 2) or unit.path.is_empty():
 				unit.path.clear()
-				if loot_of(building) <= 0:
+				if loot_of(building, unit.unit_type.is_transport()) <= 0:
 					unit.stop()
 					return
 				phase = Phase.WORKING
@@ -494,9 +510,9 @@ func _update_rob(delta: float) -> void:
 			if _work_timer > 0.0:
 				return
 			unit.inside = false
-			var bags := unit.unit_type.carry * (1 if unit.unit_type.is_transport() else 3)
-			carried = mini(bags, loot_of(building))
-			if building.is_gold_warehouse():
+			# As much as the robber carries (0x41b79c, 0x464bc5).
+			carried = mini(unit.unit_type.carry, loot_of(building, unit.unit_type.is_transport()))
+			if building.is_gold_warehouse() and unit.unit_type.is_transport():
 				building.stock.take_gold(carried)
 			else:
 				var victim: Player = Player.by_index.get(building.owner_index)
@@ -504,7 +520,9 @@ func _update_rob(delta: float) -> void:
 					victim.add("gold", -carried)
 			carrying = "gold"
 			phase = Phase.TO_DROP_OFF
-			_drop_off = main_building()
+			# On foot to the nearest main building or gold warehouse (0x41b7f0, mask
+			# 0x20100), a wagon to the main building (0x2000000 -> 0x4643e0).
+			_drop_off = main_building() if unit.unit_type.is_transport() else nearest_drop_off("gold")
 			unit.path = unit.find_path(_drop_off.position) if _drop_off else PackedVector2Array()
 		Phase.TO_DROP_OFF:
 			if _drop_off == null or not is_instance_valid(_drop_off):
@@ -515,10 +533,13 @@ func _update_rob(delta: float) -> void:
 			if _drop_off.near_walls(unit.position, Unit.REACH * 2) or unit.path.is_empty():
 				var owner := player()
 				if owner and carried > 0:
-					owner.add("gold", carried)
+					if _drop_off.is_gold_warehouse():
+						_drop_off.stock.store_gold(carried)
+					else:
+						owner.add("gold", carried)
 				carried = 0
 				carrying = ""
-				if is_instance_valid(building) and building.is_alive() and loot_of(building) > 0:
+				if is_instance_valid(building) and building.is_alive() and loot_of(building, unit.unit_type.is_transport()) > 0:
 					phase = Phase.TO_SOURCE
 					unit.path = unit.find_path(building.work_rect().get_center())
 				else:
@@ -628,7 +649,9 @@ func nearest_animal() -> Unit:
 
 func _route() -> void:
 	if phase == Phase.TO_DROP_OFF:
-		_drop_off = nearest_drop_off(carrying)
+		# Meat goes only to a building of class 0x80 (0x437157): the animal-processing
+		# buildings, the ones that also take cows, not the main building.
+		_drop_off = nearest_processing() if gather_resource == "meat" else nearest_drop_off(carrying)
 		unit.path = unit.find_path(_drop_off.position) if _drop_off else PackedVector2Array()
 	elif _source_valid():
 		unit.path = unit.find_path(_work_spot())
@@ -708,6 +731,28 @@ func nearest_drop_off(resource: String) -> MapObject:
 				best = object
 				best_distance = distance
 	return best
+
+
+func nearest_processing() -> MapObject:
+	var best: MapObject = null
+	for object in MapObject.structures:
+		if object.owner_index == unit.team and object.guid in BuildingProduction.ANIMAL_PROCESSING and object.complete \
+				and object.is_alive() and (best == null \
+				or unit.position.distance_to(object.position) < unit.position.distance_to(best.position)):
+			best = object
+	return best
+
+
+## A harvested field is paid for again by the woman who starts on it (0x402e17 ->
+## 0x403180): the field's cost, else the shortage warning and she stops.
+func _pay_for_field() -> bool:
+	var owner := player()
+	var cost: Dictionary = GameData.stats(MapObject.FIELD_GUID).get("cost", {})
+	if owner == null or owner.alert_shortage(cost) or not owner.spend(cost):
+		unit.stop()
+		return false
+	gather_source.stock.needs_paying = false
+	return true
 
 
 func main_building() -> MapObject:

@@ -16,18 +16,29 @@ extends RefCounted
 const PATH := "data/defaults.json"
 
 ## How often a fighter attacks, in ms. AmericaAddOn.exe hard-codes this per unit class
-## rather than reading the ranged rate (117) and DEFS.INI's KampffrequenzFern: 1500 for
-## units with a gun or bow, 1000 for the rest; the classes below are the exceptions.
+## (0x436c20) rather than reading the ranged rate (117) and DEFS.INI's KampffrequenzFern:
+## 1500 with the "has a ranged weapon" flag (+0x6d0), cannons (+0x6d1) 5000, dynamite (+0x6d2)
+## 2500, the Gatling gunner (469) 150; 1000 without the flag. The flags are the class
+## constructors' (the unit factory 0x425b4a: a jump table on GUID - 100 at 0x428f00 /
+## 0x428c7c), read by running each constructor: the flag is off for the chiefs and their
+## heroes (0x433610), the spearman (0x434460), the Mexican lancer on foot and mounted
+## (0x4586d0), the coach (0x459170), the assassin (0x413690), the American river boat
+## (0x466760), and the American cavalryman and Weirs on horseback (0x438090 with its
+## mounted argument: the sabre; on foot they shoot). It is on for every other fighter,
+## the whip cracker (0x413d50) and the knife and tomahawk throwers among them.
 const FIGHTER_RELOAD_MS := 1500
 const RELOAD_MS := {
 	150: 1000, 151: 1000, 162: 1000, 259: 1000, 260: 1000, 266: 1000, 270: 1000, 271: 1000,
-	272: 1000, 273: 1000, 274: 1000, 275: 1000, 362: 1000, 454: 1000,  # chiefs, spearmen, lancers
+	272: 1000, 273: 1000, 274: 1000, 275: 1000, 291: 1000, 362: 1000, 454: 1000, 460: 1000,
 	359: 2500, 468: 2500,  # dynamite
 	265: 5000, 465: 5000,  # cannons
+	469: 150,  # Gatling gunner
 }
 ## Units of the game's worker classes: they hit with their melee attack (113) at the melee
 ## rate (116, DEFS.INI's KampffrequenzNah x 10 ms). Every other unit is a fighter, whose
-## attack (114) reaches the range tier's distance (tier 0: 64 px) every RELOAD_MS.
+## attack (max(1, 114)) reaches the range tier's distance (tier 0: 64 px) every RELOAD_MS.
+## The fighter classes are those whose constructor runs the fighter setup (0x435820, which
+## also switches experience on); these are the rest.
 const WORKERS := [152, 153, 155, 164, 252, 253, 254, 255, 256, 257, 352, 355, 364, 452, 453,
 		455, 456, 457]
 

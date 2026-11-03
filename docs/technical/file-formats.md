@@ -217,6 +217,22 @@ one is packed and wrapped in a try-and-buy layer). Addresses are that file's.
   percentages. The base `America.exe` has the same reloads and formula: the expansion
   doubled most units' HP (54 of 87; heroes unchanged) but kept every attack value, so
   fights take about twice as many hits.
+- The blow in full (0x436cc0): (attack 0x6e0 + weapon level 0x6b4, which the weapon
+  upgrades set to 1, 2, 3) x (morale + experience / 2)% x (100 + warrior spirit)%, when the
+  morale switch 0x59120d is on (the expansion sets it at every game start; the base game's
+  manual has morale too, 4.5). Then one projectile by class flag: bullet (0x6d3), cannonball
+  (0x6d1), dynamite (0x6d2), arrow (0x6d4); none hand to hand.
+- Rate (0x436abb, 0x435d04): when the counter 0x6dc is out the unit fires at once and sets
+  it to the reload again; the counter runs down 20 a tick whatever the animation shows. One
+  blow per reload, not per animation plus reload.
+- Landing (0x405510, every projectile): one object takes it, the target unit if the shot
+  lands within 64 px of it, a target building within 96, else the first enemy within 32 px
+  of the landing point. No splash, no chance to miss beyond that; dynamite and cannonballs
+  too. Experience +1 a hit, +5 for a building.
+- Buildings (0x40c970, the take-damage of every building class): life energy (x256) less
+  the blow x 256. No factor by weapon: bullets and blades hurt buildings as much as units.
+- Units (0x418f90): (200 - morale)% of the blow, a fifth of it under the medicine man's
+  protective shield (0x298), at least 1.
 
 ## Production in the executable
 

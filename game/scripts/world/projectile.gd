@@ -13,7 +13,6 @@ const STRAIGHT := ["ball"]
 ## Cannonballs leave from the muzzle: this far out along the barrel, and this high.
 const MUZZLE := Vector2(30.0, -14.0)
 const EXPLOSION_BOB := "effects/explosion/explosion.anims.json"
-const SPLASH_RADIUS := 40.0
 ## Impact sounds from the sound table (GUID 720 cannonball, 721 dynamite; event "shoot").
 const IMPACT_SOUND := {"ball": 720, "dynamite": 721}
 
@@ -132,10 +131,6 @@ func _land() -> void:
 			Sound.play_named("water_splash", _to, true)  # a miss goes into the river
 		else:
 			Sound.play_event(IMPACT_SOUND[_kind], Sound.Event.SHOOT, _to, 0)
+		# One object takes the blast, as with any shot (0x405510): no splash round it.
 		OrderMarker.effect(get_parent(), _to, EXPLOSION_BOB, 0)
-		var team := _attacker.team if is_instance_valid(_attacker) else -1
-		for unit: Unit in UnitGrid.near(_to, SPLASH_RADIUS):
-			if unit != _target and unit.is_alive() and Diplomacy.hostile(team, unit.team) \
-					and unit.position.distance_to(_to) < SPLASH_RADIUS:
-				unit.take_damage(_damage * 0.5, _attacker if is_instance_valid(_attacker) else null, true)
 	queue_free()

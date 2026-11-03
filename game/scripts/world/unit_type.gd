@@ -68,6 +68,7 @@ var reload_ms := 1500
 ## Body animation indices played in order for one attack (e.g. aim, fire, reload).
 var attack_anims := PackedInt32Array()
 var fire_step := 0  ## index into attack_anims at which the shot/blow lands
+var attack_ms := 0  ## how long attack_anims take played through at their own pace
 ## Frame of the firing animation at which the shot leaves (-1: when it has played out).
 ## A cannon's sheet opens with the muzzle flash, so its ball is away at once.
 var release_frame := -1
@@ -181,6 +182,9 @@ func _setup_combat(player := -1) -> void:
 			if bob.anims[i].sub_sprite == sheet:
 				attack_anims.append(i)
 		fire_step = mini(1, attack_anims.size() - 1)
+		for i in attack_anims:
+			for ms in bob.anims[i].durations_ms:
+				attack_ms += ms
 	for stem in PROJECTILE_STEMS:
 		var index := _find(stem, false, true)
 		if index >= 0:

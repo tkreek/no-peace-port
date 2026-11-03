@@ -46,6 +46,8 @@ var _shadow_anim := -1
 var _step := 0
 var _step_time := 0.0
 var _anim_finished := false
+## Playback rate of the current animation (an attack sequence is sped up to fit its reload).
+var anim_rate := 1.0
 var _flash_time := 0.0
 var _flash_ring := false
 ## The picture on each sprite now (anim << 32 | frame): a step that changes neither leaves it be.
@@ -135,6 +137,7 @@ func play(action: String) -> void:
 	action = _variant(action)
 	if action == _action:
 		return
+	anim_rate = 1.0
 	var index := unit_type.anim_index(action)
 	if index < 0:
 		if _anim >= 0:
@@ -187,7 +190,7 @@ func _advance(delta: float) -> void:
 	_update_cover()
 	var anim := unit_type.bob.anims[_anim]
 	var shown_step := _step
-	_step_time += delta * 1000.0
+	_step_time += delta * 1000.0 * anim_rate
 	while _step_time >= anim.durations_ms[_step]:
 		_step_time -= anim.durations_ms[_step]
 		if _step + 1 < anim.frames.size():

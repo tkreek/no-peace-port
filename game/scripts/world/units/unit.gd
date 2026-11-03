@@ -187,17 +187,15 @@ func effectiveness() -> float:
 	return 1.0 + 0.2 * experience
 
 
-## Spear fighters and whip crackers are "very effective against mounted units"; flaming
-## arrows, dynamite and cannon fire set about buildings, which bullets and blades barely dent.
+## Spear fighters and whip crackers are "very effective against mounted units" (the manual;
+## the remake's own rule: AmericaAddOn.exe's blow, 0x436cc0, has no such factor).
 const ANTI_CAVALRY := [162, 363]
-const BUILDING_BREAKERS := [154, 158, 159, 276, 277, 265, 465, 359, 468]
 
 
+## Buildings take every blow whole (0x40c970, all building classes: life energy - damage);
+## dynamite and cannon fire do more only by their attack values.
 func damage_factor(against: Node2D) -> float:
-	var me := unit_type.guid()
-	if against is MapObject:
-		return 3.0 if me in BUILDING_BREAKERS else 0.5
-	if against is Unit and against.unit_type.mounted and me in ANTI_CAVALRY:
+	if against is Unit and against.unit_type.mounted and unit_type.guid() in ANTI_CAVALRY:
 		return 2.0
 	return 1.0
 
@@ -570,7 +568,7 @@ func take_damage(amount: float, attacker: Node2D = null, horse_too := false) -> 
 	KiManager.note_hurt(self)
 	amount *= 2.0 - morale()  # high morale shrugs blows off, low morale feels them (0x418fb6)
 	if magic.shield_time > 0.0:
-		amount *= 0.5  # the medicine man's protective shield
+		amount *= 0.2  # the medicine man's protective shield (0x418fe9: a fifth gets through)
 	amount *= _campaign_handicap(attacker)
 	health = maxf(0.0, health - amount)
 	_overlay.queue_redraw()
@@ -788,9 +786,14 @@ func _update_attack(delta: float) -> void:
 			return
 	face(to_target)
 	if _cooldown <= 0.0:
+		# The original fires as its reload runs out and starts the next one at once
+		# (0x436abb, 0x435d04): one blow per reload, whatever the animation's length, which
+		# is only shown. The sequence plays faster when it would outlast the reload.
+		_cooldown = unit_type.reload_ms / 1000.0
 		_attack_step = 0
 		_released = false
 		_play_index(unit_type.attack_anims[0])
+		anim_rate = maxf(1.0, float(unit_type.attack_ms) / maxf(1.0, unit_type.reload_ms))
 	else:
 		play("idle")
 
@@ -831,10 +834,11 @@ func _continue_attack() -> void:
 	_attack_step += 1
 	if _attack_step >= unit_type.attack_anims.size():
 		_attack_step = -1
-		_cooldown = unit_type.reload_ms / 1000.0
 		play("idle")
 	else:
+		var rate := anim_rate
 		_play_index(unit_type.attack_anims[_attack_step])
+		anim_rate = rate
 
 
 func _strike() -> void:
@@ -844,11 +848,9 @@ func _strike() -> void:
 	# hand too; workers as "melee", which no sound table entry has.
 	var event := Sound.Event.MELEE if DefaultsData.WORKERS.has(unit_type.guid()) else Sound.Event.SHOOT
 	Sound.play_event(unit_type.guid(), event, position, 60)
-	# Ranged hits are not certain; distance makes them less likely.
+	# Every shot strikes where the target stood when it was fired (0x405510): it misses only
+	# a target that has walked away meanwhile (Projectile), never by chance.
 	var hit := true
-	if unit_type.ranged:
-		var accuracy := clampf(1.1 - position.distance_to(aim_point(target)) / (attack_range() * 1.6), 0.4, 0.95)
-		hit = Sim.randf() <= accuracy
 	var damage := attack_damage() * damage_factor(target)
 	if unit_type.ranged and unit_type.projectile_anim >= 0:
 		Projectile.launch(self, target, damage, hit)  # damage lands with it

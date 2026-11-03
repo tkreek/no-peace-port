@@ -37,13 +37,14 @@ func _scenario_quarters() -> void:
 		if u.team == 1 and not u.inside:
 			u.stance = Unit.Stance.PASSIVE  # only those inside fight
 	var walls := tower.work_rect()
-	var reach := BuildingDefence.garrison_range(squad[0])
-	var spot := Vector2(walls.end.x + squad[0].attack_range() * 1.1, walls.get_center().y)
+	var reach := BuildingDefence.garrison_range(squad[0], tower)
+	var middle := tower.ground_rect().get_center()
+	var spot := middle + Vector2((squad[0].attack_range() + reach) / 2.0, 0)
 	main._spawn_squad(main.FACTIONS[main.players[2].faction].army, 2, spot, 3)
 	var enemies := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 \
 			and n.position.distance_to(spot) < 120)
-	print("enemies %s px from the walls; range in the open %d, from the walls %d" % [enemies.map(func(u: Unit) -> int:
-			return int(u.position.distance_to(tower.wall_point(u.position)))), squad[0].attack_range(), reach])
+	print("enemies %s px from the middle; range in the open %d, from the middle %d" % [enemies.map(func(u: Unit) -> int:
+			return int(u.position.distance_to(middle))), squad[0].attack_range(), reach])
 	for e: Unit in enemies:
 		e.stance = Unit.Stance.PASSIVE
 	await get_tree().create_timer(30.0).timeout
@@ -226,7 +227,7 @@ func _scenario_pitfall() -> void:
 	for n in main.units_root.get_children():
 		if n is Unit and n.team == 2 and n.position.distance_to(centre) < 300:
 			n.stance = Unit.Stance.PASSIVE
-			n.move_to(pit.footprint_rect().get_center() + Vector2(220, 0))
+			n.move_to(pit.footprint_rect().get_center())  # they gather on it: it catches one, and another once set again (2 s)
 	await get_tree().create_timer(12.0).timeout
 	var foes := main.units_root.get_children().filter(func(n: Node) -> bool: return n is Unit and n.team == 2 and n.position.distance_to(centre) < 400)
 	print("enemies alive %s; our warrior alive %s; pit %s" % [foes.map(func(f: Unit) -> bool: return f.is_alive()), friend.is_alive(),
@@ -430,8 +431,9 @@ func _scenario_unhorse() -> void:
 	get_tree().quit()
 
 
-## Flaming arrow shooters set an enemy building alight; the fire spreads to its neighbour
-## and a builder puts it out.
+## Flaming arrow shooters damage an enemy building until it burns (below 90%); the fire is
+## only a picture, as in the original: it does no damage once they stop and does not spread
+## to the houses beside it.
 func _scenario_fire() -> void:
 	var hq: MapObject = main.players[1].main_building()
 	var guid: int = {"mex": 201, "usa": 401, "ind": 101, "des": 301}[main.players[2].faction]
@@ -453,14 +455,18 @@ func _scenario_fire() -> void:
 	var archers := Unit.all_units.filter(func(u: Unit) -> bool: return u.unit_type.guid() == archer_guid)
 	for a: Unit in archers:
 		a.attack(houses[0], true)
+	var stopped := 0.0
 	for i in 10:
 		await get_tree().create_timer(3.0).timeout
 		if i == 3:
 			for a: Unit in archers:
 				a.stop()
 				a.stance = Unit.Stance.PASSIVE
+		if i == 4:
+			stopped = houses[0].health
 		print("t=%ds %s" % [(i + 1) * 3, houses.map(func(b: MapObject) -> String:
-				return "%d%%%s" % [int(100 * b.health / b.max_health), " burning" if b.condition.burning > 0.0 else ""] if is_instance_valid(b) else "gone")])
+				return "%d%%%s" % [int(100 * b.health / b.max_health), " burning" if b.condition.on_fire() else ""] if is_instance_valid(b) else "gone")])
+	print("fire: energy kept after the shooting stopped %s" % (is_instance_valid(houses[0]) and houses[0].health == stopped))
 	get_tree().quit()
 
 
@@ -808,11 +814,13 @@ func _scenario_spirit() -> void:
 	var before: float = warriors[0].spirit_factor()
 	var without_upgrade := tepee.production.invoke_spirit()
 	main.players[1].researched[968] = true
+	var empty := tepee.production.invoke_spirit()  # the energy starts to build up only now
+	tepee.production.spirit_energy = BuildingProduction.SPIRIT_COST  # as after 384 s
 	var invoked := tepee.production.invoke_spirit()
 	var again := tepee.production.invoke_spirit()
 	var auras := warriors.filter(func(u: Unit) -> bool: return is_instance_valid(u._aura)).size()
-	print("spirit: before upgrade %s, invoked %s, damage x%.2f -> x%.2f, energy left %d, again %s, auras %d" % [
-			without_upgrade, invoked, before, warriors[0].spirit_factor(), tepee.production.spirit_energy, again, auras])
+	print("spirit: before upgrade %s, empty %s, invoked %s, damage x%.2f -> x%.2f, energy left %d, again %s, auras %d" % [
+			without_upgrade, empty, invoked, before, warriors[0].spirit_factor(), tepee.production.spirit_energy, again, auras])
 	await get_tree().create_timer(BuildingProduction.SPIRIT_SECONDS + 1.0).timeout
 	print("spirit: afterwards damage x%.2f, auras %d" % [warriors[0].spirit_factor(),
 			warriors.filter(func(u: Unit) -> bool: return is_instance_valid(u._aura)).size()])

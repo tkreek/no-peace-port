@@ -128,6 +128,9 @@ static func allows(player: int, guid: int) -> bool:
 ## The properties `player`'s `guid` has here that differ from defaults.json (property id
 ## -> value): the base game's table, then the map's own.
 static func properties(player: int, guid: int) -> Dictionary:
+	# A wall's straight pieces are read as its corner (AmericaAddOn.exe 0x428a7e: 219/220 as
+	# 212, 316/317 as 312, 425/426 as 412), the base game's and the map's values included.
+	guid = WallLine.corner_of(guid)
 	var key := Vector2i(player, guid)
 	if not _merged.has(key):
 		var own: Dictionary = _base.get(guid, {}).duplicate()

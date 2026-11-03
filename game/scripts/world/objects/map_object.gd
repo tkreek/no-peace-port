@@ -485,7 +485,8 @@ func save_state(unit_ids: Dictionary) -> Dictionary:
 	var entry := {"type": object_type.id, "sim": sim_id, "x": position.x, "y": position.y, "owner": owner_index,
 			"complete": complete, "progress": build_progress, "health": health,
 			"amount": stock.amount, "field_state": stock.field_state, "field_progress": stock.field_progress,
-			"stored_gold": stock.stored_gold, "loot_kind": stock.loot_kind, "loot": stock.loot}
+			"stored_gold": stock.stored_gold, "loot_kind": stock.loot_kind, "loot": stock.loot,
+			"needs_paying": stock.needs_paying}
 	if _is_building:
 		entry.merge({"queue": Array(production.queue), "train": production.progress,
 				"rally": [production.rally_point.x, production.rally_point.y] if production.rally_point != Vector2.INF else null,

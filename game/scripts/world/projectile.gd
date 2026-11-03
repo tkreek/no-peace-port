@@ -167,9 +167,7 @@ func _land() -> void:
 	var victim := _victim(side)
 	if victim:
 		if is_instance_valid(_attacker):
-			_attacker.deal_damage(victim, _damage, explodes)
-			if victim is MapObject and _attacker.unit_type.guid() in BuildingCondition.FIRE_STARTERS:
-				victim.condition.ignite()
+			_attacker.deal_damage(victim, _damage, explodes)  # flaming arrows too: a plain blow
 		else:
 			victim.take_damage(_damage, null, explodes)
 	if explodes:

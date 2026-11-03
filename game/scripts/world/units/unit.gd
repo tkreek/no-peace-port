@@ -566,9 +566,7 @@ func ready_to_fire() -> bool:
 func fire_from_quarters(enemy: Node2D, from: Vector2, reach: float) -> void:
 	_cooldown = unit_type.reload_ms / 1000.0
 	Sound.play_event(unit_type.guid(), Sound.Event.SHOOT, from, 60)
-	var accuracy := clampf(1.1 - from.distance_to(enemy.position) / (reach * 1.6), 0.4, 0.95)
-	if Sim.randf() <= accuracy:
-		enemy.take_damage(attack_damage(), self)
+	enemy.take_damage(attack_damage(), self)  # the ordinary blow, no roll to hit (0x436cc0, 0x405510)
 
 
 # ------------------------------------------------------------------ damage

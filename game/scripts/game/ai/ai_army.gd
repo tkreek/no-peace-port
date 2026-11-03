@@ -148,7 +148,7 @@ func _magic(units: Array, soldiers: Array) -> void:
 		elif 921 in spells and magic.magic_energy >= magic.magic_pool() * 0.9:
 			for field in MapObject.structures:
 				if field.is_field() and field.owner_index == ai.player.index \
-						and field.stock.field_state == ObjectStock.Field.GROWING and not field.stock.is_rained():
+						and field.stock.field_state == ObjectStock.Field.RIPE and field.stock.amount < 350:  # rain sets a ripe crop to 350 (0x47ca80)
 					caster.cast(921, field.position)
 					break
 

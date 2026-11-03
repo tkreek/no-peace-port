@@ -116,7 +116,7 @@ static func save(main: Node, save_name := QUICK_NAME, picture: Image = null) -> 
 		data.units.append({"id": unit_ids[unit], "sim": unit.sim_id, "dir": unit.unit_type.directory, "mounted": unit.unit_type.mounted,
 				"type": unit.unit_type.type_id, "team": unit.team, "x": unit.position.x, "y": unit.position.y,
 				"health": unit.health, "stance": unit.stance, "formation": unit.formation, "carried": unit.work.carried,
-				"carrying": unit.work.carrying, "cattle": unit.animal.cattle_value, "magic": unit.magic.magic_energy,
+				"carrying": unit.work.carrying, "cattle": unit.animal.cattle_value, "cattle_food": unit.animal.cattle_food, "magic": unit.magic.magic_energy,
 				"gather": _key(source) if is_instance_valid(source) and source.stock.resource != "" else "",
 				"gather_resource": unit.work.gather_resource, "packed_tepee": unit.tepees.packed,
 				"vessel": unit_ids[unit.water.vessel] if unit.state == Unit.State.QUARTERED and unit_ids.has(unit.water.vessel) else -1})
@@ -295,6 +295,7 @@ static func restore(main: Node, data: Dictionary) -> void:
 		unit.work.carried = int(entry.carried)
 		unit.work.carrying = entry.carrying
 		unit.animal.cattle_value = float(entry.cattle)
+		unit.animal.cattle_food = int(entry.get("cattle_food", unit.animal.cattle_food))
 		unit.magic.magic_energy = float(entry.magic)
 		var packed: Dictionary = entry.get("packed_tepee", {})
 		if not packed.is_empty():

@@ -46,3 +46,6 @@ tools/.venv/
 
 # The map editor's saves: share a map with tools/assets/patch_assets.py capture.
 /maps/
+
+# Timings of the last scenario check run (tools/check_scenarios.py orders by them).
+tools/.check_times.json

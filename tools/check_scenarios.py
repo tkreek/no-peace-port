@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
 """Run the game's developer scenarios headless and check what they print.
 
-Usage: tools/check_scenarios.py [name ...]   (no names: all of them)
+Usage: tools/check_scenarios.py [--quick] [name ...]   (no names: all of them)
+       --quick skips the checks that took longer than QUICK_SECONDS last time;
        CHECK_ARGS="--opt=value ..." passes extra options to every run;
-       CHECK_JOBS=n runs at most n checks at once (default: half the CPUs).
+       CHECK_JOBS=n runs at most n checks at once (default: all CPUs but two, at most
+       one per 2 GB of free memory).
 
 Each check starts `godot --headless` with a scenario (see game/scripts/dev/scenarios.gd),
 waits for it to finish, and requires every expected pattern in the output and no script
 error. Scenarios that never quit on their own are bounded with --report-after frames.
 Every run uses --fixed-fps, so none waits on the wall clock.
-Runs several at once; exits non-zero if any check fails.
+Runs several at once, the slowest of the last run first (their times are kept in
+tools/.check_times.json, not versioned), and reports in the order they finish; exits
+non-zero if any check fails. Checks in STOP_EARLY end as soon as every expected pattern has
+been printed.
 """
 import concurrent.futures
+import json
 import os
 import re
 import subprocess
@@ -21,6 +27,10 @@ import time
 
 GAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "game")
 BASE = ["--ai=off", "--fog=off"]
+TIMES = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".check_times.json")
+QUICK_SECONDS = 15
+# Frame-bounded checks with nothing to see after their patterns: stopped once all match.
+STOP_EARLY = {"aigame"}
 ISLANDS = "--map=[2 Players] - 2 islands.ulf"
 
 # name -> (extra arguments, frames to stop after or 0 if it quits itself, expected patterns)
@@ -166,6 +176,7 @@ CHECKS = {
                           r"Match over: the lobby is open again", r"client teams: \[2, 2, 1\] \[2, 2, 1\]"]),
     # Teams and diplomacy (game/scripts/dev/scenarios/team_scenarios.gd).
     "teamgame": (["--ai-vs-ai=1", "--players=mex,usa,ind,des", "--teams=1,1,2,2", "--time-scale=8", "--cheats=1",
+                  "--team-minutes=8",  # the sides meet in the 7th minute
                   "--map=[4 Players] - crossroads.ulf"], 0,
                  [r"teams at the start: 1:t1 2:A\+v 3:W 4:W \| 2:t1 1:A\+v 3:W 4:W \| 3:t2 1:W 2:W 4:A\+v \| 4:t2 1:W 2:W 3:A\+v",
                   r"team game: hits between allies 0, between enemies [1-9]\d*; over true",
@@ -259,6 +270,21 @@ def run_dedicated():
         agree, len(shared), teams)
 
 
+def run_until(command, expected, timeout=400):
+    """Run `command`, ending it once every pattern in `expected` has been printed."""
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    out = []
+    deadline = time.time() + timeout
+    for line in process.stdout:
+        out.append(line)
+        text = "".join(out)
+        if all(re.search(p, text) for p in expected) or time.time() > deadline:
+            break
+    process.kill()
+    process.wait()
+    return "".join(out) + ("\nTIMEOUT" if time.time() > deadline else "")
+
+
 def run(name):
     args, frames, expected = CHECKS[name]
     scenario = name.split("_")[0]
@@ -284,6 +310,7 @@ def run(name):
     try:
         out = run_replay() if name == "replay" else run_network() if name == "network" else \
             run_dedicated() if name == "dedicated" else \
+            run_until(command, expected) if name in STOP_EARLY else \
             subprocess.run(command, capture_output=True, text=True, timeout=400).stdout
     except subprocess.TimeoutExpired as e:
         out = (e.stdout or b"").decode() if isinstance(e.stdout, bytes) else (e.stdout or "")
@@ -297,17 +324,51 @@ def run(name):
     return name, problems, time.time() - started
 
 
+def default_jobs():
+    jobs = max(2, (os.cpu_count() or 4) - 2)
+    try:
+        with open("/proc/meminfo") as f:
+            free_kb = int(re.search(r"MemAvailable:\s+(\d+)", f.read()).group(1))
+        jobs = min(jobs, max(2, free_kb // (2 * 1024 * 1024)))
+    except (OSError, AttributeError):
+        pass
+    return jobs
+
+
 def main():
-    names = sys.argv[1:] or list(CHECKS)
+    args = sys.argv[1:]
+    quick = "--quick" in args
+    names = [a for a in args if a != "--quick"] or list(CHECKS)
+    try:
+        with open(TIMES) as f:
+            times = json.load(f)
+    except (OSError, ValueError):
+        times = {}
+    if quick:
+        skipped = [n for n in names if times.get(n, 0) > QUICK_SECONDS]
+        names = [n for n in names if n not in skipped]
+        if skipped:
+            print("quick: skipping %s" % " ".join(skipped))
+    # The slowest first, so the long ones do not start last and hold up the end.
+    names.sort(key=lambda n: -times.get(n, 0))
     failed = 0
-    with concurrent.futures.ThreadPoolExecutor(max_workers=int(os.environ.get("CHECK_JOBS", 0)) or os.cpu_count() // 2 or 2) as pool:
-        for name, problems, seconds in pool.map(run, names):
+    started = time.time()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=int(os.environ.get("CHECK_JOBS", 0)) or default_jobs()) as pool:
+        for future in concurrent.futures.as_completed([pool.submit(run, n) for n in names]):
+            name, problems, seconds = future.result()
+            times[name] = round(seconds, 1)
             if problems:
                 failed += 1
-                print("FAIL %-12s %4.0fs  %s" % (name, seconds, "; ".join(problems)))
+                print("FAIL %-12s %4.0fs  %s" % (name, seconds, "; ".join(problems)), flush=True)
             else:
-                print("ok   %-12s %4.0fs" % (name, seconds))
-    print("%d of %d checks failed" % (failed, len(names)) if failed else "all %d checks passed" % len(names))
+                print("ok   %-12s %4.0fs" % (name, seconds), flush=True)
+    try:
+        with open(TIMES, "w") as f:
+            json.dump(times, f, indent=1, sort_keys=True)
+    except OSError:
+        pass
+    print("%d of %d checks failed" % (failed, len(names)) if failed else "all %d checks passed" % len(names),
+          "in %.0f s" % (time.time() - started))
     sys.exit(1 if failed else 0)
 
 

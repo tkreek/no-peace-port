@@ -21,8 +21,9 @@ extends RefCounted
 ##
 ## The base game's campaign maps were made for, and played with, the base game's own stat
 ## table (global/guids/Defaults.bin), not the expansion's that the remake runs on
-## (defaults.json): for them its values (data/defaults_base.json, where the two differ)
-## come under the map's own.
+## (defaults.json): setup(map, true) puts its values (data/defaults_base.json, where the
+## two differ) under the map's own. The game does not ask for it (Main): every mission plays
+## with the expansion's table.
 
 ## Things made from the neutral player's table, by the remake's queue GUID (0x46a600).
 const NEUTRAL_MADE := {BuildingProduction.HORSE_GUID: 480, BuildingProduction.COW_GUID: 482,

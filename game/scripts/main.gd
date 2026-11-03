@@ -100,9 +100,10 @@ func _ready() -> void:
 	if map == null:
 		_show_message("Could not load map %s" % map_path)
 		return
-	# What each people may make and the values it plays with here (a base game mission: the
-	# base game's).
-	MapRules.setup(map, Match.campaign.get("set", "") == "base")
+	# What each people may make and the values it plays with here. Base game missions play
+	# with the expansion's table too (the player's choice, 2026-11-03: twice the hit points
+	# for most units, no minimum ranges), not the base game's that their maps were made for.
+	MapRules.setup(map, false)
 	# The game's randomness: --seed=n for a repeatable run (scenarios default to 1); a replay
 	# brings its own, and its orders instead of the player's.
 	var default_seed := "1" if GameData.cmdline_option("scenario") != "" else str(randi())

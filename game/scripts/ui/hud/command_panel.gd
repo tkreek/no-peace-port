@@ -159,8 +159,7 @@ func refresh() -> void:
 	if building and building.owner_index == hud.player.index:
 		if not building.defence.garrison.is_empty():
 			_add_icon(extra_icons, ICON_LEAVE, "Move units from quarters (L)", func() -> void: Orders.building(building, "release"))
-		_add_icon(extra_icons, ICON_DEMOLISH, "Demolish (Del)" if building.complete \
-				else "Demolish (Del) — refunds the unbuilt part", func() -> void: Orders.building(building, "demolish"))
+		_add_icon(extra_icons, ICON_DEMOLISH, "Demolish (Del)", func() -> void: Orders.building(building, "demolish"))
 	layout(hud.command_area())
 
 
@@ -266,8 +265,9 @@ func _add_building_commands(building: MapObject) -> void:
 			if type_id >= 0:
 				_add_card(type_id, guid, enqueue.bind(guid))
 	if building.guid == BuildingProduction.SALOON and hud.player.researched.has(BuildingProduction.LIFT_FOG_UPGRADE):
-		var ready := Sim.msec() >= production.look_ready_at
-		_add_spell(BuildingProduction.LIFT_FOG_UPGRADE, "Look over the land: click a spot to lift the fog there for a while" +
+		var ready := production.can_look()
+		_add_spell(BuildingProduction.LIFT_FOG_UPGRADE, "Look over the land: click a spot to lift the fog there for %d s\nCosts %d magic energy (%d now)" % [
+				BuildingProduction.LOOK_SECONDS, BuildingProduction.LOOK_COST, production.spirit_energy] +
 				("" if ready else "\n(recovering)"), "look")
 	var spirit := production.spirit_level()
 	if building.guid == BuildingProduction.SPIRIT_TEPEE and spirit > 0:

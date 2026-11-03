@@ -467,7 +467,7 @@ func _scenario_stages() -> void:
 				finished_last += 1
 			else:
 				wrong.append("%d %s" % [guid, biome])
-			b.health = b.max_health * 0.2
+			b.condition._hurt(b.max_health * 0.8)  # a blow to 20%: burnt out (below 40%)
 			b.refresh_sprites()
 			burnt += 1 if b._body_anim == MapObject.BURNT_ANIM else 0
 			b.health = 0.0

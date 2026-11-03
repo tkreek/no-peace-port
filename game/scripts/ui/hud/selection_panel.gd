@@ -275,7 +275,7 @@ func _object_detail(object: MapObject) -> String:
 		var doing: String = {"upgrade": "Researching", "trade": "Trading", "horse": "Raising", "cow": "Raising",
 				"gun": "Making", "liquor": "Distilling"}.get(current.get("kind"), "Training")
 		return "%s %s — %d%%" % [doing, current.get("name", "?"), int(production.progress * 100)]
-	if object.guid == BuildingProduction.SPIRIT_TEPEE and object.owner_index == hud.player.index:
+	if object.guid in [BuildingProduction.SPIRIT_TEPEE, BuildingProduction.SALOON] and object.owner_index == hud.player.index:
 		owner_note += "\nMagic energy %d / %d" % [production.spirit_energy, BuildingProduction.SPIRIT_MAX]
 	var defence := object.defence
 	var quartered := "\nQuartered %d / %d" % [defence.garrison.size(), defence.capacity()] if defence.capacity() > 0 else ""

@@ -123,7 +123,7 @@ func _give_targeted(world: Vector2) -> void:
 				return
 		"look":
 			var saloon := selected_building
-			if is_instance_valid(saloon) and saloon.guid == BuildingProduction.SALOON and Sim.msec() >= saloon.production.look_ready_at:
+			if is_instance_valid(saloon) and saloon.production.can_look():
 				Orders.building(saloon, "look", [world])
 		"rally":
 			if is_instance_valid(selected_building) and selected_building.is_building():

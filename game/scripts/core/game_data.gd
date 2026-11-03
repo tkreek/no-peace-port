@@ -363,6 +363,14 @@ func _load_tables() -> void:
 	for upgrade in [910, 911, 936, 937, 960, 961, 986, 987]:
 		if _stats.has(upgrade):
 			_stats[upgrade].effects = {"mine_pct": 20}
+	# The towers' Sight upgrades (AmericaAddOn.exe 0x40db80) set the building's sight tier to
+	# 3, then 4 (500 and 640 px), not "10% each" as the manual says.
+	for upgrade in [943, 962, 993]:
+		if _stats.has(upgrade):
+			_stats[upgrade].effects = {"sight_tier": 3}
+	for upgrade in [944, 963, 994]:
+		if _stats.has(upgrade):
+			_stats[upgrade].effects = {"sight_tier": 4}
 	var guids: Dictionary = read_json("data/guids.json")
 	for key in guids:
 		_guids[key.to_int()] = int(guids[key])

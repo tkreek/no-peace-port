@@ -314,6 +314,73 @@ everyone. The expansion editor's `Defaults.dat` lacks those five.
   either runs out, so one worker takes `t` x 1.02 s and n workers take 1/n of that.
   `t` = property 6.
 
+## Buildings in the executable
+
+Same file. The building base class (constructor 0x40bdd0, vtable 0x4a1798; tick 0x40c070,
+take-damage +0x44 = 0x40c970, construct/repair +0xcc = 0x40c4b0) keeps energy in 1/256ths
+(+4, maximum +0x578) and its state in flags at +0x5a4 (1 site, 2 standing, 4 burning,
+8 rubble, 0x10 burnt out, 0x20 producing).
+
+- Stats (0x428b15 -> 0x40cc50): properties 1-10 of the owner's table in that order: costs 1-5
+  (+0x144, food, wood, horses, gold, guns), production time 6 (at least 1), energy 7 (at
+  least 10), quarters 8 (at most 10; > 0 sets class bit 0x4000), housing 9, sight tier 10
+  (at least 0). A wall's straight pieces are made as their corner's type (0x428a7e: 219/220
+  as 212, 316/317 as 312, 425/426 as 412) and read its values.
+- A site (0x40c3f0) starts at 1 point of energy and is lost after 600000 ms if nobody has
+  worked on it (+0x98, the tick's 1-point blow at 0x40c0f0; every builder's call zeroes it,
+  0x40c4d8). The pitfall's own start (0x41ecd0) sets no such clock. Construction as in
+  "Production": each step adds max / t energy.
+- Repair (0x40c6bc, the same call on a standing building): a step every 1000 ms of builder
+  ticks (50; construction's test is `> 1000`, 51) restores max / t and costs each resource's
+  cost / t in whole units (0x40c300 fills +0x15c), so a full repair costs about the full
+  price. Short of any, the builder stops and the local owner hears 800-804 (0x40c71a..).
+- Damage (0x40c970): energy - blow x 256; at or below none, destroyed (0x40ca70). Below
+  90% (+0x580, 0x40c372) flag 4: flames, in four stages of a quarter of 90% each (+0xe4),
+  the burning sound 151 every 4100 ms (0x40c920); building or repairing back to 90% clears
+  it. Below 40% (+0x584) flag 0x10: the burnt-out picture, anim 7 / shadow 8, until a
+  repair reaches 40% (0x40c845). Nothing else: the fire does no damage and does not spread,
+  and no attack starts one (every projectile hits through 0x405510: damage only).
+- Fire picture (0x40d440, fire object 0x462140 on `global/gfx/feuer/fire.bob`): at stage e,
+  fires at e + 1 sets of spots (marked in the building's bob, 0x40d4f0), the first at size
+  min(e, 2), later ones at sizes 0, 1, 2; size s is flame anim 2 - s with its cloud 5 - s
+  drawn half blended.
+- Destroyed (0x40ca70): quartered units step out unhurt (0x40d7b0 -> 0x41a8a0), housing is
+  taken back, upgrades in the queue are released, nothing is refunded; anim 9/10 (rubble)
+  except for the pitfall and fields; sound 152; the rubble goes after 10000 ms (+0x174,
+  0x40cc10), and only then does the footprint leave the map grid (0x4073a0).
+- Building orders (0x4564a0, codes 0x10000001..9): produce (own table), produce (neutral
+  table), let unit i out, cancel, demolish, look, trade, rally point, warrior spirit.
+  Demolish (Del, 0x468f19) deals 5000 points (0x456605): no refund.
+- No building fights by itself: no class overrides the tick for that (towers 0x4a6230 differ
+  only in their sight refresh).
+- Quarters (0x41a730, a unit within 128 px of the door, vtable +0xa8): its own building
+  with room (0x40d750: count +0xd8 < +0xdc) takes it in; it stands at the middle of the
+  building's ground-patch rectangle (+0x9c -> 0x40d850, anim 4), its reach +0x3ec = attack
+  range + half the longer side, measured from there (0x435ce4), its sight +0x3dc = sight +
+  half the shorter side when over 64 px. It fights with its own attack and reload; its
+  target scan finds enemy units only, 16 px out to that reach (0x435fe8). A boat (0x41aa90)
+  gives no extra reach. An enemy unit sent in (the same order) takes the building if nobody
+  is inside (0x42cd70), else puts three of them out (0x41a7b8); either way it is used up
+  (+0x34 = 2).
+- Pitfall (class 0x41e900, vtable 0x4a34e0, tick 0x41f2f0): armed when finished; every 100 ms
+  the first enemy unit within 48 px (0x45d940 with 0..0x30, class 2) takes 1000 points
+  (vtable +0x44, which units scale by morale); then it springs for 2000 ms and is gone after
+  the second catch (`+0x6f8 >= 2`, 0x41f3e8).
+- Corrals (105, 205, 305, 405; 0x413f20..0x413f6b): +5 horse room when placed (+0xac), -5
+  when the site starts (+0xb0), +5 when finished or taken over (+0xb4). Nothing takes it
+  back when one is destroyed or lost.
+- Banks and missions (216, 416; 0x458960): each, once finished, 1 gold every 10020 ms
+  (+0x6f8 by 20 a tick, paying past 10000); no limit on how many pay.
+- Magic energy (+0xa0, 1 a tick from the research of its upgrade up to +0xa4 = 0x6400, shown
+  /256: 0..100, 512 s to fill; it starts empty): the tepee of the ancestors' warrior spirit
+  (0x40e3c0) takes 0x4b00 (75) and adds 60000 ms to its people's timer (0x432340); levels
+  968/969/970 set the people's percentage to 20/30/40 (0x4329d0). The saloon's Lift fog of
+  war (965, 0x40de70) looks (0x40de90) for 0x1900 (25): object 484 (`comsat.bob`, 0x40e7b0)
+  lifts the fog round the spot as sight tier 2 does, for 7000 ms (0x40e9f0, 0x40e950).
+- Tower sight (0x40db80): Sight 1 (943, 962, 993) sets the tower's, lookout's or watchtower's
+  sight tier (+0x18) to 3, Sight 2 (944, 963, 994) to 4. Thick boards (940, 964) are the
+  wagons' (Defaults.bin's upgrade lists), not a building's.
+
 ## Upgrades in the executable
 
 Same file. Which objects take an upgrade is data: the expansion's Defaults.bin `EINHEIT`

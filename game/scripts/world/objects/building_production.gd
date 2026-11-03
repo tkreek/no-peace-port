@@ -36,34 +36,42 @@ const TRADES := [
 	{"good": "wood", "buy": true, "icon": 46}, {"good": "wood", "buy": false, "icon": 38},
 	{"good": "guns", "buy": true, "icon": 52}, {"good": "guns", "buy": false, "icon": 44},
 ]
-## Banks (interest) and missions (donations) pay gold on their own; more of them pay more,
-## up to five each (manual).
+## Banks (interest) and missions (donations) pay gold on their own: each, once finished,
+## 1 gold every 10.02 s (AmericaAddOn.exe 0x458960: +0x6f8 up by 20 a tick, paying when it
+## passes 10000), however many there are.
 const INCOME_BUILDINGS := [416, 216]
-const INCOME_GOLD := 15
-const INCOME_SECONDS := 12.0
-const INCOME_MAX_BUILDINGS := 5
+const INCOME_GOLD := 1
+const INCOME_SECONDS := 10.02
 ## The outlaws' distillery makes liquor, which feeds them: Defaults.bin's "Liquor" (711),
 ## queued like a unit and paid when ordered; done, it adds 40 food (AmericaAddOn.exe 0x40cf40).
 const DISTILLERY_GUID := 308
 const LIQUOR_GUID := 9004
 const LIQUOR_FOOD := 40
-## The outlaws' saloon looks over the land once Lift fog of war is researched.
+## Magic energy (AmericaAddOn.exe, the building's +0xa0): once its upgrade is researched
+## (0x40e390 / 0x40de70 set +0xa8), it gains 1 a 20 ms tick up to 0x6400 (0x40c0d9; +0xa4
+## from the constructor). The remake counts it in 256ths, as the original shows it: 100 at
+## most, 50/256 a second, so it starts empty and fills in 512 s.
+const MAGIC_MAX := 100.0
+const MAGIC_REGEN := 50.0 / 256.0  # magic energy per second
 ## The Natives' tepee of the ancestors (expansion manual 4.1) invokes the warrior spirit:
-## for 75 units of its magic energy, which builds back up slowly, every military unit of
-## its people deals 5, 10 or 20% more damage (Warrior spirit 1, 2 or 3) for 60 s, more
-## with each invocation (AmericaAddOn.exe 0x40e3c0: 0x4b00 / 256 energy, +60000 ms;
+## for 75 of its magic energy (0x40e3c0: 0x4b00), every fighting unit of its people deals
+## 20, 30 or 40% more damage (Warrior spirit 1, 2 or 3: 0x4329d0 sets 0x14, 0x1e, 0x28;
+## the manual says 5, 10 and 20) for 60 s, more with each invocation (0x432340: +60000 ms;
 ## 0x436d32: damage x (100 + percent) / 100; morale is not touched).
 const SPIRIT_TEPEE := 116
 const SPIRIT_UPGRADES := [968, 969, 970]
-const SPIRIT_BOOST := [0.05, 0.10, 0.20]
+const SPIRIT_BOOST := [0.20, 0.30, 0.40]
 const SPIRIT_COST := 75.0
-const SPIRIT_MAX := 150.0
-const SPIRIT_REGEN := 0.5  # magic energy per second
+const SPIRIT_MAX := MAGIC_MAX
 const SPIRIT_SECONDS := 60.0
-
+## The outlaws' saloon looks over the land once Lift fog of war is researched: for 25 of
+## its magic energy (0x40de90: 0x1900) it lifts the fog round a spot for 7 s, as far as
+## sight tier 2 sees (0x40e7b0: object 484 with 7000 ms; 0x40e9f0 reveals tier 2).
 const SALOON := 303
 const LIFT_FOG_UPGRADE := 965
-const LOOK_RECHARGE := 60.0
+const LOOK_COST := 25.0
+const LOOK_SECONDS := 7.0
+const LOOK_SIGHT_TIER := 2
 
 static var _trained_at := {}  # building GUID -> unit GUIDs whose place of production it is
 
@@ -71,8 +79,7 @@ var building: MapObject
 var queue: PackedInt32Array = []  ## unit, upgrade or trade GUIDs waiting their turn
 var progress := 0.0  ## 0..1 for queue[0]
 var rally_point := Vector2.INF  ## where trained units gather; INF = just outside
-var look_ready_at := 0.0  ## game msec (Sim.msec) when the saloon can look again
-var spirit_energy := SPIRIT_COST  ## the tepee of the ancestors' magic energy
+var spirit_energy := 0.0  ## magic energy (the tepee of the ancestors', the saloon's)
 var _income_timer := 0.0
 var _room_alerted := false  # the finished unit waiting for living space has been announced
 
@@ -265,13 +272,20 @@ func set_rally(point: Vector2) -> void:
 	rally_point = point
 
 
+## Whether the saloon has the energy to look over the land now.
+func can_look() -> bool:
+	var player := owner()
+	return building.guid == SALOON and player != null and player.researched.has(LIFT_FOG_UPGRADE) \
+			and spirit_energy >= LOOK_COST
+
+
 ## The saloon's look over the land: lifts the fog round `point` for a while, for its owner.
 func look(point: Vector2) -> void:
-	if building.guid != SALOON or Sim.msec() < look_ready_at:
+	if not can_look():
 		return
-	look_ready_at = Sim.msec() + LOOK_RECHARGE * 1000.0
+	spirit_energy -= LOOK_COST
 	if FogOfWar.current and building.owner_index == Orders.local_player:
-		FogOfWar.current.reveal_for(point, 450.0, 20.0)
+		FogOfWar.current.reveal_for(point, GameData.def_tier("sight_range", LOOK_SIGHT_TIER, 450), LOOK_SECONDS)
 
 
 ## Take entry `index` off the queue and refund what it cost.
@@ -303,9 +317,10 @@ func cancel_all() -> void:
 
 func update(delta: float) -> void:
 	var guid := building.guid
-	if guid == SPIRIT_TEPEE and building.complete and building.health > 0.0:
-		spirit_energy = minf(SPIRIT_MAX, spirit_energy + SPIRIT_REGEN * delta)
-	if guid in INCOME_BUILDINGS and building.health > 0.0:
+	if (guid == SPIRIT_TEPEE and spirit_level() > 0) or (guid == SALOON and owner() != null \
+			and owner().researched.has(LIFT_FOG_UPGRADE)):
+		spirit_energy = minf(MAGIC_MAX, spirit_energy + MAGIC_REGEN * delta)
+	if guid in INCOME_BUILDINGS:
 		_earn(delta)
 	if not queue.is_empty():
 		_train(delta)
@@ -362,15 +377,9 @@ func _train(delta: float) -> void:
 
 func _earn(delta: float) -> void:
 	_income_timer += delta
-	if _income_timer < INCOME_SECONDS:
+	if _income_timer < INCOME_SECONDS - 0.001:
 		return
-	_income_timer = 0.0
-	var same := 0
-	for object in MapObject.structures:
-		if object.guid == building.guid and object.owner_index == building.owner_index and object.complete and object.is_alive():
-			same += 1
-			if object == building and same > INCOME_MAX_BUILDINGS:
-				return
+	_income_timer -= INCOME_SECONDS
 	var player := owner()
 	if player:
 		player.add("gold", INCOME_GOLD)
@@ -379,5 +388,6 @@ func _earn(delta: float) -> void:
 func restore(entry: Dictionary) -> void:
 	queue = PackedInt32Array(entry.get("queue", []).map(func(v) -> int: return int(v)))
 	progress = float(entry.get("train", 0.0))
+	spirit_energy = float(entry.get("magic", 0.0))
 	var rally = entry.get("rally")
 	rally_point = Vector2(rally[0], rally[1]) if rally != null else Vector2.INF

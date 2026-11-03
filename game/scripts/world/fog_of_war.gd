@@ -80,15 +80,15 @@ func update_now() -> void:
 		for unit in Unit.all_units:
 			if unit.is_alive() and Diplomacy.sees_for(player_team, unit.team):
 				var sight := unit.sight()
+				if unit.inside and is_instance_valid(unit.quarters):
+					sight = BuildingDefence.garrison_sight(unit, unit.quarters)
 				var key := _index(unit.position) * 64 + int(sight / CELL)
 				if not stamped.has(key):
 					stamped[key] = true
 					_reveal(unit.position, sight)
 		for object in MapObject.structures:
 			if object.is_building() and object.is_alive() and Diplomacy.sees_for(player_team, object.owner_index):
-				var owner: Player = Player.by_index.get(object.owner_index)
-				var sharper := owner.bonus(object.guid, "sight_pct") if owner else 0.0  # tower Sight upgrades
-				_reveal(object.footprint_rect().get_center(), building_sight(object) * (1.0 + sharper / 100.0))
+				_reveal(object.footprint_rect().get_center(), building_sight(object))
 		var now := Sim.msec()
 		_reveals = _reveals.filter(func(r: Dictionary) -> bool: return r.until > now)
 		for r in _reveals:
@@ -104,6 +104,15 @@ func update_now() -> void:
 
 static func building_sight(object: MapObject) -> float:
 	var tier := int(MapRules.stats(object.owner_index, object.guid).get("sight_tier", -1))
+	# The towers' Sight upgrades set the tier (AmericaAddOn.exe 0x40db80: Sight 1 tier 3,
+	# Sight 2 tier 4, for the tower, lookout and watchtower alike).
+	var owner: Player = Player.by_index.get(object.owner_index)
+	if owner and tier >= 0:
+		for upgrade in owner.researched:
+			var upgrade_stats: Dictionary = GameData.stats(upgrade)
+			var effects: Dictionary = upgrade_stats.get("effects", {})
+			if effects.has("sight_tier") and object.guid in upgrade_stats.get("applies_to_guids", []):
+				tier = maxi(tier, int(effects.sight_tier))
 	return GameData.def_tier("sight_range", tier, int(BUILDING_SIGHT)) if tier >= 0 else BUILDING_SIGHT
 
 

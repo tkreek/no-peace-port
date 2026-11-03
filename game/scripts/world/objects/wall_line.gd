@@ -26,6 +26,15 @@ static func is_wall(guid: int) -> bool:
 	return false
 
 
+## The corner of the wall `guid` is a piece of (`guid` itself for anything else): the
+## original makes every piece its corner's object type (0x428a7e).
+static func corner_of(guid: int) -> int:
+	for pieces: Array in PIECES.values():
+		if guid in pieces:
+			return pieces[0]
+	return guid
+
+
 ## A wall's straight piece: placed only as part of a wall dragged out from its corner (the
 ## build menu offers the corner alone, as the original's does).
 static func is_straight(guid: int) -> bool:

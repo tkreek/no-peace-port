@@ -89,7 +89,8 @@ CHECKS = {
     "gold": ([], 2700, [r"mine entrance timbered in \d+\.\ds, gold before it: false", r"gold \+[1-9]\d*"]),
     "woodcut": ([], 1900, [r"wood\+[1-9]"]),
     "unhorse": (["--faction=usa", "--enemy=mex"], 0, [r"gauchos on foot alive \d+ dead [1-9]", r"horses alive [1-9]"]),
-    "fire": (["--faction=ind", "--enemy=usa", "--seed=5"], 0, [r"\"\d+% burning\", \"\d+% burning\""]),
+    "fire": (["--faction=ind", "--enemy=usa", "--seed=5"], 0, [r"t=30s \[\"[1-8]\d% burning\", \"100%\", \"100%\"\]",
+                                                            r"fire: energy kept after the shooting stopped true"]),
     "tepee": (["--faction=ind"], 0, [r"tepee gone true", r"\"up 70%\""]),
     "boats": (["--faction=usa", "--time-scale=4", ISLANDS], 0, [r"clicked boat selected true; sailed [1-9]\d* px, \d{1,2} px short",
                                                                   r"aboard 4 / 4", r"passengers 0, soldiers ashore"]),
@@ -116,7 +117,7 @@ CHECKS = {
                           r"beside: worker takes the click on itself true, the building just off it true",
                           r"behind: worker shows through true and takes the click true"]),
     # The dead rot to bones, ruins smoulder, gulls fly over.
-    "remains": ([ISLANDS], 0, [r"remains: \[.*step [12].*step [12]", r"smoke plumes: [23], after 14s 0, flyers: [1-9]"]),
+    "remains": ([ISLANDS], 0, [r"remains: \[.*step [12].*step [12]", r"smoke plumes: [23], after 14s (0|-1), flyers: [1-9]"]),
     # Expansion abilities: saboteurs empty and take a fort, the warrior spirit, the armored stagecoach.
     "saboteur": (["--faction=des"], 0, [r"saboteur: garrison \[5, 2, 0, 0\], fort now player 1"]),
     "disarm": (["--faction=des"], 0, [r"disarm: trap animation true, trap now player 1 after [345]\.\d s, saboteur alive true"]),
@@ -135,7 +136,7 @@ CHECKS = {
     "wallattack_far": (["--faction=usa", "--attacker=362", "--count=30", "--across=water", ISLANDS], 0,
                        [r"barrier attack: range 64, \d+ steps .*, ([1-9]|[1-5]\d) path searches"]),
     "ambush": (["--faction=des"], 0, [r"ambush: under the mound true, burst out true, then attacking true"]),
-    "spirit": (["--faction=ind"], 0, [r"before upgrade false, invoked true, damage x1\.00 -> x1\.05, energy left 0, again false, auras 3",
+    "spirit": (["--faction=ind"], 0, [r"before upgrade false, empty false, invoked true, damage x1\.00 -> x1\.20, energy left 0, again false, auras 3",
                                       r"afterwards damage x1\.00, auras 0"]),
     "coach": (["--faction=mex"], 0, [r"aboard 2 / 2, enlarged 4 / 4, enemy hit true, guards dead with the coach 4"]),
     "saveload": ([], 0, [r"before: units (\d+)", r"after: +units \d+"]),

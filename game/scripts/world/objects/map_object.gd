@@ -114,7 +114,7 @@ func setup(type: ObjectTypes.ObjectType, owner: int, placed_amount := 0, under_c
 		if under_construction:
 			complete = false
 			build_progress = 0.0
-			health = max_health * 0.1
+			condition.start_site()
 		else:
 			accepts = drop_off_for(guid)
 	_bob = GameData.load_bob(type.anims)
@@ -286,9 +286,11 @@ func sim_tick(delta: float) -> void:
 			stock.grow(delta)
 		return
 	defence.update(delta)
-	if condition.burning > 0.0:
+	if condition.on_fire():
 		condition.burn(delta)
-	if complete:
+	if condition.site_timer > 0.0:
+		condition.tick_site(delta)
+	if complete and health > 0.0:
 		production.update(delta)
 
 
@@ -361,6 +363,15 @@ func wall_point(from: Vector2) -> Vector2:
 		if p.distance_squared_to(local) < best.distance_squared_to(local):
 			best = p
 	return best + position
+
+
+## The building's rectangle as the original measures quarters by (0x41a829: vtable +0x9c,
+## 0x40d850, the picture of its ground patch, anim 4); the walls' for buildings without one.
+func ground_rect() -> Rect2:
+	if _ground and _ground.texture:
+		var rect := _ground.transform * _ground.get_rect()
+		return Rect2(rect.position + position, rect.size)
+	return work_rect()
 
 
 ## Whether `point` is within `reach` of the walls (workers at a site, units at quarters...).
@@ -478,7 +489,8 @@ func save_state(unit_ids: Dictionary) -> Dictionary:
 	if _is_building:
 		entry.merge({"queue": Array(production.queue), "train": production.progress,
 				"rally": [production.rally_point.x, production.rally_point.y] if production.rally_point != Vector2.INF else null,
-				"trap_kills": defence.trap_kills, "burning": condition.burning,
+				"trap_kills": defence.trap_kills, "trap": defence.save_trap(), "condition": condition.save_flags(),
+				"magic": production.spirit_energy,
 				"garrison": defence.garrison.filter(func(u: Unit) -> bool: return unit_ids.has(u)).map(func(u: Unit) -> int: return unit_ids[u])})
 	return entry
 
@@ -491,10 +503,10 @@ func restore_state(entry: Dictionary) -> void:
 	if _is_building:
 		production.restore(entry)
 		defence.trap_kills = int(entry.get("trap_kills", 0))
+		defence.restore_trap(entry.get("trap"))
+		condition.restore_flags(entry.get("condition"))
 		if complete:
 			accepts = drop_off_for(guid)
-		if float(entry.get("burning", 0.0)) > 0.0:
-			condition.ignite.call_deferred(float(entry.burning))
 	refresh_sprites()
 	if _is_building:
 		condition.update_fires()

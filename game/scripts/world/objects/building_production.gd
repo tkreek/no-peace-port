@@ -23,6 +23,8 @@ const ANIMAL_PROCESSING := [102, 202, 302, 402]
 const GUN_GUID := 9003
 const GUNS_PER_BATCH := 10
 const GUN_FACTORIES := [211, 411]
+## Buildings whose moving part (furnace glow, still) runs only while they make something.
+const BUSY_AMBIENT := [211, 411, 308]
 const STAGECOACH := 456
 const STAGECOACH_UPGRADE := 990
 ## The trading buildings (Native and Mexican trading post, outlaw drugstore, American

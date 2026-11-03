@@ -327,7 +327,7 @@ func _update_gather(delta: float) -> void:
 				var faster := unit.bonus("chop_pct") if gather_source.stock.resource == "wood" else unit.bonus("mine_pct")
 				if gather_source.stock.resource == "food":
 					faster = 0.0
-				_work_timer = WORK_SECONDS.get(gather_source.stock.resource, 4.0) / (1.0 + faster / 100.0) \
+				_work_timer = WORK_SECONDS.get(gather_source.stock.resource, 4.0) * maxf(0.1, 1.0 - faster / 100.0) \
 						/ unit.effectiveness()
 				unit.face(gather_source.work_rect().get_center() - unit.position)
 				if gather_source.stock.resource == "gold" and gather_source.stock.mine_framed():

@@ -177,7 +177,34 @@ func _unit_detail(unit: Unit) -> String:
 		lines.append("Worth %d gold (up to %d)" % [unit.animal.cattle_value, UnitAnimal.COW_MAX_VALUE])
 	if unit.magic.shield_time > 0.0:
 		lines.append("Shielded %d s" % ceili(unit.magic.shield_time))
+	var upgrades := _upgrades_of(unit)
+	if not upgrades.is_empty():
+		lines.append("Upgrades: " + ", ".join(upgrades))
 	return "\n".join(lines)
+
+
+## The upgrades its people has researched that this unit takes (Defaults.bin's lists), the
+## highest level of each: so the player sees a pistol or armour upgrade reached it, and that
+## one bought for another people's units (des_03's deputy sheriffs) did not.
+func _upgrades_of(unit: Unit) -> PackedStringArray:
+	var player: Player = Player.by_index.get(unit.team)
+	var names := PackedStringArray()
+	if player == null:
+		return names
+	var guid := unit.unit_type.guid()
+	for upgrade in player.researched:
+		var stats := GameData.stats(upgrade)
+		var targets: Array = stats.get("applies_to_guids", [])
+		if (guid in targets or (unit.unit_type.mounted and guid - 1 in targets)) and stats.has("name"):
+			names.append(stats.name)
+	var shown := PackedStringArray()
+	for name in names:
+		var level := name.get_slice(" ", name.get_slice_count(" ") - 1)
+		if level.is_valid_int() and names.has("%s %d" % [name.substr(0, name.length() - level.length() - 1), level.to_int() + 1]):
+			continue  # a higher level of it is listed
+		shown.append(name)
+	shown.sort()
+	return shown
 
 
 ## A building's energy and housing as icons (trees, mines and fields have only text).

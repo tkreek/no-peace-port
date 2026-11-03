@@ -24,6 +24,104 @@ var _menu_texts := {}  # text id -> String (menu captions, a separate numbering)
 var _guids := {}       # object type id -> GUID
 var _defs := {}        # game constants: name -> value or list by tier
 var _stats := {}
+## Who each upgrade applies to: the expansion's Defaults.bin, whose EINHEIT block lists the
+## upgrades every unit and building takes (applied by 0x437400 and the building refresh;
+## the base game's has no lists). The manual's "Applies to" lines miss some and name
+## the wrong ones for others (the Mexican axes help women too, the American pickaxe and
+## shovel only frontiersmen and frontierswomen). Mounted units are listed as themselves.
+const UPGRADE_TARGETS := {
+	900: [156, 157, 158, 159, 162],
+	901: [156, 157, 158, 159, 162],
+	902: [156, 157, 158, 159, 162],
+	903: [156, 157, 158, 159, 160, 161, 162, 163],
+	904: [156, 157, 158, 159, 160, 161, 162, 163],
+	905: [156, 157, 158, 159, 160, 161, 162, 163],
+	906: [154],
+	907: [154],
+	908: [152],
+	909: [152],
+	910: [152],
+	911: [152],
+	912: [153],
+	913: [153],
+	914: [150, 152, 153, 155, 156, 158, 160, 162, 163, 164, 172],
+	915: [156, 158, 160, 172],
+	916: [152, 155],
+	917: [164],
+	918: [164],
+	919: [164],
+	920: [164],
+	921: [164],
+	922: [164],
+	925: [258, 261],
+	926: [258, 261],
+	927: [262, 263, 264],
+	928: [262, 263, 264],
+	929: [258, 259, 260, 261, 262, 263, 264],
+	930: [258, 259, 260, 261, 262, 263, 264],
+	931: [258, 259, 260, 261, 262, 263, 264],
+	932: [265],
+	933: [265],
+	934: [252, 253],
+	935: [252, 253],
+	936: [252],
+	937: [252],
+	938: [253],
+	939: [253],
+	940: [255],
+	941: [252, 255],
+	942: [263, 264],
+	943: [213],
+	944: [213],
+	945: [256],
+	946: [256],
+	947: [257],
+	948: [257],
+	949: [257],
+	950: [353, 354, 360, 361, 369],
+	951: [353, 354, 360, 361, 369],
+	952: [353, 354, 356, 357, 358, 360, 361, 369],
+	953: [353, 354, 356, 357, 358, 360, 361, 369],
+	954: [353, 354, 356, 357, 358, 360, 361, 369],
+	955: [359],
+	956: [362],
+	957: [280, 281, 282, 283, 350, 351, 352, 353, 354, 355, 356, 357, 358, 359, 360, 361, 362, 363, 364, 369],
+	958: [352],
+	959: [352],
+	960: [352],
+	961: [352],
+	962: [313],
+	963: [313],
+	964: [355],
+	965: [303],
+	966: [369],
+	968: [116, 150, 151, 154, 156, 157, 158, 159, 160, 161, 162, 163, 172],
+	969: [116, 150, 151, 154, 156, 157, 158, 159, 160, 161, 162, 163, 172],
+	970: [116, 150, 151, 154, 156, 157, 158, 159, 160, 161, 162, 163, 172],
+	971: [266],
+	975: [458, 461],
+	976: [458, 461],
+	977: [459, 462, 463, 464],
+	978: [459, 462, 463, 464],
+	979: [458, 459, 460, 461, 462, 463, 464, 468],
+	980: [458, 459, 460, 461, 462, 463, 464, 468],
+	981: [458, 459, 460, 461, 462, 463, 464, 468],
+	982: [465],
+	983: [457],
+	984: [452],
+	985: [452],
+	986: [452],
+	987: [452],
+	988: [453],
+	989: [453],
+	990: [455],
+	991: [452, 455, 456],
+	992: [463, 464],
+	993: [413],
+	994: [413],
+	995: [461, 468],
+}
+
 ## Expansion units' production places (from the expansion manual), filled in by GUID.
 const EXPANSION_PRODUCTION := {
 	172: 103,  # tomahawk thrower: training tepee
@@ -256,6 +354,15 @@ func _load_tables() -> void:
 			if not entry.has("icon") and defaults.has(key.to_int()):
 				entry.icon = defaults[key.to_int()].get("icon", "")
 			_stats[key.to_int()] = entry
+	for upgrade in UPGRADE_TARGETS:
+		if _stats.has(upgrade):
+			_stats[upgrade].applies_to_guids = UPGRADE_TARGETS[upgrade]
+	# The workers' tools (AmericaAddOn.exe 0x403240, every people alike): an axe cuts the
+	# 4 s a load of wood takes to 3.6 s, then 3.2 s; a pickaxe the 5 s a load of gold takes to
+	# 4 s, then 3 s (the manual says 10% each). `chop_pct`/`mine_pct`: time saved, in percent.
+	for upgrade in [910, 911, 936, 937, 960, 961, 986, 987]:
+		if _stats.has(upgrade):
+			_stats[upgrade].effects = {"mine_pct": 20}
 	var guids: Dictionary = read_json("data/guids.json")
 	for key in guids:
 		_guids[key.to_int()] = int(guids[key])

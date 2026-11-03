@@ -251,6 +251,23 @@ everyone. The expansion editor's `Defaults.dat` lacks those five.
   either runs out, so one worker takes `t` x 1.02 s and n workers take 1/n of that.
   `t` = property 6.
 
+## Upgrades in the executable
+
+Same file. Which objects take an upgrade is data: the expansion's Defaults.bin `EINHEIT`
+holds per object `{i32 id, i32 switch, i32 n, i32 upgrades[n]}` (upgrade GUIDs; the base
+game's Defaults.bin has only `{id, switch}`). Remake: `GameData.UPGRADE_TARGETS`. What an
+upgrade does is code, a refresh per class that asks 0x42cc70(player, object, upgrade):
+
+- Workers (0x403240, every people's tools alike): chopping a load (+0x6b0) 4000 ms, Axe 1
+  3600, Axe 2 3200; digging a load (+0x6ac) 5000 ms, Pickaxe 1 4000, Pickaxe 2 3000; the
+  value a woman gives the field she works (+0x6a4, copied to the field's +0x6fc at
+  0x402c3e) 150, Shovel 1 175, Shovel 2 200. Defaults set at 0x4023f0. The manual's
+  "10% each" understates the pickaxes.
+- Fighters (0x437400): weapon upgrades set a weapon level (+0x6b4: 1, 2, 3; 5 for the
+  hardened flaming arrow); 942/992 make thieves (see stealing).
+- Armour (0x41b100): Protective clothing sets the armour percentage (+0x390) to 110, 120,
+  130, which scales the life energy.
+
 ## Stealing in the executable
 
 Same file. There is no steal order, timer or range: a thief steals a wagon by fighting it.

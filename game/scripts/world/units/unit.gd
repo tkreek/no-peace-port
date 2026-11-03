@@ -546,6 +546,24 @@ func fire_from_quarters(enemy: Node2D, from: Vector2, reach: float) -> void:
 # ------------------------------------------------------------------ damage
 
 ## `horse_too`: the blow takes the horse with the rider (cannon fire, dynamite, pitfalls).
+## Very easy in the campaign (the remake's own help: the mission scripts read it as easy,
+## 0x43c6db): the computer's units and towers hurt the player's units at this rate.
+const VERY_EASY_DAMAGE := 0.6
+
+
+func _campaign_handicap(attacker: Node2D) -> float:
+	if Match.campaign.is_empty() or Match.difficulty != 0 or attacker == null or not is_instance_valid(attacker):
+		return 1.0
+	var side := -1
+	if attacker is Unit:
+		side = attacker.team
+	elif attacker is MapObject:
+		side = attacker.owner_index  # lookouts, towers, forts
+	var mine: Player = Player.by_index.get(team)
+	var theirs: Player = Player.by_index.get(side)
+	return VERY_EASY_DAMAGE if mine and theirs and not mine.computer and theirs.computer else 1.0
+
+
 func take_damage(amount: float, attacker: Node2D = null, horse_too := false) -> void:
 	if not is_alive() or state == State.QUARTERED:
 		return
@@ -553,6 +571,7 @@ func take_damage(amount: float, attacker: Node2D = null, horse_too := false) -> 
 	amount *= 2.0 - morale()  # high morale shrugs blows off, low morale feels them (0x418fb6)
 	if magic.shield_time > 0.0:
 		amount *= 0.5  # the medicine man's protective shield
+	amount *= _campaign_handicap(attacker)
 	health = maxf(0.0, health - amount)
 	_overlay.queue_redraw()
 	var people: Player = Player.by_index.get(team)

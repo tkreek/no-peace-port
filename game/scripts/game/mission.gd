@@ -674,7 +674,13 @@ func _join_neutrals() -> void:
 	for object in MapObject.structures:
 		if not takers.has(object.owner_index) or not object.is_building() or not object.is_alive():
 			continue
-		var reach := object.footprint_rect().grow(JOIN_REACH)
+		# The original samples the grid every 16 px from 96 px before the unit to 80 px past
+		# it (0x45dbb0) and finds a building where its walls stand, not in the empty margin
+		# of its footprint: base/des_03's sheriff, placed 96 px from the town church's walls,
+		# must not take the church before the outlaws get there.
+		var solid := object.work_rect()
+		var reach := Rect2(solid.position - Vector2(JOIN_REACH - 16.0, JOIN_REACH - 16.0),
+				solid.size + Vector2(JOIN_REACH * 2.0 - 16.0, JOIN_REACH * 2.0 - 16.0))
 		for unit: Unit in UnitGrid.near(reach.get_center(), maxf(reach.size.x, reach.size.y) / 2.0):
 			var slot := data.player(unit.team) if unit.team > 0 else null
 			if unit.is_alive() and unit.team > 0 and reach.has_point(unit.position) \

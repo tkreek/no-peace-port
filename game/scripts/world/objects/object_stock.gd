@@ -166,7 +166,10 @@ func grow(delta: float) -> void:
 	if field_progress >= 1.0:
 		field_state = Field.RIPE
 		var owner: Player = Player.by_index.get(object.owner_index)
-		amount = FIELD_YIELD + (int(owner.bonus(-1, "field_yield")) if owner else 0)
+		# A woman brings the field her value (AmericaAddOn.exe 0x402c3e): 150, with the
+		# Shovel upgrades 175 and 200 (0x403240); ours scales FIELD_YIELD by the same ratio.
+		var shovel := owner.bonus(-1, "field_yield") if owner else 0.0
+		amount = roundi(FIELD_YIELD * (150.0 + shovel) / 150.0)
 		if _rained:
 			amount = int(amount * 1.5)
 			_rained = false

@@ -76,7 +76,7 @@ CHECKS = {
     "turncoat": (["--faction=mex"], 0, [r"turncoat: hit before true, converted true; then turncoat energy kept true, ours kept true; "
                                         r"attackers on him 0, he attacks ours false",
                                         r"alliance: hit before true; then energy kept true, attackers on him 0"]),
-    "spells": (["--faction=ind"], 300, [r"spells ready: 2 medicine men with Eagle eye, Lightning dance, Hail dance, Rain dance, Protective dance; our field food 300, enemy field food 300, 5 enemies"]),
+    "spells": (["--faction=ind"], 300, [r"spells ready: 2 medicine men with Eagle eye, Lightning dance, Hail dance, Rain dance, Protective dance; our field food 150, enemy field food 150, 5 enemies"]),
     "magic_ind": (["--faction=ind"], 0, [r"eagle eye: eagles circling 1", r"lightning: enemy energy", r"warrior shielded [1-9]"]),
     "cover": ([], 0, [r"cover: .* (\d+) spots, \1 show through; in the open shows through false",
                       r"behind a wall off the cover cells shows through true"]),

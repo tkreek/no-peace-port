@@ -94,6 +94,14 @@ func _scenario_hunt() -> void:
 	for object in MapObject.all_objects:
 		if object.is_building() and object.owner_index == 1:
 			hq = object
+	# Meat goes to an animal-processing building, not the main building (UnitWork._route).
+	var yard_type := ObjectTypes.get_type(GameData.type_for_guid({"mex": 202, "usa": 402, "ind": 102, "des": 302}[main.players[1].faction],
+			main.terrain.biome))
+	var yard := MapObject.new()
+	yard.position = AiBuilder.find_spot(yard_type, hq.position)
+	yard.setup(yard_type, 1)
+	main.units_root.add_child(yard)
+	main.nav.block_footprint(yard_type, yard.position)
 	main._spawn_squad("animals/buffalo", 0, hq.position + Vector2(260, 260), 1)
 	var hunter_guid: int = {"mex": 261, "usa": 461, "ind": 156, "des": 358}[main.players[1].faction]
 	main._spawn_squad(hunter_guid, 1, hq.position + Vector2(0, 200), 2)

@@ -342,6 +342,80 @@ paid (0x422c50). Trades are 600 sell wood, 601 sell food, 602 sell guns, 610-612
 - Cancelling (0x40d8e0): a sale gives its goods back; a purchase refunds 80% of the price
   at that moment (0x40d9e2), not what was paid.
 
+## Economy in the executable
+
+Same file. The worker class (vtable 0x4a138c, constructor 0x402300) runs gathering as a
+chain of walk / wait states (+0x484 the state reached on arrival, dispatched at 0x402760;
++0x67c the per-tick work, 0x402810). Waits count down 20 a 20 ms tick, so values are ms.
+The player's stock is the resource object 0x58fd30, per people `+0x84` food, `+0x104` wood,
+`+0xa4` horses, `+0xe4` gold, `+0x144` guns, `+0x124` gold lying in gold warehouses.
+Carry (`+0x16c`) is max(1, property 111): 15 for every worker and hunter, 100/120 wagons.
+
+- Wood (0x402930, per tick 0x4030e0): at the tree the woodcutter chops for `+0x6b0` = 4000
+  ms (axes 3600, 3200), a chop sound every second; then (0x402a70) the tree gives up to a
+  full load at once (0x406210) and he walks it to the nearest main building or wood store
+  (class mask 0x20200, 0x4297a0), hands it over (vtable +0xc4) and goes back to a tree
+  within 1000 px of where he chopped (0x4028a0). One load = one 4 s chop, walking apart: a
+  recording's 4 cutters 120 px out bringing 7 wood a second fits it.
+- Trees (class 0x4a15ac, 0x405ed0): wood = property 302 of the tree's type (0x428822),
+  1000 if missing: 250, 250, 150, 200, 200, 150 for the deciduous large 01-03 / small 01-03,
+  250, 250, 250, 200, 200, 200 for the conifers, the same for the `_b` and `_c` variants
+  (GUIDs 500-535, types 63-159). The first load fells it and clears its cells (0x406299:
+  0x4063f0, 0x4079f0, 0x4073a0); the last leaves the stump. Property 305 (80-120) is not
+  read.
+- Gold (0x402420 order, 0x402500 arrival): a mine whose entrance is not framed is first
+  timbered: each worker there adds 20 a tick to the mine's `+0x94` until it reaches
+  `+0x90` = 11000 (0x423a39, 0x423d70), i.e. 11 worker-seconds. Then the miner takes a
+  load on entering (0x423cd0), stays inside unseen `+0x6ac` = 5000 ms (pickaxes 4000,
+  3000; 0x418980) and carries it to the nearest main building or gold warehouse (mask
+  0x20100). The mine's gold comes from the map (0x4239fb); empty, it is boarded up.
+- Gold warehouses (class 0x4a36a8, a store of kind 3): a load handed in (vtable +0xc8,
+  0x423910) goes into the store (`+0x6fc`) and the people's warehoused count (+0x124),
+  not the treasury; the store's loss takes the count with it (0x423940).
+- Fields (class 0x4a35b8): built as a structure (Defaults.bin 149: 150 wood, property 6 =
+  25, energy 200). A woman ordered to one (0x402bf0; one per field, the field's `+0x6f9`)
+  brings it her `+0x6a4` (150, Shovel 1/2 175/200). An unripe field she tends
+  (0x402db0 -> 0x402ed0 -> field vtable +0xcc 0x41f7a0): every 1.02 s of her work the
+  field's pool of 3000 loses 3000 / 25 (0x40cc50 -> 0x40c300), so 25.5 s of one woman
+  ripen it; it does not grow by itself. Ripe (0x41f849), it holds her value (150..200).
+  She harvests by waiting `+0x6a8` = 30000 ms at it (0x402e40) and taking a load (15,
+  0x41f9c0), which she carries to the nearest main building or food store (mask 0x120000,
+  0x402fe0). Picked clean, the field is fallow again (vtable +0xd0, 0x41f740: energy set to
+  0x100) and its owner hears alert 806; the next woman to tend a field at 0x100 pays the
+  field's cost again (0x402e17 -> 0x403180), or stops with the shortage message.
+- Weather cloud (490, 0x47c700; kind 0 rain, 1 thunder, 2 hail; one target field `+0x130`):
+  after 1.2 + 5 + 1.2 s, rain sets the field's crop to 350 (0x47ca80; an unripe field's is
+  overwritten when it ripens, 0x41f88e), hail destroys the field outright (0x47cac0:
+  `+0x5a4` = 8, removed the next tick by 0x40c070 -> 0x40cc10).
+- Hunting (fighter class, 0x437070): within 96 px of the carcass the hunter cuts up to his
+  carry (0x401e10), waits 4000 ms (0x43710c), and takes it to the nearest building of class
+  0x80 (0x437157): the animal-processing buildings, which also take cows (`+0x24 |= 0x80`,
+  `+0xac |= 8` in the same four constructors, 0x41363f, 0x43466f, 0x457e5f, 0x4675bf), not
+  the main building. Meat = max(1, property 111): horse 50, buffalo 100, cow 70 (0x401de0).
+  A dead animal lies 3 s (0x419190), 30 s after each cut that leaves meat, 6 s after the
+  last (0x401e1c, 0x401e3f).
+- Cattle (class 0x4a3c2c): a cow starts worth 10 food, 0 gold (0x43fbd0); every 12.02 s of
+  its life (0x43fb70, wild or owned, idle or not) it gains 2 food (up to 50) and 1 gold
+  (up to 25). Driven to a building that takes cows (`+0xac & 8`, 0x43fbf0) and within
+  80 px of it (0x43fca0), it pays both to the building's owner and is gone.
+- Abandoned stores (class 0x4a94e0): the map's content 301-305 sets the kind (0x43fe50: 0
+  food, 1 wood, 2 nothing, 3 gold, 4 guns) and the amount; gold counts as warehoused. A
+  wagon takes (vtable +0xbc, 0x43fdb0) up to its carry, of guns carry / 50 (2 for 100 and
+  120), and unloads at the main building (0x40d380).
+- Hauling (wagon class, 0x464240 -> 0x464480): at an own store the wagon waits 100 ms, then
+  loads each tick; it leaves when full, or 60 s after the last gold came in if it has some
+  (after 60 s with none it gives up), for the main building (mask 0x20000). Abandoned
+  stores (no class bit 0x100) are emptied at once.
+- Robbing: a unit with `+0x388` (the outlaws, or upgrade 916, 941 or 991 via vtable +0x98)
+  ordered at a building (0x20000017; 0x41b620, 0x41b710 within 128 px) takes up to its
+  carry from the owner's treasury (0x58fe18, gold), waits inside 5000 ms (0x41b7d9) and
+  takes it to its nearest main building or gold warehouse (0x41b7f0), again while there is
+  gold. A robbing wagon at an enemy store (0x4642a4) waits 5000 ms and takes the store's
+  contents (the owner hears alert 852, 0x46456d); at a bank or mission (`+0xac & 1`,
+  0x464b70) it takes the treasury's gold.
+- No experience for work: only hits and kills raise `+0x23c` (0x405593, 0x419b1c,
+  0x436fca); no delivery touches it, and no work time reads it or morale.
+
 ## Sound in the executable
 
 From `AmericaAddOn.exe` (addresses are that file's). It loads the expansion's

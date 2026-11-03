@@ -53,12 +53,9 @@ These live in code as named constants and should be tuned through play.
 | Horse raising | 50 food, 20 s; 5 horses per corral, hacienda or ranch | `GameData` horse stats, `MapObject.HORSES_PER_BUILDING` |
 | Gun making | 40 wood and 40 gold for one rifle, 12 s, at the weapons factory | `GameData` gun stats (`MapObject.GUN_GUID`) |
 | Cow raising and value | 40 food, 15 s; worth up to 25 gold after 200 s grazing | `GameData`, `Unit.COW_*` |
-| Experience | +10% per kill, +1% per load delivered, up to +20% effectiveness (the exe adds half its points to morale in a blow, see file-formats.md "Morale in the executable"; not yet followed) | `Unit.EXPERIENCE_*` |
 | Magic | pool 100 (150 with upgrade), refills 1.5/s; spell costs 30–60 | `Unit.SPELLS`, `MAGIC_*` |
-| Damage matchups | anti-cavalry ×2; fire, dynamite and cannons ×3 against buildings; other weapons ×0.5 | `Unit.damage_factor` |
 | Horses under fire | a mount takes 80 damage before it falls (when told to shoot it) | `Unit.HORSE_HEALTH` |
 | Fire from flaming arrows | burns 20 s at 3 energy/s; 6% a second to leap to a building within 48 px | `MapObject.BURN_*`, `SPREAD_*` |
-| Self-healing | 0.6 energy per second | `Unit.SELF_HEAL_PER_SECOND` |
 | Repair | half the building cost for the energy restored | `MapObject.add_repair_work` |
 | Robbing | 4 s inside a building; robbers carry 3× their normal load (stealing wagons follows the exe: file-formats.md "Stealing in the executable") | `UnitWork.ROB_SECONDS` |
 | Garrison range bonus | a quarter more range when shooting from a fort or tower, counted from its walls | `BuildingDefence.GARRISON_RANGE_FACTOR` |

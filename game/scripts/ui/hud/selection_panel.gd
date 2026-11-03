@@ -151,7 +151,8 @@ func _unit_stats(unit: Unit) -> Array:
 		stats.append([ICON_RIFLE if unit.unit_type.ranged else ICON_FIST, attack, tip])
 	if unit.team > 0:
 		stats.append([ICON_MORALE, "%d%%" % roundi(unit.morale() * 100), "Morale"])
-		stats.append([ICON_EXPERIENCE, "%d%%" % roundi(unit.experience * 100), "Experience"])
+		if unit.gains_experience():  # fighters only, in points shown as a percentage (0x475b74)
+			stats.append([ICON_EXPERIENCE, "%d%%" % unit.experience, "Experience"])
 	if unit.magic.has_energy():
 		stats.append([ICON_MAGIC, "%d/%d" % [unit.magic.magic_energy, unit.magic.magic_pool()],
 				"Magic energy" if UnitMagic.CASTERS.has(unit.unit_type.guid()) else "Healing energy"])

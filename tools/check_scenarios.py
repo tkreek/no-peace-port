@@ -131,7 +131,7 @@ CHECKS = {
     # at an enemy walled in stop outside the wall; sent the long way round the water, the
     # squad shares one search instead of each searching again and again.
     "wallattack": (["--faction=usa", "--attacker=362", "--count=30"], 0,
-                   [r"barrier attack: nearest \[(9\d|1[0-4]\d), .*victim hurt false"]),
+                   [r"barrier attack: nearest \[(8[5-9]|9\d|1[0-4]\d), .*victim hurt false"]),
     "wallattack_far": (["--faction=usa", "--attacker=362", "--count=30", "--across=water", ISLANDS], 0,
                        [r"barrier attack: range 64, \d+ steps .*, ([1-9]|[1-5]\d) path searches"]),
     "ambush": (["--faction=des"], 0, [r"ambush: under the mound true, burst out true, then attacking true"]),

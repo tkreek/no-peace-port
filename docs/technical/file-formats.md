@@ -213,10 +213,70 @@ one is packed and wrapped in a try-and-buy layer). Addresses are that file's.
   lookup (0x45d7c0) refuses cells whose object handle is from a list above 8 (0x45d7f6:
   trees 9, walls 10), so wall, stockade and barricade pieces are never picked: only an
   order sends a unit against them.
-- Damage on firing (0x436cc0) = attack + upgrade bonus, scaled by a few optional
-  percentages. The base `America.exe` has the same reloads and formula: the expansion
-  doubled most units' HP (54 of 87; heroes unchanged) but kept every attack value, so
-  fights take about twice as many hits.
+- Damage on firing (0x436cc0) = attack (+0x6e0) + weapon level (+0x6b4), scaled by a few
+  optional percentages (morale and experience, warrior spirit; see "Morale"). The base
+  `America.exe` has the same reloads and formula: the expansion doubled most units' HP (54
+  of 87; heroes unchanged) but kept every attack value, so fights take about twice as many
+  hits. There is no factor for the kind of attacker or target: no anti-cavalry bonus, and
+  buildings take the plain damage (0x40c970: energy, fixed point x256, less damage << 8).
+- Unit classes: the factory (0x425b4a) switches on GUID - 100 through a byte table at
+  0x428f00 and jumps at 0x428c7c; each case allocates the object and calls its class
+  constructor, with a mounted argument for classes that have a riding version. Running the
+  constructors (unicorn) gives each class's flags. Fighters are the classes whose
+  constructor runs the fighter setup (0x435820: reload 1000, scan timer, stance 1, thief
+  flag off, experience on via 0x41be70); the others are the workers, wagons, boats and
+  healers of `DefaultsData.WORKERS`. Ranged flag +0x6d0 off (reload 1000): chiefs and their
+  heroes (0x433610), spearman (0x434460), Mexican lancer on foot and mounted (0x4586d0),
+  coach 266 (0x459170), assassin (0x413690), American river boat 454 (0x466760), and the
+  American cavalryman / Weirs on horseback only (0x438090: 0x4381ba mounted, 0x4381d1 on
+  foot). On for every other fighter, the whip cracker (0x413d50) included: 1500 ms.
+- Projectile flags, and what flies (else the blow lands at once, guns included):
+  +0x6d3 arrow (archers 156/157, flaming archers 158/159, Gall 276/277, canoe 154;
+  object 0x1a8 bytes, 0x4610d0, GUID 723), +0x6d4 knife or tomahawk (163, 172; 0x198,
+  0x457780, 722), +0x6d1 cannonball (265, 465; 0x238, 0x437dc0, 720), +0x6d2 dynamite
+  (359, 468; 0x238, 0x4167b0, 721). Constructor arguments (0x436d80..): a launch delay
+  (+0x94, counted down by 20 a step before it flies: arrow 600 ms, knife 400, dynamite
+  800, cannonball none), the start (shooter's x, y) and height (+0xb8: arrow and dynamite
+  1500, knife 1100, cannonball 1; drawn 0.03 px a unit, the shadow 0.015 px sideways,
+  0x461280), the target. Each class sets its flight time in ms (+0xe0, a double): arrow
+  500, knife 800, cannonball 250, dynamite 500.
+- Flight (0x405240, 0x405350, 0x405450): aimed at the target's position when fired
+  (0x41bcf0, no leading; a building's nearest point, 0x40d690), never steered after. Over
+  T = time x 0.05 steps of 20 ms it covers the distance in equal steps; the height climbs by
+  0.4905 T - z0 / T, less 0.981 a step, so it comes down at the target at T: a near-flat
+  path from the starting height. Speed therefore grows with distance.
+- Landing (0x405510): the target is hit if it is still within 64 px of the landing point
+  (a building: 96 px), else the first object within 32 px that is an enemy or no one's
+  (0x45d560, units and buildings, 0x42c040), else nothing. Cannonballs and dynamite (0x437ff0,
+  0x416a40) then play the explosion, or a splash on water (0x4069b0 bit 8): no splash
+  damage. There is no roll to hit anywhere.
+- Experience (+0x23c, max +0x238 = 100 from the unit constructor 0x418ebb, only when +0x240
+  is set: fighters): +1 for each unit killed, +5 for each building destroyed but walls,
+  stockades and barricades (212, 312, 412), by blow (0x436fca, 0x437019) or shot (0x405593,
+  0x4055f8). A blow deals (morale + experience / 2)% (0x436d04), so 100 points add 50
+  percentage points. The status menu prints the points with a percent sign (0x475b8a).
+  Mounting and dismounting carry it over with the life energy (absolute), stance, magic and
+  load (0x41be90).
+- Unit hit (0x418f90): `damage x (200 - morale) / 100`, a fifth of that under the
+  protective shield (+0x298, set for 60000 ms by the medicine man's spell at 0x434046 ->
+  0x41b530), at least 1; the unit dies at 0 (0x419120). A rider who dies (mounted classes,
+  +0x464) leaves a horse of his own people where he fell (0x419363 -> 0x429900), killed at
+  once if that people already has more than 5 horses, or the neutrals more than 30
+  (0x4193a4). No separate horse energy turned up.
+- Self-healing (0x4176f7): units with +0x174 gain 1 life energy whenever their timer
+  (+0x178 from +0x17c) runs out (vtable +0x48, 0x418f60). Every Native American class
+  constructor sets 2000 ms (0x41d480); Self-healing (957) sets 3000 ms in the armour
+  refresh (0x41b2a9).
+- Stance (+0x468, set by 0x4196b0): 0 pursues whatever comes into sight (0x43623f), 1 keeps
+  to its post (+0x410/+0x414): engages within sight of it and walks back once farther than
+  its sight (0x436169, 0x436205), 2 engages only within its attack range (0x4360d2), 3 not
+  at all. The fighter setup starts every fighter at 1, the cannons' constructors at 2
+  (0x45861a, 0x466d9a); attack orders set 0 (0x4362b9, 0x4368d6, 0x437d34). Idle fighters
+  scan every 2000 ms (+0x6c8 from +0x6cc, randomly phased at 0x4358aa; 0x435fa2).
+- Unit setup tables: 0x429eb0(table, tier), loaded by 0x429ad0 in this order: 0 Sichtweite,
+  1 ReichweiteFernwaffe, 2 KampffrequenzNah, 3 KampffrequenzFern (unused), 4 LaufenSpeed,
+  5 MindestReichweite; tiers below 0 read the first value, past the end the last. The
+  fighter's own setup (0x436c20) also copies the sight into its scan radius (+0x6fc).
 
 ## Production in the executable
 

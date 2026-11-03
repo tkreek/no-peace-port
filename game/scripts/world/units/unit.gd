@@ -24,9 +24,11 @@ const ARRIVE_DISTANCE := 3.0
 const REPATH_MS := 600
 const CORPSE_SECONDS := 30.0  # the remains rot to scattered bones first (UnitRemains)
 const SEPARATION_RADIUS := 14.0
-const SCAN_INTERVAL := 0.4
+## Idle fighters look round for enemies every 2 s, each from a random start (+0x6c8 counting
+## down from +0x6cc = 2000 ms, phased by rand() in the fighter setup 0x4358aa; 0x435fa2).
+const SCAN_INTERVAL := 2.0
+const HEALER_SCAN_INTERVAL := 0.4  # healers look for the wounded this often (not from the exe)
 const REACH := 20.0
-const DEFENSIVE_PURSUIT := 160.0  # how far defensive units chase before returning
 const FOLLOW_DISTANCE := 48.0
 
 static var debug_paths := false
@@ -152,8 +154,16 @@ func heal(amount: float) -> void:
 	_overlay.queue_redraw()
 
 
+## Damage of one blow or shot as AmericaAddOn.exe deals it (0x436cc0), in whole points:
+## (attack + upgrade) x (morale% + experience / 2) / 100, then the warrior spirit's
+## x (100 + percent) / 100. No factor for the target's kind: buildings (0x40c970) and riders
+## take the same damage as anyone.
 func attack_damage() -> float:
-	return (unit_type.damage + bonus("attack")) * morale() * effectiveness() * spirit_factor()
+	var percent := roundi(morale() * 100.0) + experience / 2
+	var damage := int((unit_type.damage + int(bonus("attack"))) * percent / 100)
+	if _spirit_left > 0.0:
+		damage = int(damage * (100 + roundi(_spirit * 100.0)) / 100)
+	return damage
 
 
 func attack_range() -> float:
@@ -172,33 +182,32 @@ func move_speed() -> float:
 	return GameData.def_tier("walk_speed", mini(tier, 5), 100) * UnitType.PX_PER_SPEED
 
 
-## Experience (manual 4.4): from 0%, earned by doing the job well (kills for fighters,
-## loads delivered for workers); it makes a unit up to a fifth more effective.
-const EXPERIENCE_PER_KILL := 0.1
-const EXPERIENCE_PER_LOAD := 0.01
-var experience := 0.0
+## Experience, as AmericaAddOn.exe keeps it (+0x23c): whole points from 0 to 100
+## (+0x238, set by the unit constructor 0x418ebb), for fighters only (the fighter setup
+## 0x435820 switches it on through 0x41be70; workers, wagons, boats and healers never gain
+## any). A fighter gets 1 for each unit it kills and 5 for each building it destroys, walls,
+## stockades and barricades (212, 312, 412) aside, by blow or shot alike (0x436fca,
+## 0x437019, 0x405593, 0x4055f8). Each point adds half a percentage point to its blows
+## (0x436d04): at 100, +50%. The status menu shows the points with a percent sign (0x475b8a).
+const EXPERIENCE_MAX := 100
+const EXPERIENCE_PER_KILL := 1
+const EXPERIENCE_PER_BUILDING := 5
+const EXPERIENCE_PER_LOAD := 0  # work earns none (kept for UnitWork's call)
+const NO_EXPERIENCE_BUILDINGS := [212, 312, 412]
+var experience := 0
 
 
-func gain_experience(amount_gained: float) -> void:
-	experience = minf(1.0, experience + amount_gained)
+func gains_experience() -> bool:
+	return not DefaultsData.WORKERS.has(unit_type.guid()) and not unit_type.attack_anims.is_empty()
 
 
+func gain_experience(points: int) -> void:
+	if gains_experience():
+		experience = mini(EXPERIENCE_MAX, experience + points)
+
+
+## Work goes at one pace whatever the experience (it counts in blows only, 0x436cfa).
 func effectiveness() -> float:
-	return 1.0 + 0.2 * experience
-
-
-## Spear fighters and whip crackers are "very effective against mounted units"; flaming
-## arrows, dynamite and cannon fire set about buildings, which bullets and blades barely dent.
-const ANTI_CAVALRY := [162, 363]
-const BUILDING_BREAKERS := [154, 158, 159, 276, 277, 265, 465, 359, 468]
-
-
-func damage_factor(against: Node2D) -> float:
-	var me := unit_type.guid()
-	if against is MapObject:
-		return 3.0 if me in BUILDING_BREAKERS else 0.5
-	if against is Unit and against.unit_type.mounted and me in ANTI_CAVALRY:
-		return 2.0
 	return 1.0
 
 
@@ -264,20 +273,39 @@ func _fade_spirit(delta: float) -> void:
 		_aura = null
 
 
-## Native Americans heal over time with herb blends; outlaws once Self-healing is researched.
+## Self-healing as AmericaAddOn.exe has it: a unit with the healing flag (+0x174) gains 1
+## point of life energy each time its timer (+0x178, +0x17c) runs out (0x4176f7, healing
+## through vtable +0x48, 0x418f60, up to the maximum). Every Native American unit class's
+## constructor sets 2000 ms (0x41d480 from 0x432c90..0x434850, the heroes 270-277 too),
+## whoever owns the unit; Self-healing (957) gives the units it applies to 3000 ms
+## (0x41b2a9, the armour refresh).
 const SELF_HEALING_UPGRADE := 957
-const SELF_HEAL_PER_SECOND := 0.6
+const NATIVE_HEAL_SECONDS := 2.0
+const UPGRADE_HEAL_SECONDS := 3.0
 var _heal_timer := 0.0
 
 
-func _self_heal(delta: float) -> void:
-	_heal_timer -= delta
-	if _heal_timer > 0.0 or health >= max_health or team <= 0:
-		return
-	_heal_timer = 1.0
+func _heal_interval() -> float:
+	var guid := unit_type.guid()
+	if (guid >= 150 and guid <= 172) or (guid >= 270 and guid <= 277):
+		return NATIVE_HEAL_SECONDS
 	var player: Player = Player.by_index.get(team)
-	if player and (player.faction == "ind" or (player.faction == "des" and player.researched.has(SELF_HEALING_UPGRADE))):
-		heal(SELF_HEAL_PER_SECOND)
+	if player and player.researched.has(SELF_HEALING_UPGRADE) \
+			and guid in GameData.UPGRADE_TARGETS.get(SELF_HEALING_UPGRADE, []):
+		return UPGRADE_HEAL_SECONDS
+	return 0.0
+
+
+func _self_heal(delta: float) -> void:
+	var interval := _heal_interval()
+	if interval <= 0.0:
+		return
+	_heal_timer -= delta
+	if _heal_timer >= 0.0:
+		return
+	_heal_timer = interval
+	if health < max_health:
+		heal(1.0)
 
 
 func set_stance(value: Stance) -> void:
@@ -568,18 +596,22 @@ func take_damage(amount: float, attacker: Node2D = null, horse_too := false) -> 
 	if not is_alive() or state == State.QUARTERED:
 		return
 	KiManager.note_hurt(self)
-	amount *= 2.0 - morale()  # high morale shrugs blows off, low morale feels them (0x418fb6)
+	# AmericaAddOn.exe's unit hit (0x418f90), in whole points: x (200 - morale%) / 100, high
+	# morale shrugs blows off (0x418fb6); a fifth under the medicine man's protective shield
+	# (+0x298, 0x418fe9); at least 1.
+	var taken := int(amount) * (200 - roundi(morale() * 100.0)) / 100
 	if magic.shield_time > 0.0:
-		amount *= 0.5  # the medicine man's protective shield
-	amount *= _campaign_handicap(attacker)
+		taken /= 5
+	amount = maxi(1, taken) * _campaign_handicap(attacker)
 	health = maxf(0.0, health - amount)
 	_overlay.queue_redraw()
 	var people: Player = Player.by_index.get(team)
 	if people:
 		people.alert_attacked(self, attacker)
 	if health <= 0.0:
-		if attacker is Unit and is_instance_valid(attacker) and team > 0:
+		if attacker is Unit and is_instance_valid(attacker):
 			attacker.gain_experience(EXPERIENCE_PER_KILL)
+		if attacker is Unit and is_instance_valid(attacker) and team > 0:
 			var victor: Player = Player.by_index.get(attacker.team)
 			if victor:
 				victor.stats.kills += 1
@@ -595,7 +627,10 @@ func deal_damage(victim: Node2D, damage: float, horse_too := false) -> void:
 	if riding.aim_at_horse and victim is Unit and victim.unit_type.mounted and not horse_too:
 		victim.riding.hit_horse(damage, self)
 	else:
+		var standing: bool = victim is MapObject and victim.is_alive()
 		victim.take_damage(damage, self, horse_too)
+		if standing and not victim.is_alive() and not victim.guid in NO_EXPERIENCE_BUILDINGS:
+			gain_experience(EXPERIENCE_PER_BUILDING)
 
 
 func die() -> void:
@@ -639,7 +674,7 @@ func sim_tick(delta: float) -> void:
 		State.IDLE:
 			_scan_timer -= delta
 			if _scan_timer <= 0.0:
-				_scan_timer = SCAN_INTERVAL
+				_scan_timer = HEALER_SCAN_INTERVAL if magic.is_healer() else SCAN_INTERVAL
 				if magic.is_healer():
 					magic.look_for_wounded()
 				else:
@@ -762,7 +797,9 @@ func _update_attack(delta: float) -> void:
 		if stance == Stance.HOLD or stance == Stance.PASSIVE:
 			leash = 0.0
 		elif stance == Stance.DEFENSIVE:
-			leash = DEFENSIVE_PURSUIT
+			# The exe's defensive stance (+0x468 = 1, 0x436169) engages within sight of its
+			# post (+0x410/+0x414) and goes back once farther from it than its sight (0x436205).
+			leash = sight()
 		if position.distance_to(guard_position) >= leash:
 			target = null
 			if stance == Stance.DEFENSIVE and position.distance_to(guard_position) > 16.0:
@@ -844,15 +881,13 @@ func _strike() -> void:
 	# hand too; workers as "melee", which no sound table entry has.
 	var event := Sound.Event.MELEE if DefaultsData.WORKERS.has(unit_type.guid()) else Sound.Event.SHOOT
 	Sound.play_event(unit_type.guid(), event, position, 60)
-	# Ranged hits are not certain; distance makes them less likely.
-	var hit := true
-	if unit_type.ranged:
-		var accuracy := clampf(1.1 - position.distance_to(aim_point(target)) / (attack_range() * 1.6), 0.4, 0.95)
-		hit = Sim.randf() <= accuracy
-	var damage := attack_damage() * damage_factor(target)
+	# No roll to hit (0x436cc0): guns and blades hit at once; arrows, knives, tomahawks,
+	# cannonballs and dynamite fly at where the target stood and hit what is there when
+	# they land (Projectile).
+	var damage := attack_damage()
 	if unit_type.ranged and unit_type.projectile_anim >= 0:
-		Projectile.launch(self, target, damage, hit)  # damage lands with it
-	elif hit:
+		Projectile.launch(self, target, damage)  # damage lands with it
+	else:
 		deal_damage(target, damage)
 	work.after_blow(target)  # a thief's blow may take a wagon
 

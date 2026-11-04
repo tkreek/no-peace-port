@@ -206,14 +206,14 @@ func _add_unit_commands(units: Array, builders: Array, farmers: Array, fighters:
 		if units.all(func(u: Unit) -> bool: return spell in u.magic.known_spells()):
 			var info: Dictionary = UnitMagic.SPELLS[spell]
 			_add_spell(spell, "%s (%d magic)\n%s\nThen click the %s" % [info.name, info.cost, info.text,
-					{"point": "spot", "unit": "unit to protect", "enemy": "enemy to convert"}[info.target]])
+					{"point": "spot", "field": "field", "unit": "unit to protect", "enemy": "enemy to convert"}[info.target]])
 	if units.all(func(u: Unit) -> bool: return u.riding.can_dismount()):
 		_add_icon(command_icons, ICON_DISMOUNT, "Dismount: the horse can be led into a corral, hacienda or ranch",
 				func() -> void: Orders.units(_units(), "dismount"))
 	if units.all(func(u: Unit) -> bool: return u.stealth.can_hide()):
 		var assassin := units.any(func(u: Unit) -> bool: return u.unit_type.guid() == UnitStealth.ASSASSIN)
 		_add_icon(extra_icons, ICON_HIDE, "Dig in: wait hidden and stab passers-by" if assassin \
-				else "Camouflage: blend into the landscape until given another order",
+				else "Camouflage: blend into the landscape while the energy lasts (click again to come out)",
 				func() -> void: Orders.units(_units(), "conceal"))
 	if units.all(func(u: Unit) -> bool: return u.water.is_carrier()) \
 			and units.any(func(u: Unit) -> bool: return not u.water.passengers.is_empty()):

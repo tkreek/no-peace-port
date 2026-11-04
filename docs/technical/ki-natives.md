@@ -669,7 +669,7 @@ attack/hunt, 0x20000008 stance, 0x20000009 sub-command (2 unsaddle, 3/4 camoufla
 5 unpack tepee, 6 die), 0x2000000a worker attack, 0x2000000b attack building, 0x2000000c wagon
 transport, 0x2000000d work field, 0x2000000f plant field, 0x20000010 mount, 0x20000011 horse
 into corral, 0x20000012 garrison, 0x20000013 board, 0x20000014 unload one, 0x20000016 spell
-(0 eagle eye, 1 lightning, 2 hail, 3 rain, 4 protective dance), 0x20000017 rob, 0x20000018
+(0 eagle eye, 1 lightning, 2 hail, 3 protective dance, 4 rain), 0x20000017 rob, 0x20000018
 follow, 0x20000019 patrol, 0x2000001a attack-move (AI only), 0x2000001b heal, 0x2000001c
 convert, 0x2000001d pack tepee, 0x2000001f/0x20000020 dig in/out, 0x20000021 disarm trap,
 0x20000024 animal into building, 0x20000026 stop, 0x20000027 formation attack, 0x20000028

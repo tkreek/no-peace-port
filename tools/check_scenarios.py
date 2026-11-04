@@ -80,7 +80,7 @@ CHECKS = {
                                          r"house built true, its builder idle true"]),
     "groups": ([], 0, [r"group 1 recalled: 3 of 3", r"group buttons: 1,2\n",
                        r"group 2 button: building true, view [0-9]{1,2} px away, lit 2", r"group 2 key: building true"]),
-    "heal": (["--faction=usa"], 0, [r"heal: life lost (\d+); healed 1[3-6]\d for 1[3-6]\d energy, energy now \d\b"]),
+    "heal": (["--faction=usa"], 0, [r"heal: life lost (\d+); healed [5-7]\d for [5-7]\d energy, energy now \d\b"]),
     "magic": ([], 0, [r"conversion: target now team 1"]),
     # Fights end when sides change: a converted soldier and his attackers, then a new ally.
     "turncoat": (["--faction=mex"], 0, [r"turncoat: hit before true, converted true; then turncoat energy kept true, ours kept true; "
@@ -145,7 +145,7 @@ CHECKS = {
                    [r"barrier attack: nearest \[(8[5-9]|9\d|1[0-4]\d), .*victim hurt false"]),
     "wallattack_far": (["--faction=usa", "--attacker=362", "--count=30", "--across=water", ISLANDS], 0,
                        [r"barrier attack: range 64, \d+ steps .*, ([1-9]|[1-5]\d) path searches"]),
-    "ambush": (["--faction=des"], 0, [r"ambush: under the mound true, burst out true, then attacking true"]),
+    "ambush": (["--faction=des"], 0, [r"ambush: under the mound true, burst out true, walker stabbed true, back under true"]),
     "spirit": (["--faction=ind"], 0, [r"before upgrade false, empty false, invoked true, damage x1\.00 -> x1\.20, energy left 0, again false, auras 3",
                                       r"afterwards damage x1\.00, auras 0"]),
     "coach": (["--faction=mex"], 0, [r"aboard 2 / 2, enlarged 4 / 4, enemy hit true, guards dead with the coach 4"]),

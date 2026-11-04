@@ -563,7 +563,8 @@ then per GUID `{u32 guid, u32 count, u32 event[20], u32 sound[20]}`.
 - Buildings: 150 finished and 153 unit ready (played by the new unit) for the local player
   only; 151 every 4100 ms while burning; 152 when destroyed. Nothing plays while building.
 - Medicine man (0x433c00-0x433e14), on casting: Eagle eye 122 (dance), Lightning 123,
-  Hail 121, Rain 124, Protective dance 120; he heals in silence. The eagle (483) plays its
+  Hail 121, Rain 120, Protective dance 124 (the buttons 0xa8 / 0xa9 give sub-codes 4 / 3,
+  0x46b8b3); he does not heal. The eagle (483) plays its
   101 as it appears; the weather cloud (490) rain 120, thunder 121, hail 122. The nurse
   and nun play 120 as they start on a patient, the priest 120 as he converts.
 - Alerts (0x434cb0, 0x4353b0) play GUID 8xx's event 100, as the table has it: 806 (field
@@ -632,6 +633,87 @@ sight lifts its fog (world+0x7B5+p, its own bit from 0x42be40, tested at 0x41397
 - The lobby has no teams: its slot records (0x80e628, copied at 0x444331) hold only the
   player's kind, number, people and name, and every shipped multiplayer map gives each slot
   only its own side bit. The remake's teams are its own setting (Match.players).
+
+## Special abilities in the executable
+
+Same file. A unit's energy (magic, healing, camouflage) is +0x394, 0..10000, its maximum
++0x380; ours is a hundredth. The game steps every 20 ms; every unit steps each time.
+
+- Energy: every unit starts with 500 (0x418deb), the maximum 10000 (0x416c0f). Units with
+  +0x398 set gain 1 a step, 2 with the nun's Regeneration 946 (+0x265, 0x41b1a5), up to the
+  maximum (0x4175dd..0x417627): 50 a second, a full pool in 200 s. Magic energy 917 / 947
+  and Healing energy 945 / 983 set the maximum to 15000 (0x41b045, 0x41b1c7, 0x41b184,
+  0x41b393), each for whom Defaults.bin lists it.
+- Upgrade refresh: a finished upgrade raises a per-people flag (0x42cd49, copied at
+  0x42952c); each of that people's units runs its refresh (vtable +0xc, 0x41af20, from the
+  unit step 0x41763c) on the next step. Those that set state re-set it each time: the
+  priest's energy back to 3000, camouflage off (below).
+- Medicine man (class 0x4a8708, made at 0x433b50): starts with 1000, no healing. Spell
+  order 0x20000016 with a sub-code (button 0xa5..0xa9 -> 0, 1, 2, 4, 3 at 0x46b8b3; carried
+  out at 0x456d7d): 0 Eagle eye (0x433c00), cost +0x6a4 5000, paid and done at once; 1
+  Lightning (0x433cd0) on a spot, +0x6ac 7500; 2 Hail (0x433d30) on an object, +0x6b0 5000;
+  3 Protective dance (0x433d80) on an object, +0x6b4 7500; 4 Rain (0x433dd0) on an object,
+  +0x6a8 5000. None checks a distance. The energy must be there when ordered; the others
+  dance 6000 ms (0x4340a0, anim 8, ticking at 0x434070) and pay at the end (0x433e50). The
+  tooltips show 50 and 75 (0x46e832).
+- Protective dance (0x434010): on a unit (class bit 2), shield +0x298 for 60000 ms (+0x294,
+  0x41b530; counted down at 0x41764e); damage taken under it is a fifth (0x418fe9).
+- Eagle eye: an eagle (GUID 483, 0x462af0) for the caster's people, 22500 ms, circling
+  300 px about the spot (0x462c70: a lap every 28.8 s); it sees and finds the hidden as the
+  shortest sight does (0x462e40, tier 0).
+- Sight tiers (0x421039): 256, 640, 896, 1024, 1280 px across to each side, half that up and
+  down.
+- Weather cloud (GUID 490, 0x47c6e0; drawn 20 px right of and 90 px above the spot): type 0
+  rain, 1 thunder, 2 hail (sounds 120, 121, 122). It gathers 1200 ms, storms 5000 ms,
+  dissolves 1200 ms (0x47c900). Thunder: every 500 ms of the storm, 10 points of damage
+  (through the unit's own damage call, so morale and shield count) to every unit in the
+  16 px cells from 50 px left to 130 px right and 90 px above to 90 px below the spot,
+  whoever's, the caster's own too (0x47ca10). As it dissolves, on the field clicked
+  (class 0x600000): rain sets its food (+0x700) to 350 (0x47ca80; a woman sows 150, 175 or
+  200); hail sets the field destroyed with no time left (+0x5a4 8, +0x174 0, 0x47cac0), so
+  it goes at once.
+- Priest (class 0x4a80b4, 0x4592cc): no energy gain until Conversion; its refresh (0x459340)
+  then sets 3000 and the gain (0x459390), and Power makes the conversion 1500 ms instead
+  of 3000 (+0x6b0, 0x459380). Convert (order 0x2000001c, 0x4593b0): energy at least +0x6a4
+  5000, the target someone else's and within 500 px, or nothing happens (the right click
+  offers it only within 500, 0x46bf47). He prays, then pays and the target changes hands
+  (0x4594d0, 0x42cd70) if it still exists. The cursor offers it (0x4779a6) on a unit at war
+  with us whose class has none of 0x89848000: leaders, transports, woodcutters, women,
+  wagons, builders.
+- Healers (nun 256, nurse 457; class 0x43f3a0): start with 5000 (vtable +0xd0, 0x43f650).
+  Heal (order 0x2000001b, 0x43f3f0) walks to within 32 px; every 500 ms then, with at least
+  100 energy, 100 is spent for one point of life (0x43f5b0); beyond 64 px it follows. Idle,
+  every 1000 ms (0x43f6c0) she takes the nearest hurt unit of her people within 256 px
+  (0x45dc40, her own cell first: herself).
+- Self-healing: +0x174 / +0x17c (0x41d480) give a unit one point of life (vtable +0x48,
+  0x418f60) every so many ms (0x4176f7): 2000 for the Native classes (their constructors,
+  0x432e4a and on), 3000 for the outlaws after Self-healing 957 (0x41b2be).
+- Camouflage (915 / 966, refresh 0x41a4d0): +0x402 and class bit 0x10000000, the hide
+  sprite, the energy gain; and +0x401 cleared. Order 0x20000009 sub-code 3 (0x41a550): the
+  hide animation for 4000 ms (0x4189c0) then +0x401 (0x41a5e0); sub-code 4 (0x41a5b0) ends
+  it. Nothing else does but the energy: 2 a step while hidden (0x4175bb), off at 0 (0x4175d8).
+  A hidden unit's map-cell entry is marked (+0x48 = 0xff), so another people finds it
+  (0x45d8c0) and sees it (0x41bc80) only where its second sight layer (0x7d2ad0 +0x19c,
+  filled from +0x198 at 0x421ed0) is set: by units with +0x399 (arrow shooters 156/157
+  0x432e44, militiaman 261 0x45905b, hunter 358 0x41339b, saboteur 369 0x41463f, trapper
+  461 and 294/295 0x467b75; stamped at 0x41bf4c with their sight), the watchtowers 213, 313,
+  413 (0x4598c0) and the eagle.
+- Assassin (class 0x4a2654): dig in / out (0x413c60 / 0x413c70, +0x700). Buried, every
+  100 ms (0x413c80) he looks for a unit at war with him within 32 px; he bursts out (anim
+  +0x254), 300 ms in deals 1000 damage (0x413c0b), and at 2000 ms is buried again (0x413c3c).
+- Garrisoning an enemy building (0x41a730, within 128 px of its door): empty, it becomes the
+  unit's people's (0x42cd70); else three occupants are put out (0x40d7b0). The unit is gone
+  either way (+0x34 = 2, no death).
+- Riders (class 0x2000 with +0x464): one who dies leaves a horse for his people where he
+  fell, unless they have more than 5 loose horses or there are more than 30 wild ones,
+  when it dies too (0x41933c..0x4193cd). Dismounting (0x41a080) leaves the horse for them.
+- Swim (914, 995; 0x41b3f0): +0x4a0 set, for whom Defaults.bin lists it.
+- Seats (+0x3d4): the armored stagecoach 2 (0x459230), 4 with Enlarge stagecoach
+  (0x41b20d); boats under Production in the remake's `UnitWater`.
+- Tepees (travois class 0x4a8dd4): pack (order 0x2000001d, 0x4646d0) walks to the tepee's
+  door and within 128 px takes it off the map (0x464750, 0x40dd70); unpack (0x4647f0)
+  puts it back (0x40ddd0) at once, on the nearest free spot on the travois's level within
+  1024 px of the travois. No timer either way.
 
 ## Drawing in the executable
 

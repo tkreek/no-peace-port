@@ -3,10 +3,16 @@ extends UnitPart
 ## Native Americans "can quickly pack up their tepees, load them onto travois and disappear
 ## into the landscape" (manual 5.1; Pack G, Unpack L): the travois takes the tepee down and
 ## carries it, and sets it up again wherever it is told, as worn as it was.
+##
+## In AmericaAddOn.exe both are instant: packing (order 0x2000001d, 0x4646d0) walks to the
+## tepee's door and, within 128 px of it, takes the tepee off the map (0x464750); unpacking
+## (order 0x20000009 sub-code 5, 0x4647f0) puts the same tepee back at once, on the nearest
+## free spot of the travois's own level within 1024 px of where the travois stands (ours:
+## at the site placed for it).
 
 const TRAVOIS := 155
 const TEPEES := [100, 101, 103, 107, 115]  # chief's, sleeping, training, elders', medicine man's
-const PACK_SECONDS := 6.0
+const PACK_SECONDS := 0.0  # no timer in the original (0x464795, 0x4649b8)
 
 var packed := {}  ## {"guid", "health"} while a tepee rides on this travois
 var _pack_target: MapObject

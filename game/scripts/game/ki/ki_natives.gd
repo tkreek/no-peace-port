@@ -391,7 +391,7 @@ static func call_native(id: int, task: KiTask) -> void:
 				unit.take_damage(unit.health + 1.0)
 		215, 341:
 			var unit := _own_unit(a[0])
-			if unit:
+			if unit and not unit.stealth.concealed:
 				unit.conceal()
 		216, 342:
 			var unit := _own_unit(a[0])

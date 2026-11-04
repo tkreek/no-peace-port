@@ -2,10 +2,12 @@ class_name UnitRiding
 extends UnitPart
 ## Riding (manual 2.6, 3.10): units that can ride mount a loose horse by walking up to it
 ## and dismount leaving it behind. Soldiers shoot the rider, not the horse, so a rider who
-## falls leaves a riderless horse anyone can take as though it were wild; told to (Ctrl +
+## falls leaves a riderless horse to his people, as one who dismounts does; told to (Ctrl +
 ## right click), they shoot the horse instead, and the rider fights on on foot.
 
 const HORSE_HEALTH := 80.0
+const MAX_OWN_LOOSE_HORSES := 5
+const MAX_WILD_HORSES := 30
 
 var aim_at_horse := false  ## this unit was told to shoot the mount
 var horse_health := HORSE_HEALTH
@@ -66,20 +68,31 @@ func dismount() -> void:
 		UnitAnimal.loose_horse(parent, at + Vector2(24, 8), owner).animal.wild_timer = UnitAnimal.OWNED_HORSE_SECONDS
 
 
-## The rider falls and the horse runs free. False when this unit is not on horseback.
+## The rider falls and his horse stays with his people, as when he dismounts; but with more
+## than 5 loose horses of theirs about, or more than 30 wild ones, it falls too
+## (AmericaAddOn.exe 0x41933c..0x4193cd). False when this unit is not on horseback.
 func shot_from_saddle() -> bool:
 	var foot := GameData.foot_of(unit.unit_type.guid())
 	if not unit.unit_type.mounted or foot < 0 or unit.team <= 0:
 		return false
 	var at := unit.position
+	var owner := unit.team
 	var parent := unit.get_parent()
 	var rider := become(foot)
 	if rider == null:
 		return false
 	rider.health = 0.0
 	rider.die()
-	UnitAnimal.loose_horse(parent, at + Vector2(22, 6), 0)
+	var horse := UnitAnimal.loose_horse(parent, at + Vector2(22, 6), owner)
+	horse.animal.wild_timer = UnitAnimal.OWNED_HORSE_SECONDS
+	if _loose_horses(owner) > MAX_OWN_LOOSE_HORSES or _loose_horses(0) > MAX_WILD_HORSES:
+		horse.health = 0.0
+		horse.die()
 	return true
+
+
+static func _loose_horses(team: int) -> int:
+	return Unit.all_units.filter(func(u: Unit) -> bool: return u.team == team and u.is_alive() and u.animal.is_horse()).size()
 
 
 ## A shot at the mount; when the horse falls it leaves a carcass and the rider walks on.
@@ -87,7 +100,7 @@ func hit_horse(amount: float, attacker: Node2D) -> void:
 	if not unit.is_alive():
 		return
 	if unit.magic.shield_time > 0.0:
-		amount *= 0.5
+		amount *= UnitMagic.SHIELD_FACTOR
 	horse_health -= amount
 	if horse_health > 0.0:
 		return

@@ -252,6 +252,7 @@ func _scenario_magic() -> void:
 	caster.stance = Unit.Stance.PASSIVE
 	main.camera.position = centre + Vector2(0, -120)
 	if caster_guid == 164:
+		caster.magic.magic_energy = 100.0  # a new medicine man has 10
 		caster.cast(918, centre + Vector2(300, 0))
 		await get_tree().create_timer(3.0).timeout
 		print("eagle eye: eagles circling %d" % main.ambience.get_children().filter(func(n: Node) -> bool:
@@ -261,9 +262,10 @@ func _scenario_magic() -> void:
 		await get_tree().create_timer(10.0).timeout
 		caster.magic.magic_energy = 100.0
 		caster.cast(922, friend.position, friend)
-		await get_tree().create_timer(4.0).timeout
+		await get_tree().create_timer(8.0).timeout  # a 6 s dance
 		print("lightning: enemy energy %s; warrior shielded %.0fs; magic left %d" % [foes.map(func(f: Unit) -> int: return int(f.health)), friend.magic.shield_time, caster.magic.magic_energy])
 	else:
+		caster.magic.magic_energy = 100.0  # a new priest's 30 does not pay for it
 		caster.cast(948, foes[0].position, foes[0])
 		await get_tree().create_timer(8.0).timeout
 		print("conversion: target now team %d" % foes[0].team)
@@ -299,6 +301,7 @@ func _scenario_turncoat() -> void:
 			break
 		await get_tree().create_timer(0.25).timeout
 	var hit_before := foe.health < foe.max_health and victim.health < victim.max_health
+	priest.magic.magic_energy = 100.0  # a new priest's 30 does not pay for it
 	priest.cast(948, foe.position, foe)
 	for i in 60:
 		if foe.team == 1:
@@ -339,7 +342,7 @@ func _scenario_turncoat() -> void:
 func _scenario_spells() -> void:
 	var centre := Vector2(main.terrain.map.pixel_size()) / 2.0
 	centre = (Vector2(main.nav.nearest_walkable(main.nav.cell_of(centre))) + Vector2(0.5, 0.5)) * NavGrid.CELL
-	for guid in UnitMagic.CASTERS[UnitMagic.MEDICINE_MAN] + UnitMagic.MAGIC_UPGRADES:
+	for guid in UnitMagic.CASTERS[UnitMagic.MEDICINE_MAN] + [917, 947]:
 		main.players[1].researched[guid] = true
 	var casters := _new_units(UnitMagic.MEDICINE_MAN, 1, centre, 2)
 	var friends := _new_units(152, 1, centre + Vector2(60, 40), 2)
@@ -794,9 +797,10 @@ func _scenario_ambush() -> void:
 		await get_tree().create_timer(0.1).timeout
 		if assassin._anim == mound[1]:
 			burst = true
-		if assassin.state == Unit.State.ATTACKING:
+		if burst and assassin._anim == mound[0]:
 			break
-	print("ambush: under the mound %s, burst out %s, then attacking %s" % [buried, burst, assassin.state == Unit.State.ATTACKING])
+	print("ambush: under the mound %s, burst out %s, walker stabbed %s, back under %s" % [buried, burst,
+			not walker.is_alive(), assassin._anim == mound[0] and assassin.stealth.concealed])
 	get_tree().quit()
 
 

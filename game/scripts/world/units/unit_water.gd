@@ -18,8 +18,8 @@ const SWIM_UPGRADES := [914, 995]  # the base game's and the expansion's Swim
 const BOAT_CAPACITY := {254: 8, 454: 10, 364: 8}
 const COACH := 266
 const ENLARGE_COACH := 971
-const COACH_CAPACITY := 2
-const ENLARGED_COACH_CAPACITY := 4
+const COACH_CAPACITY := 2  # its constructor's seats (0x459230)
+const ENLARGED_COACH_CAPACITY := 4  # Enlarge stagecoach (0x41b20d)
 const BOARD_REACH := 72.0
 ## Strokes of the same kind of swimmer keep this far apart (the recordings last about
 ## 0.8 s), so a band crossing together splashes steadily rather than in a din.
@@ -58,11 +58,15 @@ func capacity() -> int:
 	return BOAT_CAPACITY.get(unit.unit_type.guid(), 0)
 
 
+## Swim sets unit+0x4a0 (0x41b3f0) for those Defaults.bin lists under it (914: the
+## Natives' people on foot and the travois; 995: trapper and pioneer).
 func can_swim() -> bool:
 	if unit.team <= 0 or unit.unit_type.mounted or unit.unit_type.anim_index("swim") < 0:
 		return false
 	var owner := player()
-	return owner != null and SWIM_UPGRADES.any(func(u: int) -> bool: return owner.researched.has(u))
+	var me := unit.unit_type.guid()
+	return owner != null and SWIM_UPGRADES.any(func(u: int) -> bool:
+		return owner.researched.has(u) and me in GameData.UPGRADE_TARGETS.get(u, []))
 
 
 func nav_layer() -> NavGrid.Layer:

@@ -2,7 +2,8 @@ class_name Weather
 extends Node2D
 ## A spell's lasting effect drawn with the original weather graphics: the cloud forms
 ## (anim 0), rains, hails or storms for a while (anim 2), and dissolves (anim 4). `tick`
-## is called every second while it lasts (lightning damage, for example).
+## is called every `tick_every` seconds from `first_tick` on while it lasts, at most
+## `max_ticks` times (-1: no limit), lightning damage for example.
 
 const LIGHTNING_BOB := "effects/lightning_cloud/cloud_lightning.anims.json"
 const HAIL_BOB := "effects/hail_cloud/hail.anims.json"
@@ -18,11 +19,17 @@ var _duration := 0.0
 var _tick: Callable
 var _age := 0.0
 var _next_tick := 1.0
+var _tick_every := 1.0
+var _ticks_left := -1
 var _effect: OrderMarker
 
 
-static func spawn(parent: Node, at: Vector2, bob_path: String, duration: float, tick := Callable()) -> Weather:
+static func spawn(parent: Node, at: Vector2, bob_path: String, duration: float, tick := Callable(),
+		tick_every := 1.0, first_tick := 1.0, max_ticks := -1) -> Weather:
 	var weather := Weather.new()
+	weather._tick_every = tick_every
+	weather._next_tick = first_tick
+	weather._ticks_left = max_ticks
 	weather.position = at
 	weather._bob_path = bob_path
 	weather._duration = duration
@@ -48,8 +55,9 @@ func _enter_tree() -> void:
 ## One step of the game (Sim).
 func sim_tick(delta: float) -> void:
 	_age += delta
-	if _tick.is_valid() and _age >= _next_tick:
-		_next_tick += 1.0
+	if _tick.is_valid() and _age >= _next_tick and _ticks_left != 0:
+		_next_tick += _tick_every
+		_ticks_left -= 1
 		_tick.call(global_position)
 	if _age >= _duration:
 		if is_instance_valid(_effect):

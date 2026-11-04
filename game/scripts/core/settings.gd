@@ -44,6 +44,22 @@ static func _load() -> void:
 			_values[k] = float(config.get_value("options", k, DEFAULTS[k]))
 
 
+## The player's choice for remake patch `id` (Patches), `default` if they made none. Kept in
+## the [patches] section; only matches started afterwards use it.
+static func patch_enabled(id: String, default: bool) -> bool:
+	var config := ConfigFile.new()
+	if config.load(PATH) != OK:
+		return default
+	return bool(config.get_value("patches", id, default))
+
+
+static func set_patch(id: String, on: bool) -> void:
+	var config := ConfigFile.new()
+	config.load(PATH)
+	config.set_value("patches", id, on)
+	config.save(PATH)
+
+
 ## Push the values to the sound system and the window (the camera and the interface read
 ## theirs as they go).
 static func apply() -> void:

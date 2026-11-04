@@ -43,6 +43,8 @@ var population_limit := 100
 var speed := 1.0
 var supply := 0
 var difficulty := 2
+## The remake patches this match plays with, {id: bool} (Patches.begin sets it).
+var patches := {}
 var map_path := ""
 ## Which people this machine plays (1 alone; set by Net in a network match).
 var local_player := 1

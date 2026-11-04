@@ -32,7 +32,7 @@ const MAX_PLAYERS := 8
 const DELAY := 4
 ## Every this many steps a batch carries the sender's checksum.
 const CHECK_EVERY := 30
-const PROTOCOL := 3
+const PROTOCOL := 4
 const NAME_LENGTH := 24
 
 ## True from the start of a network match until it ends.
@@ -367,6 +367,8 @@ func _set_settings(new_settings: Dictionary) -> void:
 			settings[key] = int(new_settings[key])
 	if new_settings.has("speed"):
 		settings.speed = float(new_settings.speed)
+	if new_settings.has("patches"):
+		settings.patches = new_settings.patches
 	_share_lobby()
 
 
@@ -442,6 +444,8 @@ func _begin() -> void:
 	if active or not is_host:
 		return
 	var seed_value := randi()
+	if not settings.has("patches"):
+		settings.patches = Patches.preferred()  # the host's choices, for everyone
 	_start.rpc(slots, map_path.get_file(), settings, seed_value)
 
 
@@ -488,6 +492,7 @@ func _start(match_slots: Array, map_file: String, match_settings: Dictionary, se
 	Match.speed = float(match_settings.get("speed", 1.0))
 	Match.supply = int(match_settings.get("supply", 0))
 	Match.difficulty = int(match_settings.get("difficulty", 2))
+	Match.patches = match_settings.get("patches", {})
 	Match.seed_value = seed_value
 	Orders.delay = DELAY
 	get_tree().change_scene_to_file("res://scenes/main.tscn")

@@ -78,7 +78,7 @@ static func save(main: Node, save_name := QUICK_NAME, picture: Image = null) -> 
 		"tick": Sim.tick, "rng": str(Sim.rng.state),  # the game's clock and randomness (Sim), to carry on alike
 		"camera": [main.camera.position.x, main.camera.position.y],
 		"match": {"game_type": Match.game_type, "population_limit": Match.population_limit, "speed": Match.speed,
-				"difficulty": Match.difficulty},
+				"difficulty": Match.difficulty, "patches": Match.patches},
 		"players": [], "objects": [], "resources": [], "units": [],
 		"explored": Marshalls.raw_to_base64(main.fog.explored) if main.fog.enabled else "",
 		"diplomacy": Diplomacy.save_state(), "next_sim_id": Sim.next_id(),

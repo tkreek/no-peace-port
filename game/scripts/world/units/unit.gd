@@ -295,7 +295,7 @@ func _heal_interval() -> float:
 	var player: Player = Player.by_index.get(team)
 	if player and player.researched.has(SELF_HEALING_UPGRADE) \
 			and guid in GameData.UPGRADE_TARGETS.get(SELF_HEALING_UPGRADE, []):
-		return UPGRADE_HEAL_SECONDS
+		return float(Patches.value("faster_self_healing", "interval_seconds", UPGRADE_HEAL_SECONDS))
 	return 0.0
 
 
@@ -575,13 +575,12 @@ func fire_from_quarters(enemy: Node2D, from: Vector2, reach: float) -> void:
 # ------------------------------------------------------------------ damage
 
 ## `horse_too`: the blow takes the horse with the rider (cannon fire, dynamite, pitfalls).
-## Very easy in the campaign (the remake's own help: the mission scripts read it as easy,
-## 0x43c6db): the computer's units and towers hurt the player's units at this rate.
-const VERY_EASY_DAMAGE := 0.6
-
-
+## Very easy in the campaign: the mission scripts read it as easy (0x43c6db), so in the
+## original it changes nothing. The "very_easy_help" patch has the computer's units and
+## towers hurt the player's units less.
 func _campaign_handicap(attacker: Node2D) -> float:
-	if Match.campaign.is_empty() or Match.difficulty != 0 or attacker == null or not is_instance_valid(attacker):
+	if not Patches.on("very_easy_help") or Match.campaign.is_empty() or Match.difficulty != 0 \
+			or attacker == null or not is_instance_valid(attacker):
 		return 1.0
 	var side := -1
 	if attacker is Unit:
@@ -590,7 +589,9 @@ func _campaign_handicap(attacker: Node2D) -> float:
 		side = attacker.owner_index  # lookouts, towers, forts
 	var mine: Player = Player.by_index.get(team)
 	var theirs: Player = Player.by_index.get(side)
-	return VERY_EASY_DAMAGE if mine and theirs and not mine.computer and theirs.computer else 1.0
+	if mine and theirs and not mine.computer and theirs.computer:
+		return float(Patches.value("very_easy_help", "damage_taken", 1.0))
+	return 1.0
 
 
 func take_damage(amount: float, attacker: Node2D = null, horse_too := false) -> void:

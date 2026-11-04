@@ -1,0 +1,20 @@
+{
+ "_about": "The remake's own departures from the original game's rules. The code keeps the original's values (with the executable's addresses); a patch that is on replaces them. Each match fixes its set at the start (saves, replays and network games carry it); players choose in Settings. Fields: title, why, default (on for new players), values (what the code reads instead of the original's). See docs/production/patches.md.",
+ "campaign_expansion_stats": {
+  "title": "Expansion stats in the original campaigns",
+  "why": "The base game's missions were made for its own stat table (about half the hit points, minimum ranges). With this on they play with the expansion's table, like everything else.",
+  "default": true
+ },
+ "very_easy_help": {
+  "title": "Very easy campaign help",
+  "why": "The mission scripts read Very easy as Easy, so it changes nothing in the original. With this on, the computer's units and towers deal less damage to yours in campaign missions on Very easy.",
+  "default": true,
+  "values": {"damage_taken": 0.6}
+ },
+ "faster_self_healing": {
+  "title": "Faster outlaw self-healing",
+  "why": "The original's Self-healing upgrade gives back 1 life every 3 s, which barely shows against the expansion's doubled hit points. With this on, units with the upgrade heal 1 life every second.",
+  "default": false,
+  "values": {"interval_seconds": 1.0}
+ }
+}

@@ -100,14 +100,24 @@ func _ready() -> void:
 	if map == null:
 		_show_message("Could not load map %s" % map_path)
 		return
+	# The remake patches this match plays with (Patches): a save's or a replay's own, the
+	# host's in a network game, else the player's choice (--patches=none|default|id,id...).
+	var replay := Orders.read_replay(GameData.cmdline_option("replay"))
+	if not loading.is_empty():
+		Patches.begin(loading.match.get("patches", {}))
+	elif not replay.is_empty():
+		Patches.begin(replay.get("patches", {}))
+	elif Match.configured and Match.seed_value != 0:
+		Patches.begin(Match.patches)  # a network match: the host's (Net._start)
+	else:
+		Patches.begin(_patches_option())
 	# What each people may make and the values it plays with here. Base game missions play
-	# with the expansion's table too (the player's choice, 2026-11-03: twice the hit points
-	# for most units, no minimum ranges), not the base game's that their maps were made for.
-	MapRules.setup(map, false)
+	# with the base game's table, which their maps were made for, unless the patch puts the
+	# expansion's under them as everywhere else.
+	MapRules.setup(map, Match.campaign.get("set", "") == "base" and not Patches.on("campaign_expansion_stats"))
 	# The game's randomness: --seed=n for a repeatable run (scenarios default to 1); a replay
 	# brings its own, and its orders instead of the player's.
 	var default_seed := "1" if GameData.cmdline_option("scenario") != "" else str(randi())
-	var replay := Orders.read_replay(GameData.cmdline_option("replay"))
 	if Match.configured and Match.seed_value != 0:
 		default_seed = str(Match.seed_value)  # a network match: the same everywhere
 	Sim.reset(int(replay.seed) if not replay.is_empty() else GameData.cmdline_option("seed", default_seed).to_int())
@@ -651,3 +661,18 @@ func _show_message(text: String) -> void:
 	var layer := CanvasLayer.new()
 	layer.add_child(label)
 	add_child(layer)
+
+
+## --patches=none (the original's rules), default (each patch's default) or a list of the
+## patches to turn on; without it, the player's choices from Settings.
+func _patches_option() -> Dictionary:
+	var option := GameData.cmdline_option("patches")
+	if option == "":
+		return Patches.preferred()
+	if option == "default":
+		return {}
+	var chosen := Patches.none()
+	for id in option.split(",", false):
+		if chosen.has(id):
+			chosen[id] = true
+	return chosen

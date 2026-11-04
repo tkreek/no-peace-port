@@ -310,7 +310,7 @@ func show_options() -> void:
 	_panel = _menu_panel("Options", [["Back", _back]])
 	var box: Control = _panel.get_child(0)
 	var column: VBoxContainer = box.get_child(0)
-	var rows := SettingsPanel.create(int(16 * hud.ui_scale), 190 * hud.ui_scale)
+	var rows := SettingsPanel.create(int(16 * hud.ui_scale), 190 * hud.ui_scale, true)
 	column.add_child(rows)
 	column.move_child(rows, 1)
 	box.reset_size()

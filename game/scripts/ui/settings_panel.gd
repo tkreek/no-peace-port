@@ -1,7 +1,8 @@
 class_name SettingsPanel
 extends VBoxContainer
 ## The rows of the settings screen (main menu and the in-game options): sliders, switches
-## and the window size, each saved as soon as it changes.
+## and the window size, each saved as soon as it changes; then the remake patches (Patches),
+## chosen in the main menu for the matches to come and shown, fixed, during a match.
 
 const SLIDERS := [["Music volume", "music_volume", 0.0, 1.0, 0.05], ["Sound volume", "sound_volume", 0.0, 1.0, 0.05],
 		["Scroll speed", "scroll_speed", 0.4, 2.5, 0.05], ["Interface size", "ui_scale", 0.7, 1.5, 0.05]]
@@ -10,12 +11,14 @@ const SWITCHES := [["Scroll at screen edges", "edge_scroll", ""], ["Full screen"
 
 var text_size := 16
 var label_width := 190.0
+var in_match := false  ## the in-game options: the match's patches are shown, not changed
 
 
-static func create(size: int, width: float) -> SettingsPanel:
+static func create(size: int, width: float, during_match := false) -> SettingsPanel:
 	var panel := SettingsPanel.new()
 	panel.text_size = size
 	panel.label_width = width
+	panel.in_match = during_match
 	panel._build()
 	return panel
 
@@ -66,6 +69,29 @@ func _build() -> void:
 	_window_size.item_selected.connect(func(index: int) -> void: Settings.set_value("window_size", index))
 	MenuStyle.style(_window_size, int(text_size * 0.9))
 	_add_row("Window size", [_window_size])
+	_build_patches()
+
+
+## One switch per remake patch, its reason as the tooltip. Off everywhere: the original's
+## rules. A match keeps the set it started with.
+func _build_patches() -> void:
+	var heading := MenuStyle.label("Remake patches" + (" (fixed for this match)" if in_match else ""),
+			text_size, MenuStyle.TEXT_DIM)
+	add_child(heading)
+	var shown := Match.patches if in_match else Patches.preferred()
+	for id: String in Patches.definitions():
+		var patch: Dictionary = Patches.definitions()[id]
+		var box := CheckBox.new()
+		box.button_pressed = bool(shown.get(id, patch.get("default", false)))
+		box.disabled = in_match
+		box.focus_mode = Control.FOCUS_NONE
+		box.add_theme_icon_override("unchecked", _box_icon(false))
+		box.add_theme_icon_override("checked", _box_icon(true))
+		box.add_theme_icon_override("unchecked_disabled", _box_icon(false))
+		box.add_theme_icon_override("checked_disabled", _box_icon(true))
+		box.tooltip_text = String(patch.get("why", ""))
+		box.toggled.connect(func(on: bool) -> void: Settings.set_patch(id, on))
+		_add_row(String(patch.get("title", id)), [box])
 
 
 var _window_size: OptionButton

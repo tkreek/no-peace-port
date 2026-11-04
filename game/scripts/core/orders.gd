@@ -160,7 +160,8 @@ static func _pack(value: Variant) -> Variant:
 static func write_replay(path: String) -> void:
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file:
-		file.store_string(var_to_str({"version": 1, "seed": Sim.seed_value, "steps": Sim.tick, "orders": history}))
+		file.store_string(var_to_str({"version": 1, "seed": Sim.seed_value, "steps": Sim.tick, "orders": history,
+				"patches": Match.patches}))
 
 
 static func read_replay(path: String) -> Dictionary:

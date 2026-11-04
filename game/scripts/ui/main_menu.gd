@@ -231,6 +231,13 @@ func _build_main() -> Control:
 			(" — with the expansion pack" if GameData.has_expansion else ""), 11, MenuStyle.TEXT_DIM)
 	version.position = Vector2(12, 578)
 	screen.add_child(version)
+	# The release, bottom right (project.godot's application/config/version).
+	var number := MenuStyle.label("v%s" % ProjectSettings.get_setting("application/config/version", "0.0.0"),
+			11, MenuStyle.TEXT_DIM)
+	number.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	number.size = Vector2(200, 16)
+	number.position = Vector2(ART_SIZE.x - 212, 578)
+	screen.add_child(number)
 	return screen
 
 

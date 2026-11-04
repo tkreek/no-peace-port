@@ -220,7 +220,6 @@ func effectiveness() -> float:
 ## work goes at the same pace at any morale.
 const MORALE_MIN := 0.8
 const MORALE_MAX := 1.2
-const MORALE_REFRESH := 1.0  # seconds (the exe's once-a-second flag, 0x429433)
 var _morale := 1.0
 var _morale_timer := -1.0
 ## The warrior spirit (BuildingProduction.invoke_spirit): more damage for a while, shown
@@ -234,10 +233,15 @@ var _aura: OrderMarker
 func morale() -> float:
 	if team <= 0:
 		return MORALE_MIN
-	var now := Sim.time()
-	if (_morale_timer >= 0.0 and now - _morale_timer < MORALE_REFRESH) or not Sim.stepping:
-		return _morale  # the interface only reads it: refreshed on game steps alone
-	_morale_timer = now
+	if _morale_timer < 0.0 and Sim.stepping:
+		_refresh_morale()  # a unit's first step: not the starting 100% until the next second
+	return _morale
+
+
+## Every unit's morale together once a second, on the game step (0x417547, the once-a-second
+## flag), whether it fights or not: the status menu shows it changing as a unit walks.
+func _refresh_morale() -> void:
+	_morale_timer = Sim.time()
 	var player: Player = Player.by_index.get(team)
 	var leader: Unit = player.leader() if player else null
 	var from: Node2D = null
@@ -250,7 +254,6 @@ func morale() -> float:
 	else:
 		var points := 120 - (int(position.distance_to(from.position)) * 40 >> 12)  # 40 points by 4096 px
 		_morale = clampi(points, 80, 120) / 100.0
-	return _morale
 
 
 ## Warrior spirit: blows deal this much more (0x436d32: x (100 + percent) / 100).
@@ -650,6 +653,8 @@ func die() -> void:
 ## One step of the game (Sim).
 func sim_tick(delta: float) -> void:
 	_cooldown = maxf(0.0, _cooldown - delta)
+	if team > 0 and is_alive() and (Sim.tick % Sim.RATE == 0 or _morale_timer < 0.0):
+		_refresh_morale()
 	if _spirit_left > 0.0:
 		_fade_spirit(delta)
 	if state == State.QUARTERED:
